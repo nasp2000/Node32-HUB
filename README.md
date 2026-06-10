@@ -34,11 +34,4 @@ Pre-built firmware binaries are published in dedicated per-board repositories, e
 
 | Repository | Description |
 |---|---|
-| *Coming soon* | First binary release with serial hub and Modbus gateway profiles |
-
-## Repository structure
-
-| Path | Purpose |
-|---|---|
-| `Node32-HUB` (this repo) | Public documentation and binary release links |
-| `Node32-HUB-MAIN` | Private source code repository |
+| *Coming soon* |  |
