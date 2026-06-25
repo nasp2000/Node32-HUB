@@ -4,7 +4,9 @@
 
 ## Architecture
 
-The firmware is organized around a **pack-based module system**, where each "pack" defines a specific device personality by enabling relevant features. Because these modules are independent, a single codebase can generate firmware for completely different use cases, allowing you to mix and match features in endless configurations.
+The firmware is organized around a **pack-based module system**, where each "pack" defines a specific device personality by enabling relevant features. Because these modules are independent, a single codebase can generate firmware for completely different use cases, allowing you to mix and match features in endless configurations. 
+
+YES, it is capable of doing many different things, and doing them the right way.
 
 ## Why Node32-HUB?
 
