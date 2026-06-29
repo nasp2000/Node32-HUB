@@ -35,4 +35,5 @@ Pre-built firmware binaries are published in dedicated per-board repositories, e
 | Repository | Description |
 |---|---|
 | [**GcodeSender**](https://github.com/nasp2000/GcodeSender) | Standalone G-code sender para ESP32-P4. USB Host, web UI com processamento local, streaming SD + PSRAM. |
+| [**Rambox32**](https://github.com/nasp2000/Rambox32) | Pigeon-racing timing terminal para ESP32-S3 N16R8. RS232 + Unikon, email alerts, OLED, OTA. |
 | *Coming soon* |  |
