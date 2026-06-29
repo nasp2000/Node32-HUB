@@ -34,4 +34,5 @@ Pre-built firmware binaries are published in dedicated per-board repositories, e
 
 | Repository | Description |
 |---|---|
+| [**GcodeSender**](https://github.com/nasp2000/GcodeSender) | Standalone G-code sender para ESP32-P4. USB Host, web UI com processamento local, streaming SD + PSRAM. |
 | *Coming soon* |  |
