@@ -1,0 +1,81 @@
+# Node32-HUB — Third-Party Notices
+
+This firmware statically links third-party libraries under open-source
+licenses. Those libraries remain under their own licenses; the proprietary
+notice in `LICENSE` applies only to first-party code.
+
+Compliance materials (sources + relinkable objects for the LGPL libraries)
+are generated on demand by `scripts/package_third_party.py` into the
+`third-party/` folder of this repository and, when published, accompany the
+corresponding GitHub release.
+
+---
+
+## 1. LGPL libraries (statically linked — compliance materials required)
+
+In accordance with the LGPL, the source code of these libraries is provided
+unchanged, together with relinkable objects, so that you may modify and
+relink them.
+
+### LGPL-3.0-only
+
+| Library | Version | Upstream | Compliance materials |
+|---|---|---|---|
+| ESP32Async/AsyncTCP | 3.4.10 | https://github.com/ESP32Async/AsyncTCP | `third-party/lgpl-sources/AsyncTCP/`, `third-party/lgpl-objects/libAsyncTCP.a` |
+| ESP32Async/ESPAsyncWebServer | 3.11.1 | https://github.com/ESP32Async/ESPAsyncWebServer | `third-party/lgpl-sources/ESPAsyncWebServer/`, `third-party/lgpl-objects/libESPAsyncWebServer.a` |
+| rlogiacco/CircularBuffer | 1.4.0 | https://github.com/rlogiacco/CircularBuffer | `third-party/lgpl-sources/CircularBuffer/`, `third-party/lgpl-objects/libCircularBuffer.a` |
+
+### LGPL-2.1-only
+
+| Library | Version | Upstream | Compliance materials |
+|---|---|---|---|
+| arduino-esp32 core (framework) | 3.3.5 | https://github.com/espressif/arduino-esp32 | `third-party/lgpl-sources/arduino-esp32/` |
+
+> The arduino-esp32 core is provided by the PlatformIO toolchain
+> (`~/.platformio/packages/framework-arduinoespressif32`). Its source is
+> bundled unchanged in `third-party/lgpl-sources/arduino-esp32/` by the
+> packaging script.
+
+License texts are included in `third-party/licences/`.
+
+---
+
+## 2. Permissive libraries (MIT / BSD / Apache-2.0)
+
+Copyright and license texts retained in their original headers; reproduced
+in `third-party/` by the packaging script where required by the license.
+
+| Library | Version | SPDX | Copyright |
+|---|---|---|---|
+| bblanchon/ArduinoJson | 6.21.6 | MIT | Benoit Blanchon |
+| mobizt/ReadyMail | 0.4.0 | MIT | Suwatchai K. (Mobizt) |
+| mobizt/ESP_SSLClient | 3.1.3 | MIT | Suwatchai K. (Mobizt) |
+| adafruit/Adafruit BMP280 Library | 3.0.0 | MIT | Adafruit |
+| adafruit/Adafruit BusIO | 1.17.4 | MIT | Adafruit |
+| arduino-libraries/Ethernet | 2.0.2 | MIT | Paul Stoffregen |
+| greiman/SdFat | 2.3.1 | MIT | William Greiman |
+| adafruit/Adafruit SSD1306 | 2.5.16 | BSD-3-Clause | Adafruit |
+| adafruit/Adafruit SH110X | 2.1.14 | BSD-3-Clause | Adafruit |
+| adafruit/Adafruit GFX Library | 1.12.6 | BSD-3-Clause | Adafruit |
+| adafruit/Adafruit AHTX0 | 2.0.6 | BSD-3-Clause | Adafruit |
+| adafruit/Adafruit Unified Sensor | 1.1.15 | Apache-2.0 | Adafruit |
+
+## 3. Vendored / public-domain decoders
+
+| Package | License | Notes |
+|---|---|---|
+| lieff/minimp3 | CC0-1.0 | MP3 decoder, single header |
+| mackron/dr_flac | Unlicense / MIT-0 | FLAC decoder, single header |
+| espressif/esp_audio_codec | Espressif Modified MIT | AAC decoder (Espressif products only) |
+
+## 4. Framework, platform, toolchain (build-time / runtime)
+
+| Component | Version | SPDX |
+|---|---|---|
+| pioarduino platform-espressif32 | 55.03.35 | Apache-2.0 |
+| ESP-IDF (bundled with core) | 5.5.1 | Apache-2.0 (parts: FreeRTOS MIT, lwIP BSD-3-Clause, mbedTLS Apache-2.0 OR GPL-2.0, libsodium ISC, Newlib BSD) |
+| Toolchain xtensa-esp32s3 / riscv32 | — | GPL-3.0 + GCC Runtime Library Exception (build-time only) |
+
+---
+
+Full dependency and license audit: see `SBOM.md`.
