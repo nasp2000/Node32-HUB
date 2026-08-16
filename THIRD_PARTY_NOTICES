@@ -1,8 +1,8 @@
 # Node32-HUB — Third-Party Notices
 
 This firmware statically links third-party libraries under open-source
-licenses. Those libraries remain under their own licenses; the proprietary
-notice in `LICENSE` applies only to first-party code.
+licenses. Those libraries remain under their own licenses; the MIT notice in
+`LICENSE` applies only to first-party code.
 
 Compliance materials (sources + relinkable objects for the LGPL libraries)
 are generated on demand by `scripts/package_third_party.py` into the

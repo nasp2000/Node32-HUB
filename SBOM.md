@@ -13,16 +13,17 @@ Software Bill of Materials + license audit for the **complete** Node32-HUB proje
 
 ### ✅ Resolved
 
-- [x] `LICENSE` in repo root (proprietary + free-binary grant).
+- [x] `LICENSE` in repo root (MIT — source + binaries freely usable).
 - [x] `THIRD_PARTY_NOTICES` with all MIT/BSD/Apache copyright headers.
 - [x] LGPL compliance materials publishable via `scripts/package_third_party.py` (sources + relinkable objects).
 - [x] `THIRD_PARTY_NOTICES` entries for minimp3 (CC0-1.0) and dr_flac (Unlicense).
 - [x] ReadyMail confirmed **MIT** (not a commercial blocker).
 - [x] Ethernet installed code confirmed **MIT** (Stoffregen), not LGPL.
+- [x] `esp-libhelix-mp3` / `esp-sr` verified **not linked** into shipped builds — `espressif__esp-sr` excluded via `build_src_filter`; `esp-libhelix-mp3` absent from `managed_components/`.
 
 ### ❌ Not resolved (open items)
 
-- [ ] Verify `esp-libhelix-mp3` / `esp-sr` not linked into shipped n16r8/waveshare builds (P4-env IDF deps; currently excluded via `build_src_filter`).
+- None.
 
 ---
 
