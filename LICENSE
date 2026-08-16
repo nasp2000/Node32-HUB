@@ -15,10 +15,11 @@ written permission from the copyright holder.
 PRE-COMPILED BINARIES
 ---------------------
 Pre-compiled firmware binaries (.bin / .zip) published in the GitHub Releases
-of this and related repositories (Node32-HUB, GcodeSender, Rambox32,
-Harmonica-BOX) may be downloaded, flashed, and used free of charge, for any
-purpose, including commercial use. You may NOT redistribute these binaries in
-bundled products without attribution, nor resell them as standalone firmware.
+of this repository and of the per-board pack repositories (the dedicated
+boards that build on this codebase) may be downloaded, flashed, and used free
+of charge, for any purpose, including commercial use. You may NOT redistribute
+these binaries in bundled products without attribution, nor resell them as
+standalone firmware.
 
 THIRD-PARTY SOFTWARE
 --------------------
