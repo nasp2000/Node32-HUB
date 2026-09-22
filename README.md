@@ -34,9 +34,9 @@ Pre-built firmware binaries are published in dedicated per-board repositories, e
 
 | Repository | Description |
 |---|---|
-| [**GcodeSender**](https://github.com/nasp2000/GcodeSender) | Standalone G-code sender for ESP32-P4. USB Host, web UI with local processing, SD + PSRAM streaming. |
-| [**Rambox32**](https://github.com/nasp2000/Rambox32) | Pigeon-racing timing terminal for ESP32-S3 N16R8. RS232 + Unikon, email alerts, OLED, OTA. |
-| [**Harmonica-BOX**](https://github.com/nasp2000/Harmonica-BOX) | Internet radio and music streaming for ESP32-S3 N16R8. |
+| [**GcodeSender**](https://github.com/nasp2000/GcodeSender) | G-code sender for ESP32-P4 (USB Host + heatmap, web UI, SD/PSRAM). |
+| [**Rambox32**](https://github.com/nasp2000/Rambox32) | Pigeon-racing timing terminal N16R8 (RS232/Unikon, email alerts, OLED). |
+| [**Harmonica-BOX**](https://github.com/nasp2000/Harmonica-BOX) | Internet radio and music streaming (I2S, UPnP, alarm clock). |
 
 ## License
 
