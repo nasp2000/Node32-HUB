@@ -38,6 +38,7 @@ Pre-built firmware binaries are published in dedicated per-board repositories, e
 | [**Rambox32**](https://github.com/nasp2000/Rambox32) | Pigeon-racing timing terminal N16R8 (RS232/Unikon, email alerts, OLED). |
 | [**Harmonica-BOX**](https://github.com/nasp2000/Harmonica-BOX) | Internet radio and music streaming (I2S, UPnP, alarm clock). |
 | [**Cam-M**](https://github.com/nasp2000/Cam-M) | Camera companion board (MJPEG stream, snapshots, AVI/motion). |
+| [**Node32-OEE**](https://github.com/nasp2000/Node32-OEE) | Production counting & OEE terminal (8DI8DO, shifts + CSV, A×P×Q, email). |
 
 ## License
 
