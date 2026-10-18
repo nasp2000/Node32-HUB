@@ -46,7 +46,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pio-
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: cpp
           queries: security-and-quality
@@ -55,6 +55,6 @@ jobs:
           SKIP_NATIVE_TESTS: "1"
         run: pio run --project-dir chatgpt -e n16r8
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:cpp"
