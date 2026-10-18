@@ -44,7 +44,7 @@
 7. **Use `customAlert`/`customConfirm`** — never native
 8. **No arrow functions** in JS (ESP32 browser compat)
 9. **Update `PAGES/proximity_sensors.md`** and/or `PAGES/proximity_dashboard.md` after changes
-10. **WebSocket**: real-time dashboard updates via `/ws` — use `.key` not `.keyCode`
+10. **Live dashboard polls** the `/api/proximity*` endpoints via `fetch` (no WebSocket); use `.key` not `.keyCode`
 
 ## Output Format
 ```

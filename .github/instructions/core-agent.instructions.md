@@ -48,7 +48,7 @@
 3. **Atomic config writes**: `.tmp` → validate bytes>0 → remove original → rename
 4. **`littlefsBegin()` always** — never `littlefsMounted()`
 5. **`saveAllConfigs()` is dead code** — prefer `markDirtyAndScheduleSave()`
-6. **Adding config section**: new stem → `saveToLittleFS()` + `tryLoadSet()` + `stems[]` + `pages.reg` + `buildSlotPath()`
+6. **Adding config section**: new stem → defaults in `initDefaults()` + backfill in `ensureAllFieldsExist()` + save via `saveSection(stem)` (see AGENTS.md)
 7. **Route registration**: `registerApiRoute("GET", "/api/foo", handleFoo)` — auto WiFi+Ethernet
 8. **Do NOT edit `ethernet_bootstrap_routes.h`** unless streaming/body-accumulation route
 9. **MAX_API_ROUTES=256** — check before adding

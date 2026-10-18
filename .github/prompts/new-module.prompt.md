@@ -31,7 +31,7 @@ Use `littlefsBegin()` — NEVER `littlefsMounted()`. NVS = boot-critical only (W
 3. `loop_impl.h`: `moduleUpdate()` with timer if periodic
 4. Remove old inline code
 
-## Step 4 — Update `LAST GLOBAL CHANGE` in `chatgpt.ino` (Europe/Lisbon time)
+## Step 4 — Add a `CHANGELOG.md` entry
 
 ## Step 5 — Verify
 - `get_errors` clean

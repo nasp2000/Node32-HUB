@@ -19,10 +19,9 @@
 - **Pack definition**: `chatgpt/packs/pack_p4_cnc.h`
 - **GRBL handler**: `chatgpt/src/webpages/handlers_unified/grbl_handler.h/.cpp`
 - **GRBL controller asset**: `chatgpt/src/webpages/assets/page_grbl_controller_asset.h`
-- **USB Host**: `chatgpt/src/usb_host_impl.h` (CRITICAL: no delays/power cycles in usbHostBegin)
-- **GcodeSender**: `chatgpt/src/gcode_sender_impl.h`
+- **USB Host**: `chatgpt/src/usb_host_manager.h` (CRITICAL: no delays/power cycles in usbHostBegin)
+- **GRBL controller**: `chatgpt/src/grbl_sender*.h/.cpp`, routes in `chatgpt/src/webpages/routes/web_routes_monitor.cpp` + registry (`/api/grbl/*`)
 - **SD tasks**: `chatgpt/src/sd_tasks_impl.h`
-- **GRBL routes**: `chatgpt/src/webpages/routes/web_routes_core.cpp`
 - **Page doc**: `PAGES/grbl_controller.md`
 - **HW tests**: `tests/packs/p4/test_real_p4.sh`
 

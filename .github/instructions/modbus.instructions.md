@@ -44,5 +44,5 @@ Never modify `g_modbusDevices[]` directly from web handlers — use `g_modbusMut
 
 ## Mutex: `g_modbusMutex` protects `g_modbusDevices[]`. Never hold during blocking I/O.
 
-## Adding register type: add enum in `modbus_core.h` → decode in `modbus_core.cpp` → label in `modbus_api_handler.cpp`.
+## Adding register type: add enum in `modbus_core.h` → decode in `modbus_core.cpp` → label in `handlers_unified/modbus_handler.cpp`.
 ## Adding transport: add flag in `user_config.h` → dispatch in `modbus_poll.cpp`.

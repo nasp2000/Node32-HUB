@@ -24,7 +24,7 @@ Adding a new operator touches **6 files**.
 Add `if (op == "Xy") return 13;` (next integer).
 
 ### 2. State variables (stateful operators only)
-In `chatgpt.ino`, add per-slot maps:
+In `recipient_matching_impl.h`, add per-slot maps (next to the existing `recipientLastSeenValue`, `recipientMatchCount`, ... maps):
 ```cpp
 static std::map<int, int>           recipientXyValue;
 static std::map<int, unsigned long> recipientXyTimestamp;
@@ -36,7 +36,7 @@ Add case in the switch. Read config via `configManager.getRecipientSlotXxx(slotI
 ### 4. Reset in `finalizeRecipientNotificationResult()`
 Erase state maps after successful send.
 
-### 5. i18n - add field to `lang_types.h`, define in `lang_active.cpp` (both LANG_PT/LANG_EN)
+### 5. i18n - add an `opXxx` key to `lang_en_ui.h` + `lang_pt_ui.h` (UI dict, e.g. `opEqual`); operator help text lives in the `recipOpsDesc` UI string
 
 ### 6. Web UI - add `<option>` in `page_recipients_asset.cpp` operator `<select>`
 

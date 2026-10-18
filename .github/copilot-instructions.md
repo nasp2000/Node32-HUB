@@ -36,7 +36,7 @@ New pages create their own endpoint (<4KB).
 
 ### 6. Local processing pages (`target='_blank'`)
 `sensor-charts`, `grbl-controller`, `serial-monitor`, `camera`, `radio-ui`, `buffer-viewer`.
-Open with `target='_blank'` on home. Cover with `charts_exempt_sessions`.
+Open with `target='_blank'` on home. Exempt via the `charts_exempt_sessions` flag.
 
 ### 7. Home button
 `<div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome'>&#127968; Home</a></div>` — first child of `.wrap` (EN fallback; PT `btnHome` comes from the packs).
@@ -53,10 +53,10 @@ Asset → Renderer → Handler → Route. `webpage_impl.h` is a thin coordinator
 - `littlefsBegin()` always (never `littlefsMounted()` — async mount).
 
 ### 11. Pin docs (MANDATORY)
-Changed GPIO → update `Docs/old_docs/PINOUT_HARDWARE_CURRENT.{md,html}`.
+Changed GPIO → update the pinout material under `docs/` (human board guides).
 
 ### 12. Build
-**Never compile** (owner builds locally). `pio run -e n16r8 | waveshare_8di8do | esp32p4`.
+**Never compile** (owner builds locally). `pio run -e n16r8 | waveshare_8di8do | s3_touch7 | esp32p4 | esp32p4cam`.
 
 ### 13. Versioning
 Only at commit/push. Bump `FIRMWARE_VERSION_STR` + `_hreg[HR_FW_VERSION]`.
@@ -68,7 +68,7 @@ Only at commit/push. Bump `FIRMWARE_VERSION_STR` + `_hreg[HR_FW_VERSION]`.
 | Concept | How |
 |----------|------|
 | Logging | `sendVirtualMessage(F("msg"), LEVEL)` |
-| PROGMEM page | `const char PAGE_X[] PROGMEM = R"HTML(...)HTML";` |
+| PROGMEM page | `const char PAGE_X[] PROGMEM = R"rawliteral(...)rawliteral";` |
 | Route guard | `ensureBasicAuth()` + `allowHtmlClient()` |
 | i18n firmware | `L(activeLang->field)` |
 | i18n UI | `data-i18n="key"` + `/api/lang` |
@@ -78,7 +78,7 @@ Only at commit/push. Bump `FIRMWARE_VERSION_STR` + `_hreg[HR_FW_VERSION]`.
 | Atomic write | `.tmp` → validate → `remove` + `rename` |
 
 ## Dependencies
-`ESPAsyncWebServer`, `AsyncTCP`, `ArduinoJson`, `CircularBuffer`, `Adafruit SSD1306+GFX`, `Ethernet`, `SdFat`, `ReadyMail`.
+`ESPAsyncWebServer`, `AsyncTCP`, `ArduinoJson`, `CircularBuffer`, `Adafruit SSD1306+GFX+Unified Sensor` (transitive dep), `Ethernet`, `SdFat`, `ReadyMail` (+ `ESP_SSLClient`), s3_touch7/P4 extras: lvgl stack, `ESP_Video` (bundled with core 3.3.12).
 
 ## Prompts (load as needed)
 - New module: `.github/prompts/new-module.prompt.md`

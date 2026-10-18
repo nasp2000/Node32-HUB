@@ -18,12 +18,12 @@
 - **Alerts page renderer**: `chatgpt/src/webpages/renderers/alerts_page_renderer.h`
 - **Config handler**: `chatgpt/src/webpages/handlers_unified/config_handler.h/.cpp`
 - **Recipients handler**: `chatgpt/src/webpages/handlers_unified/recipients_handler.cpp` (inactivity alert APIs)
-- **Routes**: `chatgpt/src/webpages/routes/web_routes_config.cpp` (lines 52-56)
-- **Runtime email**: `chatgpt/src/runtime_email.cpp` (inactivityAlertTask, lines 85-1166)
+- **Routes**: `chatgpt/src/webpages/routes/web_routes_config.cpp` (`/api/inactivity-alert-config`, `/api/inactivity-alert-test` handlers)
+- **Runtime email**: `chatgpt/src/runtime_email.cpp` (`inactivityAlertTask`)
 - **Proximity manager**: `chatgpt/src/sensors/proximity_manager.cpp` (timer reset logic)
 - **Arduino bridge**: `chatgpt/src/arduino_bridge.cpp` (inactivity flag management)
 - **ConfigManager**: `chatgpt/src/ConfigManager.h/.cpp` (inactivity_alerts JSON section)
-- **Test manifest**: `chatgpt/src/webpages/handlers_unified/test_manifest_handler.cpp` (lines 164-179)
+- **Test manifest**: `chatgpt/src/webpages/handlers_unified/test_manifest_handler.cpp` (alert field rows)
 - **Page doc**: `PAGES/inactivity_alerts.md`
 
 ## When to Activate

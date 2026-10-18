@@ -27,7 +27,7 @@
 - **LCD screen**: `chatgpt/src/screen.h`
 - **ConfigManager**: `chatgpt/src/ConfigManager.h/.cpp`
 - **Page docs**: `PAGES/rs232.md`
-- **HW tests**: `tests/packs/waveshare/` (shared S3 test infrastructure)
+- **HW tests**: shared `tests/hw/` infra (no Rambox-specific pack test exists)
 
 ## When to Activate
 - RS232 communication bugs (data corruption, framing errors)

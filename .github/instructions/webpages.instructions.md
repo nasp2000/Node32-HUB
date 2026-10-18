@@ -33,9 +33,9 @@ applyTo: "chatgpt/src/webpages/**"
 
 ## Asset pattern
 ```cpp
-const char PAGE_NAME[] PROGMEM = R"HTML(...)HTML";
+const char PAGE_NAME[] PROGMEM = R"rawliteral(...)rawliteral";
 ```
-No DOCTYPE/html/head/body. Use `R"HTML(...)HTML"` delimiter.
+No DOCTYPE/html/head/body. Use `R"rawliteral(...)rawliteral"` delimiter.
 
 ## Renderer pattern
 ```cpp
@@ -50,17 +50,15 @@ size_t streamNamePage(Print& out) {
 }
 ```
 
-## Handler pattern
+## Handler pattern (unified: one implementation serves WiFi + Ethernet)
 ```cpp
-void registerXxxApiRoutes(AsyncWebServer& server, const WebRouteContext& context) {
-    server.on("/api/xxx", HTTP_GET, [&context](AsyncWebServerRequest* req) {
-        if (!context.ensureBasicAuth(req)) return;
-        String json = "{\"success\":true,...}";
-        req->send(req->beginResponse(200, "application/json", json));
-    });
+void handleXxxGet(HttpRequest& req, HttpResponse& res) {
+    // registered once via registerApiRoute("GET", "/api/xxx", handleXxxGet)
+    // - WiFi route + Ethernet dispatch are generated from the registry
+    res.sendJson(String(F("{\"success\":true,\"message\":\"")) + L(activeLang->apiXxxDone) + F("\"}"));
 }
 ```
-First line: `context.ensureBasicAuth(request)`. Response: `{"success":true|false,"message":"..."}`.
+First line: `context.ensureBasicAuth(request)` (via the registry wrapper). Response: `{"success":true|false,"message":"..."}` (message from `L(activeLang->...)`, never hardcoded).
 
 ## Route pattern
 Every HTML route: `ensureBasicAuth` → `allowHtmlClient` → `beginResponseStream` → render → send → log. Feature flags use `#if ENABLE_X==1` with `(void)context;` in `#else`.
@@ -70,8 +68,8 @@ Every HTML route: `ensureBasicAuth` → `allowHtmlClient` → `beginResponseStre
 fetch('/api/xxx', {method:'POST', body:fd})
   .then(function(r){return r.json()})
   .then(function(d){
-    if(d.success){customAlert('✅ Guardado!');showSavedCard();}
-    else customAlert('❌ Erro: '+(d.message||'?'));
+    if(d.success){customAlert(d.message || 'Configuration saved!');showSavedCard();}
+    else customAlert('Error: '+(d.message||'?'));
   }).catch(function(e){customAlert('❌ '+e);});
 ```
 

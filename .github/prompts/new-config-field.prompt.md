@@ -16,7 +16,7 @@ Adding a config field touches **6 files**. Missing any step causes missing field
 | 3 | `src/ConfigManager.cpp` → `ensureAllFieldsExist()` | Migration guard (same default) |
 | 4 | `src/ConfigManager.cpp` → `saveToLittleFS()` + `loadFromLittleFS()` | One file per page |
 | 5 | Web handler / form | Read/write the field |
-| 6 | `chatgpt.ino` — `LAST GLOBAL CHANGE` | Update timestamp |
+| 6 | `CHANGELOG.md` | Add entry under Unreleased |
 
 ## Step 1 — PROGMEM key (optional, for multi-file/hot-path keys)
 ```cpp
@@ -41,7 +41,7 @@ Update `saveToLittleFS()` and `loadFromLittleFS()`. Never place page-owned field
 - **GET**: already in `/api/config` if field exists in JSON doc
 - **POST**: `configManager.config["section"]["field"] = value; configManager.isDirty = true; configManager.save();`
 
-## Step 6 — Update `LAST GLOBAL CHANGE` in `chatgpt.ino`
+## Step 6 — Add a `CHANGELOG.md` entry
 
 ## Rules
 - **Never** write to NVS (`Preferences`) for config fields — only LittleFS

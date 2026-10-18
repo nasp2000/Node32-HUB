@@ -23,7 +23,7 @@ description: Runtime diagnosis guide for heap, SD, email, and network issues. Us
 - `network.mode: AP` → fallback AP, could not connect to saved networks
 
 ## 2. Telnet (`telnet <ip> 23`)
-Commands: `STATUS`, `FLUSH`, `HEAP`, `RESET-STATS`, `HELP`
+Commands: `help`, `getip`, `hello`, `status`, `get_chip_info`, `debug_logs_on`, `debug_logs_off`, `test`
 
 ## 3. SD crash log — `/api/files?path=/log/`
 - `ESP_RST_PANIC` → null pointer, stack overflow

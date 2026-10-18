@@ -9,15 +9,15 @@ applyTo: "chatgpt/src/grbl_sender.*,chatgpt/src/grbl_web_api.*,chatgpt/src/usb_h
 - psramFeedTask: prio 18, USB daemon: prio 19, USB client: prio 18.
 - Planner check **DISABLED** — GRBL manages its own planner. ESP32 focus: keep RX buffer full.
 
-## Key constants (`grbl_sender.cpp`)
+## Constants (`grbl_sender_internal.h`)
 - `GRBL_RX_BUFFER_STRICT_LIMIT` = 127 (GRBL RX buffer)
 - `GRBL_INFLIGHT_FIFO_SIZE` = 64 (tracked pending lines)
 - `GRBL_PSRAM_TARGET_BURST_BYTES` = 120 (~94% of RX buffer)
 - `GRBL_PSRAM_BURST_MAX_LINES` = 128 (ceiling for short lines)
-- `GRBL_PLANNER_CHECK_ENABLED` = 0 (planner pacing removed)
+- Planner keeps its own queue (no host-side planner pacing); ESP32 focus: keep RX buffer full
 - `GRBL_ACK_STALL_TIMEOUT_MS` = 5000 (5s no "ok" → HOLD)
 - `GRBL_RX_STALL_TIMEOUT_MS` = 30000 (30s no data → HOLD)
-- `GRBL_STATUS_POLL_STREAMING_MS` = 1000 (1 poll/sec during streaming)
+- `GRBL_STATUS_POLL_STREAMING_MS` = 500 (500 ms poll during streaming)
 
 ## Flow: SD → PSRAM → USB → GRBL → "ok" → wake feeder
 1. File loaded to PSRAM, preprocessed (comments removed, uppercased)
@@ -36,7 +36,7 @@ Never spin indefinitely — always yield after burst to keep web server responsi
 ## Resume after ack stall
 `grblResume()` allows resume after `ack_stall_safe_stop` with warning (does not block operator).
 
-## Web API (registered in `web_routes_grbl.cpp`)
+## Web API (registered in `web_routes_monitor.cpp` + route registry)
 - `GET /api/grbl/status` — session, position, flow state
 - `POST /api/grbl/send` — manual g-code
 - `POST /api/grbl/stream` — start SD file stream

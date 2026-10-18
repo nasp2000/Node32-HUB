@@ -22,7 +22,7 @@
 - **Proximity routes**: `chatgpt/src/webpages/routes/web_routes_proximity.cpp`
 - **Proximity assets**: `chatgpt/src/webpages/assets/page_proximity_asset.h`, `page_proximity_dashboard_asset.h`
 - **Alerts config**: `chatgpt/src/webpages/handlers_unified/recipients_handler.cpp` (inactivity alert logic)
-- **Alerts routes**: `chatgpt/src/webpages/routes/web_routes_config.cpp` (lines 52-56)
+- **Alerts routes**: `chatgpt/src/webpages/routes/web_routes_config.cpp` (`/api/inactivity-alert-config`, `/api/inactivity-alert-test` handlers)
 - **Alerts page asset**: `chatgpt/src/webpages/assets/page_alerts_asset.h`
 - **Email handler**: `chatgpt/src/webpages/handlers_unified/email_handler.h/.cpp`
 - **Runtime email**: `chatgpt/src/runtime_email.cpp` (inactivityAlertTask)
