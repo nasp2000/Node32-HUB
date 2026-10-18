@@ -1,0 +1,882 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hardware Connections — ESP32-S3 Node32-Hub</title>
+    <style>
+        body{font-family:Segoe UI,Tahoma,Verdana,sans-serif;background:#f6f8fa;color:#222;padding:20px}
+        .container{max-width:1200px;margin:0 auto;background:#fff;padding:30px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.08)}
+        h1{color:#1e66c7;margin-bottom:4px}
+        header p{color:#555;margin-top:0}
+        h2{color:#1e66c7;border-bottom:2px solid #d0e4f7;padding-bottom:6px;margin-top:32px}
+        h3{color:#444;margin-top:24px;margin-bottom:8px}
+        table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13.5px}
+        th,td{padding:8px 11px;border-bottom:1px solid #eaeaea;text-align:left;vertical-align:top}
+        th{background:#1e66c7;color:#fff;font-weight:600}
+        tr:hover td{background:#f0f7ff}
+        .gpio{font-family:monospace;font-weight:600;color:#1e66c7}
+        .ok{color:#16a34a;font-weight:600}
+        .warn{color:#b45309;font-weight:600}
+        .err{color:#dc2626;font-weight:600}
+        .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap}
+        .badge-ok{background:#dcfce7;color:#16a34a}
+        .badge-warn{background:#fef3c7;color:#92400e}
+        .badge-err{background:#fee2e2;color:#991b1b}
+        .badge-off{background:#f1f5f9;color:#64748b}
+        .badge-info{background:#dbeafe;color:#1e40af}
+        .note{background:#fffbeb;border-left:4px solid #f59e0b;padding:10px 14px;margin-top:12px;font-size:13px;border-radius:0 6px 6px 0}
+        .info{background:#eff6ff;border-left:4px solid #3b82f6;padding:10px 14px;margin-top:12px;font-size:13px;border-radius:0 6px 6px 0}
+        .danger{background:#fff1f2;border-left:4px solid #dc2626;padding:10px 14px;margin-top:12px;font-size:13px;border-radius:0 6px 6px 0}
+        pre.diagram{background:#1e1e2e;color:#cdd6f4;padding:16px;border-radius:6px;overflow:auto;font-size:13px}
+        footer{margin-top:40px;padding-top:16px;border-top:1px solid #eaeaea;color:#888;font-size:13px}
+        .tab-bar{display:flex;gap:0;margin-bottom:0;border-bottom:3px solid #1e66c7;flex-wrap:wrap}
+        .tab-btn{padding:10px 24px;border-radius:8px 8px 0 0;font-weight:600;font-size:14px;cursor:pointer;background:#e2edf7;color:#1e66c7;border:1px solid #c2d9f0;border-bottom:none;margin-right:4px;transition:background .15s}
+        .tab-btn.active{background:#1e66c7;color:#fff}
+        .tab-content{display:none;padding-top:24px}
+        .tab-content.active{display:block}
+        .pck-bar{display:flex;gap:3px;margin:16px 0 8px;flex-wrap:wrap;border-bottom:2px solid #d0e4f7;padding-bottom:8px}
+        .pck-btn{padding:6px 14px;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;transition:all .12s}
+        .pck-btn.active{background:#1e66c7;color:#fff;border-color:#1e66c7}
+        .pck-btn:hover:not(.active){background:#e2edf7}
+        .pck-content{display:none;padding:4px 0}
+        .pck-content.active{display:block}
+        code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:12.5px}
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>Hardware Connections &mdash; Node32-Hub Firmware</h1>
+        <p>ESP32-S3 &mdash; complete pinout, feature flags &amp; conflict analysis &mdash; last updated 2026-10-18</p>
+        <p style="margin-top:0;color:#888;font-size:12px">+ S3 CNC pack: <code>PACK_S3_CNC</code> &mdash; GRBL via UART default (FTDI on GPIO16/17), runtime USB Host OTG selector (session-only)</p>
+    </header>
+
+    <div class="tab-bar">
+        <button class="tab-btn active" onclick="showTab('n16r8',this)">&#9654; N16R8 Devkit (default)</button>
+        <button class="tab-btn" onclick="showTab('ws8di8do',this)">Waveshare ESP32-S3-POE-ETH-8DI-8DO</button>
+        <button class="tab-btn" onclick="showTab('sniffer',this)">&#128269; Serial Sniffer</button>
+        <button class="tab-btn" onclick="showTab('s3cnc',this)">&#9881; S3 CNC</button>
+    </div>
+
+    <!-- ================================================================ TAB 1 N16R8 -->
+    <div id="tab-n16r8" class="tab-content active">
+
+        <div class="pck-bar">
+            <button class="pck-btn" onclick="showPack('n16r8','none',this)">PACK_NONE</button>
+            <button class="pck-btn" onclick="showPack('n16r8','rambox',this)">&#128038; RAMBOX</button>
+            <button class="pck-btn" onclick="showPack('n16r8','cam',this)">&#128247; CAM</button>
+            <button class="pck-btn" onclick="showPack('n16r8','psram',this)">PSRAM</button>
+            <button class="pck-btn" onclick="showPack('n16r8','env',this)">&#127758; ENVIRONMENT</button>
+            <button class="pck-btn active" onclick="showPack('n16r8','radio',this)">&#127911; RADIO</button>
+            <button class="pck-btn" onclick="showPack('n16r8','s3cnc',this)">&#9881; S3 CNC</button>
+        </div>
+
+        <!-- PACK_NONE -->
+        <div id="pck-n16r8-none" class="pck-content">
+            <h2>PACK_NONE &mdash; Manual configuration</h2>
+            <p>All features configurable via <code>user_config.h</code>. Default: RS232, OLED, SDCARD enabled; everything else off.</p>
+            <div class="pck-content active">[conte&uacute;do geral N16R8]</div>
+        </div>
+
+        <!-- PACK_RAMBOX -->
+        <div id="pck-n16r8-rambox" class="pck-content">
+            <h2>&#128038; PACK_RAMBOX &mdash; Pigeon racing (Unikon terminal)</h2>
+            <p>Activa: RS232, UNIKON, SMTP, GOOGLE_EMAIL, OTA, OLED. Desactiva: MDNS, DB25, SNIFFER, MODBUS, CAN, SCHEDULER, sensores, TELNET.</p>
+            <table><thead><tr><th>GPIO</th><th>Function</th><th>Notes</th></tr></thead><tbody>
+                <tr><td class="gpio">16/17</td><td>RS232 TX/RX (UART2)</td><td>Comunica&ccedil;&atilde;o com RAMBOX/Unikon via MAX3232 ou SZFYD</td></tr>
+                <tr><td class="gpio">18</td><td>RTS (SZFYD)</td><td>Para RAMBOX (DSR/DTR assert)</td></tr>
+                <tr><td class="gpio">21/48</td><td>OLED SDA/SCL (I2C0)</td><td>Display SSD1306</td></tr>
+            </tbody></table>
+            <div class="info">Pack lock: ESP32-S3 N16R8 only. packs/pack_rambox.h</div>
+        </div>
+
+        <!-- PACK_CAM -->
+        <div id="pck-n16r8-cam" class="pck-content">
+            <h2>&#128247; PACK_CAM &mdash; Camera monitoring</h2>
+            <p>Activa: CAMERA, SDCARD, OTA, SMTP. Desactiva: RS232, DB25, MODBUS, CAN, sensores, TELNET, SCHEDULER.</p>
+            <p>Pack fixo para <strong>TARGET_BOARD_S3_CAM</strong> (pinos de c&acirc;mera dedicados). Ver board_pins.h.</p>
+        </div>
+
+        <!-- PACK_PSRAM -->
+        <div id="pck-n16r8-psram" class="pck-content">
+            <h2>PACK_PSRAM &mdash; Generic PSRAM-optimised</h2>
+            <p>Activa: RS232, SMTP, SCHEDULER, STRUCTURES_PAGE. Desactiva: sensores, CAN, MODBUS, TELNET, CAMERA.</p>
+            <table><thead><tr><th>GPIO</th><th>Function</th><th>Notes</th></tr></thead><tbody>
+                <tr><td class="gpio">16/17</td><td>RS232 TX/RX</td><td>UART2</td></tr>
+                <tr><td class="gpio">21/48</td><td>OLED SDA/SCL</td><td>I2C0</td></tr>
+            </tbody></table>
+            <div class="info">Qualquer board com PSRAM. packs/pack_psram.h</div>
+        </div>
+
+        <!-- PACK_ENVIRONMENT -->
+        <div id="pck-n16r8-env" class="pck-content">
+            <h2>&#127758; PACK_ENVIRONMENT &mdash; Environmental sensors</h2>
+            <p>Activa: AHT20/BMP280, MQ135, SMTP, SCHEDULER. Desactiva: RS232, DB25, MODBUS, CAN, TELNET, CAMERA.</p>
+            <table><thead><tr><th>GPIO</th><th>Function</th><th>Notes</th></tr></thead><tbody>
+                <tr><td class="gpio">5</td><td>MQ135 AOUT</td><td>ADC (divisor tens&atilde;o se 5V)</td></tr>
+                <tr><td class="gpio">8/9</td><td>AHT20/BMP280 SDA/SCL</td><td>I2C1 (Wire1)</td></tr>
+
+            </tbody></table>
+            <div class="info">packs/pack_environment.h</div>
+        </div>
+
+        <!-- PACK_RADIO (default active) -->
+        <div id="pck-n16r8-radio" class="pck-content active">
+            <h2>&#127911; PACK_RADIO &mdash; Harmonica-BOX (Internet radio &amp; MP3 player)</h2>
+            <p>Activa: UDA1334A (I2S DAC), SDCARD, LCD_SCREEN, WIFI, OTA. Desactiva: RS232, DB25, MODBUS, CAN, sensores, TELNET, CAMERA, SMTP.</p>
+            <table><thead><tr><th>GPIO</th><th>Function</th><th>Notes</th></tr></thead><tbody>
+                <tr><td class="gpio">41</td><td>BCLK</td><td>Pino BCLK do m&oacute;dulo UDA1334A (bit clock I2S)</td></tr>
+                <tr><td class="gpio">42</td><td>WSEL</td><td>Pino WSEL do m&oacute;dulo (word select / LRCK)</td></tr>
+                <tr><td class="gpio">19</td><td>DIN</td><td>Pino DIN do m&oacute;dulo (dados I2S / ESP32 DOUT)</td></tr>
+                <tr><td class="gpio">1</td><td>MUTE</td><td>Pino MUTE do m&oacute;dulo &mdash; <b>OPCIONAL</b> (HIGH = sil&ecirc;ncio; LOW = &aacute;udio ativo)</td></tr>
+                <tr><td class="gpio">21/48</td><td>OLED SDA/SCL</td><td>Display SSD1306</td></tr>
+            </tbody></table>
+            <h3>&#128297; M&oacute;dulo UDA1334A &harr; ESP32 &mdash; liga&ccedil;&atilde;o</h3>
+            <table><thead><tr><th>Pino m&oacute;dulo</th><th>ESP32</th><th>Notas</th></tr></thead><tbody>
+                <tr><td>BCLK</td><td class="gpio">41</td><td>Bit clock (I2S)</td></tr>
+                <tr><td>WSEL</td><td class="gpio">42</td><td>Word select / LRCK</td></tr>
+                <tr><td>DIN</td><td class="gpio">19</td><td>Dados seriais (I2S DOUT do ESP32)</td></tr>
+                <tr><td>MCLK</td><td>n.c.</td><td>Master clock &mdash; n&atilde;o ligar (desligado no firmware; o m&oacute;dulo deriva o rel&oacute;gio do BCLK)</td></tr>
+                <tr><td>VIN</td><td>3V3</td><td>3.3V (o m&oacute;dulo aceita 3.3&ndash;5V)</td></tr>
+                <tr><td>GND</td><td>GND</td><td>Massa</td></tr>
+                <tr><td>MUTE</td><td class="gpio">1</td><td>HIGH = sil&ecirc;ncio (mute). <b>OPCIONAL:</b> ligar a GPIO1 (pino CAN_TX_PIN, livre porque o CAN est&aacute; desativado neste pack) para mute digital por software (elimina o hum com o player parado). Se n&atilde;o ligares, p&otilde;e MUTE em GND e <code>UDA1334A_MUTE_PIN -1</code></td></tr>
+                <tr><td>SMT</td><td>GND</td><td>De-emphasis off</td></tr>
+                <tr><td>SF0</td><td>GND</td><td rowspan="2">Formato I2S (00)</td></tr>
+                <tr><td>SF1</td><td>GND</td></tr>
+            </tbody></table>
+            <div class="note">GPIO40 &eacute; o D0 do microSD. Se N&Atilde;O usares o cart&atilde;o SD, podes usar BCLK=40, WSEL=41, DIN=42 em vez de 41/42/19.</div>
+            <h3>&#127911; Pipeline de &aacute;udio</h3>
+            <ul style="margin:8px 0 12px 16px;font-size:13px;line-height:1.8">
+                <li><strong>Fonte:</strong> HTTP Stream (<code>/api/radio/play-url</code>) ou SD (<code>/api/radio/play-sd</code>)</li>
+                <li><strong>Cache PSRAM:</strong> AudioFileSourceBuffer (128KB&ndash;2MB)</li>
+                <li><strong>Decoder:</strong> AudioGeneratorMP3 (ESP8266Audio lib)</li>
+                <li><strong>Equalizador:</strong> EqAudioOutput &mdash; 5 bandas (80Hz &ndash; 12kHz)</li>
+                <li><strong>Sa&iacute;da:</strong> UDA1334ADAC via I2S_NUM_0 (BCLK=41, WSEL=42, DIN=19)</li>
+            </ul>
+            <div class="info">Config: <code>/uda1334a</code> | Controlo remoto: <code>/radio-ui</code></div>
+            <div class="info">Pack lock: ESP32-S3 N16R8 only. packs/pack_radio.h</div>
+        </div>
+
+        <!-- PACK_S3_CNC (UART default + USB Host OTG selector) -->
+        <div id="pck-n16r8-s3cnc" class="pck-content">
+            <h2>&#9881; PACK_S3_CNC &mdash; GcodeSender (UART default, USB Host OTG selector)</h2>
+            <p>Activa: GRBL, USB_HOST, SDCARD, ASYNC_WEBSOCKET. Desactiva: RS232, DB25, MODBUS, CAN, sensores, TELNET, OLED.</p>
+            <p>Transporte GRBL selecion&aacute;vel em runtime (apenas sess&atilde;o): default <strong>UART</strong> (Serial2 GPIO16/17 via FTDI/CH340 3.3V) &mdash; a porta USB nativa fica livre para Serial Monitor; altern&acirc;ncia para <strong>USB Host OTG</strong> (GPIO19/20, CH340/CP2102 do GRBL controller) no seletor da p&aacute;gina GRBL. O host USB corre sempre; a escolha n&atilde;o persiste (volta a UART no reboot).</p>
+            <table><thead><tr><th>GPIO</th><th>Function</th><th>Notes</th></tr></thead><tbody>
+                <tr><td class="gpio">16/17</td><td>GRBL UART TX/RX (default)</td><td>FT232RL ou CH340G (3.3V!) ligado ao GRBL controller</td></tr>
+                <tr><td class="gpio">19/20</td><td>USB D-/D+ (OTG)</td><td>Adaptador OTG &rarr; CH340/CP2102 do GRBL controller (ap&oacute;s seletor OTG)</td></tr>
+                <tr><td class="gpio">39/38/40</td><td>SDMMC CLK/CMD/D0</td><td>microSD para GCode files</td></tr>
+            </tbody></table>
+            <div class="warn">&#9888; GPIO16/17: S&atilde;o pinos da OPI PSRAM no N16R8 — funcionam para UART GRBL na pr&aacute;tica, mas N&Atilde;O ligar MAX3232 (glitch de &plusmn;12V no boot).</div>
+            <div class="info">Com transporte OTG, a porta USB nativa fica ocupada pelo USB Host; debug via UART0 (GPIO43/44) com adaptador USB-UART. packs/pack_s3_cnc_usb.h</div>
+        </div>
+
+        <h2>Quick wiring reference &mdash; N16R8</h2>
+        <pre class="diagram">RS232 option A &mdash; MAX3232 (original):
+    GPIO17 (TX) -&gt; T1IN    GPIO16 (RX) &lt;- R1OUT
+
+RS232 option B &mdash; SZFYD module (RAMBOX/DTR-dependent):
+    GPIO17 (TX) -&gt; TxIN    GPIO16 (RX) &lt;- RxOUT    GPIO18 (RTS) -&gt; RTS TTL
+    DB9 jumper: pin7+pin6+pin1+pin8 &bull; Cable: straight 2-2, 3-3, 5-5
+
+Ethernet W5500 (FSPI):
+  MOSI=GPIO11  MISO=GPIO13  SCLK=GPIO12  CS=GPIO14  RST=GPIO4  INT=GPIO25
+
+UDA1334A DAC (I2S - PACK_RADIO):
+    GPIO41 -&gt; BCLK    GPIO42 -&gt; WSEL    GPIO19 -&gt; DIN    GPIO1 -&gt; MUTE (opc.)
+    (sem SD: BCLK=40, WSEL=41, DIN=42)   MCLK n.c.   VIN-&gt;3V3   GND-&gt;GND
+    MUTE-&gt;GPIO1 (opc.; ou GND + UDA1334A_MUTE_PIN -1)   SMT-&gt;GND   SF0-&gt;GND   SF1-&gt;GND
+
+OLED SSD1306 (Wire):
+  SDA=GPIO21  SCL=GPIO48  VCC=3V3
+
+microSD (SDMMC 1-bit):
+  CLK=GPIO39  CMD=GPIO38  D0=GPIO40
+
+AHT20/BMP280 + INA226 (Wire1, if ENABLE_ENVIRONMENT):
+  SDA=GPIO8  SCL=GPIO9  VCC=3V3
+  AHT20=0x38  BMP280=0x76  INA226=0x40
+
+MQ-135 / HX711 / Sound / MAX31865 CS (pick ONE on GPIO5):
+  GPIO5 -&gt; AOUT (MQ135) or DOUT (HX711) or OUT (Sound) or CS (MAX31865)</pre>
+
+        <h2>Conflict summary &mdash; N16R8</h2>
+        <table>
+            <thead><tr><th>GPIO</th><th>Conflicting uses</th><th>Severity</th><th>Resolution</th></tr></thead>
+            <tbody>
+                <tr><td class="gpio">4</td><td>W5500 RST &harr; HX711 CLK</td><td><span class="badge badge-ok">LOW</span></td><td>W5500 RST optional &mdash; leave NC to free GPIO4 for HX711.</td></tr>
+                <tr><td class="gpio">5</td><td>MQ135 &harr; HX711 DATA &harr; Sound &harr; MAX31865 CS</td><td><span class="badge badge-warn">DESIGN</span></td><td>Enable exactly one of these four features.</td></tr>
+                <tr><td class="gpio">19</td><td>USB D- &harr; MAX31865 MISO (default)</td><td><span class="badge badge-err">HIGH</span></td><td>Override SENSOR_MAX31865_MISO_PIN before enabling MAX31865.</td></tr>
+                <tr><td class="gpio">25</td><td>W5500 INT (optional) &harr; UDA1334A LRCK</td><td><span class="badge badge-warn">DESIGN</span></td><td>PACK_RADIO usa GPIO42 para WSEL/LRCK &mdash; sem conflito com W5500 INT (25).</td></tr>
+                <tr><td class="gpio">8/9</td><td>AHT20/BMP280 &harr; INA226</td><td><span class="badge badge-ok">NONE</span></td><td>I2C addresses distinct. Can coexist.</td></tr>
+                <tr><td class="gpio">40</td><td>SDMMC D0 &harr; Modbus RTU TX &harr; DB25 TX</td><td><span class="badge badge-warn">DESIGN</span></td><td>Compile-time exclusive.</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Complete GPIO table &mdash; N16R8</h2>
+        <table>
+            <thead><tr><th>GPIO</th><th>Function</th><th>Module / define</th><th>Dir</th><th>Status</th><th>Notes</th></tr></thead>
+            <tbody>
+                <tr><td class="gpio">4</td><td>W5500 RST / HX711 CLK</td><td>ETH_RST_PIN / SENSOR_HX711_CLK_PIN</td><td>OUT</td><td><span class="badge badge-warn">SHARED</span></td><td>W5500 RST is optional (NC is fine). Leave NC to free GPIO4 for HX711.</td></tr>
+                <tr><td class="gpio">5</td><td>MQ135 / HX711 DATA / Sound ADC / MAX31865 CS</td><td>SENSOR_MQ135_PIN / SENSOR_HX711_DATA_PIN / SENSOR_SOUND_PIN / SENSOR_MAX31865_CS_PIN</td><td>ADC/OUT</td><td><span class="badge badge-warn">CONFLICT</span></td><td>Default for 4 modules &mdash; enable exactly one. Override CS pin for MAX31865.</td></tr>
+                <tr><td class="gpio">8</td><td>AHT20/BMP280 SDA / INA226 SDA</td><td>SENSOR_I2C0_SDA (Wire1)</td><td>I/O</td><td><span class="badge badge-off">INACTIVE</span></td><td>I2C1 secondary bus. INA226(0x40) coexists with AHT20(0x38) and BMP280(0x76/77).</td></tr>
+                <tr><td class="gpio">9</td><td>AHT20/BMP280 SCL / INA226 SCL</td><td>SENSOR_I2C0_SCL (Wire1)</td><td>OUT</td><td><span class="badge badge-off">INACTIVE</span></td><td>I2C1. No address conflicts. 4.7k pull-up required.</td></tr>
+                <tr><td class="gpio">11</td><td>W5500 MOSI (FSPI)</td><td>ETH_SPI_MOSI_PIN</td><td>OUT</td><td><span class="badge badge-ok">OK</span></td><td>FSPI native MOSI.</td></tr>
+                <tr><td class="gpio">12</td><td>W5500 SCLK (FSPI)</td><td>ETH_SPI_SCLK_PIN</td><td>OUT</td><td><span class="badge badge-ok">OK</span></td><td>FSPI native CLK.</td></tr>
+                <tr><td class="gpio">13</td><td>W5500 MISO (FSPI)</td><td>ETH_SPI_MISO_PIN</td><td>IN</td><td><span class="badge badge-ok">OK</span></td><td>FSPI native MISO.</td></tr>
+                <tr><td class="gpio">14</td><td>W5500 CS</td><td>ETH_CS_PIN</td><td>OUT</td><td><span class="badge badge-ok">OK</span></td><td>Dedicated W5500 chip select.</td></tr>
+                <tr><td class="gpio">16</td><td>RS232 RX (UART2)</td><td>RS232_DEFAULT_RX_PIN</td><td>IN</td><td><span class="badge badge-ok">OK</span></td><td>Connect to MAX3232 R1OUT <em>or</em> SZFYD module RxOUT.</td></tr>
+                <tr><td class="gpio">17</td><td>RS232 TX (UART2)</td><td>RS232_DEFAULT_TX_PIN</td><td>OUT</td><td><span class="badge badge-ok">OK</span></td><td>Connect to MAX3232 T1IN <em>or</em> SZFYD module TxIN.</td></tr>
+                <tr><td class="gpio">18</td><td>RS232 RTS / MAX31865 CLK &#9888;</td><td>UNIKON_RTS_PIN / SENSOR_MAX31865_CLK_PIN</td><td>OUT</td><td><span class="badge badge-warn">SHARED</span></td><td>RTS for SZFYD module (RAMBOX DTR/DSR assert) <strong>or</strong> MAX31865 CLK &mdash; enable only one. Define <code>UNIKON_RTS_PIN 18</code> in user_config.h.</td></tr>
+                <tr><td class="gpio">19</td><td>USB D- / MAX31865 MISO default &#9888;</td><td>SENSOR_MAX31865_MISO_PIN (default)</td><td>&mdash;</td><td><span class="badge badge-err">DANGER</span></td><td>Native USB D-. Override SENSOR_MAX31865_MISO_PIN before enabling MAX31865.</td></tr>
+                <tr><td class="gpio">20</td><td>USB D+</td><td>&mdash;</td><td>&mdash;</td><td><span class="badge badge-warn">RESERVED</span></td><td>Native USB D+. Do not connect external hardware.</td></tr>
+                <tr><td class="gpio">21</td><td>OLED SDA (Wire / I2C0)</td><td>LCD_SDA</td><td>I/O</td><td><span class="badge badge-ok">OK</span></td><td>I2C0 addr 0x3C. 4.7k pull-up required.</td></tr>
+                <tr><td class="gpio">23</td><td>MAX31865 MOSI (VSPI)</td><td>SENSOR_MAX31865_MOSI_PIN</td><td>OUT</td><td><span class="badge badge-off">INACTIVE</span></td><td>Free when ENABLE_MAX31865=0.</td></tr>
+                <tr><td class="gpio">25</td><td>W5500 INT / UDA1334A LRCK</td><td>ETH_INT_PIN / UDA1334A_I2S_LRCK_PIN</td><td>IN/OUT</td><td><span class="badge badge-warn">SHARED</span></td><td>PACK_RADIO usa GPIO42 para LRCK (UDA1334A_I2S_LRCK_PIN=42), por isso W5500 INT em GPIO25 n&atilde;o conflita.</td></tr>
+                <tr><td class="gpio">26</td><td>UDA1334A I2S BCLK</td><td>UDA1334A_I2S_BCLK_PIN</td><td>OUT</td><td><span class="badge badge-off">OPTIONAL</span></td><td>Audio DAC bit clock (N16R8 default).</td></tr>
+                <tr><td class="gpio">27</td><td>UDA1334A I2S DIN</td><td>UDA1334A_I2S_DOUT_PIN</td><td>OUT</td><td><span class="badge badge-off">OPTIONAL</span></td><td>ESP32 serial data out to DAC DIN (N16R8 default).</td></tr>
+                <tr><td class="gpio">33&ndash;37</td><td>OPI PSRAM bus</td><td>&mdash;</td><td>&mdash;</td><td><span class="badge badge-err">RESERVED</span></td><td>Internally wired to PSRAM. Never connect external hardware here.</td></tr>
+                <tr><td class="gpio">38</td><td>SD CMD (SDMMC)</td><td>SDCARD_CMD_PIN</td><td>I/O</td><td><span class="badge badge-ok">OK</span></td><td>SDMMC 1-bit.</td></tr>
+                <tr><td class="gpio">39</td><td>SD CLK (SDMMC)</td><td>SDCARD_CLK_PIN</td><td>OUT</td><td><span class="badge badge-ok">OK</span></td><td>SDMMC 1-bit.</td></tr>
+                <tr><td class="gpio">40</td><td>SD D0 / Modbus RTU TX / DB25 TX</td><td>SDCARD_D0_PIN / GPIO_MB_TX</td><td>I/O</td><td><span class="badge badge-warn">CONFLICT</span></td><td>Compile-time exclusive: SD or Modbus RTU.</td></tr>
+                <tr><td class="gpio">41</td><td>Modbus RTU RX / DB25 RX (UART1)</td><td>GPIO_MB_RX</td><td>IN</td><td><span class="badge badge-warn">SHARED</span></td><td>Shared by Modbus RTU and Arduino Bridge (compile-time guard).</td></tr>
+                <tr><td class="gpio">48</td><td>OLED SCL (Wire / I2C0)</td><td>LCD_SCL</td><td>OUT</td><td><span class="badge badge-ok">OK</span></td><td>Remapped from GPIO9 to avoid conflicts.</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Subsystem wiring &mdash; N16R8</h2>
+        <h3>RS232 &mdash; UART2, option A: MAX3232 (3.3 V, original)</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>TX</td><td class="gpio">17</td><td>RS232_DEFAULT_TX_PIN. Connect to MAX3232 T1IN.</td></tr>
+            <tr><td>RX</td><td class="gpio">16</td><td>RS232_DEFAULT_RX_PIN. Connect to MAX3232 R1OUT.</td></tr>
+        </tbody></table>
+        <div class="note">TX idle = &plusmn;5.5 V. Older equipment (e.g. RAMBOX) may not respond without DSR asserted.</div>
+
+        <h3>RS232 &mdash; UART2, option B: SZFYD module with RTS (RAMBOX / DTR-dependent devices)</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>TX</td><td class="gpio">17</td><td>RS232_DEFAULT_TX_PIN &rarr; module TxIN.</td></tr>
+            <tr><td>RX</td><td class="gpio">16</td><td>RS232_DEFAULT_RX_PIN &larr; module RxOUT.</td></tr>
+            <tr><td>RTS</td><td class="gpio">18</td><td>UNIKON_RTS_PIN &rarr; module RTS TTL. Define <code>UNIKON_RTS_PIN 18</code> in user_config.h.</td></tr>
+            <tr><td>VCC</td><td>&mdash;</td><td>3.3 V</td></tr>
+        </tbody></table>
+        <div class="note">
+            <strong>DB9 connector (Node32 side) &mdash; jumper together:</strong> pin 7 (RTS) + pin 6 (DSR) + pin 1 (DCD) + pin 8 (CTS).<br>
+            <strong>Cable to RAMBOX: straight (direct)</strong> &mdash; pin 2&rarr;2, pin 3&rarr;3, pin 5&rarr;5.<br>
+            GPIO18 driven HIGH by <code>unikonBegin()</code> &rarr; module RTS &rarr; DB9 pin 7 &rarr; RS232 negative voltage &rarr; RAMBOX sees DSR+DCD+CTS asserted &rarr; responds to poll frames.
+        </div>
+
+        <h3>Ethernet &mdash; W5500 FSPI</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>MOSI</td><td class="gpio">11</td><td>FSPI native</td></tr>
+            <tr><td>MISO</td><td class="gpio">13</td><td>FSPI native</td></tr>
+            <tr><td>SCLK</td><td class="gpio">12</td><td>FSPI native</td></tr>
+            <tr><td>CS</td><td class="gpio">14</td><td>Dedicated chip select</td></tr>
+            <tr><td>RST</td><td class="gpio">4</td><td>Optional &mdash; can be NC to free GPIO4 for HX711</td></tr>
+            <tr><td>INT</td><td class="gpio">25</td><td>Optional interrupt</td></tr>
+        </tbody></table>
+
+        <h3>OLED SSD1306 &mdash; I2C0 (Wire)</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>SDA</td><td class="gpio">21</td><td>LCD_SDA. Addr 0x3C. 4.7k pull-up to 3V3.</td></tr>
+            <tr><td>SCL</td><td class="gpio">48</td><td>LCD_SCL. Remapped from GPIO9.</td></tr>
+        </tbody></table>
+
+        <h3>microSD &mdash; SDMMC 1-bit</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>CLK</td><td class="gpio">39</td><td>SDCARD_CLK_PIN</td></tr>
+            <tr><td>CMD</td><td class="gpio">38</td><td>SDCARD_CMD_PIN</td></tr>
+            <tr><td>D0</td><td class="gpio">40</td><td>SDCARD_D0_PIN &mdash; conflicts with Modbus RTU TX</td></tr>
+        </tbody></table>
+
+        <h3>Modbus RTU / DB25 Bridge &mdash; UART1</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>TX</td><td class="gpio">40</td><td>GPIO_MB_TX &mdash; same as SDMMC D0. Compile-time exclusive.</td></tr>
+            <tr><td>RX</td><td class="gpio">41</td><td>GPIO_MB_RX</td></tr>
+        </tbody></table>
+
+        <h3>AHT20 + BMP280 environmental sensor &mdash; I2C1 (Wire1) &mdash; optional</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>SDA (Wire1)</td><td class="gpio">8</td><td>SENSOR_I2C0_SDA. 4.7k pull-up to 3V3.</td></tr>
+            <tr><td>SCL (Wire1)</td><td class="gpio">9</td><td>SENSOR_I2C0_SCL.</td></tr>
+        </tbody></table>
+        <div class="info">AHT20=0x38, BMP280=0x76/77. INA226(0x40) can share this bus safely. Enable: <code>#define ENABLE_AHT20_BMP280 1</code></div>
+
+        <h3>INA226 Current/Power Monitor &mdash; I2C1 (Wire1) &mdash; optional</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>SDA (Wire1)</td><td class="gpio">8</td><td>Shared with AHT20/BMP280. I2C addr 0x40 &mdash; no conflict.</td></tr>
+            <tr><td>SCL (Wire1)</td><td class="gpio">9</td><td>4.7k pull-up to 3V3.</td></tr>
+            <tr><td>Shunt</td><td>&mdash;</td><td>Between V+ bus and IN+. Typical: 0.1&#937; 1W for &le;3.2A.</td></tr>
+        </tbody></table>
+        <div class="info">I2C addr 0x40 (A0=GND, A1=GND). Enable: <code>#define ENABLE_INA226 1</code></div>
+
+        <h3>MQ-135 Air Quality &mdash; ADC &mdash; optional</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>AOUT</td><td class="gpio">5 (default)</td><td>SENSOR_MQ135_PIN. Conflicts with HX711 DATA, Sound, MAX31865 CS.</td></tr>
+            <tr><td>VCC</td><td>&mdash;</td><td>5V required for heater.</td></tr>
+        </tbody></table>
+        <div class="note">MQ-135 AOUT can exceed 3.3V at 5V supply. Use divider: R1=10k&#937; + R2=13k&#937; &rarr; ~2.83V. Enable: <code>#define ENABLE_MQ135 1</code></div>
+
+        <h3>HX711 Load Cell &mdash; bit-bang &mdash; optional</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>DOUT</td><td class="gpio">5 (default)</td><td>SENSOR_HX711_DATA_PIN. Same GPIO as MQ135 &mdash; enable only one.</td></tr>
+            <tr><td>PD_SCK</td><td class="gpio">4 (default)</td><td>SENSOR_HX711_CLK_PIN. Leave W5500 RST as NC to free GPIO4.</td></tr>
+        </tbody></table>
+        <div class="info">Connect load cell to HX711 E+/E-/A+/A-. Power HX711 at 3.3V. Enable: <code>#define ENABLE_HX711 1</code></div>
+
+        <h3>Sound Level Sensor &mdash; ADC &mdash; optional</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>OUT (analog)</td><td class="gpio">5 (default)</td><td>SENSOR_SOUND_PIN. Same as MQ135 and HX711 DATA &mdash; enable only one.</td></tr>
+            <tr><td>VCC</td><td>&mdash;</td><td>3V3 (MAX4466) or 2.7&ndash;5.5V (MAX9814)</td></tr>
+        </tbody></table>
+        <div class="info">Enable: <code>#define ENABLE_SOUND_SENSOR 1</code></div>
+
+        <h3>MAX31865 RTD Sensor &mdash; SPI (VSPI) &mdash; optional</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>MOSI (SDI)</td><td class="gpio">23</td><td>SENSOR_MAX31865_MOSI_PIN. Free GPIO on N16R8.</td></tr>
+            <tr><td>MISO (SDO)</td><td class="gpio">19 &#9888;</td><td>Default = GPIO19 (USB D-). Override SENSOR_MAX31865_MISO_PIN to a safe GPIO.</td></tr>
+            <tr><td>SCLK</td><td class="gpio">18</td><td>SENSOR_MAX31865_CLK_PIN.</td></tr>
+            <tr><td>CS</td><td class="gpio">5 &#9888;</td><td>Default = GPIO5 (MQ135 pin). Override SENSOR_MAX31865_CS_PIN.</td></tr>
+        </tbody></table>
+        <div class="danger">Override MISO from GPIO19 (USB D-) and CS from GPIO5 before enabling. Example safe overrides: MISO=GPIO6, CS=GPIO7. Enable: <code>#define ENABLE_MAX31865 1</code></div>
+
+        <h2>Conflict summary &mdash; N16R8</h2>
+        <table>
+            <thead><tr><th>GPIO</th><th>Conflicting uses</th><th>Severity</th><th>Resolution</th></tr></thead>
+            <tbody>
+                <tr><td class="gpio">4</td><td>W5500 RST &harr; HX711 CLK</td><td><span class="badge badge-ok">LOW</span></td><td>W5500 RST is optional &mdash; leave NC to free GPIO4 for HX711.</td></tr>
+                <tr><td class="gpio">5</td><td>MQ135 &harr; HX711 DATA &harr; Sound &harr; MAX31865 CS</td><td><span class="badge badge-warn">DESIGN</span></td><td>Enable exactly one of these four features.</td></tr>
+                <tr><td class="gpio">19</td><td>USB D- &harr; MAX31865 MISO (default)</td><td><span class="badge badge-err">HIGH</span></td><td>Override SENSOR_MAX31865_MISO_PIN to any free GPIO before enabling MAX31865.</td></tr>
+                <tr><td class="gpio">25</td><td>W5500 INT (optional) &harr; UDA1334A LRCK</td><td><span class="badge badge-warn">DESIGN</span></td><td>PACK_RADIO usa GPIO42 para WSEL/LRCK &mdash; sem conflito com W5500 INT (25).</td></tr>
+                <tr><td class="gpio">8/9</td><td>AHT20/BMP280 &harr; INA226</td><td><span class="badge badge-ok">NONE</span></td><td>I2C addresses distinct (0x38, 0x76/77 vs 0x40). Both can be simultaneously enabled.</td></tr>
+                <tr><td class="gpio">40</td><td>SDMMC D0 &harr; Modbus RTU TX &harr; DB25 TX</td><td><span class="badge badge-warn">DESIGN</span></td><td>Compile-time exclusive. Use SD or Modbus RTU, not both.</td></tr>
+            </tbody>
+        </table>
+
+        <!-- PACK_S3_CNC (UART default + USB Host OTG selector) -->
+        <div id="pck-n16r8-s3cnc" class="pck-content">
+            <h2>&#9881; PACK_S3_CNC &mdash; GcodeSender (UART default, USB Host OTG selector)</h2>
+            <p>Activa: GRBL, USB_HOST, SDCARD, ASYNC_WEBSOCKET. Desactiva: RS232, DB25, MODBUS, CAN, sensores, TELNET, OLED.</p>
+            <p>Transporte GRBL selecion&aacute;vel em runtime (apenas sess&atilde;o): default <strong>UART</strong> (Serial2 GPIO16/17 via FTDI/CH340 3.3V) &mdash; a porta USB nativa fica livre para Serial Monitor; altern&acirc;ncia para <strong>USB Host OTG</strong> (GPIO19/20, CH340/CP2102 do GRBL controller) no seletor da p&aacute;gina GRBL. O host USB corre sempre; a escolha n&atilde;o persiste (volta a UART no reboot).</p>
+            <table><thead><tr><th>GPIO</th><th>Function</th><th>Notes</th></tr></thead><tbody>
+                <tr><td class="gpio">16/17</td><td>GRBL UART TX/RX (default)</td><td>FT232RL ou CH340G (3.3V!) ligado ao GRBL controller</td></tr>
+                <tr><td class="gpio">19/20</td><td>USB D-/D+ (OTG)</td><td>Adaptador OTG &rarr; CH340/CP2102 do GRBL controller (ap&oacute;s seletor OTG)</td></tr>
+                <tr><td class="gpio">39/38/40</td><td>SDMMC CLK/CMD/D0</td><td>microSD para GCode files</td></tr>
+            </tbody></table>
+            <div class="warn">&#9888; GPIO16/17: S&atilde;o pinos da OPI PSRAM no N16R8 — funcionam para UART GRBL na pr&aacute;tica, mas N&Atilde;O ligar MAX3232 (glitch de &plusmn;12V no boot).</div>
+            <div class="info">Com transporte OTG, a porta USB nativa fica ocupada pelo USB Host; debug via UART0 (GPIO43/44) com adaptador USB-UART. packs/pack_s3_cnc_usb.h</div>
+        </div>
+
+        <h2>Quick wiring reference &mdash; N16R8</h2>
+          <pre class="diagram">RS232 option A &mdash; MAX3232 (original):
+      GPIO17 (TX) -&gt; T1IN    GPIO16 (RX) &lt;- R1OUT
+
+RS232 option B &mdash; SZFYD module (RAMBOX/DTR-dependent):
+      GPIO17 (TX) -&gt; TxIN    GPIO16 (RX) &lt;- RxOUT    GPIO18 (RTS) -&gt; RTS TTL
+      DB9 jumper: pin7+pin6+pin1+pin8 &bull; Cable: straight 2-2, 3-3, 5-5
+
+Ethernet W5500 (FSPI):
+  MOSI=GPIO11  MISO=GPIO13  SCLK=GPIO12  CS=GPIO14  RST=GPIO4  INT=GPIO25
+
+UDA1334A DAC (I2S) default: BCLK=GPIO26  WSEL=GPIO25  DIN=GPIO27  (PACK_RADIO: BCLK=41 WSEL=42 DIN=19 MUTE=1)
+
+OLED SSD1306 (Wire):
+  SDA=GPIO21  SCL=GPIO48  VCC=3V3
+
+microSD (SDMMC 1-bit):
+  CLK=GPIO39  CMD=GPIO38  D0=GPIO40
+
+AHT20/BMP280 + INA226 (Wire1, safe to combine):
+  SDA=GPIO8  SCL=GPIO9  VCC=3V3
+  AHT20=0x38  BMP280=0x76  INA226=0x40
+
+MQ-135 / HX711 / Sound / MAX31865 CS (pick ONE on GPIO5):
+  GPIO5 -> AOUT (MQ135) or DOUT (HX711) or OUT (Sound) or CS (MAX31865)
+
+MAX31865 VSPI (override MISO and CS from defaults!):
+  MOSI=GPIO23  MISO=??(override GPIO19!)  SCLK=GPIO18  CS=??(override GPIO5!)</pre>
+    </div>
+
+
+    <!-- ================================================================ TAB 2 WAVESHARE -->
+    <div id="tab-ws8di8do" class="tab-content">
+        <h2>Waveshare ESP32-S3-POE-ETH-8DI-8DO &mdash; Build configuration</h2>
+        <p>Activated by <code>TARGET_BOARD_8DI8DO_POE=1</code> in user_config.h. All GPIO overrides come from <code>board_pins.h</code>.</p>
+        <div class="note"><strong>Required build option:</strong> <code>CDC_ON_BOOT=1</code> (Arduino IDE: Tools &rarr; USB CDC On Boot &rarr; Enabled). Without it, Serial output is silently discarded and GPIO43/44 cannot be used for RS232.</div>
+        <table>
+            <thead><tr><th>Feature flag</th><th>Value (board defaults)</th><th>Notes</th></tr></thead>
+            <tbody>
+                <tr><td>ENABLE_ETHERNET</td><td><span class="badge badge-ok">1 ON</span></td><td>W5500 MOSI=GPIO13 MISO=GPIO14 SCLK=GPIO15 CS=GPIO16 RST=GPIO39 INT=GPIO12</td></tr>
+                <tr><td>ENABLE_RS232</td><td><span class="badge badge-ok">1 ON</span></td><td>UART2 &mdash; TX=GPIO43 / RX=GPIO44 (expansion header TXD/RXD). Requires CDC_ON_BOOT=1.</td></tr>
+                <tr><td>ENABLE_MODBUS / _RTU / _TCP</td><td><span class="badge badge-ok">1 ON</span></td><td>RTU: UART1 RS485 TX=GPIO17 / RX=GPIO18 &mdash; no SD conflict on this board.</td></tr>
+                <tr><td>ENABLE_LCD_SCREEN</td><td><span class="badge badge-ok">1 ON</span></td><td>External OLED on I2C header &mdash; SDA=GPIO42 / SCL=GPIO41</td></tr>
+                <tr><td>ENABLE_PROXIMITY</td><td><span class="badge badge-ok">1 ON</span></td><td>8 DI channels GPIO4&ndash;11 (optocoupler isolated)</td></tr>
+                <tr><td>ENABLE_SDCARD</td><td><span class="badge badge-ok">1 ON</span></td><td>SDMMC 1-bit &mdash; CLK=GPIO48 CMD=GPIO47 D0=GPIO45 &mdash; no Modbus conflict</td></tr>
+                <tr><td>ENABLE_CAN</td><td><span class="badge badge-ok">1 ON</span></td><td>TWAI &mdash; TX=GPIO1 / RX=GPIO3 (fixed in board_pins.h)</td></tr>
+                <tr><td>BOARD_HAS_TCA9554_DO</td><td><span class="badge badge-ok">1</span></td><td>I2C DO expander TCA9554 @ 0x20 controls DO1&ndash;DO8 relay outputs</td></tr>
+                <tr><td>BOARD_HAS_DS3231</td><td><span class="badge badge-ok">1</span></td><td>RTC DS3231 @ 0x68 on shared I2C bus (GPIO42/41)</td></tr>
+                <tr><td>ENABLE_AHT20_BMP280</td><td><span class="badge badge-off">0 OFF (opt)</span></td><td>I2C GPIO42/41 (shared bus) &mdash; safe to enable; no address conflicts</td></tr>
+                <tr><td>ENABLE_MQ135</td><td><span class="badge badge-off">0 OFF (opt)</span></td><td>ADC GPIO2 &mdash; mutually exclusive with ENABLE_SOUND_SENSOR</td></tr>
+                <tr><td>ENABLE_HX711</td><td><span class="badge badge-off">0 OFF (opt)</span></td><td>DATA=GPIO19(USB D-) CLK=GPIO20(USB D+) &mdash; mutually exclusive with MAX31865; disables USB</td></tr>
+                <tr><td>ENABLE_INA226</td><td><span class="badge badge-off">0 OFF (opt)</span></td><td>I2C 0x40 on GPIO42/41 (shared bus) &mdash; coexists with TCA9554/DS3231/OLED/AHT20</td></tr>
+                <tr><td>ENABLE_SOUND_SENSOR</td><td><span class="badge badge-off">0 OFF (opt)</span></td><td>ADC GPIO2 &mdash; mutually exclusive with ENABLE_MQ135</td></tr>
+                <tr><td>ENABLE_MAX31865</td><td><span class="badge badge-off">0 OFF (opt)</span></td><td>SPI CS=GPIO20(USB D+) MOSI/MISO/CLK shared with W5500 &mdash; mutually exclusive with HX711</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Complete GPIO table &mdash; Waveshare 8DI8DO POE</h2>
+        <table>
+            <thead><tr><th>GPIO</th><th>Board label</th><th>Function</th><th>Module</th><th>Status</th><th>Notes</th></tr></thead>
+            <tbody>
+                <tr><td class="gpio">1</td><td>ADC IO1</td><td>CAN TX</td><td>CAN_TX_PIN</td><td><span class="badge badge-ok">OK</span></td><td>TWAI TX. ADC1_CH0 usable when CAN disabled.</td></tr>
+                <tr><td class="gpio">2</td><td>ADC IO2</td><td>MQ135 AOUT / Sound ADC</td><td>SENSOR_MQ135_PIN / SENSOR_SOUND_PIN</td><td><span class="badge badge-warn">EXCLUSIVE</span></td><td>Enable MQ135 or Sound &mdash; not both. Use voltage divider if MQ135 at 5V.</td></tr>
+                <tr><td class="gpio">3</td><td>ADC IO3</td><td>CAN RX</td><td>CAN_RX_PIN</td><td><span class="badge badge-ok">OK</span></td><td>TWAI RX. ADC1_CH2 usable when CAN disabled.</td></tr>
+                <tr><td class="gpio">4</td><td>DIN IN1</td><td>Proximity CH0</td><td>PROXIMITY_GPIO_CH0</td><td><span class="badge badge-ok">OK</span></td><td>Optocoupler DI, 5&ndash;24V DC.</td></tr>
+                <tr><td class="gpio">5</td><td>DIN IN2</td><td>Proximity CH1</td><td>PROXIMITY_GPIO_CH1</td><td><span class="badge badge-ok">OK</span></td><td>Optocoupler DI.</td></tr>
+                <tr><td class="gpio">6</td><td>DIN IN3</td><td>Proximity CH2</td><td>PROXIMITY_GPIO_CH2</td><td><span class="badge badge-ok">OK</span></td><td>Optocoupler DI.</td></tr>
+                <tr><td class="gpio">7</td><td>DIN IN4</td><td>Proximity CH3</td><td>PROXIMITY_GPIO_CH3</td><td><span class="badge badge-ok">OK</span></td><td>Optocoupler DI.</td></tr>
+                <tr><td class="gpio">8</td><td>DIN IN5</td><td>Proximity CH4</td><td>PROXIMITY_GPIO_CH4</td><td><span class="badge badge-ok">OK</span></td><td>Optocoupler DI.</td></tr>
+                <tr><td class="gpio">9</td><td>DIN IN6</td><td>Proximity CH5</td><td>PROXIMITY_GPIO_CH5</td><td><span class="badge badge-ok">OK</span></td><td>Optocoupler DI.</td></tr>
+                <tr><td class="gpio">10</td><td>DIN IN7</td><td>Proximity CH6</td><td>PROXIMITY_GPIO_CH6</td><td><span class="badge badge-ok">OK</span></td><td>Optocoupler DI.</td></tr>
+                <tr><td class="gpio">11</td><td>DIN IN8</td><td>Proximity CH7</td><td>PROXIMITY_GPIO_CH7</td><td><span class="badge badge-ok">OK</span></td><td>Optocoupler DI.</td></tr>
+                <tr><td class="gpio">12</td><td>Net_INTn</td><td>W5500 INT</td><td>ETH_INT_PIN</td><td><span class="badge badge-ok">OK</span></td><td>Ethernet interrupt.</td></tr>
+                <tr><td class="gpio">13</td><td>Net_MOSI</td><td>W5500 MOSI / MAX31865 MOSI</td><td>ETH_SPI_MOSI_PIN / SENSOR_MAX31865_MOSI_PIN</td><td><span class="badge badge-ok">OK</span></td><td>Shared SPI. MAX31865 coexists via separate CS.</td></tr>
+                <tr><td class="gpio">14</td><td>Net_MISO</td><td>W5500 MISO / MAX31865 MISO</td><td>ETH_SPI_MISO_PIN / SENSOR_MAX31865_MISO_PIN</td><td><span class="badge badge-ok">OK</span></td><td>Shared SPI. CS-controlled arbitration.</td></tr>
+                <tr><td class="gpio">15</td><td>Net_SCLK</td><td>W5500 SCLK / MAX31865 CLK</td><td>ETH_SPI_SCLK_PIN / SENSOR_MAX31865_CLK_PIN</td><td><span class="badge badge-ok">OK</span></td><td>Shared SPI clock.</td></tr>
+                <tr><td class="gpio">16</td><td>Net_SCSn</td><td>W5500 CS</td><td>ETH_CS_PIN</td><td><span class="badge badge-ok">OK</span></td><td>Dedicated W5500 CS.</td></tr>
+                <tr><td class="gpio">17</td><td>RS485 TXD</td><td>Modbus RTU TX</td><td>GPIO_MB_TX</td><td><span class="badge badge-ok">OK</span></td><td>UART1. Dedicated RS485 pin &mdash; no SD conflict.</td></tr>
+                <tr><td class="gpio">18</td><td>RS485 RXD</td><td>Modbus RTU RX</td><td>GPIO_MB_RX</td><td><span class="badge badge-ok">OK</span></td><td>UART1. RS485.</td></tr>
+                <tr><td class="gpio">19</td><td>USB D-</td><td>Native USB D- / HX711 DOUT</td><td>SENSOR_HX711_DATA_PIN</td><td><span class="badge badge-warn">DUAL-USE</span></td><td>HX711 uses GPIO19 when ENABLE_HX711=1. Enabling HX711 disables native USB CDC.</td></tr>
+                <tr><td class="gpio">20</td><td>USB D+</td><td>Native USB D+ / HX711 CLK / MAX31865 CS</td><td>SENSOR_HX711_CLK_PIN / SENSOR_MAX31865_CS_PIN</td><td><span class="badge badge-warn">DUAL-USE</span></td><td>HX711 and MAX31865 are mutually exclusive (share GPIO20). Either disables native USB.</td></tr>
+                <tr><td class="gpio">21</td><td>SD_DAT3</td><td>SD card DAT3 high</td><td>SDCARD_DAT3_HIGHPIN</td><td><span class="badge badge-ok">OK</span></td><td>Must be driven HIGH before SDMMC init (SD vs SPI mode selection).</td></tr>
+                <tr><td class="gpio">33&ndash;37</td><td>&mdash;</td><td>Internal Flash/PSRAM</td><td>&mdash;</td><td><span class="badge badge-err">RESERVED</span></td><td>Do not use externally.</td></tr>
+                <tr><td class="gpio">39</td><td>Net_RSTn</td><td>W5500 RST</td><td>ETH_RST_PIN</td><td><span class="badge badge-ok">OK</span></td><td>Ethernet reset.</td></tr>
+                <tr><td class="gpio">41</td><td>EXIO_SCL / RTC_SCL</td><td>I2C SCL (shared bus)</td><td>LCD_SCL / SENSOR_I2C0_SCL</td><td><span class="badge badge-ok">OK</span></td><td>Bus: TCA9554(0x20) + DS3231(0x68) + OLED(0x3C) + INA226(0x40) + AHT20(0x38). All safe.</td></tr>
+                <tr><td class="gpio">42</td><td>EXIO_SDA / RTC_SDA</td><td>I2C SDA (shared bus)</td><td>LCD_SDA / SENSOR_I2C0_SDA</td><td><span class="badge badge-ok">OK</span></td><td>All I2C addresses distinct. No conflicts.</td></tr>
+                <tr><td class="gpio">43</td><td>TXD header</td><td>RS232 TX (UART2)</td><td>RS232_DEFAULT_TX_PIN</td><td><span class="badge badge-ok">OK</span></td><td>Screw terminal. To MAX3232 T1IN. Requires CDC_ON_BOOT=1.</td></tr>
+                <tr><td class="gpio">44</td><td>RXD header</td><td>RS232 RX (UART2)</td><td>RS232_DEFAULT_RX_PIN</td><td><span class="badge badge-ok">OK</span></td><td>Screw terminal. From MAX3232 R1OUT. Requires CDC_ON_BOOT=1.</td></tr>
+                <tr><td class="gpio">45</td><td>SD_MISO / D0</td><td>SD card D0 (SDMMC)</td><td>SDCARD_D0_PIN</td><td><span class="badge badge-ok">OK</span></td><td>SDMMC 1-bit. Dedicated pin.</td></tr>
+                <tr><td class="gpio">46</td><td>Buzzer</td><td>Onboard active buzzer</td><td>BUZZER_PIN</td><td><span class="badge badge-ok">OK</span></td><td>Strapping pin &mdash; safe as output after boot.</td></tr>
+                <tr><td class="gpio">47</td><td>SD_MOSI / CMD</td><td>SD card CMD (SDMMC)</td><td>SDCARD_CMD_PIN</td><td><span class="badge badge-ok">OK</span></td><td>SDMMC 1-bit.</td></tr>
+                <tr><td class="gpio">48</td><td>SD_SCLK / CLK</td><td>SD card CLK (SDMMC)</td><td>SDCARD_CLK_PIN</td><td><span class="badge badge-ok">OK</span></td><td>SDMMC 1-bit.</td></tr>
+                <tr><td>&mdash;</td><td>DO1&ndash;DO8</td><td>Relay outputs</td><td>TCA9554 @ 0x20 (I2C)</td><td><span class="badge badge-ok">OK</span></td><td>NOT direct GPIO. Controlled via I2C write. Rated 250V AC / 30V DC 10A.</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Shared I2C bus devices &mdash; Waveshare 8DI8DO POE (GPIO42/41)</h2>
+        <table>
+            <thead><tr><th>Device</th><th>I2C Address</th><th>Active by default</th><th>Notes</th></tr></thead>
+            <tbody>
+                <tr><td>TCA9554 DO expander</td><td class="gpio">0x20</td><td><span class="badge badge-ok">YES</span></td><td>Controls DO1&ndash;DO8 relay outputs</td></tr>
+                <tr><td>DS3231 RTC</td><td class="gpio">0x68</td><td><span class="badge badge-ok">YES</span></td><td>Onboard RTC with battery backup</td></tr>
+                <tr><td>OLED SSD1306</td><td class="gpio">0x3C</td><td><span class="badge badge-info">External (opt)</span></td><td>Connect to I2C header SDA/SCL</td></tr>
+                <tr><td>INA226</td><td class="gpio">0x40&ndash;0x4F</td><td><span class="badge badge-off">ENABLE_INA226</span></td><td>Safe to add. No address conflict.</td></tr>
+                <tr><td>AHT20</td><td class="gpio">0x38</td><td><span class="badge badge-off">ENABLE_AHT20_BMP280</span></td><td>Safe to add.</td></tr>
+                <tr><td>BMP280</td><td class="gpio">0x76 / 0x77</td><td><span class="badge badge-off">ENABLE_AHT20_BMP280</span></td><td>Set SDO pin to select address.</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Subsystem wiring &mdash; Waveshare 8DI8DO POE</h2>
+
+        <h3>RS232 &mdash; UART2, option A: MAX3232 (CDC_ON_BOOT=1 required)</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>TX</td><td class="gpio">43</td><td>RS232_DEFAULT_TX_PIN. Screw terminal TXD &rarr; module T1IN.</td></tr>
+            <tr><td>RX</td><td class="gpio">44</td><td>RS232_DEFAULT_RX_PIN. Screw terminal RXD &larr; module R1OUT.</td></tr>
+        </tbody></table>
+        <div class="note">Generates &plusmn;5.5 V RS232. Older equipment (e.g. RAMBOX) may not respond without DSR asserted.</div>
+
+        <h3>RS232 &mdash; UART2, option B: SZFYD module with RTS (RAMBOX / DTR-dependent devices)</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>TX</td><td class="gpio">43</td><td>RS232_DEFAULT_TX_PIN &rarr; module TxIN.</td></tr>
+            <tr><td>RX</td><td class="gpio">44</td><td>RS232_DEFAULT_RX_PIN &larr; module RxOUT.</td></tr>
+            <tr><td>RTS</td><td class="gpio">1 &#9888;</td><td>UNIKON_RTS_PIN &rarr; module RTS TTL. GPIO17/18 are Modbus &mdash; use GPIO1 (free when ENABLE_CAN=0) or any unused GPIO. Define <code>UNIKON_RTS_PIN 1</code> in user_config.h.</td></tr>
+            <tr><td>VCC</td><td>&mdash;</td><td>3.3 V</td></tr>
+        </tbody></table>
+        <div class="note">
+            <strong>DB9 connector &mdash; jumper together:</strong> pin 7 (RTS) + pin 6 (DSR) + pin 1 (DCD) + pin 8 (CTS).<br>
+            <strong>Cable to RAMBOX: straight</strong> &mdash; pin 2&rarr;2, pin 3&rarr;3, pin 5&rarr;5.<br>
+            Chosen GPIO driven HIGH by <code>unikonBegin()</code> &rarr; module RTS &rarr; DB9 pin 7 &rarr; RS232 negative &rarr; RAMBOX sees DSR+DCD+CTS asserted.
+        </div>
+
+        <h3>Modbus RTU RS485 &mdash; UART1 (dedicated, no SD conflict)</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>A+ (TX)</td><td class="gpio">17</td><td>GPIO_MB_TX. Use auto-direction RS485 module (dePin=-1).</td></tr>
+            <tr><td>B- (RX)</td><td class="gpio">18</td><td>GPIO_MB_RX.</td></tr>
+        </tbody></table>
+
+        <h3>INA226 Power Monitor &mdash; I2C (shared bus) &mdash; optional</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>SDA</td><td class="gpio">42</td><td>Shared bus with TCA9554/DS3231/OLED/AHT20. Addr 0x40 &mdash; no conflict.</td></tr>
+            <tr><td>SCL</td><td class="gpio">41</td><td>4.7k pull-up usually present.</td></tr>
+            <tr><td>Shunt</td><td>&mdash;</td><td>Between V+ bus and IN+. Typical 0.1&#937; 1W.</td></tr>
+        </tbody></table>
+        <div class="info">Enable: <code>#define ENABLE_INA226 1</code>. I2C bus already has pull-ups from TCA9554/DS3231 circuit.</div>
+
+        <h3>HX711 Load Cell &mdash; optional (uses USB pins)</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>DOUT (DATA)</td><td class="gpio">19 &#9888;</td><td>USB D-. Native USB CDC unavailable when HX711 active. Use RS232 header for debug.</td></tr>
+            <tr><td>PD_SCK (CLK)</td><td class="gpio">20 &#9888;</td><td>USB D+. Mutually exclusive with MAX31865 CS (same GPIO).</td></tr>
+        </tbody></table>
+        <div class="danger">Enabling HX711 on Waveshare disables native USB CDC. Debug via RS232 header (GPIO43/44) + USB-UART adapter. HX711 and MAX31865 cannot be enabled simultaneously (both need GPIO20).</div>
+
+        <h3>MAX31865 RTD Sensor &mdash; SPI (shared W5500 bus) &mdash; optional</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>MOSI (SDI)</td><td class="gpio">13</td><td>Shared with W5500 MOSI. Safe &mdash; separate CS controls access.</td></tr>
+            <tr><td>MISO (SDO)</td><td class="gpio">14</td><td>Shared with W5500 MISO.</td></tr>
+            <tr><td>SCLK</td><td class="gpio">15</td><td>Shared with W5500 SCLK.</td></tr>
+            <tr><td>CS</td><td class="gpio">20 &#9888;</td><td>USB D+. Mutually exclusive with HX711. Native USB disabled.</td></tr>
+        </tbody></table>
+        <div class="danger">MAX31865 and HX711 cannot both be enabled (share GPIO20). Either disables native USB CDC. Enable: <code>#define ENABLE_MAX31865 1</code>.</div>
+
+        <h2>Conflict summary &mdash; Waveshare 8DI8DO POE</h2>
+        <table>
+            <thead><tr><th>GPIO</th><th>Conflicting uses</th><th>Severity</th><th>Resolution</th></tr></thead>
+            <tbody>
+                <tr><td class="gpio">2</td><td>MQ135 AOUT &harr; Sound ADC</td><td><span class="badge badge-warn">EXCLUSIVE</span></td><td>Enable ENABLE_MQ135 or ENABLE_SOUND_SENSOR, not both.</td></tr>
+                <tr><td class="gpio">19</td><td>USB D- &harr; HX711 DATA</td><td><span class="badge badge-warn">DESIGN</span></td><td>Known trade-off. HX711=1 disables USB. Use RS232 header for debug.</td></tr>
+                <tr><td class="gpio">20</td><td>USB D+ &harr; HX711 CLK &harr; MAX31865 CS</td><td><span class="badge badge-err">HIGH</span></td><td>Enable HX711 or MAX31865, never both. Both disable USB.</td></tr>
+                <tr><td class="gpio">13/14/15</td><td>W5500 SPI &harr; MAX31865 SPI</td><td><span class="badge badge-ok">LOW</span></td><td>Shared bus with separate CS. Both coexist at runtime.</td></tr>
+                <tr><td class="gpio">41/42</td><td>TCA9554 / DS3231 / OLED / INA226 / AHT20 / BMP280</td><td><span class="badge badge-ok">NONE</span></td><td>All I2C addresses distinct. All can be enabled simultaneously.</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Quick wiring reference &mdash; Waveshare 8DI8DO POE</h2>
+        <pre class="diagram">RS232 option A &mdash; MAX3232 (CDC_ON_BOOT=1 required):
+  GPIO43 (TX) -&gt; TXD screw -&gt; T1IN    GPIO44 (RX) &lt;- RXD screw &lt;- R1OUT
+
+RS232 option B &mdash; SZFYD module (RAMBOX/DTR-dependent):
+  GPIO43 (TX) -&gt; TxIN    GPIO44 (RX) &lt;- RxOUT    GPIOx (RTS) -&gt; RTS TTL
+  GPIO17/18 = Modbus &mdash; use GPIO1 (ENABLE_CAN=0) or any free GPIO for RTS
+  DB9 jumper: pin7+pin6+pin1+pin8 &bull; Cable: straight 2-2, 3-3, 5-5
+
+Ethernet W5500 (onboard SPI):
+  MOSI=GPIO13  MISO=GPIO14  SCLK=GPIO15  CS=GPIO16  RST=GPIO39  INT=GPIO12
+
+Modbus RTU RS485 (UART1, auto-direction, no SD conflict):
+  A+=GPIO17    B-=GPIO18
+
+SD card (SDMMC 1-bit, onboard TF slot):
+  CLK=GPIO48  CMD=GPIO47  D0=GPIO45  DAT3-HIGH=GPIO21
+
+I2C shared bus (header SDA/SCL):
+  SDA=GPIO42  SCL=GPIO41
+  TCA9554(0x20) + DS3231(0x68) + OLED(0x3C) + INA226(0x40) + AHT20(0x38)
+
+DI inputs (optocoupler, 5-24V DC):
+  DI1=GPIO4  DI2=GPIO5  DI3=GPIO6  DI4=GPIO7
+  DI5=GPIO8  DI6=GPIO9  DI7=GPIO10 DI8=GPIO11
+
+DO outputs -> TCA9554 I2C @ 0x20 (NOT direct GPIO)
+
+CAN (TWAI, SN65HVD230):
+  TX=GPIO1  RX=GPIO3  VCC=3V3
+
+MQ-135 OR Sound (mutually exclusive, ADC GPIO2):
+  MQ-135: AOUT=GPIO2 VCC=5V (use voltage divider!)
+  Sound:  OUT=GPIO2  VCC=3V3
+
+INA226 (add to shared I2C bus at GPIO42/41):
+  I2C addr=0x40  Shunt between V+ and IN+  VCC=3V3
+
+HX711 OR MAX31865 (mutually exclusive, both need GPIO20, both disable USB):
+  HX711:    DOUT=GPIO19  PD_SCK=GPIO20
+  MAX31865: MOSI=GPIO13  MISO=GPIO14  SCLK=GPIO15  CS=GPIO20</pre>
+
+        <h2>Board comparison &mdash; N16R8 vs Waveshare 8DI8DO POE</h2>
+        <table>
+            <thead><tr><th>Function</th><th>Define</th><th>N16R8</th><th>Waveshare</th></tr></thead>
+            <tbody>
+                <tr><td>W5500 MOSI</td><td>ETH_SPI_MOSI_PIN</td><td class="gpio">11</td><td class="gpio">13</td></tr>
+                <tr><td>W5500 MISO</td><td>ETH_SPI_MISO_PIN</td><td class="gpio">13</td><td class="gpio">14</td></tr>
+                <tr><td>W5500 SCLK</td><td>ETH_SPI_SCLK_PIN</td><td class="gpio">12</td><td class="gpio">15</td></tr>
+                <tr><td>W5500 CS</td><td>ETH_CS_PIN</td><td class="gpio">14</td><td class="gpio">16</td></tr>
+                <tr><td>W5500 RST</td><td>ETH_RST_PIN</td><td class="gpio">4</td><td class="gpio">39</td></tr>
+                <tr><td>W5500 INT</td><td>ETH_INT_PIN</td><td class="gpio">25</td><td class="gpio">12</td></tr>
+                <tr><td>Modbus RTU TX</td><td>GPIO_MB_TX</td><td class="gpio">40 (SD conflict)</td><td class="gpio">17 (dedicated)</td></tr>
+                <tr><td>Modbus RTU RX</td><td>GPIO_MB_RX</td><td class="gpio">41</td><td class="gpio">18</td></tr>
+                <tr><td>I2C SDA (primary)</td><td>LCD_SDA</td><td class="gpio">21 (Wire0)</td><td class="gpio">42</td></tr>
+                <tr><td>I2C SCL (primary)</td><td>LCD_SCL</td><td class="gpio">48 (Wire0)</td><td class="gpio">41</td></tr>
+                <tr><td>I2C SDA (sensors)</td><td>SENSOR_I2C0_SDA</td><td class="gpio">8 (Wire1)</td><td class="gpio">42 (shared bus)</td></tr>
+                <tr><td>I2C SCL (sensors)</td><td>SENSOR_I2C0_SCL</td><td class="gpio">9 (Wire1)</td><td class="gpio">41 (shared bus)</td></tr>
+                <tr><td>RS232 TX</td><td>RS232_DEFAULT_TX_PIN</td><td class="gpio">16</td><td class="gpio">43</td></tr>
+                <tr><td>RS232 RX</td><td>RS232_DEFAULT_RX_PIN</td><td class="gpio">17</td><td class="gpio">44</td></tr>
+                <tr><td>SD CLK</td><td>SDCARD_CLK_PIN</td><td class="gpio">39</td><td class="gpio">48</td></tr>
+                <tr><td>SD CMD</td><td>SDCARD_CMD_PIN</td><td class="gpio">38</td><td class="gpio">47</td></tr>
+                <tr><td>SD D0</td><td>SDCARD_D0_PIN</td><td class="gpio">40 (Modbus conflict)</td><td class="gpio">45</td></tr>
+                <tr><td>CAN TX</td><td>CAN_TX_PIN</td><td class="gpio">20 (USB D+, override!)</td><td class="gpio">1</td></tr>
+                <tr><td>CAN RX</td><td>CAN_RX_PIN</td><td class="gpio">19 (USB D-, override!)</td><td class="gpio">3</td></tr>
+                <tr><td>MQ135 / Sound ADC</td><td>SENSOR_MQ135_PIN</td><td class="gpio">5 (def)</td><td class="gpio">2</td></tr>
+                <tr><td>AHT20/BMP280 SDA</td><td>SENSOR_I2C0_SDA</td><td class="gpio">8 (Wire1)</td><td class="gpio">42 (shared I2C)</td></tr>
+                <tr><td>HX711 DATA</td><td>SENSOR_HX711_DATA_PIN</td><td class="gpio">5 (def)</td><td class="gpio">19 (USB D-)</td></tr>
+                <tr><td>HX711 CLK</td><td>SENSOR_HX711_CLK_PIN</td><td class="gpio">4 (def)</td><td class="gpio">20 (USB D+)</td></tr>
+                <tr><td>INA226 SDA/SCL</td><td>SENSOR_I2C0_SDA/SCL</td><td class="gpio">8/9 (Wire1)</td><td class="gpio">42/41 (shared I2C)</td></tr>
+                <tr><td>Sound ADC</td><td>SENSOR_SOUND_PIN</td><td class="gpio">5 (def)</td><td class="gpio">2</td></tr>
+                <tr><td>MAX31865 CS</td><td>SENSOR_MAX31865_CS_PIN</td><td class="gpio">5 (override!)</td><td class="gpio">20 (USB D+)</td></tr>
+                <tr><td>MAX31865 MOSI</td><td>SENSOR_MAX31865_MOSI_PIN</td><td class="gpio">23</td><td class="gpio">13 (W5500 bus)</td></tr>
+                <tr><td>MAX31865 MISO</td><td>SENSOR_MAX31865_MISO_PIN</td><td class="gpio">19 (USB D-, override!)</td><td class="gpio">14 (W5500 bus)</td></tr>
+                <tr><td>MAX31865 CLK</td><td>SENSOR_MAX31865_CLK_PIN</td><td class="gpio">18</td><td class="gpio">15 (W5500 bus)</td></tr>
+                <tr><td>Buzzer</td><td>BUZZER_PIN</td><td>&mdash; (none)</td><td class="gpio">46</td></tr>
+                <tr><td>DI inputs (8)</td><td>PROXIMITY_GPIO_CH0&ndash;7</td><td>&mdash; (configurable)</td><td class="gpio">4&ndash;11 (fixed)</td></tr>
+                <tr><td>DO outputs (8)</td><td>TCA9554 @ 0x20</td><td>&mdash; (none)</td><td>Via I2C expander</td></tr>
+            </tbody>
+        </table>
+        <div class="info">Other boards (S3_TOUCH7 7" RGB, P4 Module DEV-KIT, S3-CAM): pins summarized in <code>chatgpt/src/board_pins.h</code> and <code>docs/</code>. This HTML focuses on N16R8 devkit and Waveshare 8DI8DO POE; other targets reuse the same feature-flag/conflict rules.</div>
+    </div>
+
+    <!-- ================================================================ TAB 3 SNIFFER -->
+    <div id="tab-sniffer" class="tab-content">
+        <h2>Serial Sniffer &mdash; Passive dual-channel RS232 monitor</h2>
+        <p>The sniffer listens passively to two RS232 lines simultaneously <strong>without interrupting the communication</strong>. Useful to monitor traffic between a PC and a serial device (printer, PLC, legacy equipment) without altering the original circuit.</p>
+        <p>Enable with <code>#define ENABLE_SNIFFER 1</code> in <code>user_config.h</code>. When active, <code>ENABLE_RS232</code> and <code>ENABLE_DB25</code> are automatically forced to 0 (UART pin conflict).</p>
+
+        <div class="danger">
+            <strong>Exclusive mode:</strong> the sniffer occupies UART1 and UART2. It cannot coexist with RS232, DB25/Arduino Bridge, or Modbus RTU in the same build. Plan feature flags before flashing.
+        </div>
+
+        <div class="danger">
+            <strong>Banned GPIO ranges on ESP32-S3 N16R8 (OPI PSRAM / OPI Flash):</strong><br>
+            &bull; <strong>GPIO16&ndash;17</strong>: OPI PSRAM interface &mdash; driven by the bootloader at power-on. Connecting a MAX3232 R1OUT here injects a brief &minus;12&thinsp;V glitch onto the RS232 bus at every boot, breaking the monitored communication.<br>
+            &bull; <strong>GPIO33&ndash;37</strong>: OPI PSRAM data bus &mdash; continuously driven by the PSRAM controller. The UART hardware cannot use these pins; no data is ever received on them.<br>
+            &bull; <strong>GPIO26&ndash;32</strong>: OPI Flash bus &mdash; same reason.<br>
+            &bull; <strong>GPIO19&ndash;20</strong>: USB D+/D&minus;.<br>
+            &bull; <strong>GPIO43&ndash;44</strong>: UART0 Serial debug.<br>
+            Use <strong>GPIO4</strong> and <strong>GPIO5</strong> for the sniffer (confirmed safe on N16R8 devkit).
+        </div>
+
+        <h2>How it works</h2>
+        <p>Two independent UART receivers run in <strong>RX-only mode</strong> (TX pin = &minus;1). Each UART reads bytes from a MAX3232 transceiver wired to one direction of the RS232 bus:</p>
+        <ul>
+            <li><strong>Channel 1 (S1)</strong> &mdash; monitors the <em>PC&rarr;Device</em> direction (DB9 pin 3 = PC TXD).</li>
+            <li><strong>Channel 2 (S2)</strong> &mdash; monitors the <em>Device&rarr;PC</em> direction (DB9 pin 2 = Device TXD).</li>
+        </ul>
+        <p>Bytes accumulate in PSRAM buffers (128 KB each). When a CR or LF terminator is detected, the completed line is injected into the firmware&rsquo;s global message pipeline prefixed with <code>[S1]</code> or <code>[S2]</code>, and is visible in the Serial monitor, Telnet console, and the <code>/api/monitor</code> web endpoint.</p>
+
+        <div class="info">
+            <strong>RX-only wiring rule:</strong> connect only the <strong>R1OUT</strong> (TTL header pin labelled <code>RXD</code>) of each MAX3232 to the ESP32 GPIO. Never connect RS232 bus lines (&pm;12&thinsp;V) directly to the ESP32 &mdash; the pin would be damaged instantly.
+        </div>
+
+        <h2>DB9 connector &mdash; pin numbering</h2>
+        <p>Standard DB9 / DE-9 connector viewed from the <strong>front</strong> (the face that plugs in / inserts). Pins marked with <strong>&#9733;</strong> are used by the sniffer.</p>
+        <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;margin:16px 0">
+            <div style="flex:1;min-width:260px">
+                <p style="text-align:center;margin:0 0 6px;font-weight:700;color:#1e66c7">MACHO (plug) &mdash; vista de frente<br><small style="font-weight:400;color:#555">(pinos metálicos virados para si)</small></p>
+<pre class="diagram">      _______________________________
+     /                               \
+    /  (1)   ★(2)  ★(3)  (4)   ★(5)  \
+   |                                   |
+    \       (6)   (7)   (8)   (9)    /
+     \_______________________________/
+
+  ★ = usado pelo sniffer
+
+  (1) DCD  Data Carrier Detect
+  (2) RXD  Receive Data       ► S2 via MAX3232 → GPIO5
+  (3) TXD  Transmit Data      ► S1 via MAX3232 → GPIO4
+  (4) DTR  Data Terminal Ready
+  (5) GND  Signal Ground      ► GND comum
+  (6) DSR  Data Set Ready
+  (7) RTS  Request To Send
+  (8) CTS  Clear To Send
+  (9) RI   Ring Indicator</pre>
+            </div>
+            <div style="flex:1;min-width:260px">
+                <p style="text-align:center;margin:0 0 6px;font-weight:700;color:#1e66c7">FÊMEA (socket) &mdash; vista de frente<br><small style="font-weight:400;color:#555">(furos virados para si, numeração espelhada)</small></p>
+<pre class="diagram">      _______________________________
+     /                               \
+    /  ★(5)  (4)   ★(3)  ★(2)  (1)   \
+   |                                   |
+    \       (9)   (8)   (7)   (6)    /
+     \_______________________________/
+
+  ★ = usado pelo sniffer
+
+  (1) DCD  Data Carrier Detect
+  (2) RXD  Receive Data       ► S2 via MAX3232 → GPIO5
+  (3) TXD  Transmit Data      ► S1 via MAX3232 → GPIO4
+  (4) DTR  Data Terminal Ready
+  (5) GND  Signal Ground      ► GND comum
+  (6) DSR  Data Set Ready
+  (7) RTS  Request To Send
+  (8) CTS  Clear To Send
+  (9) RI   Ring Indicator</pre>
+            </div>
+        </div>
+        <div class="note">
+            <strong>Nota de espelhamento:</strong> quando uma ficha macho e uma fêmea se encaixam, o pino 1 de cada lado fica alinhado com o pino 1 do lado oposto. A numeração da fêmea vista de frente aparece <em>espelhada</em> relativamente à do macho porque os dois conectores se &ldquo;olham&rdquo; um para o outro.
+        </div>
+
+        <h2>MAX3232 module female DB9 &mdash; critical wiring note</h2>
+        <p>Blue MAX3232 breakout modules with integrated female DB9 connectors are typically wired in <strong>DCE configuration</strong>:</p>
+        <table>
+            <thead><tr><th>Female DB9 pin</th><th>Internal connection (DCE)</th><th>Action</th></tr></thead>
+            <tbody>
+                <tr><td class="gpio">2</td><td>T1OUT &mdash; <strong>active RS232 output</strong></td><td style="color:#c0392b"><strong>Do NOT connect to bus.</strong> Driving T1OUT onto the RS232 line fights the real transmitter and breaks communication.</td></tr>
+                <tr><td class="gpio">3</td><td>R1IN &mdash; <strong>passive RS232 input</strong></td><td style="color:#27ae60"><strong>Connect bus signal here.</strong> This is the correct tap point for passive listening.</td></tr>
+                <tr><td class="gpio">5</td><td>GND</td><td>Connect to common GND.</td></tr>
+            </tbody>
+        </table>
+        <div class="danger">
+            <strong>Consequence of connecting to pin 2 (T1OUT):</strong> T1OUT generates &minus;12&thinsp;V (RS232 mark/idle) whenever T1IN is HIGH. This directly opposes the transmitter on the bus and causes complete communication failure &mdash; even though the ESP32 receives nothing it appears to corrupt the line. Always use <strong>pin 3 (R1IN)</strong> of the female connector.
+        </div>
+        <div class="note">
+            <strong>T1IN pin on the TTL header:</strong> may be left floating or tied to GND. It does not affect reception. Do <em>not</em> connect T1OUT (female pin 2) to the RS232 bus regardless of T1IN state.
+        </div>
+
+        <h2>Pin assignment</h2>
+        <table>
+            <thead><tr><th>Signal</th><th>GPIO (N16R8)</th><th>Define</th><th>UART</th><th>Notes</th></tr></thead>
+            <tbody>
+                <tr><td>Channel 1 RX (S1)</td><td class="gpio">4</td><td><code>SNIFFER1_RX_PIN</code></td><td>UART1 (Serial1)</td><td>PC&rarr;Device direction. Bus pin 3 &rarr; module female pin 3 (R1IN) &rarr; R1OUT &rarr; GPIO4.</td></tr>
+                <tr><td>Channel 2 RX (S2)</td><td class="gpio">5</td><td><code>SNIFFER2_RX_PIN</code></td><td>UART2 (Serial2)</td><td>Device&rarr;PC direction. Bus pin 2 &rarr; module female pin 3 (R1IN) &rarr; R1OUT &rarr; GPIO5.</td></tr>
+                <tr><td>GND (common)</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>Connect PC GND, device GND, MAX3232 GNDs, and ESP32 GND together. Required for correct RS232 signal reference.</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Default baudrate and framing</h3>
+        <table>
+            <thead><tr><th>Parameter</th><th>Default</th><th>Override define</th></tr></thead>
+            <tbody>
+                <tr><td>Baudrate</td><td>Inherited from RS232 config (page RS232)</td><td><code>SNIFFER_DEFAULT_BAUD</code> (fallback 19200)</td></tr>
+                <tr><td>Framing</td><td>Inherited from RS232 config (data bits, parity, stop)</td><td>Set on RS232 settings page</td></tr>
+            </tbody>
+        </table>
+        <div class="note">Both channels share the same baudrate and framing, inherited from the RS232 configuration page. Set the correct baud/parity/stop there before enabling the sniffer.</div>
+
+        <h2>Wiring diagram</h2>
+        <pre class="diagram">RS232 bus (PC &lt;---------&gt; Device)
+     DB9 pin 3 (PC TXD)     ─────────────────────────────────────┐
+     DB9 pin 2 (Device TXD) ──────────────────────────────────┐  │
+                                                               │  │
+     Tap wires go to female pin 3 (R1IN) of each module:      │  │
+                                                               │  │
+          MAX3232 #1 (Channel S1)        MAX3232 #2 (Channel S2)  │
+          ┌───────────────────┐          ┌───────────────────┐ │  │
+          │ female pin 3=R1IN ◄──────────┼───────────────────┼─┼──┘ (PC TXD)
+          │ female pin 2=T1OUT NOT USED  │ female pin 3=R1IN ◄─┘  (Device TXD)
+          │ female pin 2=T1OUT NOT USED  │
+          │ TTL RXD → GPIO4   │          │ TTL RXD → GPIO5   │
+          │ VCC = 3V3         │          │ VCC = 3V3         │
+          │ GND ──────────────┤          │ GND ──────────────┤
+          └───────────────────┘          └───────────────────┘
+                 │                                │
+                 └────── GND comum ───────────────┘
+                         (PC + Device + ESP32 GND)</pre>
+
+        <h2>Conflict table</h2>
+        <table>
+            <thead><tr><th>GPIO</th><th>Sniffer use</th><th>Conflicting feature</th><th>Resolution</th></tr></thead>
+            <tbody>
+                <tr><td class="gpio">4</td><td>S1 RX (UART1)</td><td>Free on N16R8 devkit</td><td>No conflict.</td></tr>
+                <tr><td class="gpio">5</td><td>S2 RX (UART2)</td><td>Free on N16R8 devkit</td><td>No conflict.</td></tr>
+                <tr><td class="gpio">16&ndash;17</td><td>&mdash;</td><td>OPI PSRAM interface &mdash; boot glitch on RS232 bus</td><td><strong>Never use for sniffer.</strong> Banned in <code>sniffer.h</code>.</td></tr>
+                <tr><td class="gpio">33&ndash;37</td><td>&mdash;</td><td>OPI PSRAM data bus &mdash; UART receives nothing</td><td><strong>Never use for sniffer.</strong> Banned in <code>sniffer.h</code>.</td></tr>
+                <tr><td class="gpio">40/41</td><td>UART1 (also S1 UART)</td><td>DB25 Arduino Bridge (GPIO40 TX / GPIO41 RX)</td><td>Auto-forced OFF. ENABLE_DB25=0 when SNIFFER=1.</td></tr>
+                <tr><td class="gpio">40/41</td><td>UART1</td><td>Modbus RTU TX=GPIO40 / RX=GPIO41</td><td>Compile error if ENABLE_MODBUS_RTU=1 and ENABLE_SNIFFER=1 both set manually.</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Feature flag summary</h2>
+        <table>
+            <thead><tr><th>Flag</th><th>Required value</th><th>Reason</th></tr></thead>
+            <tbody>
+                <tr><td><code>ENABLE_SNIFFER</code></td><td><span class="badge badge-ok">1</span></td><td>Activates dual-channel RX sniffer mode.</td></tr>
+                <tr><td><code>ENABLE_RS232</code></td><td><span class="badge badge-err">0</span></td><td>Auto-forced OFF &mdash; UART2 conflict.</td></tr>
+                <tr><td><code>ENABLE_DB25</code></td><td><span class="badge badge-err">0</span></td><td>Auto-forced OFF &mdash; UART1 conflict (GPIO40/41).</td></tr>
+                <tr><td><code>ENABLE_MODBUS_RTU</code></td><td><span class="badge badge-err">0</span></td><td>Manual guard &mdash; compile error if set to 1 alongside SNIFFER=1.</td></tr>
+            </tbody>
+        </table>
+
+        <div class="info">
+            All auto-disable rules are enforced in <code>user_config.h</code>. A <code>#error</code> is raised at compile time if Modbus RTU and Sniffer are both enabled simultaneously.<br><br>
+            <strong>Firmware note:</strong> <code>snifferBegin()</code> is called from a dedicated <code>#if ENABLE_RS232==0 &amp;&amp; ENABLE_SNIFFER==1</code> block in <code>rs232_config_impl.h</code>. When <code>ENABLE_RS232=0</code> the old RS232 init block is not compiled, so a separate init path is required and is already implemented.
+        </div>
+    </div>
+
+    <!-- ================================================================ TAB S3 CNC -->
+    <div id="tab-s3cnc" class="tab-content">
+        <h2>S3 CNC / GcodeSender</h2>
+        <p>Single pack <code>PACK_S3_CNC</code>. It disables RS232 and enables GRBL+SDCARD+WebSocket+USB_HOST. The GRBL transport is selectable at runtime via the web page selector (session-only): <strong>UART</strong> is the default at boot, <strong>USB Host OTG</strong> is activated instantly when chosen. The USB Host always runs; the choice is not persisted (reboot returns to UART).</p>
+
+        <h3>Transport A: USB Host OTG (runtime selector)</h3>
+        <p>GRBL communicates via USB Host on the native USB port (GPIO19/20) with an OTG adapter. Connects to the GRBL controller's CH340/FTDI/CP2102 USB-UART adapter.</p>
+        <div class="note"><strong>Note:</strong> USB Host takes over the native USB port. The USB CDC Serial (Serial Monitor) becomes unavailable. Use the CP2102 UART0 (GPIO43/44) for debug output.</div>
+
+        <h4>Feature flags</h4>
+        <table>
+            <thead><tr><th>Flag</th><th>Value</th><th>Notes</th></tr></thead>
+            <tbody>
+                <tr><td><code>ENABLE_GRBL</code></td><td><span class="badge badge-ok">1</span></td><td>G-code sender</td></tr>
+                <tr><td><code>ENABLE_USB_HOST</code></td><td><span class="badge badge-ok">1</span></td><td>USB Host on GPIO19/20 (native port, requires OTG adapter)</td></tr>
+                <tr><td><code>ENABLE_RS232</code></td><td><span class="badge badge-off">0</span></td><td>RS232 transceiver disabled</td></tr>
+                <tr><td><code>ENABLE_SDCARD</code></td><td><span class="badge badge-ok">1</span></td><td>SD slot (N16R8: absent → PSRAM VFS fallback)</td></tr>
+                <tr><td><code>ENABLE_ASYNC_WEBSOCKET</code></td><td><span class="badge badge-ok">1</span></td><td>WebSocket for real-time GRBL status push</td></tr>
+            </tbody>
+        </table>
+
+        <h4>Transport notes</h4>
+        <ul>
+            <li>GRBL sender uses <code>grblTransportWrite()</code> → <code>usbHostSend()</code> via CDC-ACM</li>
+            <li>RX bytes arrive via USB IN transfer callback → <code>grblOnRxData()</code></li>
+            <li>Serial monitor via CP2102 UART0 (GPIO43/44) — USB CDC Serial unavailable</li>
+        </ul>
+
+        <h3>Transport B: TTL UART (default)</h3>
+        <p>GRBL communicates via UART2 (Serial2, GPIO16/17) with an external FT232RL or CH340G USB↔TTL adapter. The native USB port remains available for Serial Monitor (USB CDC). This is the default transport at boot.</p>
+
+        <h4>Wiring</h4>
+        <pre class="diagram">FT232RL / CH340G →    ESP32-S3 N16R8
+──────────────────────────────────
+TX (adapter)  →    GPIO16  (UART2 RX)
+RX (adapter)  ←    GPIO17  (UART2 TX)
+GND           →    GND
+VCC = 3.3V    (FTDI jumper set to 3.3V)</pre>
+        <div class="danger">⚠️ <strong>GPIO16/17 conflict:</strong> These are OPI PSRAM interface pins on the N16R8 devkit. The bootloader drives them at power-on. In practice, this works for GRBL (tested), but avoid connecting RS232 transceivers (MAX3232) to these pins — the &plusmn;12V glitch can disrupt the bus.</div>
+
+        <h4>UART allocation</h4>
+        <table>
+            <thead><tr><th>UART</th><th>HardwareSerial</th><th>TX</th><th>RX</th><th>Baud</th><th>Usage</th></tr></thead>
+            <tbody>
+                <tr><td>UART2</td><td><code>Serial2</code></td><td class="gpio">GPIO17</td><td class="gpio">GPIO16</td><td>115200</td><td>GRBL G-code via FTDI/CH340 adapter</td></tr>
+            </tbody>
+        </table>
+
+        <h4>Feature flags</h4>
+        <table>
+            <thead><tr><th>Flag</th><th>Value</th><th>Notes</th></tr></thead>
+            <tbody>
+                <tr><td><code>ENABLE_GRBL</code></td><td><span class="badge badge-ok">1</span></td><td>G-code sender</td></tr>
+                <tr><td><code>ENABLE_USB_HOST</code></td><td><span class="badge badge-ok">1</span></td><td>USB Host always runs — GRBL transport selected at runtime</td></tr>
+                <tr><td><code>ENABLE_RS232</code></td><td><span class="badge badge-off">0</span></td><td>RS232 transceiver disabled</td></tr>
+                <tr><td><code>ENABLE_SDCARD</code></td><td><span class="badge badge-ok">1</span></td><td>SD slot (N16R8: absent → PSRAM VFS fallback)</td></tr>
+                <tr><td><code>ENABLE_ASYNC_WEBSOCKET</code></td><td><span class="badge badge-ok">1</span></td><td>WebSocket for real-time GRBL status push</td></tr>
+            </tbody>
+        </table>
+
+        <h4>Transport notes</h4>
+        <ul>
+            <li>GRBL sender uses <code>grblTransportWrite()</code> → <code>Serial2.write()</code> (UART default)</li>
+            <li>RX bytes polled in <code>grblSenderUpdate()</code> via <code>grblTransportPollRx()</code></li>
+            <li>Default baud 115200; switching to OTG is session-only via <code>POST /api/grbl/transport</code></li>
+        </ul>
+    </div>
+
+    <footer>
+        <p><strong>Firmware:</strong> Node32-Hub &bull; <strong>Updated:</strong> 2026-10-18 &bull; <strong>Sources:</strong> board_pins.h, eth_w5500.h, screen.h, modbus_core.h, sensor_*.h, sdcard.h, littlefs_manager.h, sniffer.h, packs/pack_*.h, audio_dac_uda1334a.h</p>
+    </footer>
+</div>
+<script>
+function showTab(id, btn) {
+    document.querySelectorAll('.tab-content').forEach(function(el) { el.classList.remove('active'); });
+    document.querySelectorAll('.tab-btn').forEach(function(el) { el.classList.remove('active'); });
+    document.getElementById('tab-' + id).classList.add('active');
+    btn.classList.add('active');
+}
+function showPack(tab, pck, btn) {
+    document.querySelectorAll('#tab-' + tab + ' .pck-content').forEach(function(el) { el.classList.remove('active'); });
+    document.querySelectorAll('#tab-' + tab + ' .pck-btn').forEach(function(el) { el.classList.remove('active'); });
+    document.getElementById('pck-' + tab + '-' + pck).classList.add('active');
+    btn.classList.add('active');
+}
+</script>
+</body>
+</html>
