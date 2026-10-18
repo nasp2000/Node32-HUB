@@ -11,6 +11,6 @@
     "go": "npm run extract && node test_grbl_sidebar.js"
   },
   "devDependencies": {
-    "jsdom": "^25.0.0"
+    "jsdom": "^30.1.3"
   }
 }
