@@ -2,26 +2,26 @@
 
 ## How to add a new module
 
-1. **Register the flag**: Add `#define ENABLE_MODULENAME 1` to `user_config.h`. Do **not** edit `feature_flags.h` — it is a relay only.
+1. **Register the flag**: Add `#define ENABLE_MODULENAME 1` to `chatgpt/user_config.h`. Do **not** edit `src/feature_flags.h` - it is a relay only.
 2. **Create source files** in `chatgpt/src/`. Guard every `.cpp` with `#if ENABLE_MODULENAME==1` at the top. Header guards are fine without it (included only when enabled).
 3. **Config persistence**:
-   - **One-off settings**: Add a new stem to `ConfigManager` — create the slot in `saveToLittleFS()` + `tryLoadSet()` + `stems[]` + `buildSlotPath()` calls, then register in `/config/pages.reg`.
-   - **Sensor-style settings**: Create a dedicated config manager (e.g. `SensorFooConfigManager`) with atomic `.tmp` + rename writes.
-4. **Web UI**: Create PROGMEM asset in `webpages/assets/`, handler in `handlers_unified/`, route registration in `routes/web_routes_*.cpp` via `registerApiRoute()`. See "How to add a new web page" below.
-5. **i18n**: Add translation keys to both `lang_pt_ui.h` and `lang_en_ui.h`. The build will fail if they drift (validated by `scripts/validate_i18n.py`).
+   - **One-off settings**: Add the section in `ConfigManager` (`chatgpt/src/ConfigManager.{h,cpp}`) - defaults in `initDefaults()`, backfill in `ensureAllFieldsExist()`, save via `saveSection(stem)` / `markDirtyAndScheduleSave()`; files at `/config/<stem>.json`, atomic `.tmp` -> rename writes. See `AGENTS.md` ("Config & persistence").
+   - **Sensor-style settings**: Same `ConfigManager` pattern (own `/config/sensor_<name>.json` stem), or a dedicated manager reusing the atomic `.tmp` -> rename writes.
+4. **Web UI**: Create PROGMEM asset in `chatgpt/src/webpages/assets/`, handler in `chatgpt/src/webpages/handlers_unified/`, route registration in `chatgpt/src/webpages/routes/web_routes_*.cpp` - `server.on("/mypage", ...)` + `buildPageFrame()` for HTML pages, `registerApiRoute()` only for `/api/*` endpoints. See "How to add a new web page" below.
+5. **i18n**: Add translation keys to both `lang_pt_ui.h` and `lang_en_ui.h`. The build fails if they drift (validated by `chatgpt/scripts/validate_i18n.py`).
 
 ## How to add a new web page
 
-1. **Asset**: Create `page_mypage_asset.h` with `const char PAGE_MYPAGE[] PROGMEM = R"HTML(...)HTML";` — no `<!DOCTYPE>`, `<html>`, `<head>`, `<body>`; those are injected by `streamPageShellStart()`.
-2. **Handler**: Create `handlers_unified/mypage_handler.h` and `mypage_handler.cpp` with signature `void handleMyPage(HttpRequest& req, HttpResponse& res)`.
-3. **Route**: Call `registerApiRoute("GET", "/mypage", handleMyPage)` in `routes/web_routes_*.cpp`.
+1. **Asset**: Create `page_mypage_asset.h` with `const char PAGE_MYPAGE[] PROGMEM = R"rawliteral(...)rawliteral";` - no `<!DOCTYPE>`, `<html>`, `<head>`, `<body>`; those are injected by `buildPageFrame()` / `streamPageShellStart()`.
+2. **Handler**: Create `chatgpt/src/webpages/handlers_unified/mypage_handler.h` and `mypage_handler.cpp` with signature `void handleMyPage(HttpRequest& req, HttpResponse& res)`.
+3. **Route**: HTML pages use `server.on("/mypage", ...)` in `chatgpt/src/webpages/routes/web_routes_*.cpp` (see `web_routes_bricon.cpp`); REST endpoints use `registerApiRoute("GET", "/api/mypage", handleMyPage)`.
 4. **Required elements**:
-   - Home button: `<div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome'>&#127968; Início</a></div>` as first child of `.wrap`.
+   - Home button: `<div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome'>&#127968; Home</a></div>` as first child of `.wrap` (English fallback text; PT comes from the language packs).
    - `customAlert()` / `customConfirm()` — never native `alert()` / `confirm()`.
-   - Save success: `customAlert('✅ Configuração guardada!')` + `showSavedCard()`.
-   - Save error: `customAlert('❌ Erro: ' + message)`.
-5. **No inline styles** — use CSS classes.
-6. **Polling pages**: If the page uses continuous JS/polling, add it to the `charts_exempt_sessions` list (see AGENTS.md).
+   - Save feedback via i18n keys (e.g. `bt('...BtnSave', ...)` / `t('...ToastConfigSaved', ...)`), never hardcoded Portuguese strings.
+   - Error feedback the same way (i18n key + server `message`), never hardcoded text.
+5. **Styling**: Page assets are self-contained - shared `core.css` classes plus a `<style>` block and inline styles in the asset; no per-page CSS files.
+6. **Polling pages**: If the page uses continuous JS/polling, check the session-expiry rules for local vs static pages (`PAGES/WEB_PAGES_REFERENCE.md`, `window._localPagesNeverExpire`).
 
 ## How to add a new sensor
 
@@ -50,16 +50,16 @@
 - **No arrow functions**: Use `function(x){}` — ESP32 browsers don't support arrow functions.
 - **No native alerts**: Use `customAlert()` and `customConfirm()` exclusively.
 - **KeyboardEvent**: Use `.key`, never `.keyCode` (deprecated).
-- **No inline styles**: HTML assets must use CSS classes; no `style=` attributes.
-- **No comments in code** unless the logic is genuinely non-obvious.
+- **Styling**: Page assets are self-contained (shared `core.css` + page `<style>` block and inline styles); no per-page CSS files.
+- **Comments**: English only (enforced by `lint_comments.py`); concise, no noise.
 
 ## Commit & versioning rules
 
 - **Never bump the version during implementation** — only at commit/push time.
 - **Single source of truth**: `FIRMWARE_VERSION_STR` in `chatgpt/src/smtp_core_impl.h`.
-- **Format**: `v<major>.<minor><patch>` — e.g. v1.087.
+- **Format**: `v<major>.<minor><patch>` - e.g. v1.120.
 - **Modbus slave**: Also update `_hreg[HR_FW_VERSION]` in `chatgpt/src/modbus_slave.cpp` — numeric, no dots (e.g. 1087).
-- **Commit message**: Include the version, e.g. `firmware v1.087`.
+- **Commit message**: Include the version only when bumping it (e.g. `v1.120: ...`); otherwise describe the change.
 
 ## Pack history (MANDATORY)
 
@@ -90,14 +90,14 @@ SKIP_NATIVE_TESTS=1 pio run -e n16r8
 python chatgpt/scripts/run_native_tests.py
 
 # Format check (run before commit)
-python scripts/format_check.py --fix
+python chatgpt/scripts/format_check.py --fix
 
 # Other checks
-python scripts/lint_comments.py
-python scripts/scan_secrets.py
+python chatgpt/scripts/lint_comments.py
+python chatgpt/scripts/scan_secrets.py
 ```
 
-**Pre-commit hooks**: Install with `git config core.hooksPath .githooks`. They run format check and native tests automatically.
+**Pre-commit hooks**: Install with `git config core.hooksPath .githooks`. They run scan_secrets, lint_comments, validate_i18n, validate_packs, validate_feature_flags and format check automatically (native tests run at build time, not in the hook).
 
 **Build variants**:
 | Board | Command |
@@ -106,7 +106,7 @@ python scripts/scan_secrets.py
 | Waveshare 8DI8DO | `pio run -e waveshare_8di8do` |
 | ESP32-P4 | `pio run -e esp32p4` |
 
-The P4 build excludes Xtensa/x86 assembly automatically via `remove_arm_asm.py`. Native tests are Xtensa-only and skipped on P4.
+The P4 env excludes Xtensa/x86 assembly via `remove_arm_asm.py` (`extra_scripts` in `platformio.ini`). Native tests run automatically on build unless `SKIP_NATIVE_TESTS=1`.
 
 ## Questions?
 
