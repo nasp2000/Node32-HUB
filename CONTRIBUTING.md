@@ -1,5 +1,13 @@
 # Contributing to Node32-HUB
 
+## New contributors: start here
+
+1. Fork the repo and clone your fork — or open it in a Codespace / VS Code with the Dev Containers extension (Python, PlatformIO, Node.js and C++ tools come preinstalled, see `.devcontainer/`).
+2. Local setup (without Docker): Python 3 + PlatformIO (`pip install platformio`), Node.js 22 (for `tests/web`), `g++` + `make` (for native tests).
+3. First build: `./build_firmware.sh -e n16r8 -p RAMBOX` (or `pio run --project-dir chatgpt -e n16r8`).
+4. Before a PR: run the native tests (`python chatgpt/scripts/run_native_tests.py`) and the web tests (`cd tests/web && npm ci && node run_all.js`); update the `PAGES/<page>.md` doc if you touched a web page.
+5. Open the PR against `main` — CI builds all 11 packs and runs both test suites automatically.
+
 ## How to add a new module
 
 1. **Register the flag**: Add `#define ENABLE_MODULENAME 1` to `chatgpt/user_config.h`. Do **not** edit `src/feature_flags.h` - it is a relay only.
