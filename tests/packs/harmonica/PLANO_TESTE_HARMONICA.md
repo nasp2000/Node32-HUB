@@ -1,7 +1,7 @@
 # Plano de Teste Real — Pack Harmonica Box / RADIO (fw .30)
 
 > Dono: Joana (execução) | Autonomia: Nuno
-> Board: ESP32-S3 N16R8 "Harmonica Box", IP `192.168.1.30`, fw `.30`.
+> Board: ESP32-S3 N16R8 "Harmonica Box", IP `<board-ip>`.
 > Regras-base (anexo `issues (2).txt`): testar TUDO por api/curl/persistência/save/reboots,
 > todos os botões e lógica de cada página, com reboots pelo meio e saves em config.
 > **EXCEÇÃO:** NUNCA mexer/apagar config de **Wi-Fi** (perde-se acesso IP).
@@ -11,7 +11,7 @@
 
 ## 0. Setup de execução
 - `export BOARD_AUTH="<user>:<pass>"` (lido de onde o Nuno indicar; NÃO hardcoded aqui).
-- Base curl: `curl -s -u "$BOARD_AUTH" http://192.168.1.30` (WiFi-only; sem Ethernet neste pack).
+- Base curl: `curl -s -u "$BOARD_AUTH" http://<board-ip>` (WiFi-only; sem Ethernet neste pack).
 - **Snap de defaults:** antes de tocar em algo, `GET` de cada secção e guardar originais
   em `HARMONICA_DEFAULTS_<data>.json` (local). Repor no fim.
 - ⚠️ Diferente do Waveshare: **não há `/monitor`** (route removida no pack) — só `/serial-monitor`.

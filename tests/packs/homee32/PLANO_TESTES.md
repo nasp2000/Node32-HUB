@@ -1,12 +1,12 @@
-# Plano de Testes — HomeE32 (192.168.1.24, Pack ENVIRONMENT)
+# Plano de Testes — HomeE32 (<board-ip>, Pack ENVIRONMENT)
 
 > Igual ao esquema dos outros packs (Waveshare .29 / Harmonica .30 / P4 .7).
 > Objetivo: validar TODAS as páginas/APIs do pack Environment em hardware real,
 > com reboots pelo meio, sem mexer em WiFi/email do board, e repor defaults no fim.
 
 ## Board sob teste
-- IP: 192.168.1.24 | Pack: ENVIRONMENT (HomeE32) | ESP32-S3 N16R8
-- Web: porta 80, pasta /Home32. Auth: HTTP_BASIC_AUTH (admin:admin provável p/ OTA).
+- IP: <board-ip> | Pack: ENVIRONMENT (HomeE32) | ESP32-S3 N16R8
+- Web: porta 80, pasta /Home32. Auth: HTTP_BASIC_AUTH (user:pass provável p/ OTA).
 - NOTA: `/api/status` dá HTTP 000 neste pack — usar `/api/configs` (200) e os
   endpoints específicos abaixo para verificar estado. Mapear o status real no início.
 
@@ -95,7 +95,7 @@ Testes:
 - [ ] Reboot pelo meio (monitor volta fechado por def.).
 
 ## 9. OTA / Reboot (infra)
-- [ ] enable-ota + firmware-upload (via curl, admin:admin) → reboot, confirmar uptime baixo.
+- [ ] enable-ota + firmware-upload (via curl, user:pass) → reboot, confirmar uptime baixo.
 - [ ] Reboot por API (/api/restart) → confirma reboot.
 - [ ] VÁRIOS reboots pelo meio em TODAS as secções acima.
 

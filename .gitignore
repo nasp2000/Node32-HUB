@@ -129,3 +129,7 @@ ehthumbs.db
 
 # LGPL compliance materials — generated on demand by chatgpt/scripts/package_third_party.py
 third-party/
+
+# Personal local routines (cron/nightly) - never commit
+tests/hw/night_cycle.sh
+scripts/reminder_cam_p4_30m.sh

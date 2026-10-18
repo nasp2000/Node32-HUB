@@ -1,6 +1,6 @@
 # Relatório de Teste — Pack P4 CNC (board .7, ESP32-P4)
 
-> Execução: Joana | Data: 2026-08-28 | Board: 192.168.1.7 (ONLINE, fw v1.105, reset POWERON→SW)
+> Execução: Joana | Data: 2026-08-28 | Board: <board-ip> (ONLINE, fw v1.105, reset POWERON->SW)
 > Plano: `PLANO_TESTE_P4_CNC.md` + `TESTE_API_P4_CNC.md` (ambos em `Code/SHARE/`)
 > Firmware testado: **v1.105_0759** (buildado antes do commit F1-F5 fd1f928)
 

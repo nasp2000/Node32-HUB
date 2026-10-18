@@ -12,7 +12,7 @@
 #   ./test_ota_upgrade.sh verify                   # DEPOIS do OTA (compara)
 #   ./test_ota_upgrade.sh full --ota <file.bin>    # snapshot + OTA + verify (WiFi)
 #
-# IP/auth: TEST_IP / TEST_AUTH (default 192.168.1.29 / admin:admin).
+# IP/auth: TEST_IP (required) / TEST_AUTH (optional, "user:pass").
 # Notas:
 #   - O OTA web exige POST /api/enable-ota e depois o upload multipart
 #     (campo `file` + `filesize`). Em Ethernet o upload é raw; usa `full` só em WiFi.
@@ -23,17 +23,17 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/lib_persist.sh" || { echo "lib_persist.sh não encontrada"; exit 2; }
 
-BASE="http://${TEST_IP:-192.168.1.29}"
-if [ -n "${TEST_AUTH:-}" ]; then AUTHARG=(-u "$TEST_AUTH"); else AUTHARG=(-u admin:admin); fi
+BASE="http://${TEST_IP:?define TEST_IP com o IP do device}"
+if [ -n "${TEST_AUTH:-}" ]; then AUTHARG=(-u "$TEST_AUTH"); else AUTHARG=(); fi
 SNAP="/tmp/node32_upgrade_snapshot.json"
 NOW="/tmp/node32_upgrade_now.json"
 
 # Coletor único (usado por snapshot e verify). Lê os campos críticos via API.
 collect() {
-  python3 - "$BASE" "${TEST_AUTH:-admin:admin}" "$1" <<'PY'
+  python3 - "$BASE" "${TEST_AUTH:-}" "$1" <<'PY'
 import json, sys, base64, re, urllib.request
 base, auth, out = sys.argv[1], sys.argv[2], sys.argv[3]
-hdr = {"Authorization": "Basic " + base64.b64encode(auth.encode()).decode()}
+hdr = {} if not auth else {"Authorization": "Basic " + base64.b64encode(auth.encode()).decode()}
 FIELDS = [
   ("system.name",          "/api/config?section=system",      "system_name"),
   ("system.language",      "/api/config?section=system",      "system_language"),

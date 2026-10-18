@@ -9,10 +9,10 @@
 
 ## 0. Setup de execução (não é teste, é preparação)
 
-- Board alvo: Waveshare-POE-ETH-8DI-8DO, IP `192.168.1.29`, fw `.29`.
+- Board alvo: Waveshare-POE-ETH-8DI-8DO, IP `<board-ip>`.
 - Auth: Basic Auth (utilizador/pass da board). **NÃO hardcoded aqui** — usar env:
   `export BOARD_AUTH="<user>:<pass>"` (lido de onde o Nuno indicar; não escrever no repo/SHARE).
-- Base curl: `curl -s -u "$BOARD_AUTH" http://192.168.1.29` (ou `localhost:4096` via tunnel se a LAN isolar).
+- Base curl: `curl -s -u "$BOARD_AUTH" http://<board-ip>` (ou `localhost:4096` via tunnel se a LAN isolar).
 - Rate-limit conhecido: `/api/status` = 1 req / 500 ms → 429 (espaçar pedidos).
 - Credenciais OpenCode Web (Nasp/Magic) são do servidor opencode, **não** da board — não confundir.
 - Antes de cada página: `GET /api/status` para confirmar board viva (respeitar 500 ms).

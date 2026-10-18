@@ -19,7 +19,7 @@
 #   ./run_pack_regression.sh                 # corre todos os packs reais
 #   ./run_pack_regression.sh waveshare       # só um pack (nome da pasta)
 #   ./run_pack_regression.sh sim_waveshare   # simulador (usa teste waveshare + IP .33)
-#   PACKS_WAVESHARE="192.168.1.29:admin:admin" ./run_pack_regression.sh
+#   PACKS_WAVESHARE="192.168.1.100:admin:admin" ./run_pack_regression.sh
 #
 # Regra: se algum teste FAIL, o script devolve 1 => "NÃO FAZER OTA".
 # =============================================================================
@@ -30,13 +30,13 @@ PACKS_DIR="$(cd "$HERE/../packs" && pwd)"
 
 # Packs reais (pasta do teste -> IP:auth)
 declare -A DEF_IP DEF_AUTH
-DEF_IP[waveshare]="192.168.1.29"; DEF_AUTH[waveshare]="admin:admin"
-DEF_IP[homee32]="192.168.1.24";  DEF_AUTH[homee32]="admin:admin"
-DEF_IP[p4]="192.168.1.7";        DEF_AUTH[p4]="admin:admin"
-DEF_IP[harmonica]="192.168.1.30";DEF_AUTH[harmonica]="admin:admin"
+DEF_IP[waveshare]=""; DEF_AUTH[waveshare]=""
+DEF_IP[homee32]="";  DEF_AUTH[homee32]=""
+DEF_IP[p4]="";        DEF_AUTH[p4]=""
+DEF_IP[harmonica]="";DEF_AUTH[harmonica]=""
 # Simuladores: reusam o teste do pack real com outro IP
-DEF_IP[sim_waveshare]="192.168.1.33"; DEF_AUTH[sim_waveshare]="admin:admin"
-DEF_IP[sim_homee32]="192.168.1.23";   DEF_AUTH[sim_homee32]="admin:admin"
+DEF_IP[sim_waveshare]=""; DEF_AUTH[sim_waveshare]=""
+DEF_IP[sim_homee32]="";   DEF_AUTH[sim_homee32]=""
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YEL='\033[1;33m'; NC='\033[0m'
 overall=0
@@ -77,6 +77,7 @@ for key in "${!DEF_IP[@]}"; do
   if [ -n "${!envkey:-}" ]; then ip="${!envkey%%:*}"; auth="${!envkey#*:}"; fi
   # filtro
   if [ -n "$WANT" ] && [ "$WANT" != "$key" ]; then continue; fi
+  if [ -z "$ip" ]; then echo "[$key] sem IP (define PACKS_${key}=\"ip:auth\") — SKIP"; continue; fi
   # simuladores: só se pedido explicitamente
   case "$key" in
     sim_*) if [ -z "$WANT" ]; then continue; fi ;;

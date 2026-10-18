@@ -12,8 +12,8 @@
 # Uso: bash tests/packs/cam/test_real_cam.sh (IP/AUTH via env TEST_IP/TEST_AUTH)
 # =============================================================================
 set -u
-BASE="http://${TEST_IP:-192.168.1.17}"
-AUTHARG=(-u "${TEST_AUTH:-admin:admin}")
+BASE="http://${TEST_IP:?define TEST_IP com o IP do device}"
+if [ -n "${TEST_AUTH:-}" ]; then AUTHARG=(-u "$TEST_AUTH"); else AUTHARG=(); fi
 T="${TMPDIR:-/tmp}/cam_api_$$"
 mkdir -p "$T"
 

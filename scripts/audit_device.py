@@ -9,7 +9,7 @@ Everything runs on THIS computer — the ESP32 only serves its existing HTTP
 routes, so no extra heap/CPU is used on the device.
 
 Usage:
-    python scripts/audit_device.py [--host 192.168.1.29] [--auth user:pass]
+    python scripts/audit_device.py --host 192.168.1.100 [--auth user:pass]
 """
 
 import argparse
@@ -60,7 +60,7 @@ class Report:
 
 def main():
     ap = argparse.ArgumentParser(description="Node32-HUB device audit")
-    ap.add_argument("--host", default="192.168.1.29", help="device IP/hostname")
+    ap.add_argument("--host", required=True, help="device IP/hostname")
     ap.add_argument("--auth", default="", help="HTTP Basic Auth as user:pass")
     ap.add_argument("--timeout", type=float, default=10.0)
     ap.add_argument("--json", action="store_true", help="output raw JSON of endpoints")

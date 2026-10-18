@@ -2,8 +2,8 @@
 
 > Objetivo: testar TODAS as paginas/opcoes/botoes do pack Radio via API/curl, encontrar
 > problemas ou coisas que nao funcionem conforme a logica. NAO corrigir — so relatar.
-> Board alvo: 192.168.1.30 (Harmonica/RADIO). Confirmar por mDNS ou /api/status antes.
-> Autenticacao: Basic admin:admin em todos os POST.
+> Board alvo: <board-ip> (Harmonica/RADIO). Confirmar por mDNS ou /api/status antes.
+> Autenticacao: HTTP Basic (via TEST_AUTH) em todos os POST.
 
 ## Paginas do pack (confirmadas em selftest_handler.cpp + pack_radio.h — flags ON)
 - `/radio-ui` (ENABLE_UDA1334A) — internet radio / local music player (I2S DAC)

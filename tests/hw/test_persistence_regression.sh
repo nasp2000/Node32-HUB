@@ -20,15 +20,15 @@
 #
 # Uso:
 #   ./test_persistence_regression.sh <IP> [auth_user:auth_pass] [--no-auth]
-#   ex: ./test_persistence_regression.sh 192.168.1.29 admin:admin
-#       ./test_persistence_regression.sh 192.168.1.7           # --no-auth implicito se sem auth
-#       ./test_persistence_regression.sh 192.168.1.24 admin:admin --no-auth
+#   ex: ./test_persistence_regression.sh 192.168.1.100 admin:admin
+#       ./test_persistence_regression.sh 192.168.1.101           # --no-auth implicito se sem auth
+#       ./test_persistence_regression.sh 192.168.1.102 user:pass --no-auth
 #
 # Requer: curl, python3. Devolve exit 1 se algum campo testado FALHAR.
 # No fim repõe a config original (snapshot pré-teste) para não poluir o board.
 # =============================================================================
 set -u
-IP="${1:-192.168.1.29}"; shift 2>/dev/null || true
+IP="${1:?uso: $0 <IP> [auth_user:auth_pass] [--no-auth]}"; shift 2>/dev/null || true
 AUTHARG=()
 NOAUTH=0
 for a in "$@"; do

@@ -2,8 +2,8 @@
 
 > Objetivo: testar TODAS as paginas/opcoes/botoes do pack Waveshare via API/curl, encontrar
 > problemas ou coisas que nao funcionem conforme a logica. NAO corrigir — so relatar.
-> Board alvo: 192.168.1.29 (Waveshare 8DI8DO). Confirmar por mDNS ou /api/status antes.
-> Autenticacao: Basic admin:admin em todos os POST.
+> Board alvo: <board-ip> (Waveshare 8DI8DO). Confirmar por mDNS ou /api/status antes.
+> Autenticacao: HTTP Basic (via TEST_AUTH) em todos os POST.
 
 ## Paginas do pack (confirmadas em pack_waveshare.h — flags ON)
 - `/` (home) — Proximity + Dashboard, Ethernet, SD Card, Monitor (ENABLE_WIFI_WEB_SERVER)
@@ -156,9 +156,9 @@ structures, api-reference, async_websocket, sensors, buzzer, rs232, usbip, grbl.
 
 ## EXECUÇÃO REAL — 2026-08-28 (Joana, harness automatizado)
 Harness executável: `teste_waveshare_api.py` (corre via `python3 teste_waveshare_api.py`,
-alvo 192.168.1.29, auth admin:admin). Resultados em `teste_waveshare_api_results.json`.
+alvo <board-ip>, auth user:pass). Resultados em `teste_waveshare_api_results.json`.
 
-Board: Waveshare 8DI8DO @ 192.168.1.29, **fw v1.105** (doc anterior era v1.103).
+Board: Waveshare 8DI8DO @ <board-ip>, **fw v1.105** (doc anterior era v1.103).
 eth_link=False (wifi only), wifi RSSI ~-48/-52.
 
 ### Resultado dos testes (REAIS, contra o board vivo)

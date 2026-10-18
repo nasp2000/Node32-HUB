@@ -15,9 +15,9 @@ LIB="$(cd "$HERE/../../hw" && pwd)/lib_persist.sh"
 [ -f "$LIB" ] || LIB="$(cd "$HERE/../.." && pwd)/tests/hw/lib_persist.sh"
 source "$LIB" || { echo "lib_persist.sh não encontrada ($LIB)"; exit 2; }
 
-BASE="http://${TEST_IP:-192.168.1.24}"
+BASE="http://${TEST_IP:?define TEST_IP com o IP do device}"
 AUTHARG=()
-if [ -n "${TEST_AUTH:-}" ]; then AUTHARG=(-u "$TEST_AUTH"); else AUTHARG=(-u admin:admin); fi
+if [ -n "${TEST_AUTH:-}" ]; then AUTHARG=(-u "$TEST_AUTH"); else AUTHARG=(); fi
 
 P_PASS=0; P_FAIL=0; P_SKIP=0
 declare -a P_FAILS P_SKIPS

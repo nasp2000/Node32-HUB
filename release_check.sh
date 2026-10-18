@@ -15,8 +15,8 @@
 #
 # Uso:
 #   ./release_check.sh                         # bancada (sem hardware)
-#   ./release_check.sh --host 192.168.1.29 --packs waveshare
-#   ./release_check.sh --host 192.168.1.29 --auth admin:admin --build --package
+#   ./release_check.sh --host 192.168.1.100 --packs waveshare
+#   ./release_check.sh --host 192.168.1.100 --auth admin:admin --build --package
 #   ./release_check.sh --no-web --no-hw
 #
 # NÃO sobe a versão — o bump é manual, só quando pedido (AGENTS: bump no commit).

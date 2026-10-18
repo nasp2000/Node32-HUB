@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Teste API HomeE32 (192.168.1.24, Pack ENVIRONMENT) — corre via curl, regista resultados.
-B=192.168.1.24
-AUTH="-u admin:admin"
+# Teste API HomeE32 (TEST_IP, Pack ENVIRONMENT) — corre via curl, regista resultados.
+B="${TEST_IP:?define TEST_IP com o IP do device}"
+AUTH="${TEST_AUTH:+-u $TEST_AUTH}"
 OUT=/home/nasp/Code/SHARE/HomeE32/testes_api_resultado.txt
 > "$OUT"
 log(){ echo "$*" | tee -a "$OUT"; }

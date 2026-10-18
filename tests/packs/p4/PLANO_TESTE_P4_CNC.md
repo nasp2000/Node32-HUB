@@ -1,7 +1,7 @@
 # Plano de Teste Real — Pack GcodeSender-P4 / CNC (fw .7)
 
 > Dono: Joana (execução) | Autonomia: Nuno
-> Board: ESP32-P4 (Waveshare ESP32-P4-Module-DEV-KIT), IP `192.168.1.7`, fw `.7`.
+> Board: ESP32-P4 (Waveshare ESP32-P4-Module-DEV-KIT), IP `<board-ip>`.
 > ⚠️ **ESTADO DA BOARD: OFF** (conforme memory: ".7 (OFF, ver antes OTA)").
 > Regras-base (anexo `issues (2).txt`): testar TUDO por api/curl/persistência/save/reboots,
 > todos os botões e lógica de cada página, com reboots pelo meio.
@@ -11,7 +11,7 @@
 
 ## 0. Setup de execução
 - `export BOARD_AUTH="<user>:<pass>"` (NÃO hardcoded aqui).
-- Base curl: `curl -s -u "$BOARD_AUTH" http://192.168.1.7`.
+- Base curl: `curl -s -u "$BOARD_AUTH" http://<board-ip>`.
 - ⚠️ **BOARD OFF:** este plano está documentado mas a EXECUÇÃO depende de ligar a board
   (tomada/relé) e confirmar que sobe (ping / `GET /api/status`). Antes de OTA, confirmar
   alvo por mDNS ou `GET /api/status` (regra memory: "SEMPRE confirmar alvo antes de OTA").

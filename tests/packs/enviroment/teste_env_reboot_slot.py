@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tarefa 1 — isolamento do bug do slot daily-reboot na .24 (pack Enviroment).
+"""T1 - isolamento do bug do slot daily-reboot (pack Enviroment).
 
 POST /api/daily-reboot responde ok mas o GET devolve o valor antigo.
 Usa slot 2 (slot 1 pode seguir turnos e confundir a leitura).
@@ -12,14 +12,18 @@ NUNCA mexe em wifi/email.
 """
 import base64
 import json
+import os
 import sys
 import time
 import urllib.request
 import urllib.error
 
-BASE = "http://192.168.1.24"
-AUTH = "Basic " + base64.b64encode(b"admin:admin").decode()
-UA = {"User-Agent": "Joana-T1-RebootSlot/1.0", "Authorization": AUTH}
+if "TEST_IP" not in os.environ:
+    sys.exit("define TEST_IP com o IP do device")
+BASE = "http://" + os.environ["TEST_IP"]
+UA = {"User-Agent": "Joana-T1-RebootSlot/1.0"}
+if os.environ.get("TEST_AUTH"):
+    UA["Authorization"] = "Basic " + base64.b64encode(os.environ["TEST_AUTH"].encode()).decode()
 TEST_TIME = "04:44"  # valor distintivo, longe da hora atual; reposto logo a seguir
 
 

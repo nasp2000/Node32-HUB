@@ -16,9 +16,9 @@
 # Uso:
 #   ./ota.sh                          interactivo: pack + IP + transport
 #   ./ota.sh -y                       não-interativo, usa último pack/IP (ou default)
-#   ./ota.sh -t home                  usa TARGETS["home"] (HomeE32 .24)
-#   ./ota.sh -t p4                    usa TARGETS["p4"]    (P4 CNC .7)
-#   ./ota.sh -p RADIO -i 192.168.1.30 pack + IP diretos, sem perguntar
+#   ./ota.sh -t home                  usa TARGETS["home"] (HomeE32)
+#   ./ota.sh -t p4                    usa TARGETS["p4"]    (P4 CNC)
+#   ./ota.sh -p RADIO -i 192.168.1.100 pack + IP diretos, sem perguntar
 #   ./ota.sh -p RADIO                 pack escolhido; pergunta o IP
 #   ./ota.sh -e n16r8                 força o env PlatformIO
 #   ./ota.sh -a root:root             credenciais HTTP Basic (default: root:root;
@@ -47,33 +47,33 @@ set -u
 #   auto      → decide em runtime: /api/status ethernet_link==true  ⇒ raw, senão multipart
 # ---------------------------------------------------------------------------
 declare -A TARGETS
-TARGETS["default,ip"]="192.168.1.29"
+TARGETS["default,ip"]=""
 TARGETS["default,pack"]="WAVESHARE"
 TARGETS["default,env"]="waveshare_8di8do"
 TARGETS["default,auth"]="root:root"
 TARGETS["default,transport"]="raw"
-TARGETS["default,name"]="Waveshare .29"
+TARGETS["default,name"]="Waveshare"
 
-TARGETS["home,ip"]="192.168.1.24"
+TARGETS["home,ip"]=""
 TARGETS["home,pack"]="ENVIRONMENT"
 TARGETS["home,env"]="n16r8"
 TARGETS["home,auth"]="root:root"
 TARGETS["home,transport"]="multipart"
-TARGETS["home,name"]="HomeE32 .24"
+TARGETS["home,name"]="HomeE32"
 
-TARGETS["harmonica,ip"]="192.168.1.30"
+TARGETS["harmonica,ip"]=""
 TARGETS["harmonica,pack"]="RADIO"
 TARGETS["harmonica,env"]="n16r8"
 TARGETS["harmonica,auth"]="root:root"
 TARGETS["harmonica,transport"]="multipart"
-TARGETS["harmonica,name"]="Harmonica/RADIO .30"
+TARGETS["harmonica,name"]="Harmonica/RADIO"
 
-TARGETS["p4,ip"]="192.168.1.7"
+TARGETS["p4,ip"]=""
 TARGETS["p4,pack"]="P4_CNC"
 TARGETS["p4,env"]="esp32p4"
 TARGETS["p4,auth"]="root:root"
 TARGETS["p4,transport"]="raw"
-TARGETS["p4,name"]="P4 CNC .7"
+TARGETS["p4,name"]="P4 CNC"
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -267,7 +267,7 @@ interactive_choose() {
                 TARGET_IP="$ip"
                 break
             fi
-            echo "  IP inválido (ex.: 192.168.1.29)" >&2
+            echo "  IP inválido (ex.: 192.168.1.100)" >&2
         done
     else
         TARGET_IP="$IP_OVERRIDE"
@@ -295,11 +295,24 @@ interactive_choose() {
 # Resolver target (preset / último estado / interactivo)
 # ---------------------------------------------------------------------------
 if [[ $T_TGT_SET -eq 1 ]]; then
-    if [[ -z "${TARGETS[${TARGET},ip]:-}" ]]; then
-        echo "ERRO: target '$TARGET' não existe. Use --list para ver os disponíveis." >&2
+    if [[ -z "${TARGETS[${TARGET},pack]:-}" ]]; then
+        echo "ERRO: target '$TARGET' nao existe. Use --list para ver os disponiveis." >&2
         exit 1
     fi
-    TARGET_IP="${IP_OVERRIDE:-${TARGETS[${TARGET},ip]}}"
+    TARGET_IP="${IP_OVERRIDE:-${TARGETS[${TARGET},ip]:-}}"
+    if [[ -z "$TARGET_IP" ]]; then
+        if [[ -t 0 && $ASSUME_YES -eq 0 ]]; then
+            while :; do
+                printf "IP do device: "
+                if ! read -r ip; then echo "Cancelado (EOF)." >&2; exit 1; fi
+                if valid_ip "$ip"; then TARGET_IP="$ip"; break; fi
+                echo "  IP invalido (ex.: 192.168.1.100)" >&2
+            done
+        else
+            echo "ERRO: target '$TARGET' sem IP. Usa -i <ip> ou corre interativo." >&2
+            exit 1
+        fi
+    fi
     if [[ -n "$IP_OVERRIDE" ]] && ! valid_ip "$IP_OVERRIDE"; then
         echo "ERRO: IP '$IP_OVERRIDE' inválido" >&2
         exit 1

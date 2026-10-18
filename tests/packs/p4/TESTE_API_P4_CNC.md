@@ -2,9 +2,9 @@
 
 > Objetivo: testar TODAS as paginas/opcoes/botoes do pack P4 CNC via API/curl, encontrar
 > problemas ou coisas que nao funcionem conforme a logica. NAO corrigir — so relatar.
-> Board alvo: 192.168.1.7 (P4 CNC) — ATENCAO: board pode estar DESLIGADA; confirmar
+> Board alvo: <board-ip> (P4 CNC) — ATENCAO: board pode estar DESLIGADA; confirmar
 > por mDNS ou /api/status antes. Se desligada, nao ha teste em campo (so revisao de codigo).
-> Autenticacao: Basic admin:admin em todos os POST.
+> Autenticacao: HTTP Basic (via TEST_AUTH) em todos os POST.
 > Nota: paginas deste pack sao MUITO GRANDES (grbl-controller tem ~50 handlers).
 > Foco: testar os ENDPOINTS reais, nao abrir a pagina toda.
 
