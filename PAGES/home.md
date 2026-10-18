@@ -147,7 +147,7 @@ Stateless. The route performs **no writes** — no `ConfigManager` setters, no L
 
 ## 10. i18n keys
 
-All keys below were confirmed present in `chatgpt/src/languages/lang_en_ui.h` **except** `homeAlertsTitle` (see finding HOME-1). Fallback text in the asset/renderer is PT; `auto.js` replaces via `data-i18n` at load.
+All keys below were confirmed present in `chatgpt/src/languages/lang_en_ui.h` (including `homeAlertsTitle`, fixed 2026-10-18 — it used an HTML entity `&#128680;`, shown literally because `auto.js` applies `data-i18n` via `textContent`; now literal `🚨` in both languages). Fallback text in the asset/renderer is PT; `auto.js` replaces via `data-i18n` at load.
 
 `loading`, `homeMonTitle`, `homeStatus`, `homeSince`, `footerDev`, `footerQuote` (asset, `page_home_asset.cpp`); `homeModulesTitle`, `homeGrblController`, `homeUsbServer`, `navSensorAmbient`, `navMq135`, `homeRS232`, `homeRecipientsTitle`, `homeRecipients`, `homeAlerts`, `homeCmdsTitle`, `homeCmdsDatetime`, `homeCmdsInterval`, `navFiles`, `homeDualFile`, `navCharts`, `homeSerialMon`, `homeDataRecv`, `homeWifi`, `homeEmailCfg`, `navEthernet`, `homeGoogleScript`, `navSdcard` (renderer); `navSistemaTitle`, `navSystemSettings`, `navOtaBtn`, `navAccessBtn` (fragments). Buttons with **no** `data-i18n` (never translated): `/radio-ui`, `/lpt-db25`, `/modbus-rtu`, `/modbus-tcp`, `/can`, `/proximity*`, `/buzzer`, `/unikon`, `/ipg-laser`, `/uda1334a`, `/camera`, `/hx711`, `/ina226`, `/sound`, `/max31865`, `/structures`, `/modbus-live`, `/networks`, `/api-reference`.
 
@@ -157,7 +157,7 @@ All keys below were confirmed present in `chatgpt/src/languages/lang_en_ui.h` **
 
 | # | Finding | Severity | Suggested fix |
 |---|---|---|---|
-| HOME-1 | **`homeAlertsTitle` key does not exist.** `home_page_renderer.h:234` emits `data-i18n='homeAlertsTitle'` (alerts-only variant) but the key is absent from both `lang_en_ui.h` and `lang_pt_ui.h` (only `homeRecipientsTitle` exists) — that header never translates. | Medium | Add `homeAlertsTitle` to both language files (EN `"🚨 Alerts"`, PT `"🚨 Alertas"`). |
+| HOME-1 | ~~**`homeAlertsTitle` key does not exist.**~~ **fixed 2026-10-18:** key exists but held an HTML entity (`&#128680;`), rendered literally as `&#128680; Alerts` because `auto.js` applies `data-i18n` via `textContent`. | Medium | ~~Add `homeAlertsTitle` to both language files (EN `"🚨 Alerts"`, PT `"🚨 Alertas"`).~~ Done — both files now use literal `🚨`. |
 | HOME-2 | **WiFi-hybrid flag can never hide the button.** `home_page_renderer.h:18`: `return wifiHybrid["enabled"] \| true;` — bitwise-OR with `true` is always truthy, so disabling WiFi via hybrid config never removes `btn-wifi-cfg`. | Medium | Use `\| false` (missing-key defaults false) or explicit `containsKey` check. |
 | HOME-3 | **IPG Laser omitted from section-header check.** `kHasAnyModule` (`home_page_renderer.h:133-141`) lists every module flag except `ENABLE_IPG_LASER`, yet `:176-178` emits the button — with only IPG enabled the button renders with no "Modules" header. | Low | Add `(ENABLE_IPG_LASER==1)` to `kHasAnyModule`. |
 | HOME-4 | **Dead token branches.** `%%MENU_FEATURE_BUTTONS%%` (`:93-99`) and `%%TELNET_SCRIPT%%` (`:393-401`) are handled in the streamer but neither placeholder exists in `page_home_asset.cpp` — unreachable code on every request. | Low | Delete both branches (keep the tokens out of the asset). |

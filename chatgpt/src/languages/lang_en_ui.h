@@ -2819,7 +2819,7 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "grblViewModeIso": "Isometric",
   "grblViewModeSide": "Side (XZ)",
   "grblViewModeTop": "Top (XY)",
-  "homeAlertsTitle": "&#128680; Alerts",
+  "homeAlertsTitle": "🚨 Alerts",
   "homeCamera": "📷 Camera",
   "homeEcra": "📱 Screen mirror",
   "homeIna226": "⚡ INA226 Current/Power Monitor",
