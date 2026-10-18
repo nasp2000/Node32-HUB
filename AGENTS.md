@@ -27,6 +27,7 @@ pio run -e esp32p4cam         # P4 CAM only (Arduino 3.3.12 dual-platform, see p
 - `pack_*.h` define `PACK_SYSTEM_NAME`, `PACK_EMAIL_SUBJECT`, `PACK_EMOJI`, `PACK_BRAND_NAME`. Used by `ConfigManager.cpp` and `auto_js.h` (no if-else chains).
 - Build-time validation: Sniffer+RS232, Sniffer+DB25, ModbusRTU+DB25 → error (UART1). Dependencies: USBIP→USB_HOST, MODBUS_*→MODBUS, etc.
 - Telemetry/storage standard (all packs, present + future): `ARCHITECTURE.md` §6.1 — dual-sink identical paths, configured cadence, always-on PSRAM ring, merged API serving, cleanup-covered, email reads both. Consult it when adding any source/pack that writes files.
+- **PINOUT.html at repo root is the single hardware truth** (boards, packs, GPIOs, buses, conflicts, wiring, 100% EN, short descriptions). Must be reviewed/updated in the same commit as any GPIO, bus, feature-flag or pack change.
 
 ## Display / screen (`chatgpt/src/screen/` views, core in `chatgpt/src/`)
 - 3 layers: `display_profiles.h` (one profile per panel: geometry, VCC mode, pins, timings; `DISPLAY_*` registry + `activeDisplayProfile()`) → `screen.cpp` core in `chatgpt/src/` (`ScreenManager`: begin/update/scroll/blink/popups, pack-agnostic) → `view_*.h` (one status layout per pack) picked by `view_selector.h` via `ScreenStatusContext`.

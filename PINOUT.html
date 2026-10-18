@@ -794,70 +794,26 @@ HX711 OR MAX31865 (mutually exclusive, both need GPIO20, both disable USB):
 
     <!-- ================================================================ TAB S3 CNC -->
     <div id="tab-s3cnc" class="tab-content">
-        <h2>S3 CNC / GcodeSender</h2>
-        <p>Single pack <code>PACK_S3_CNC</code>. It disables RS232 and enables GRBL+SDCARD+WebSocket+USB_HOST. The GRBL transport is selectable at runtime via the web page selector (session-only): <strong>UART</strong> is the default at boot, <strong>USB Host OTG</strong> is activated instantly when chosen. The USB Host always runs; the choice is not persisted (reboot returns to UART).</p>
+        <h2>S3 CNC / GcodeSender — USB Host OTG only</h2>
+        <p>Single pack <code>PACK_S3_CNC</code>. Enables GRBL + SDCARD + WebSocket + USB_HOST (lazy). Disables RS232, OLED, SMTP. GRBL is USB Host OTG only (native USB D-/D+).</p>
 
-        <h3>Transport A: USB Host OTG (runtime selector)</h3>
-        <p>GRBL communicates via USB Host on the native USB port (GPIO19/20) with an OTG adapter. Connects to the GRBL controller's CH340/FTDI/CP2102 USB-UART adapter.</p>
-        <div class="note"><strong>Note:</strong> USB Host takes over the native USB port. The USB CDC Serial (Serial Monitor) becomes unavailable. Use the CP2102 UART0 (GPIO43/44) for debug output.</div>
+        <h3>Wiring — USB Host OTG</h3>
+        <table><thead><tr><th>Signal</th><th>GPIO</th><th>Notes</th></tr></thead><tbody>
+            <tr><td>USB D-</td><td class="gpio">19</td><td>Native USB D- → OTG adapter → GRBL controller CH340/CP2102</td></tr>
+            <tr><td>USB D+</td><td class="gpio">20</td><td>Native USB D+ → OTG adapter (add 10kΩ GPIO20→GND, avoid VBUS backpower)</td></tr>
+            <tr><td>SD CLK/CMD/D0</td><td class="gpio">39/38/40</td><td>microSD for G-code (PSRAM VFS fallback on N16R8)</td></tr>
+        </tbody></table>
+        <div class="note">USB Host takes the native USB port. Serial Monitor unavailable via USB CDC — use CP2102 UART0 <code>GPIO43/44</code> for debug. UART2 <code>GPIO16/17 (Serial2)</code> is compiled out (<code>#if 0</code> in <code>grbl_sender_transport.cpp</code>) to avoid the ~30 s reboot loop; do not wire FTDI/CH340 to 16/17 for this pack.</div>
 
-        <h4>Feature flags</h4>
-        <table>
-            <thead><tr><th>Flag</th><th>Value</th><th>Notes</th></tr></thead>
-            <tbody>
-                <tr><td><code>ENABLE_GRBL</code></td><td><span class="badge badge-ok">1</span></td><td>G-code sender</td></tr>
-                <tr><td><code>ENABLE_USB_HOST</code></td><td><span class="badge badge-ok">1</span></td><td>USB Host on GPIO19/20 (native port, requires OTG adapter)</td></tr>
-                <tr><td><code>ENABLE_RS232</code></td><td><span class="badge badge-off">0</span></td><td>RS232 transceiver disabled</td></tr>
-                <tr><td><code>ENABLE_SDCARD</code></td><td><span class="badge badge-ok">1</span></td><td>SD slot (N16R8: absent → PSRAM VFS fallback)</td></tr>
-                <tr><td><code>ENABLE_ASYNC_WEBSOCKET</code></td><td><span class="badge badge-ok">1</span></td><td>WebSocket for real-time GRBL status push</td></tr>
-            </tbody>
-        </table>
-
-        <h4>Transport notes</h4>
-        <ul>
-            <li>GRBL sender uses <code>grblTransportWrite()</code> → <code>usbHostSend()</code> via CDC-ACM</li>
-            <li>RX bytes arrive via USB IN transfer callback → <code>grblOnRxData()</code></li>
-            <li>Serial monitor via CP2102 UART0 (GPIO43/44) — USB CDC Serial unavailable</li>
-        </ul>
-
-        <h3>Transport B: TTL UART (default)</h3>
-        <p>GRBL communicates via UART2 (Serial2, GPIO16/17) with an external FT232RL or CH340G USB↔TTL adapter. The native USB port remains available for Serial Monitor (USB CDC). This is the default transport at boot.</p>
-
-        <h4>Wiring</h4>
-        <pre class="diagram">FT232RL / CH340G →    ESP32-S3 N16R8
-──────────────────────────────────
-TX (adapter)  →    GPIO16  (UART2 RX)
-RX (adapter)  ←    GPIO17  (UART2 TX)
-GND           →    GND
-VCC = 3.3V    (FTDI jumper set to 3.3V)</pre>
-        <div class="danger">⚠️ <strong>GPIO16/17 conflict:</strong> These are OPI PSRAM interface pins on the N16R8 devkit. The bootloader drives them at power-on. In practice, this works for GRBL (tested), but avoid connecting RS232 transceivers (MAX3232) to these pins — the &plusmn;12V glitch can disrupt the bus.</div>
-
-        <h4>UART allocation</h4>
-        <table>
-            <thead><tr><th>UART</th><th>HardwareSerial</th><th>TX</th><th>RX</th><th>Baud</th><th>Usage</th></tr></thead>
-            <tbody>
-                <tr><td>UART2</td><td><code>Serial2</code></td><td class="gpio">GPIO17</td><td class="gpio">GPIO16</td><td>115200</td><td>GRBL G-code via FTDI/CH340 adapter</td></tr>
-            </tbody>
-        </table>
-
-        <h4>Feature flags</h4>
-        <table>
-            <thead><tr><th>Flag</th><th>Value</th><th>Notes</th></tr></thead>
-            <tbody>
-                <tr><td><code>ENABLE_GRBL</code></td><td><span class="badge badge-ok">1</span></td><td>G-code sender</td></tr>
-                <tr><td><code>ENABLE_USB_HOST</code></td><td><span class="badge badge-ok">1</span></td><td>USB Host always runs — GRBL transport selected at runtime</td></tr>
-                <tr><td><code>ENABLE_RS232</code></td><td><span class="badge badge-off">0</span></td><td>RS232 transceiver disabled</td></tr>
-                <tr><td><code>ENABLE_SDCARD</code></td><td><span class="badge badge-ok">1</span></td><td>SD slot (N16R8: absent → PSRAM VFS fallback)</td></tr>
-                <tr><td><code>ENABLE_ASYNC_WEBSOCKET</code></td><td><span class="badge badge-ok">1</span></td><td>WebSocket for real-time GRBL status push</td></tr>
-            </tbody>
-        </table>
-
-        <h4>Transport notes</h4>
-        <ul>
-            <li>GRBL sender uses <code>grblTransportWrite()</code> → <code>Serial2.write()</code> (UART default)</li>
-            <li>RX bytes polled in <code>grblSenderUpdate()</code> via <code>grblTransportPollRx()</code></li>
-            <li>Default baud 115200; switching to OTG is session-only via <code>POST /api/grbl/transport</code></li>
-        </ul>
+        <h3>Feature flags</h3>
+        <table><thead><tr><th>Flag</th><th>Value</th><th>Notes</th></tr></thead><tbody>
+            <tr><td><code>ENABLE_GRBL</code></td><td><span class="badge badge-ok">1</span></td><td>G-code sender</td></tr>
+            <tr><td><code>ENABLE_USB_HOST</code></td><td><span class="badge badge-ok">1</span></td><td>Lazy start via web toggle; host off at boot, ON after page auto-start</td></tr>
+            <tr><td><code>ENABLE_RS232</code></td><td><span class="badge badge-off">0</span></td><td>Disabled (UART code compiled out)</td></tr>
+            <tr><td><code>ENABLE_SDCARD</code></td><td><span class="badge badge-ok">1</span></td><td>SD slot (N16R8 absent → PSRAM VFS fallback)</td></tr>
+            <tr><td><code>ENABLE_ASYNC_WEBSOCKET</code></td><td><span class="badge badge-ok">1</span></td><td>Real-time GRBL status push</td></tr>
+        </tbody></table>
+        <div class="info">packs/pack_s3_cnc_usb.h · grbl_sender_transport.cpp #if 0 Serial2 · host lazy start, session-only</div>
     </div>
 
     <footer>
