@@ -62,9 +62,9 @@ assets/ (PROGMEM) → renderers/ (streaming) → handlers_unified/ (HTTP) → ro
 
 **i18n system** — Two complete PROGMEM JSON files (`lang_en_ui.h` / `lang_pt_ui.h`, ~150 KB EN + ~160 KB PT, 2850 keys each). Build-time validation (`validate_i18n.py`) extracts all keys from both files and fails the build if any EN key is missing in PT (or vice-versa). Extra PT keys produce a build warning (ignored at runtime). At runtime, `activeLangUiJson` pointer selects the full JSON for the active language — zero RAM cost for the inactive set, no merge, no runtime processing. Firmware-internal strings (log messages, status) use `lang_active.cpp` with `L(activeLang->field)` macro.
 
-**JS coding rules**: no arrow functions (`function(x){}` for ESP32 browser compat), `KeyboardEvent` uses `.key` not `.keyCode`, save responses return `customAlert('✅ Configuração guardada!')` + `showSavedCard()`, errors return `customAlert('❌ Erro: ' + message)`, confirmation uses `customConfirm()` (never native `confirm()`).
+**JS coding rules**: no arrow functions (`function(x){}` for ESP32 browser compat); `KeyboardEvent` uses `.key`, never `.keyCode`; save/error feedback via i18n keys, never hardcoded strings; confirmation via `customConfirm()` (never native `confirm()`).
 
-**Local processing pages** — 6 pages with continuous JS/polling are exempt from session timeout: `/sensor-charts` (Chart.js + heartbeat), `/grbl-controller` (SSE EventSource), `/serial-monitor` (polling), `/camera` (smart polling), `/radio-ui` (polling), `/buffer-viewer` (polling). These open in `target='_blank'` from home and are tracked via `charts_exempt_sessions` in the access page.
+**Local processing pages** - pages with continuous JS/polling open in `target='_blank'` from home and are exempt from the session timeout while the `charts_exempt_sessions` flag is on (access page): `/sensor-charts`, `/grbl-controller`, `/serial-monitor`, `/camera`, `/radio-ui`, `/buffer-viewer`.
 
 ## 4. Build System
 
@@ -230,56 +230,64 @@ flat 256 KB on flash — same content, rotation needs differ), blobs
 - **`memoryPressurePanic()`**: called before critical large allocations; logs current heap state, calls `psramRealloc()` pressure relief on caches, triggers soft reboot if heap drops below emergency threshold
 - **Module guards**: `#if ENABLE_X == 1` at top of every `.cpp` file excluding core (log, config, network) — disabled modules cost exactly zero RAM at runtime (no task, no queue, no buffer)
 - **Stack allocation**: FreeRTOS task stacks sized per task (see table below); `uxTaskGetStackHighWaterMark()` checked in diagnostics paths.
-- **Web response buffers**: chunked/streamed output via `AsyncResponseStream` to avoid large contiguous allocations; JSON responses use progressive `addKey` serialization
+- **Web response buffers**: chunked/streamed output via `AsyncResponseStream` to avoid large contiguous allocations; JSON responses via `HttpResponse::sendJson`.
 
 ## 8. Module Interfaces
 
-All 19 interfaces live in `src/interfaces/` as pure virtual classes. Each defines the contract for a subsystem; implementations are selected at compile time via feature flags.
+All 20 interfaces live in `src/interfaces/` as pure virtual classes. Each defines the contract for a subsystem; implementations are selected at compile time via feature flags.
 
 | Interface | Key methods | Used by |
 |---|---|---|
-| `IConfigStore` | `getString/setString`, `getInt/setInt`, `save`, `load` | ConfigManager |
-| `INetworkManager` | `connectWiFi`, `startAP`, `isConnected`, `getIP` | WiFi + Ethernet |
-| `IWebServer` | `on`, `serveStatic`, `begin`, `onNotFound` | WebServer |
-| `ISerialPort` | `begin`, `read`, `write`, `available`, `flush` | RS232, Modbus RTU, GRBL |
-| `IModbusController` | `addDevice`, `readHolding`, `writeCoil`, `poll` | Modbus RTU/TCP |
-| `IGrblSender` | `sendGcode`, `getState`, `jog`, `hold`, `resume` | GRBL controller |
-| `IEmailService` | `sendEmail`, `isReady` | SMTP, Google Script |
-| `ISensorManager` | `readAll`, `getValue`, `getHistory` | Sensor polling |
-| `IStorage` | `open`, `read`, `write`, `exists`, `remove` | LittleFS, SD card |
-| `ILogger` | `log`, `setLevel`, `getLogs` | Logging system |
-| `IScheduler` | `addEvent`, `removeEvent`, `getNext` | Scheduler |
-| `IUsbHost` | `begin`, `enumerate`, `readPipe`, `writePipe` | USB host |
-| `IOtaManager` | `beginUpdate`, `writeUpdate`, `endUpdate` | OTA updates |
-| `ICameraController` | `begin`, `capture`, `streamMjpeg` | Camera |
-| `IAudioController` | `begin`, `playFile`, `setVolume`, `stop` | Audio |
-| `IDisplay` | `begin`, `clear`, `print`, `drawBitmap` | Display (future) |
-| `IBuzzer` | `beep`, `playMelody`, `stop` | Buzzer |
-| `ICanBus` | `begin`, `sendFrame`, `onReceive`, `getSpeed` | CAN bus |
-| `IProximitySensor` | `begin`, `isTriggered`, `getDistance`, `getCount` | Proximity |
+| `IModule` | `moduleName`, `init`, `deinit`, `loop` | base contract for all modules |
+| `IConfigStore` | `init`, `load`, `save`, `remove`, `setBlob/getBlob` | ConfigManager |
+| `INetworkManager` | `init`, `connectWiFi`, `startAccessPoint`, `getWiFiState` | WiFi + Ethernet |
+| `IWebServer` | `init`, `addRoute`, `serveStatic`, `authenticate` | WebServer |
+| `ISerialPort` | `begin`, `end`, `loop`, `write`, `read`, `available` | RS232, Modbus RTU, GRBL |
+| `IModbusController` | `addDevice`, `readHoldingRegisters`, `writeSingleReg` | Modbus RTU/TCP |
+| `IGrblSender` | `sendGcode`, `streamFile`, `pauseStream`, `resumeStream` | GRBL controller |
+| `IEmailService` | `send`, `sendAsync`, `isReady` | SMTP, Google Script |
+| `ISensorManager` | `read`, `readAll`, `registerSensor` | Sensor polling |
+| `IFileSystem` | `begin`, `end`, `exists`, `remove`, `rename`, `mkdir`, `list` | LittleFS, SD card |
+| `ILogger` | `log`, `debug/info/warn/error`, `setLevel`, `addOutput` | Logging system |
+| `IScheduler` | `addEntry`, `removeEntry`, `getEntry` | Scheduler |
+| `IUsbHost` | `begin`, `enumerateDevices`, `claimInterface` | USB host |
+| `IOtaManager` | `beginUpdate`, `writeChunk`, `endUpdate`, `verifyFirmware` | OTA |
+| `ICameraController` | `start`, `stop`, `capture`, `startStreaming` | Camera |
+| `IAudioController` | `play`, `stop`, `pause`, `setVolume`, `playRadio` | Audio |
+| `IDisplay` | `init`, `clear`, `drawText`, `drawBitmap` | Display |
+| `IBuzzer` | `beep`, `playTone`, `playMelody` | Buzzer |
 
 Dependency injection via constructor. Test doubles provided in `tests/native/stubs/`: `MockConfigStore` (std::map backing, no NVS/LittleFS), `MockEmailService` (captures sent messages), `MockLogger` (captures log entries). Adding a new interface requires creating the header, implementing it in a module, and optionally providing a mock.
 
 ## 9. FreeRTOS Tasks
 
-The firmware runs on ESP32-S3 (dual-core Xtensa) or ESP32-P4 (dual-core RISC-V). Tasks are pinned to specific cores. Core 0 handles I/O and interrupts; core 1 handles application logic and web server.
+The firmware runs on ESP32-S3 (dual-core Xtensa) or ESP32-P4 (dual-core RISC-V). Tasks are pinned per call site: `loop()` runs on core 1 (`ARDUINO_RUNNING_CORE`); drivers, email and storage work mostly sit on core 0.
 
 | Task | Core | Stack | Purpose |
 |---|---|---|---|
-| `loop()` (Arduino main) | 0 | 8 KB DRAM | RS232 serial processing, sensor polling round-robin, scheduler tick dispatch, email queue drain, Modbus RTU polling, watchdog feed |
-| AsyncWebServer WiFi | 1 | 16 KB DRAM | AsyncHTTP request handling on WiFi interface |
-| AsyncWebServer ETH | 1 | 16 KB DRAM | AsyncHTTP request handling on W5500 Ethernet interface |
-| Camera MJPEG | 1 | 32 KB PSRAM | OV2640/OV3660 frame capture + MJPEG streaming over HTTP |
-| USB Host | 0 | 4 KB DRAM | EHCI USB host enumeration, pipe management, data transfer callbacks |
-| AHT20 polling | 0 | 3 KB DRAM | Periodic temperature/humidity read (if enabled) |
-| MQ135 polling | 0 | 3 KB DRAM | Periodic air quality read + calibration (if enabled) |
-| HX711 polling | 0 | 3 KB DRAM | Load cell read with tare + averaging (if enabled) |
-| INA226 polling | 0 | 3 KB DRAM | Bus voltage/current/power read (if enabled) |
-| Proximity monitor | 0 | 3 KB DRAM | Inductive sensor state machine + counter (if enabled) |
-| GRBL streamer | 0 | 4 KB DRAM | G-code line-by-line send with XON/XOFF flow control, real-time command injection |
-| Audio playback | 1 | 4 KB DRAM | DFPlayer/MAX98357 background playback queue (if enabled) |
+| `loop()` (Arduino main) | 1 | 16 KB S3 / 8 KB P4 | RS232/serial processing, sensor polling round-robin, scheduler ticks, email queue drain, Modbus RTU polling, watchdog |
+| AsyncWebServer WiFi | 1 | lib default | HTTP request handling on WiFi |
+| AsyncWebServer ETH | 1 | lib default | HTTP request handling on W5500 |
+| `httpRing` / `sdRing` (audio) | 1 | 4 KB | network / SD audio buffering |
+| `can_rx` | 0 | 3 KB | CAN receive |
+| `eth_ri` | 0 | 8 KB | Ethernet reinit task |
+| `grbl_resume` | no affinity | 8 KB | one-shot resume scan |
+| `psram_feed` | 0 | 4 KB | G-code PSRAM streaming |
+| `modbus_poll` | 0 | 6 KB | Modbus RTU polling |
+| `mbSlave` | 1 | 4 KB | Modbus slave |
+| `usb_daemon` / `usb_client` | 0 | 6 KB | USB host daemon / client |
+| `usb_begin` | no affinity | 8 KB | USB host bring-up |
+| `usb_reconnect`, `usb_restart`, `usb_tuh` | 0 | 4 KB / 4 KB / 6 KB | USB host maintenance |
+| `usbip_cli`, `usbip_srv` | no affinity | 6 KB | USB/IP client / server |
+| `EmailDay` | 0 | 32 KB | day emails (TLS needs it) |
+| `CamRecWr` / `CamInit` | 0 | 6 KB | camera writer / init task |
+| `flashInit` / `sdInit` | no affinity | 12 KB / 8 KB | boot storage init |
+| `ftpMon` | no affinity | 16 KB | FTP monitor |
+| sensors / proximity | - | - | no dedicated tasks; polled round-robin in `loop()` |
+| MJPEG streaming | - | - | served from AsyncWebServer request tasks (no dedicated pump task found) |
+| `p4vision` | 1 | 4 KB | P4 vision (P4 only) |
 
-All tasks created with `xTaskCreatePinnedToCore()`. Stack watermarks monitored via `uxTaskGetStackHighWaterMark()` and reported on the system status page. Tasks for disabled modules are never created — zero overhead.
+Most tasks use `xTaskCreatePinnedToCore()`; a few one-shots use plain `xTaskCreate`. Stack watermarks are checked via `uxTaskGetStackHighWaterMark()` in diagnostics paths. Tasks for disabled modules are never created - zero overhead.
 
 **USB Host task notes (ESP32-P4)**: `usbHostBegin()` is called directly in `setup()` — no delays, no root port power cycle toggles. Regressions from added delays or power cycles broke working boards; the v1.06 baseline code is stable. ESP32-S3 does not support `usb_host_lib_set_root_port_power()` (returns `ESP_ERR_NOT_SUPPORTED`). GPIO20 glitch (~170 ms high at boot) can corrupt USB PHY state — hardware fix: 10 kΩ pull-down to GND.
 
