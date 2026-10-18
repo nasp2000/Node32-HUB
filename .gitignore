@@ -127,6 +127,7 @@ ehthumbs.db
 # GitHub Actions (disabled via .gitignore)
 .github/workflows/*
 !.github/workflows/build.yml
+!.github/workflows/codeql.yml
 
 # LGPL compliance materials — generated on demand by chatgpt/scripts/package_third_party.py
 third-party/

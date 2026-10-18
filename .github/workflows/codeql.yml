@@ -1,0 +1,59 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "chatgpt/**"
+      - ".github/workflows/codeql.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "chatgpt/**"
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (cpp)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install system deps
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq g++ make
+      - name: Install PlatformIO
+        run: pip install --quiet platformio
+      - name: Cache PlatformIO platforms and packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-pio-codeql-${{ hashFiles('chatgpt/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: cpp
+          queries: security-and-quality
+      - name: Build firmware (traced)
+        env:
+          SKIP_NATIVE_TESTS: "1"
+        run: pio run --project-dir chatgpt -e n16r8
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        category: "/language:cpp"
