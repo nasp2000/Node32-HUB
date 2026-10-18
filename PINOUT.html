@@ -82,10 +82,10 @@
         <!-- PACK_RAMBOX -->
         <div id="pck-n16r8-rambox" class="pck-content">
             <h2>&#128038; PACK_RAMBOX &mdash; Pigeon racing (Unikon terminal)</h2>
-            <p>Activa: RS232, UNIKON, SMTP, GOOGLE_EMAIL, OTA, OLED. Desactiva: MDNS, DB25, SNIFFER, MODBUS, CAN, SCHEDULER, sensores, TELNET.</p>
+            <p>Enables: RS232, UNIKON, SMTP, GOOGLE_EMAIL, OTA, OLED. Disables: MDNS, DB25, SNIFFER, MODBUS, CAN, SCHEDULER, sensores, TELNET.</p>
             <table><thead><tr><th>GPIO</th><th>Function</th><th>Notes</th></tr></thead><tbody>
                 <tr><td class="gpio">16/17</td><td>RS232 TX/RX (UART2)</td><td>Comunica&ccedil;&atilde;o com RAMBOX/Unikon via MAX3232 ou SZFYD</td></tr>
-                <tr><td class="gpio">18</td><td>RTS (SZFYD)</td><td>Para RAMBOX (DSR/DTR assert)</td></tr>
+                <tr><td class="gpio">18</td><td>RTS (SZFYD)</td><td>For RAMBOX (DSR/DTR assert)</td></tr>
                 <tr><td class="gpio">21/48</td><td>OLED SDA/SCL (I2C0)</td><td>Display SSD1306</td></tr>
             </tbody></table>
             <div class="info">Pack lock: ESP32-S3 N16R8 only. packs/pack_rambox.h</div>
@@ -94,25 +94,25 @@
         <!-- PACK_CAM -->
         <div id="pck-n16r8-cam" class="pck-content">
             <h2>&#128247; PACK_CAM &mdash; Camera monitoring</h2>
-            <p>Activa: CAMERA, SDCARD, OTA, SMTP. Desactiva: RS232, DB25, MODBUS, CAN, sensores, TELNET, SCHEDULER.</p>
-            <p>Pack fixo para <strong>TARGET_BOARD_S3_CAM</strong> (pinos de c&acirc;mera dedicados). Ver board_pins.h.</p>
+            <p>Enables: CAMERA, SDCARD, OTA, SMTP. Disables: RS232, DB25, MODBUS, CAN, sensores, TELNET, SCHEDULER.</p>
+            <p>Fixed for <strong>TARGET_BOARD_S3_CAM</strong> (dedicated camera pins). See board_pins.h.</p>
         </div>
 
         <!-- PACK_PSRAM -->
         <div id="pck-n16r8-psram" class="pck-content">
             <h2>PACK_PSRAM &mdash; Generic PSRAM-optimised</h2>
-            <p>Activa: RS232, SMTP, SCHEDULER, STRUCTURES_PAGE. Desactiva: sensores, CAN, MODBUS, TELNET, CAMERA.</p>
+            <p>Enables: RS232, SMTP, SCHEDULER, STRUCTURES_PAGE. Disables: sensores, CAN, MODBUS, TELNET, CAMERA.</p>
             <table><thead><tr><th>GPIO</th><th>Function</th><th>Notes</th></tr></thead><tbody>
                 <tr><td class="gpio">16/17</td><td>RS232 TX/RX</td><td>UART2</td></tr>
                 <tr><td class="gpio">21/48</td><td>OLED SDA/SCL</td><td>I2C0</td></tr>
             </tbody></table>
-            <div class="info">Qualquer board com PSRAM. packs/pack_psram.h</div>
+            <div class="info">Any board with PSRAM. packs/pack_psram.h</div>
         </div>
 
         <!-- PACK_ENVIRONMENT -->
         <div id="pck-n16r8-env" class="pck-content">
             <h2>&#127758; PACK_ENVIRONMENT &mdash; Environmental sensors</h2>
-            <p>Activa: AHT20/BMP280, MQ135, SMTP, SCHEDULER. Desactiva: RS232, DB25, MODBUS, CAN, TELNET, CAMERA.</p>
+            <p>Enables: AHT20/BMP280, MQ135, SMTP, SCHEDULER. Disables: RS232, DB25, MODBUS, CAN, TELNET, CAMERA.</p>
             <table><thead><tr><th>GPIO</th><th>Function</th><th>Notes</th></tr></thead><tbody>
                 <tr><td class="gpio">5</td><td>MQ135 AOUT</td><td>ADC (divisor tens&atilde;o se 5V)</td></tr>
                 <tr><td class="gpio">8/9</td><td>AHT20/BMP280 SDA/SCL</td><td>I2C1 (Wire1)</td></tr>
@@ -124,52 +124,52 @@
         <!-- PACK_RADIO (default active) -->
         <div id="pck-n16r8-radio" class="pck-content active">
             <h2>&#127911; PACK_RADIO &mdash; Harmonica-BOX (Internet radio &amp; MP3 player)</h2>
-            <p>Activa: UDA1334A (I2S DAC), SDCARD, LCD_SCREEN, WIFI, OTA. Desactiva: RS232, DB25, MODBUS, CAN, sensores, TELNET, CAMERA, SMTP.</p>
+            <p>Enables: UDA1334A (I2S DAC), SDCARD, LCD_SCREEN, WIFI, OTA. Disables: RS232, DB25, MODBUS, CAN, sensores, TELNET, CAMERA, SMTP.</p>
             <table><thead><tr><th>GPIO</th><th>Function</th><th>Notes</th></tr></thead><tbody>
-                <tr><td class="gpio">41</td><td>BCLK</td><td>Pino BCLK do m&oacute;dulo UDA1334A (bit clock I2S)</td></tr>
-                <tr><td class="gpio">42</td><td>WSEL</td><td>Pino WSEL do m&oacute;dulo (word select / LRCK)</td></tr>
-                <tr><td class="gpio">19</td><td>DIN</td><td>Pino DIN do m&oacute;dulo (dados I2S / ESP32 DOUT)</td></tr>
-                <tr><td class="gpio">1</td><td>MUTE</td><td>Pino MUTE do m&oacute;dulo &mdash; <b>OPCIONAL</b> (HIGH = sil&ecirc;ncio; LOW = &aacute;udio ativo)</td></tr>
+                <tr><td class="gpio">41</td><td>BCLK</td><td>BCLK pin do m&oacute;dulo UDA1334A (bit clock I2S)</td></tr>
+                <tr><td class="gpio">42</td><td>WSEL</td><td>WSEL pin do m&oacute;dulo (word select / LRCK)</td></tr>
+                <tr><td class="gpio">19</td><td>DIN</td><td>DIN pin do m&oacute;dulo (dados I2S / ESP32 DOUT)</td></tr>
+                <tr><td class="gpio">1</td><td>MUTE</td><td>MUTE pin do m&oacute;dulo &mdash; <b>OPCIONAL</b> (HIGH = sil&ecirc;ncio; LOW = &aacute;udio ativo)</td></tr>
                 <tr><td class="gpio">21/48</td><td>OLED SDA/SCL</td><td>Display SSD1306</td></tr>
             </tbody></table>
             <h3>&#128297; M&oacute;dulo UDA1334A &harr; ESP32 &mdash; liga&ccedil;&atilde;o</h3>
-            <table><thead><tr><th>Pino m&oacute;dulo</th><th>ESP32</th><th>Notas</th></tr></thead><tbody>
+            <table><thead><tr><th>Module pin</th><th>ESP32</th><th>Notes</th></tr></thead><tbody>
                 <tr><td>BCLK</td><td class="gpio">41</td><td>Bit clock (I2S)</td></tr>
                 <tr><td>WSEL</td><td class="gpio">42</td><td>Word select / LRCK</td></tr>
                 <tr><td>DIN</td><td class="gpio">19</td><td>Dados seriais (I2S DOUT do ESP32)</td></tr>
-                <tr><td>MCLK</td><td>n.c.</td><td>Master clock &mdash; n&atilde;o ligar (desligado no firmware; o m&oacute;dulo deriva o rel&oacute;gio do BCLK)</td></tr>
-                <tr><td>VIN</td><td>3V3</td><td>3.3V (o m&oacute;dulo aceita 3.3&ndash;5V)</td></tr>
-                <tr><td>GND</td><td>GND</td><td>Massa</td></tr>
-                <tr><td>MUTE</td><td class="gpio">1</td><td>HIGH = sil&ecirc;ncio (mute). <b>OPCIONAL:</b> ligar a GPIO1 (pino CAN_TX_PIN, livre porque o CAN est&aacute; desativado neste pack) para mute digital por software (elimina o hum com o player parado). Se n&atilde;o ligares, p&otilde;e MUTE em GND e <code>UDA1334A_MUTE_PIN -1</code></td></tr>
+                <tr><td>MCLK</td><td>n.c.</td><td>Master clock &mdash; do not connect (disabled in firmware; module derives clock from BCLK)</td></tr>
+                <tr><td>VIN</td><td>3V3</td><td>3.3V (module accepts 3.3&ndash;5V)</td></tr>
+                <tr><td>GND</td><td>GND</td><td>Ground</td></tr>
+                <tr><td>MUTE</td><td class="gpio">1</td><td>HIGH = mute. <b>OPTIONAL:</b> connect to GPIO1 (CAN_TX_PIN, free because CAN is disabled in this pack) for software mute (removes hum when idle). If not used, tie MUTE to GND and set <code>UDA1334A_MUTE_PIN -1</code></td></tr>
                 <tr><td>SMT</td><td>GND</td><td>De-emphasis off</td></tr>
-                <tr><td>SF0</td><td>GND</td><td rowspan="2">Formato I2S (00)</td></tr>
+                <tr><td>SF0</td><td>GND</td><td rowspan="2">I2S format (00)</td></tr>
                 <tr><td>SF1</td><td>GND</td></tr>
             </tbody></table>
-            <div class="note">GPIO40 &eacute; o D0 do microSD. Se N&Atilde;O usares o cart&atilde;o SD, podes usar BCLK=40, WSEL=41, DIN=42 em vez de 41/42/19.</div>
-            <h3>&#127911; Pipeline de &aacute;udio</h3>
+            <div class="note">GPIO40 is the microSD D0. If NOT using the SD card, you may use BCLK=40, WSEL=41, DIN=42 instead of 41/42/19.</div>
+            <h3>&#127911; Audio pipeline</h3>
             <ul style="margin:8px 0 12px 16px;font-size:13px;line-height:1.8">
-                <li><strong>Fonte:</strong> HTTP Stream (<code>/api/radio/play-url</code>) ou SD (<code>/api/radio/play-sd</code>)</li>
-                <li><strong>Cache PSRAM:</strong> AudioFileSourceBuffer (128KB&ndash;2MB)</li>
+                <li><strong>Source:</strong> HTTP Stream (<code>/api/radio/play-url</code>) ou SD (<code>/api/radio/play-sd</code>)</li>
+                <li><strong>PSRAM cache:</strong> AudioFileSourceBuffer (128KB&ndash;2MB)</li>
                 <li><strong>Decoder:</strong> AudioGeneratorMP3 (ESP8266Audio lib)</li>
-                <li><strong>Equalizador:</strong> EqAudioOutput &mdash; 5 bandas (80Hz &ndash; 12kHz)</li>
-                <li><strong>Sa&iacute;da:</strong> UDA1334ADAC via I2S_NUM_0 (BCLK=41, WSEL=42, DIN=19)</li>
+                <li><strong>Equalizer:</strong> EqAudioOutput &mdash; 5 bandas (80Hz &ndash; 12kHz)</li>
+                <li><strong>Output:</strong> UDA1334ADAC via I2S_NUM_0 (BCLK=41, WSEL=42, DIN=19)</li>
             </ul>
-            <div class="info">Config: <code>/uda1334a</code> | Controlo remoto: <code>/radio-ui</code></div>
+            <div class="info">Config: <code>/uda1334a</code> | Remote control: <code>/radio-ui</code></div>
             <div class="info">Pack lock: ESP32-S3 N16R8 only. packs/pack_radio.h</div>
         </div>
 
         <!-- PACK_S3_CNC (UART default + USB Host OTG selector) -->
         <div id="pck-n16r8-s3cnc" class="pck-content">
             <h2>&#9881; PACK_S3_CNC &mdash; GcodeSender (UART default, USB Host OTG selector)</h2>
-            <p>Activa: GRBL, USB_HOST, SDCARD, ASYNC_WEBSOCKET. Desactiva: RS232, DB25, MODBUS, CAN, sensores, TELNET, OLED.</p>
-            <p>Transporte GRBL selecion&aacute;vel em runtime (apenas sess&atilde;o): default <strong>UART</strong> (Serial2 GPIO16/17 via FTDI/CH340 3.3V) &mdash; a porta USB nativa fica livre para Serial Monitor; altern&acirc;ncia para <strong>USB Host OTG</strong> (GPIO19/20, CH340/CP2102 do GRBL controller) no seletor da p&aacute;gina GRBL. O host USB corre sempre; a escolha n&atilde;o persiste (volta a UART no reboot).</p>
+            <p>Enables: GRBL, USB_HOST, SDCARD, ASYNC_WEBSOCKET. Disables: RS232, DB25, MODBUS, CAN, sensores, TELNET, OLED.</p>
+            <p>GRBL transport selectable at runtime (session-only): default <strong>UART</strong> (Serial2 GPIO16/17 via FTDI/CH340 3.3V) &mdash; native USB port stays free for Serial Monitor; switch to <strong>USB Host OTG</strong> (GPIO19/20, CH340/CP2102 GRBL controller) in the GRBL page selector. USB Host always runs; choice is not persisted (reverts to UART on reboot).</p>
             <table><thead><tr><th>GPIO</th><th>Function</th><th>Notes</th></tr></thead><tbody>
                 <tr><td class="gpio">16/17</td><td>GRBL UART TX/RX (default)</td><td>FT232RL ou CH340G (3.3V!) ligado ao GRBL controller</td></tr>
                 <tr><td class="gpio">19/20</td><td>USB D-/D+ (OTG)</td><td>Adaptador OTG &rarr; CH340/CP2102 do GRBL controller (ap&oacute;s seletor OTG)</td></tr>
                 <tr><td class="gpio">39/38/40</td><td>SDMMC CLK/CMD/D0</td><td>microSD para GCode files</td></tr>
             </tbody></table>
-            <div class="warn">&#9888; GPIO16/17: S&atilde;o pinos da OPI PSRAM no N16R8 — funcionam para UART GRBL na pr&aacute;tica, mas N&Atilde;O ligar MAX3232 (glitch de &plusmn;12V no boot).</div>
-            <div class="info">Com transporte OTG, a porta USB nativa fica ocupada pelo USB Host; debug via UART0 (GPIO43/44) com adaptador USB-UART. packs/pack_s3_cnc_usb.h</div>
+            <div class="warn">&#9888; GPIO16/17: These are OPI PSRAM pins on N16R8 &mdash; they work for GRBL UART in practice, but DO NOT connect MAX3232 (&plusmn;12V glitch on boot).</div>
+            <div class="info">With OTG transport, native USB port is taken by USB Host; debug via UART0 (GPIO43/44) with USB-UART adapter. packs/pack_s3_cnc_usb.h</div>
         </div>
 
         <h2>Quick wiring reference &mdash; N16R8</h2>
@@ -356,15 +356,15 @@ MQ-135 / HX711 / Sound / MAX31865 CS (pick ONE on GPIO5):
         <!-- PACK_S3_CNC (UART default + USB Host OTG selector) -->
         <div id="pck-n16r8-s3cnc" class="pck-content">
             <h2>&#9881; PACK_S3_CNC &mdash; GcodeSender (UART default, USB Host OTG selector)</h2>
-            <p>Activa: GRBL, USB_HOST, SDCARD, ASYNC_WEBSOCKET. Desactiva: RS232, DB25, MODBUS, CAN, sensores, TELNET, OLED.</p>
-            <p>Transporte GRBL selecion&aacute;vel em runtime (apenas sess&atilde;o): default <strong>UART</strong> (Serial2 GPIO16/17 via FTDI/CH340 3.3V) &mdash; a porta USB nativa fica livre para Serial Monitor; altern&acirc;ncia para <strong>USB Host OTG</strong> (GPIO19/20, CH340/CP2102 do GRBL controller) no seletor da p&aacute;gina GRBL. O host USB corre sempre; a escolha n&atilde;o persiste (volta a UART no reboot).</p>
+            <p>Enables: GRBL, USB_HOST, SDCARD, ASYNC_WEBSOCKET. Disables: RS232, DB25, MODBUS, CAN, sensores, TELNET, OLED.</p>
+            <p>GRBL transport selectable at runtime (session-only): default <strong>UART</strong> (Serial2 GPIO16/17 via FTDI/CH340 3.3V) &mdash; native USB port stays free for Serial Monitor; switch to <strong>USB Host OTG</strong> (GPIO19/20, CH340/CP2102 GRBL controller) in the GRBL page selector. USB Host always runs; choice is not persisted (reverts to UART on reboot).</p>
             <table><thead><tr><th>GPIO</th><th>Function</th><th>Notes</th></tr></thead><tbody>
                 <tr><td class="gpio">16/17</td><td>GRBL UART TX/RX (default)</td><td>FT232RL ou CH340G (3.3V!) ligado ao GRBL controller</td></tr>
                 <tr><td class="gpio">19/20</td><td>USB D-/D+ (OTG)</td><td>Adaptador OTG &rarr; CH340/CP2102 do GRBL controller (ap&oacute;s seletor OTG)</td></tr>
                 <tr><td class="gpio">39/38/40</td><td>SDMMC CLK/CMD/D0</td><td>microSD para GCode files</td></tr>
             </tbody></table>
-            <div class="warn">&#9888; GPIO16/17: S&atilde;o pinos da OPI PSRAM no N16R8 — funcionam para UART GRBL na pr&aacute;tica, mas N&Atilde;O ligar MAX3232 (glitch de &plusmn;12V no boot).</div>
-            <div class="info">Com transporte OTG, a porta USB nativa fica ocupada pelo USB Host; debug via UART0 (GPIO43/44) com adaptador USB-UART. packs/pack_s3_cnc_usb.h</div>
+            <div class="warn">&#9888; GPIO16/17: These are OPI PSRAM pins on N16R8 &mdash; they work for GRBL UART in practice, but DO NOT connect MAX3232 (&plusmn;12V glitch on boot).</div>
+            <div class="info">With OTG transport, native USB port is taken by USB Host; debug via UART0 (GPIO43/44) with USB-UART adapter. packs/pack_s3_cnc_usb.h</div>
         </div>
 
         <h2>Quick wiring reference &mdash; N16R8</h2>
@@ -659,7 +659,7 @@ HX711 OR MAX31865 (mutually exclusive, both need GPIO20, both disable USB):
         <p>Standard DB9 / DE-9 connector viewed from the <strong>front</strong> (the face that plugs in / inserts). Pins marked with <strong>&#9733;</strong> are used by the sniffer.</p>
         <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start;margin:16px 0">
             <div style="flex:1;min-width:260px">
-                <p style="text-align:center;margin:0 0 6px;font-weight:700;color:#1e66c7">MACHO (plug) &mdash; vista de frente<br><small style="font-weight:400;color:#555">(pinos metálicos virados para si)</small></p>
+                <p style="text-align:center;margin:0 0 6px;font-weight:700;color:#1e66c7">MALE (plug) &mdash; front view<br><small style="font-weight:400;color:#555">(metal pins facing you)</small></p>
 <pre class="diagram">      _______________________________
      /                               \
     /  (1)   ★(2)  ★(3)  (4)   ★(5)  \
@@ -680,7 +680,7 @@ HX711 OR MAX31865 (mutually exclusive, both need GPIO20, both disable USB):
   (9) RI   Ring Indicator</pre>
             </div>
             <div style="flex:1;min-width:260px">
-                <p style="text-align:center;margin:0 0 6px;font-weight:700;color:#1e66c7">FÊMEA (socket) &mdash; vista de frente<br><small style="font-weight:400;color:#555">(furos virados para si, numeração espelhada)</small></p>
+                <p style="text-align:center;margin:0 0 6px;font-weight:700;color:#1e66c7">FEMALE (socket) &mdash; front view<br><small style="font-weight:400;color:#555">(holes facing you, mirrored numbering)</small></p>
 <pre class="diagram">      _______________________________
      /                               \
     /  ★(5)  (4)   ★(3)  ★(2)  (1)   \
@@ -702,7 +702,7 @@ HX711 OR MAX31865 (mutually exclusive, both need GPIO20, both disable USB):
             </div>
         </div>
         <div class="note">
-            <strong>Nota de espelhamento:</strong> quando uma ficha macho e uma fêmea se encaixam, o pino 1 de cada lado fica alinhado com o pino 1 do lado oposto. A numeração da fêmea vista de frente aparece <em>espelhada</em> relativamente à do macho porque os dois conectores se &ldquo;olham&rdquo; um para o outro.
+            <strong>Mirroring note:</strong> when a male and female mate, pin 1 aligns with pin 1 on the opposite side. The female front view appears <em>mirrored</em> vs the male because the connectors face each other.
         </div>
 
         <h2>MAX3232 module female DB9 &mdash; critical wiring note</h2>
