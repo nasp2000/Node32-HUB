@@ -42,24 +42,15 @@ Pre-built firmware binaries are published in dedicated per-board repositories, e
 
 ## Quick Start (build & flash)
 
-Requirements: Python 3 + [PlatformIO](https://platformio.org/) (`pip install platformio`). All dependencies download automatically on the first build.
+Requires Python 3 + [PlatformIO](https://platformio.org/); dependencies download on first build.
 
 ```bash
-./build_firmware.sh                          # interactive menu (board + pack)
-./build_firmware.sh -e n16r8 -p RAMBOX       # direct build
-./build_firmware.sh -e waveshare_8di8do -p WAVESHARE
-./build_firmware.sh --all                    # all boards, default packs
+./build_firmware.sh                          # interactive menu
+./build_firmware.sh -e n16r8 -p RAMBOX       # direct build (boards: n16r8 | waveshare_8di8do | s3_touch7 | esp32p4 | esp32p4cam)
+./flash_firmware.sh                          # interactive flash (modes: 1 update · 2 full · 3 erase+full)
 ```
 
-Boards: `n16r8` | `waveshare_8di8do` | `s3_touch7` | `esp32p4` | `esp32p4cam`. Artifacts land in `chatgpt/build/<board>/<pack>/<version>/<timestamp>/`. Windows users run the equivalent `chatgpt/build_firmware.bat`.
-
-```bash
-./flash_firmware.sh                          # interactive: pick build, .bin, mode, port
-./flash_firmware.sh --list                   # list flashable builds
-./flash_firmware.sh --dir chatgpt/build/esp32s3/WAVESHARE/<ver>/<ts> --mode 2 --port /dev/ttyACM0 --yes
-```
-
-Modes: `1` update (firmware only) · `2` full install (bootloader + partitions + firmware) · `3` erase + full. Default baud `921600`.
+Artifacts: `chatgpt/build/<board>/<pack>/<version>/<timestamp>/`. Windows: `chatgpt/build_firmware.bat`.
 
 ## License
 
