@@ -112,19 +112,14 @@ Build-time validation (`packs/pack_validator.h`, tested by `test_pack_validator`
 - **NVS** (ESP-IDF non-volatile storage) — boot-critical only: `cfg_wifi` (WiFi credentials), `cfg_saved_net` (known networks), `cfg_web_pwd`, `cfg_tlnt_pwd`, `cfg_ap_pwd`, `cfg_smtp_pwd`
 - **LittleFS** (SPIFFS successor, file-based) — everything else via slot-based JSON files at `/config/<stem>.json`
 
-**ConfigManager** coordinates both stores. It owns 9 slot files, each with a fixed max byte budget:
+**ConfigManager** coordinates both stores. It owns 18 core stems (plus sensor and touch7 stems), each with a fixed max byte budget (see `addPage()` calls in `loadFromLittleFS`).
 
-| Stem | Contents | Max bytes |
-|---|---|---|
-| `principal` | Core (telnet, AP, NTP, SDCard) | 10240 |
-| `rs232` | RS232, Unikon, IPG Laser | 8192 |
-| `destinatarios` | Recipients + numeric rules | 4096 |
-| `agenda` | Scheduler commands | 2048 |
-| `modbus` | Modbus device array | 4096 |
-| `acessos` | Access page (auth + toggles) | 4096 |
-| `sistema` | Printer, NTP, name, language | 4096 |
-| `servidor_usb` | USB Server config | 1024 |
-| `smtp_email` | SMTP + Email (password in NVS) | 2048 |
+| Stem | Max bytes |
+|---|---|
+| `core` | 10240 |
+| `rs232`, `access` | 8192 |
+| `recipients`, `schedule`, `modbus`, `system`, `usb_server`, `smtp_email`, `alerts`, `telnet`, `ethernet`, `sdcard`, `debug`, `access_point`, `wifi_hybrid`, `do`, `ftp` | 4096 |
+| `sensor_*` (`config`, `mq135`, `hx711`, `ina226`, `sound`, `max31865`, `proximity`, `prox_counters`, `bh1750`), `touch7` | 4096 |
 
 **Atomic write pattern** (applies to ALL config files — both ConfigManager slots and sensor configs):
 1. Write to `.<stem>.json.tmp`
@@ -137,9 +132,9 @@ Never open the final path for write directly. `littlefsBegin()` is always called
 **Config registry** (`/config/pages.reg`): JSON array listing every stem + max_bytes, auto-updated after every successful save.
 
 **Sensor config files** — independent managers, same atomic pattern, NOT managed by ConfigManager:
-- `/config/sensor_config.json`, `sensor_mq135.json`, `sensor_hx711.json`, `sensor_ina226.json`, `sensor_sound.json`, `sensor_max31865.json`, `sensor_proximity.json`, `sensor_prox_counters.json`, `sensor_prox_shift.json`
+- `/config/sensor_config.json`, `sensor_mq135.json`, `sensor_hx711.json`, `sensor_ina226.json`, `sensor_sound.json`, `sensor_max31865.json`, `sensor_proximity.json`, `sensor_prox_counters.json`, `sensor_bh1750.json`, `touch7.json`
 
-**Adding a new config section**: create a new stem, add to `saveToLittleFS()` + `tryLoadSet()` + `stems[]` + `pages.reg` + `buildSlotPath()` calls in both save and load. New pages create dedicated endpoints (<4 KB) — never modify the frozen `/api/configs`.
+**Adding a new config section**: create a new stem: defaults in `initDefaults()` + backfill in `ensureAllFieldsExist()` + save via `saveSection(stem)` (save and load); files at `/config/<stem>.json`. New pages create dedicated endpoints (<4 KB) - never modify the frozen `/api/configs`.
 
 ### 6.1 Telemetry & chart persistence standard (all packs, present + future)
 
@@ -234,7 +229,7 @@ flat 256 KB on flash — same content, rotation needs differ), blobs
 - **PROGMEM** (flash): all web UI HTML/JS/CSS strings (assets, translations), i18n JSON (~150 KB EN + ~160 KB PT, ~310 KB total), flash log strings (`F()` macro), UI-format strings in `lang_active.cpp`
 - **`memoryPressurePanic()`**: called before critical large allocations; logs current heap state, calls `psramRealloc()` pressure relief on caches, triggers soft reboot if heap drops below emergency threshold
 - **Module guards**: `#if ENABLE_X == 1` at top of every `.cpp` file excluding core (log, config, network) — disabled modules cost exactly zero RAM at runtime (no task, no queue, no buffer)
-- **Stack allocation**: FreeRTOS task stacks sized per module (camera task 32 KB in PSRAM, sensor tasks 3 KB each in DRAM); `uxTaskGetStackHighWaterMark()` monitored in diagnostic endpoints
+- **Stack allocation**: FreeRTOS task stacks sized per task (see table below); `uxTaskGetStackHighWaterMark()` checked in diagnostics paths.
 - **Web response buffers**: chunked/streamed output via `AsyncResponseStream` to avoid large contiguous allocations; JSON responses use progressive `addKey` serialization
 
 ## 8. Module Interfaces

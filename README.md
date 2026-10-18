@@ -1,7 +1,5 @@
 # Node32-HUB
 
-**Docs:** [Build & flash](INSTRUCTIONS.md) · [Contributing](CONTRIBUTING.md) · [Architecture](ARCHITECTURE.md) · [Security](SECURITY.md) · [License](LICENSE)
-
 **Node32-HUB** is a modular, multi-protocol firmware framework for ESP32-S3 and ESP32-P4 microcontrollers. It turns a single board into a versatile industrial communication hub, data logger, automation controller, or IoT gateway. Thanks to compile-time feature flags, it can be tailored to fit absolutely any use case.
 
 ## Architecture
