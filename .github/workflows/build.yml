@@ -61,13 +61,48 @@ jobs:
         run: node run_all.js
 
   build:
-    name: Build ${{ matrix.env }}
+    name: Build ${{ matrix.env }} / ${{ matrix.pack }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        env: [n16r8, waveshare_8di8do, s3_touch7, esp32p4, esp32p4cam]
+        # One job per (board env, pack) — mirrors `build_firmware.sh --allpacks all`.
+        # CAM_P4 builds under esp32p4cam (Arduino 3.3.12 world), not esp32p4.
+        include:
+          - env: n16r8
+            pack: RAMBOX
+            flags: "-DSELECTED_PACK=PACK_RAMBOX"
+          - env: n16r8
+            pack: CAM
+            flags: "-DSELECTED_PACK=PACK_CAM -DTARGET_BOARD_S3_CAM=1"
+          - env: n16r8
+            pack: RS232
+            flags: "-DSELECTED_PACK=PACK_RS232"
+          - env: n16r8
+            pack: ENVIRONMENT
+            flags: "-DSELECTED_PACK=PACK_ENVIRONMENT"
+          - env: n16r8
+            pack: RADIO
+            flags: "-DSELECTED_PACK=PACK_RADIO"
+          - env: n16r8
+            pack: S3_CNC
+            flags: "-DSELECTED_PACK=PACK_S3_CNC"
+          - env: waveshare_8di8do
+            pack: WAVESHARE
+            flags: "-DSELECTED_PACK=PACK_WAVESHARE"
+          - env: s3_touch7
+            pack: S3_TOUCH7
+            flags: "-DSELECTED_PACK=PACK_S3_TOUCH7 -DTARGET_BOARD_S3_TOUCH7=1"
+          - env: esp32p4
+            pack: P4_CNC
+            flags: "-DSELECTED_PACK=PACK_P4_CNC"
+          - env: esp32p4
+            pack: P4_USB_SERVER
+            flags: "-DSELECTED_PACK=PACK_P4_USB_SERVER"
+          - env: esp32p4cam
+            pack: CAM_P4
+            flags: "-DSELECTED_PACK=PACK_CAM_P4"
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -90,20 +125,22 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ccache
-          key: ${{ runner.os }}-ccache-${{ matrix.env }}-${{ github.sha }}
+          key: ${{ runner.os }}-ccache-${{ matrix.env }}-${{ matrix.pack }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-ccache-${{ matrix.env }}-
+            ${{ runner.os }}-ccache-${{ matrix.env }}-${{ matrix.pack }}-
       - name: Select environment (manual dispatch)
         if: github.event.inputs.env != '' && github.event.inputs.env != 'all'
         run: echo "MATRIX_ENV=${{ github.event.inputs.env }}" >> $GITHUB_ENV
       - name: Build firmware
         if: env.MATRIX_ENV == '' || env.MATRIX_ENV == matrix.env
+        env:
+          PLATFORMIO_BUILD_FLAGS: ${{ matrix.flags }}
         run: pio run --project-dir chatgpt -e ${{ matrix.env }}
       - name: Upload firmware artifacts
         if: env.MATRIX_ENV == '' || env.MATRIX_ENV == matrix.env
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-${{ matrix.env }}
+          name: firmware-${{ matrix.env }}-${{ matrix.pack }}
           path: chatgpt/build/**/*.bin
           if-no-files-found: warn
           retention-days: 7
