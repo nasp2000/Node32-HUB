@@ -58,5 +58,8 @@
 
 ## 6. Reporting Vulnerabilities
 
-Please open an issue at the repository:
+For security issues, **do not open a public issue** — report privately via
+[Security Advisories](https://github.com/nasp2000/Node32-HUB/security/advisories/new)
+so a fix can land before disclosure. For anything else:
+
 [https://github.com/nasp2000/Node32-HUB/issues](https://github.com/nasp2000/Node32-HUB/issues)
