@@ -1,0 +1,109 @@
+name: Build Firmware
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "Environment to build (default: all)"
+        required: false
+        default: all
+        type: choice
+        options: [all, n16r8, waveshare_8di8do, s3_touch7, esp32p4, esp32p4cam]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SKIP_NATIVE_TESTS: "1"
+
+jobs:
+  native-tests:
+    name: Native unit tests (host)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: chatgpt
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install system deps
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq g++ make
+      - name: Run native test suite
+        run: python scripts/run_native_tests.py
+
+  web-tests:
+    name: Web UI tests (jsdom)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: tests/web
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tests/web/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Run web test suite
+        run: node run_all.js
+
+  build:
+    name: Build ${{ matrix.env }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [n16r8, waveshare_8di8do, s3_touch7, esp32p4, esp32p4cam]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install system deps
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq g++ make ccache
+      - name: Install PlatformIO
+        run: pip install --quiet platformio
+      - name: Cache PlatformIO platforms and packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-pio-${{ matrix.env }}-${{ hashFiles('chatgpt/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-${{ matrix.env }}-
+            ${{ runner.os }}-pio-
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ${{ runner.os }}-ccache-${{ matrix.env }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-${{ matrix.env }}-
+      - name: Select environment (manual dispatch)
+        if: github.event.inputs.env != '' && github.event.inputs.env != 'all'
+        run: echo "MATRIX_ENV=${{ github.event.inputs.env }}" >> $GITHUB_ENV
+      - name: Build firmware
+        if: env.MATRIX_ENV == '' || env.MATRIX_ENV == matrix.env
+        run: pio run --project-dir chatgpt -e ${{ matrix.env }}
+      - name: Upload firmware artifacts
+        if: env.MATRIX_ENV == '' || env.MATRIX_ENV == matrix.env
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-${{ matrix.env }}
+          path: chatgpt/build/**/*.bin
+          if-no-files-found: warn
+          retention-days: 7
