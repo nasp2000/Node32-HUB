@@ -633,7 +633,13 @@ _testNames.forEach(function(n) {
         if (trainingPending) return;
         trainingPending = true;
         var sel = document.getElementById('trainingPombalSelect');
-        var body = 'rings=' + encodeURIComponent(selectedTrainingRings(sel).join('\n'));
+        var rings = selectedTrainingRings(sel);
+        var boxes = sel ? sel.querySelectorAll('input[type="checkbox"]').length : 0;
+        // none checked -> "-" (race only) | all checked -> "*" (whole pombal) | else the list
+        var payload = (rings.length === 0) ? '-'
+                    : (boxes > 0 && rings.length === boxes) ? '*'
+                    : rings.join('\n');
+        var body = 'rings=' + encodeURIComponent(payload);
         fetch('/api/unikon-send-training', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body });
         trainingPending = false;
     }

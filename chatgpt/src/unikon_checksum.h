@@ -14,7 +14,15 @@ static inline void computeChecksum(const uint8_t* data, uint8_t len,
                                      uint8_t* ck1, uint8_t* ck2) {
     uint16_t sum = 0;
     for (uint8_t i = 0; i < len; i++) sum += data[i];
-    *ck1 = (uint8_t)(sum & 0xFF);
+    // CK1 (low byte) must never be a control character: frames are delimited by
+    // STX(0x02)/ETX(0x03) and the device answers with single-byte ACK(0x06)/NAK(0x15),
+    // so any value < 0x20 inside a frame is ambiguous. The real sender -- and
+    // unikonDrv.dll's frame builder FUN_10003a70 -- escapes it with |0x80.
+    // Verified against the sniffer captures (docs/Unikon Sniffer/): 159 of 2766 frames
+    // carry an escaped CK1, e.g. sum=0x60A -> CK1 0x0A transmitted as 0x8A, CK2 0x86.
+    uint8_t lo = (uint8_t)(sum & 0xFF);
+    if (lo < 0x20) lo = (uint8_t)(lo | 0x80);
+    *ck1 = lo;
     *ck2 = (uint8_t)(0x80 | ((sum >> 8) & 0x7F));
 }
 

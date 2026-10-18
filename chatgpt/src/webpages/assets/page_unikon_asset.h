@@ -123,7 +123,7 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
 
             <!-- Tab 3: Training Season -->
             <div class='uk-tab-panel' id='uk-tab-2'>
-            <!-- Section 3.6: Training (sends fictitious race 990 + pombal ZPs) -->
+            <!-- Section 3.6: Training (sends the fictitious training race + the ticked pigeon records) -->
             <div id='uk-sec-training' class='section'>
                 <div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px'>
                     <h3 style='margin:0' data-i18n='ukTrainingTitle'>🏋️ Training Session</h3>
@@ -132,8 +132,8 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
                         <button onclick='clearTraining()' class='btn' title='Remove training from RAMBOX' data-i18n-title='unikonTipClearTraining' style='background:#991b1b;border-color:#ef4444;padding:8px 16px;font-size:12px' data-i18n='ukBtnClearTraining'>🗑️ Clear Training</button>
                     </div>
                 </div>
-                <p style='font-size:13px;color:#94a3b8;margin:0 0 12px 0' data-i18n='ukTrainingHint'>Writes training contest 990 (IC0 + I-frame + S1/S2/S3 + pombal ZPs) to the RAMBOX so it records training arrivals. Uses the pigeons synced in the pombal.</p>
-                <div style='font-size:12px;color:#94a3b8;margin-bottom:6px'><span data-i18n='ukTrainingSelect'>Pigeons for the training:</span> <span data-i18n='ukTrainingSelectAll'>No selection = whole loft.</span>
+                <p style='font-size:13px;color:#94a3b8;margin:0 0 12px 0' data-i18n='ukTrainingHint'>Writes training contest 090 (IC0 + I-frame + S1/S2/S3 + the ticked pigeon records) to the RAMBOX so it records training arrivals. Tick the pigeons below: none ticked programs the race alone.</p>
+                <div style='font-size:12px;color:#94a3b8;margin-bottom:6px'><span data-i18n='ukTrainingSelect'>Pigeons for the training:</span> <span data-i18n='ukTrainingSelectAll'>None ticked = race only; all ticked = whole loft.</span>
                 <a href='#' onclick='return trainingCheckAll(true)' style='color:#60a5fa;margin-left:8px'>Todos</a> |
                 <a href='#' onclick='return trainingCheckAll(false)' style='color:#60a5fa'>Nenhum</a></div>
                 <div id='trainingPombalSelect' style='max-height:180px;overflow-y:auto;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px;font-family:monospace;font-size:12px'></div>
@@ -503,7 +503,7 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
         });
     }
 
-    // Training send/clear (fictitious race 990 + pombal ZPs, explicit request only).
+    // Training send/clear (fictitious training race + the ticked pigeon records, explicit request only).
     var trainingPending = false;
 
     function selectedTrainingRings(box) {
@@ -535,7 +535,16 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
                 el.textContent = t('ukTrainingSending', 'Sending training to RAMBOX...');
             }
             var sel = document.getElementById('trainingPombalSelect');
-            var body = 'rings=' + encodeURIComponent(selectedTrainingRings(sel).join('\n'));
+            var rings = selectedTrainingRings(sel);
+            var boxes = sel ? sel.querySelectorAll('input[type="checkbox"]').length : 0;
+            // Explicit selection sentinels so "none" and "all" are distinguishable:
+            //   none checked -> "-"  (program the race alone, no pigeons)
+            //   all checked  -> "*"  (whole pombal)
+            //   some checked -> the ring list
+            var payload = (rings.length === 0) ? '-'
+                        : (boxes > 0 && rings.length === boxes) ? '*'
+                        : rings.join('\n');
+            var body = 'rings=' + encodeURIComponent(payload);
             fetch('/api/unikon-send-training', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
                 .then(function(r) { return r.json(); })
                 .then(function(d) {
@@ -556,7 +565,7 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
                     if (btn) btn.disabled = false;
                 });
         };
-        customConfirm(t('ukConfirmTraining', 'Send training contest (I-frame 990) to RAMBOX?'), function(ok) { if (ok) runSend(); });
+        customConfirm(t('ukConfirmTraining', 'Send training contest (race 090) to RAMBOX with the ticked pigeons? (none ticked = race only)'), function(ok) { if (ok) runSend(); });
     }
 
     var clearTrainingPending = false;
@@ -592,7 +601,7 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
                     if (btn) btn.disabled = false;
                 });
         };
-        customConfirm(t('ukConfirmClearTraining', 'Remove training contest (code 990) from RAMBOX?'), function(ok) { if (ok) runClear(); });
+        customConfirm(t('ukConfirmClearTraining', 'Remove training contest (race 090) from RAMBOX?'), function(ok) { if (ok) runClear(); });
     }
 
     function _alert(msg) {

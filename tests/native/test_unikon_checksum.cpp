@@ -26,20 +26,34 @@ TEST_CASE("computeChecksum: known vector X-frame") {
 }
 
 TEST_CASE("computeChecksum: carries into high byte") {
-    // Sum = 0xFF + 0x01 = 0x100 → CK1=0x00, CK2=0x80|0x01=0x81
+    // Sum = 0xFF + 0x01 = 0x100 → CK1 = 0x00 → escaped to 0x80 ; CK2 = 0x80|0x01 = 0x81
     uint8_t data[] = { 0xFF, 0x01 };
     uint8_t ck1, ck2;
     computeChecksum(data, sizeof(data), &ck1, &ck2);
-    CHECK(ck1 == 0x00);
+    CHECK(ck1 == 0x80);
     CHECK(ck2 == 0x81);
 }
 
 TEST_CASE("computeChecksum: all zeros") {
+    // Sum = 0x00 → CK1 = 0x00 → escaped to 0x80
     uint8_t data[] = { 0x00, 0x00, 0x00, 0x00 };
     uint8_t ck1, ck2;
     computeChecksum(data, sizeof(data), &ck1, &ck2);
-    CHECK(ck1 == 0x00);
+    CHECK(ck1 == 0x80);
     CHECK(ck2 == 0x80);
+}
+
+TEST_CASE("computeChecksum: escapes CK1 below 0x20 (real capture vector)") {
+    // docs/Unikon Sniffer/10.txt:
+    //   02 81 5a 50 31 38 30 30 38 32 33 30 37 36 38 20 43 39 38 46 30 41 42 46 30 30 31 8a 86 03
+    // Content = 0x81 + "ZP18008230768 C98F0ABF001" → sum = 0x60A
+    // → CK1 raw 0x0A, transmitted escaped as 0x8A ; CK2 = 0x80|0x06 = 0x86
+    const uint8_t content[] = { 0x81, 'Z','P','1','8','0','0','8','2','3','0','7','6','8',' ',
+                                'C','9','8','F','0','A','B','F','0','0','1' };
+    uint8_t ck1, ck2;
+    computeChecksum(content, sizeof(content), &ck1, &ck2);
+    CHECK(ck1 == 0x8A);
+    CHECK(ck2 == 0x86);
 }
 
 TEST_CASE("computeChecksum: larger values") {
@@ -95,6 +109,30 @@ TEST_CASE("buildFrame: longer content") {
     CHECK(buf[sizeof(content) + 1] == 0x3D);
     CHECK(buf[sizeof(content) + 2] == 0x81);
     CHECK(buf[sizeof(content) + 3] == UNIKON_ETX);
+}
+
+TEST_CASE("buildFrame: full byte compare against real capture (IC0)") {
+    // docs/Unikon Sniffer/transmitir_voo.txt:  02 81 49 43 30 3d 81 03
+    const uint8_t content[] = { 0x81, 0x49, 0x43, 0x30 };
+    uint8_t buf[16];
+    uint8_t len = buildFrame(content, sizeof(content), buf);
+    const uint8_t expect[] = { 0x02, 0x81, 0x49, 0x43, 0x30, 0x3D, 0x81, 0x03 };
+    CHECK(len == sizeof(expect));
+    for (uint8_t i = 0; i < len; i++) CHECK(buf[i] == expect[i]);
+}
+
+TEST_CASE("buildFrame: full byte compare against real capture (escaped CK1)") {
+    // docs/Unikon Sniffer/10.txt:
+    //   02 81 5a 50 31 38 30 30 38 32 33 30 37 36 38 20 43 39 38 46 30 41 42 46 30 30 31 8a 86 03
+    const uint8_t content[] = { 0x81, 'Z','P','1','8','0','0','8','2','3','0','7','6','8',' ',
+                                'C','9','8','F','0','A','B','F','0','0','1' };
+    uint8_t buf[64];
+    uint8_t len = buildFrame(content, sizeof(content), buf);
+    CHECK(len == sizeof(content) + 4);
+    CHECK(buf[0] == UNIKON_STX);
+    CHECK(buf[len - 3] == 0x8A);   // CK1 = 0x0A escaped with |0x80
+    CHECK(buf[len - 2] == 0x86);   // CK2 = 0x80 | 0x06
+    CHECK(buf[len - 1] == UNIKON_ETX);
 }
 
 // ====== isAsciiDigitsExact tests ======

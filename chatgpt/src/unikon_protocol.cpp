@@ -145,10 +145,35 @@ static uint8_t s_cachedS3Len = 0;
 // W-phase tags P-frames as training while the current frame-'3' race matches it.
 static bool s_inTrainingRace = false;
 
-// Training sessions are always programmed under this fixed contest code
-// (namespace free of the 001..044 race codes). Being a compiled constant, it
-// needs no persistence: a reboot mid-training still classifies correctly.
-#define UNIKON_TRAINING_CODE "990"
+// Contest code carried by the I-frame. The original software's builder is
+//     "I0%02u%02u%02u%-8s%01u"  ->  'I' '0' RR[2] DD[2] MM[2] NAME[8] N[1]
+// The '0' immediately after 'I' is a LITERAL (both liberation-plan samples carry it
+// while the race number differs), so the code must be '0' + a 2-digit race number.
+// "990" wrote '9' where that literal belongs and shifted the fields by one -- prime
+// suspect for the failed first training test. Race number 90 keeps the old number.
+#define UNIKON_TRAINING_CODE "090"
+// Trailing digit of the name field (real builder: %-8s%01u). Programmed races in the
+// reference data carry '1'; a placeholder entry carried '0'. Not proven by the RE.
+#define UNIKON_I_TAIL_RACE  '1'
+#define UNIKON_I_TAIL_CLEAR '0'
+// Pigeon record form used when WRITING the entry list:
+//   1 = "ZP" + ring[11] + ' ' + chip[11]  (the form the RAMBOX itself emits on the X
+//       phase -- 30-byte frame; measured on every sniffer ZP record)
+//   0 = "P"  + ring[11] + ' ' + chip[11]  (the form the PC-side files carry -- 29-byte
+//       frame; the RAMBOX adds the 'Z' tag when it emits)
+// If the RAMBOX rejects the ZP write, flip this to 0.
+#define UNIKON_ZP_WRITE_PREFIX_Z 1
+// Entry-list selection sentinels (see setTrainingFilter()). They cannot collide with a
+// ring or an S4 line, so an empty list keeps its legacy meaning ("whole pombal").
+#define UNIKON_TRAIN_SEL_ALL  "*"
+#define UNIKON_TRAIN_SEL_NONE "-"
+// What the filter means: LIST = only the listed rings, ALL = whole pombal, NONE = no
+// pigeons at all (program the race alone).
+enum {
+    UNIKON_TRAIN_MODE_LIST = 0,
+    UNIKON_TRAIN_MODE_ALL  = 1,
+    UNIKON_TRAIN_MODE_NONE = 2
+};
 
 // Pure match on the contest code carried by frame '3' at bytes [9..11]
 // (see captures 9/17: "001"/"003" right after the 7-char solta block).
@@ -156,13 +181,23 @@ static bool s_inTrainingRace = false;
 static bool isTrainingContestCode(const char* raceCode, const char* trainingCode) {
     if (!raceCode || !trainingCode) return false;
     if (raceCode[0] == '\0' || trainingCode[0] == '\0') return false;
-    return strcmp(raceCode, trainingCode) == 0;
+    while (*raceCode == ' ') raceCode++;   // tolerate a space-padded frame '3' field
+    if (strcmp(raceCode, trainingCode) == 0) return true;
+    // Tolerate the RAMBOX reporting the bare race number without the leading literal
+    // '0' (trainingCode is '0' + RR[2], so trainingCode + 1 is the bare RR). This keeps
+    // the training tag working whichever form the device echoes back in frame '3'.
+    if (trainingCode[0] == '0' && strcmp(raceCode, trainingCode + 1) == 0) return true;
+    return false;
 }
 
-// Training entry filter: which rings to program. Empty = whole pombal.
-// Filled from pasted S4 lines or plain 11-digit rings.
+// Training entry filter: which rings to program.
+//   empty text  -> UNIKON_TRAIN_MODE_ALL  (legacy: whole pombal)
+//   "*"         -> UNIKON_TRAIN_MODE_ALL  (explicit whole pombal)
+//   "-"         -> UNIKON_TRAIN_MODE_NONE (race only, no pigeons)
+//   otherwise   -> UNIKON_TRAIN_MODE_LIST (S4 lines / plain 11-digit rings)
 static char s_trainingFilter[UNIKON_MAX_ARRIVALS][12];
 static uint16_t s_trainingFilterCount = 0;
+static uint8_t  s_trainingMode = UNIKON_TRAIN_MODE_ALL;
 
 // Parse one entry-list line: full S4 record ("S4<10 contest>P<ring11>...")
 // or a plain 11-digit ring. True when a ring was extracted (11 chars + null).
@@ -193,9 +228,11 @@ static bool parseTrainingEntryLine(const char* line, char* outRing) {
     return true;
 }
 
-// Empty filter = all pigeons pass (whole pombal).
+// Selection test for the entry list (see s_trainingMode).
 static bool trainingFilterAllows(const char* ring) {
-    if (!ring || s_trainingFilterCount == 0) return true;
+    if (s_trainingMode == UNIKON_TRAIN_MODE_ALL)  return true;
+    if (s_trainingMode == UNIKON_TRAIN_MODE_NONE) return false;
+    if (!ring) return false;
     for (uint16_t i = 0; i < s_trainingFilterCount; i++) {
         if (memcmp(s_trainingFilter[i], ring, 11) == 0) return true;
     }
@@ -725,7 +762,7 @@ static void parseSClubCode(const uint8_t* f, uint8_t len, char* out, uint8_t out
 //   STX ADDR '3' [13-byte ID] [40-byte timestamps] "44" ' ' DATE[5] ' ' NAME[9] PIN[6] CK1 CK2 ETX
 // DATE at offset 59 ("DD.MM"), NAME at offset 65 (9 chars right-padded with spaces).
 // Verified against real capture 9.txt: "15.06" / "CANAME   " with CK=ee 8f.
-// Parse the contest code from frame '3' bytes [9..11] ("001".."044", "990").
+// Parse the contest code from frame '3' bytes [9..11] ("001".."044", "090" for training).
 // Present in BOTH frame-3 flavours (with and without race data), so it is the
 // robust training discriminator. Absent/garbage leaves out empty.
 // Verified against captures 9.txt ("001") and 17.txt ("003").
@@ -1786,7 +1823,7 @@ void unikonUpdate() {
         return;
     }
 
-    // Training management: the training IS a programmed race (contest 990
+    // Training management: the training IS a programmed race (UNIKON_TRAINING_CODE
     // + pombal ZPs). Re-enabled 2026-10-17 — sends the fictitious race on
     // explicit request only, never automatically.
     // Process a pending training send request.
@@ -2478,32 +2515,52 @@ void unikonRequestClearTraining() {
 }
 
 // Send one I-frame (contest entry) to the RAMBOX.
-// Content: ADDR 'I' CODE[3] DDMM[4] NAME[9]  (18 bytes total).
+// Content: ADDR 'I' CODE[3] DDMM[4] NAME[8] N[1]  (18 bytes total; 22-byte frame).
+// Matches the original builder "I0%02u%02u%02u%-8s%01u": the name field is EIGHT
+// characters and the last byte is a digit (never a space).
 // Returns true when RAMBOX ACKs.
-static bool sendIFrame(const char* code, const char* date, const char* name) {
+static bool sendIFrame(const char* code, const char* date, const char* name, char tail) {
     uint8_t content[18];
     content[0] = UNIKON_ADDR;
     content[1] = 0x49;
     memcpy(content + 2, code, 3);
     memcpy(content + 5, date, 4);
-    memset(content + 9, ' ', 9);
+    memset(content + 9, ' ', 8);               // NAME[8]
     uint8_t nLen = (uint8_t)strlen(name);
     if (nLen > 9) nLen = 9;
-    memcpy(content + 9, name, nLen);
+    if (nLen == 9) {
+        // A 9-character tag (e.g. "TDDMMHHMM") fills NAME[8] + the N field; keep it as
+        // long as its last character really is a digit, otherwise fall back to tail.
+        memcpy(content + 9, name, 9);
+        if (content[17] < '0' || content[17] > '9') content[17] = (uint8_t)tail;
+    } else {
+        memcpy(content + 9, name, nLen);
+        content[17] = (uint8_t)tail;           // N[1] -- always a digit
+    }
     return sendAndWaitAck(content, sizeof(content));
 }
 
-// Send one ZP-frame (pigeon registration) to the RAMBOX.
-// Content: ADDR 'Z' 'P' RING[11] ' ' CHIP[11]  (26 bytes total).
+// Send one pigeon record to the RAMBOX.
+//   UNIKON_ZP_WRITE_PREFIX_Z=1 -> "ZP" + RING[11] + ' ' + CHIP[11]  (26 B, 30-B frame)
+//   UNIKON_ZP_WRITE_PREFIX_Z=0 -> "P"  + RING[11] + ' ' + CHIP[11]  (25 B, 29-B frame)
 // Returns true when RAMBOX ACKs.
 static bool sendZPFrame(const char* ring, const char* chip) {
+#if UNIKON_ZP_WRITE_PREFIX_Z
     uint8_t content[26];
     content[0] = UNIKON_ADDR;
-    content[1] = 0x5A;
-    content[2] = 0x50;
+    content[1] = 0x5A;          // 'Z'
+    content[2] = 0x50;          // 'P'
     memcpy(content + 3, ring, 11);
     content[14] = 0x20;
     memcpy(content + 15, chip, 11);
+#else
+    uint8_t content[25];
+    content[0] = UNIKON_ADDR;
+    content[1] = 0x50;          // 'P'
+    memcpy(content + 2, ring, 11);
+    content[13] = 0x20;
+    memcpy(content + 14, chip, 11);
+#endif
     return sendAndWaitAck(content, sizeof(content));
 }
 
@@ -2512,7 +2569,17 @@ static bool sendZPFrame(const char* ring, const char* chip) {
 // Returns the number of rings accepted.
 static uint16_t setTrainingFilter(const char* text) {
     s_trainingFilterCount = 0;
-    if (!text || text[0] == '\0') return 0;
+    s_trainingMode = UNIKON_TRAIN_MODE_ALL;   // legacy default
+    if (!text || text[0] == '\0') return 0;   // empty -> whole pombal (unchanged)
+    if (strcmp(text, UNIKON_TRAIN_SEL_NONE) == 0) {   // "-" -> race only, no pigeons
+        s_trainingMode = UNIKON_TRAIN_MODE_NONE;
+        return 0;
+    }
+    if (strcmp(text, UNIKON_TRAIN_SEL_ALL) == 0) {    // "*" -> explicit whole pombal
+        s_trainingMode = UNIKON_TRAIN_MODE_ALL;
+        return 0;
+    }
+    s_trainingMode = UNIKON_TRAIN_MODE_LIST;
     const char* p = text;
     char line[64];
     while (*p && s_trainingFilterCount < UNIKON_MAX_ARRIVALS) {
@@ -2533,18 +2600,34 @@ static uint16_t setTrainingFilter(const char* text) {
     return s_trainingFilterCount;
 }
 
-// Write a full training session to the RAMBOX (fictitious race 990):
+// Write a full training session to the RAMBOX (fictitious race UNIKON_TRAINING_CODE):
 //   1. V-frame handshake
-//   2. IC0 + I-frame 990 (contest entry for today, name T+DDMMYYYY)
+//   2. IC0 + I-frame (contest entry for today)
 //   3. S1/S2/S3 replay (club/solta/fancier context cached from X/W reads)
-//   4. ZP-frames for every pigeon in the season registration (entry list).
-// Mirrors the original software order (captures 26/27: IC0+I+S+ZP).
-// Returns true on success. Never touches the RAMBOX training state:
-// the training IS the programmed race 990.
+//   4. Pigeon records for the selected entry list:
+//        s_trainingMode == ALL  -> every registered pigeon
+//        s_trainingMode == LIST -> only the listed rings
+//        s_trainingMode == NONE -> no pigeons at all (race only)
+// Mirrors the original software order (IC0+I+S+ZP).
+// Returns true when the RACE was programmed (I-frame ACKed), independently of how many
+// pigeon records were accepted, so "race only" and "race + pigeons" can be told apart.
+// Never touches the RAMBOX training state: the training IS the programmed race.
 static bool sendTrainingSession(const char* name) {
-    if (s_registrationCount == 0 || !unikonStorageReady()) {
+    if (!unikonStorageReady()) {
+        sendVirtualMessage(F("[UNIKON] training: storage not ready"), WARN, false, true);
+        return false;
+    }
+    if (s_trainingMode == UNIKON_TRAIN_MODE_ALL && s_registrationCount == 0) {
         sendVirtualMessage(F("[UNIKON] training: no pombal registrations to send — sync pombal first"), WARN, false, true);
         return false;
+    }
+    const char* modeStr = (s_trainingMode == UNIKON_TRAIN_MODE_NONE) ? "none"
+                        : (s_trainingMode == UNIKON_TRAIN_MODE_ALL)  ? "all" : "list";
+    {
+        char mmsg[64];
+        snprintf(mmsg, sizeof(mmsg), "[UNIKON] training: entry list = %s (%u rings)",
+                 modeStr, (unsigned)s_trainingFilterCount);
+        sendVirtualMessage(String(mmsg), WARN, false, true);
     }
     char tmpModuleId[44];
     if (!sendVFrameAndReadIdent(tmpModuleId, sizeof(tmpModuleId))) {
@@ -2560,13 +2643,14 @@ static bool sendTrainingSession(const char* name) {
     if (getLocalTime(&timeinfo, 10)) {
         snprintf(dateStr, sizeof(dateStr), "%02d%02d", timeinfo.tm_mday, timeinfo.tm_mon + 1);
     }
-    if (!sendIFrame(UNIKON_TRAINING_CODE, dateStr, name)) {
+    if (!sendIFrame(UNIKON_TRAINING_CODE, dateStr, name, UNIKON_I_TAIL_RACE)) {
         sendVirtualMessage(F("[UNIKON] training: I-frame failed"), WARN, false, true);
         return false;
     }
     // Nothing to persist: the training tag is the fixed UNIKON_TRAINING_CODE
     // constant, so a reboot still classifies this race's arrivals as training.
     sendVirtualMessage(String(F("[UNIKON] training: tag=code ")) + String(UNIKON_TRAINING_CODE)
+                       + String(F(" date=")) + String(dateStr)
                        + String(F(" name=")) + String(name), WARN, false, true);
     // Replay club context. Skipped (with warning) when nothing was ever read.
     const uint8_t* sFrames[3] = { s_cachedS1, s_cachedS2, s_cachedS3 };
@@ -2581,11 +2665,11 @@ static bool sendTrainingSession(const char* name) {
             return false;
         }
     }
-    // Entry list: one ZP per registered pigeon (or filtered subset).
+    // Entry list: one pigeon record per selected registration.
     // Padded to 11 chars so a short/corrupt registration can never leak
-    // adjacent memory on the wire.
+    // adjacent memory on the wire. Mode NONE programs the race alone (loop skipped).
     uint16_t okCount = 0, sentCount = 0;
-    for (uint16_t i = 0; i < s_registrationCount; i++) {
+    for (uint16_t i = 0; s_trainingMode != UNIKON_TRAIN_MODE_NONE && i < s_registrationCount; i++) {
         if (!trainingFilterAllows(s_registrations[i].ring)) continue;
         char ring[12];
         char chip[12];
@@ -2608,14 +2692,16 @@ static bool sendTrainingSession(const char* name) {
             sendVirtualMessage(String(pmsg), WARN, false, true);
         }
     }
-    char donemsg[80];
-    snprintf(donemsg, sizeof(donemsg), "[UNIKON] training: done — contest=%s date=%s ZP ok=%u/%u",
-             name, dateStr, (unsigned)okCount, (unsigned)sentCount);
+    char donemsg[96];
+    snprintf(donemsg, sizeof(donemsg), "[UNIKON] training: done — contest=%s date=%s mode=%s pigeons ok=%u/%u",
+             name, dateStr, modeStr, (unsigned)okCount, (unsigned)sentCount);
     sendVirtualMessage(String(donemsg), WARN, false, true);
-    return okCount > 0;
+    // Success means the RACE was programmed; the pigeon count is reported separately so
+    // a "race only" run can be judged on its own.
+    return true;
 }
 
-// Clear the training contest (code 990) from the RAMBOX calendar.
+// Clear the training contest (UNIKON_TRAINING_CODE) from the RAMBOX calendar.
 // Only writes an I-frame with invalid date — never touches ZP/pombal data.
 static bool clearTrainingSession() {
     char tmpModuleId[44];
@@ -2627,12 +2713,13 @@ static bool clearTrainingSession() {
         sendVirtualMessage(F("[UNIKON] clear-training: IC0 failed"), WARN, false, true);
         return false;
     }
-    if (!sendIFrame(UNIKON_TRAINING_CODE, "0000", "         ")) {
+    if (!sendIFrame(UNIKON_TRAINING_CODE, "0000", "         ", UNIKON_I_TAIL_CLEAR)) {
         sendVirtualMessage(F("[UNIKON] clear-training: I-frame failed"), WARN, false, true);
         return false;
     }
     s_inTrainingRace = false;
-    sendVirtualMessage(F("[UNIKON] clear-training: done — contest 990 cleared"), WARN, false, true);
+    sendVirtualMessage(String(F("[UNIKON] clear-training: done — contest "))
+                       + String(UNIKON_TRAINING_CODE) + String(F(" cleared")), WARN, false, true);
     return true;
 }
 

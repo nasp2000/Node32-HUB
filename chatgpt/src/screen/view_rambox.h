@@ -14,6 +14,7 @@
 #include "structures.h"
 #include "sdcard.h"
 #include "psram_vfs.h"
+#include "littlefs_manager.h"
 #if ENABLE_UNIKON==1
 #include "unikon_protocol.h"
 #endif
@@ -175,16 +176,19 @@ static inline void screenDrawRamboxView(ScreenManager &mgr, Adafruit_SSD1306 &ol
             snprintf(gbBuf, sizeof(gbBuf), "SD:%.1fG", freeGB);
             storageCompact = String(gbBuf);
         }
-    } else if (currentStorageMode == STORAGE_MODE_PSRAM && psramVFSIsEnabled()) {
-        size_t freeBytes = psramVFSGetFreeBytes();
-        uint32_t freeKB = (uint32_t)(freeBytes / 1024U);
-        if (freeKB <= 9999U) {
-            storageCompact = String("PS:") + String(freeKB) + "K";
-        } else {
-            float freeMB = (float)freeKB / 1024.0f;
-            char mbBuf[10];
-            snprintf(mbBuf, sizeof(mbBuf), "PS:%.1fM", freeMB);
-            storageCompact = String(mbBuf);
+    } else {
+        uint64_t freeBytes = littlefsFreeBytes();
+        uint64_t totalBytesFS = littlefsTotalBytes();
+        if (totalBytesFS > 0) {
+            uint32_t freeKB = (uint32_t)(freeBytes / 1024U);
+            if (freeKB <= 9999U) {
+                storageCompact = String("FS:") + String(freeKB) + "K";
+            } else {
+                float freeMB = (float)freeKB / 1024.0f;
+                char mbBuf[10];
+                snprintf(mbBuf, sizeof(mbBuf), "FS:%.1fM", freeMB);
+                storageCompact = String(mbBuf);
+            }
         }
     }
     String lblContest = L(activeLang->screenContest);

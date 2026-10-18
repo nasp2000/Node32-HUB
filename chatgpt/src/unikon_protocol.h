@@ -4,7 +4,10 @@
 //
 // Protocol: 9600 8N1 no flow control.
 // Frame structure: STX(02) + ADDR(81) + PAYLOAD + CK1 + CK2 + ETX(03)
-// Checksum: 16-bit sum of ADDR+payload bytes. CK1=low, CK2=0x80|(high&0x7F)
+// Checksum: 16-bit sum of ADDR+payload bytes.
+//   CK1 = low byte, escaped with |0x80 when < 0x20 (never emit a control byte inside
+//         the frame; the RAMBOX sender does the same -- see computeChecksum()).
+//   CK2 = 0x80 | (high byte & 0x7F)
 //
 // Polling strategy: RAMBOX is empty before each race. Any pigeon returned by
 // the X-phase is only a registered ring/chip entry. Confirmed arrivals come
@@ -59,7 +62,9 @@ struct UnikonArrival {
 
 // One contest/schedule record returned by the IC0/I session.
 // Layout confirmed against sniffer captures 1.txt / 6.txt:
-//   STX(0) ADDR(1) 'I'(2) CODE[3](3..5) DDMM[4](6..9) NAME[9](10..18) CK1 CK2 ETX
+//   STX(0) ADDR(1) 'I'(2) CODE[3](3..5) DDMM[4](6..9) NAME[8](10..17) N[1](18) CK1 CK2 ETX
+// The I-frame content is 'I' '0' RR[2] DD[2] MM[2] NAME[8] N[1] (the leading '0' is a
+// literal -- see sendIFrame()): NAME is EIGHT characters and the last byte is a digit.
 struct UnikonContest {
     char code[4];         // 3-digit contest index, e.g. "001"
     char date[5];         // DDMM date, e.g. "0703"
@@ -172,16 +177,20 @@ bool unikonFlushPendingConfig();
 bool unikonQueuePombalSeasonEmail(String& messageOut);
 
 // Request to send a training session to the RAMBOX: writes IC0 + I-frame (today's date)
-// plus cached S1/S2/S3 and ZP-frames for the filtered pigeons (or the whole pombal
-// when the filter is empty) so the W-phase returns arrivals.
+// plus cached S1/S2/S3 and pigeon records for the selected entry list, so the W-phase
+// returns arrivals.
 // Non-blocking — sets a flag for unikonUpdate().
 void unikonRequestSendTraining();
 
-// Replace the training entry filter from newline-separated text (S4 lines or
-// plain 11-digit rings). Empty text clears the filter. Returns accepted count.
+// Set the training entry list. Accepted forms:
+//   "<ring>\n<ring>..."  or S4 lines  -> only those rings   (UNIKON_TRAIN_MODE_LIST)
+//   "*"                               -> whole pombal       (UNIKON_TRAIN_MODE_ALL)
+//   "-"                               -> no pigeons at all  (UNIKON_TRAIN_MODE_NONE)
+//   "" (empty)                        -> whole pombal       (legacy meaning, unchanged)
+// Returns the number of rings parsed (0 for "*", "-" and "").
 uint16_t unikonSetTrainingFilter(const char* text);
 
-// Request to clear the training contest (code 990) from the RAMBOX calendar.
+// Request to clear the training contest (UNIKON_TRAINING_CODE) from the RAMBOX calendar.
 // Non-blocking — sets a flag for unikonUpdate().
 void unikonRequestClearTraining();
 

@@ -12,6 +12,7 @@
 #include "structures.h"
 #include "sdcard.h"
 #include "psram_vfs.h"
+#include "littlefs_manager.h"
 #if ENABLE_AHT20_BMP280==1
 #include "sensors/sensor_config.h"
 #endif
@@ -66,8 +67,12 @@ static inline void screenDrawEnvironmentView(ScreenManager &mgr, Adafruit_SSD130
         uint64_t freeBytes = (totalBytes > usedBytes) ? (totalBytes - usedBytes) : 0;
         uint32_t freeMB = (uint32_t)(freeBytes / (1024ULL * 1024ULL));
         storageCompact = String("SD:") + String(freeMB) + "M";
-    } else if (currentStorageMode == STORAGE_MODE_PSRAM && psramVFSIsEnabled()) {
-        storageCompact = String("PS:") + String((uint32_t)(psramVFSGetFreeBytes() / 1024U)) + "K";
+    } else {
+        uint64_t freeBytes = littlefsFreeBytes();
+        uint64_t totalBytesFS = littlefsTotalBytes();
+        if (totalBytesFS > 0) {
+            storageCompact = String("FS:") + String((uint32_t)(freeBytes / 1024U)) + "K";
+        }
     }
 
     String heapLine = String("Heap:") + String(ESP.getFreeHeap() / 1024U) + "K " + storageCompact;

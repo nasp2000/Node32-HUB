@@ -177,10 +177,16 @@ TEST_CASE("trainingPlan: no cached S-frames sends IC0+I+ZP only") {
     CHECK(trainingPlanFrames(2, false, false, false) == 4);
 }
 
-// Training entry filter: which rings to program. Empty = whole pombal.
+// Training entry filter: which rings to program.
+//   ""  -> all (legacy meaning, unchanged)
+//   "*" -> all (explicit whole pombal)
+//   "-" -> none (program the race alone)
+//   else -> only the listed rings
 static const int TRAIN_FILTER_MAX = 500; // mirrors UNIKON_MAX_ARRIVALS
+enum { TRAIN_MODE_LIST = 0, TRAIN_MODE_ALL = 1, TRAIN_MODE_NONE = 2 };
 static char s_filterRings[TRAIN_FILTER_MAX][12];
 static int s_filterCount = 0;
+static int s_filterMode = TRAIN_MODE_ALL;
 
 // Mirror of parseTrainingEntryLine (unikon_protocol.cpp).
 static bool parseTrainingEntryLine(const char* line, char* outRing) {
@@ -207,7 +213,11 @@ static bool parseTrainingEntryLine(const char* line, char* outRing) {
 
 static uint16_t setTrainingFilterReimpl(const char* text) {
     s_filterCount = 0;
+    s_filterMode = TRAIN_MODE_ALL;
     if (!text || text[0] == '\0') return 0;
+    if (strcmp(text, "-") == 0) { s_filterMode = TRAIN_MODE_NONE; return 0; }
+    if (strcmp(text, "*") == 0) { s_filterMode = TRAIN_MODE_ALL;  return 0; }
+    s_filterMode = TRAIN_MODE_LIST;
     const char* p = text;
     char line[64];
     while (*p && s_filterCount < TRAIN_FILTER_MAX) {
@@ -226,7 +236,9 @@ static uint16_t setTrainingFilterReimpl(const char* text) {
 }
 
 static bool trainingFilterAllowsReimpl(const char* ring) {
-    if (s_filterCount == 0) return true;
+    if (s_filterMode == TRAIN_MODE_ALL)  return true;
+    if (s_filterMode == TRAIN_MODE_NONE) return false;
+    if (!ring) return false;
     for (int i = 0; i < s_filterCount; i++) {
         if (memcmp(s_filterRings[i], ring, 11) == 0) return true;
     }
@@ -234,7 +246,7 @@ static bool trainingFilterAllowsReimpl(const char* ring) {
 }
 
 // ====== training contest match tests ======
-// Matching is by the fixed contest code (\"990\"), not by name: the code is a
+// Matching is by the fixed contest code (\"090\"), not by name: the code is a
 // compiled constant, present in both frame-3 flavours, and needs no persistence.
 // The code matcher itself is covered by the trainingCodeMatch cases below.
 
@@ -268,10 +280,24 @@ TEST_CASE("trainingFilter: text with S4 + plain rings, skips junk") {
     CHECK(!trainingFilterAllowsReimpl("99999999999"));
 }
 
-TEST_CASE("trainingFilter: empty text clears (whole pombal passes)") {
+TEST_CASE("trainingFilter: empty text keeps the legacy 'whole pombal' meaning") {
     setTrainingFilterReimpl("24004342525");
     CHECK(setTrainingFilterReimpl("") == 0);
     CHECK(trainingFilterAllowsReimpl("anything....."));
+}
+
+TEST_CASE("trainingFilter: \"*\" selects the whole pombal") {
+    setTrainingFilterReimpl("24004342525");
+    CHECK(setTrainingFilterReimpl("*") == 0);
+    CHECK(trainingFilterAllowsReimpl("24004342525"));
+    CHECK(trainingFilterAllowsReimpl("99999999999"));
+}
+
+TEST_CASE("trainingFilter: \"-\" selects no pigeon (race only)") {
+    setTrainingFilterReimpl("*");
+    CHECK(setTrainingFilterReimpl("-") == 0);
+    CHECK(!trainingFilterAllowsReimpl("24004342525"));
+    CHECK(!trainingFilterAllowsReimpl("anything....."));
 }
 
 // ====== Frame '3' contest code (unikon_protocol.cpp parseFrame3Code) ======
@@ -293,7 +319,10 @@ static void parseFrame3CodeReimpl(const uint8_t* f, int len, char* out, size_t o
 static bool isTrainingContestCodeReimpl(const char* raceCode, const char* trainingCode) {
     if (!raceCode || !trainingCode) return false;
     if (raceCode[0] == '\0' || trainingCode[0] == '\0') return false;
-    return strcmp(raceCode, trainingCode) == 0;
+    while (*raceCode == ' ') raceCode++;
+    if (strcmp(raceCode, trainingCode) == 0) return true;
+    if (trainingCode[0] == '0' && strcmp(raceCode, trainingCode + 1) == 0) return true;
+    return false;
 }
 
 TEST_CASE("frame3code: capture 17 (no race data) yields 003") {
@@ -326,10 +355,19 @@ TEST_CASE("frame3code: short/garbage frames yield empty") {
     CHECK(std::string(code) == "");
 }
 
-TEST_CASE("trainingCodeMatch: 990 matches the programmed training code") {
-    CHECK(isTrainingContestCodeReimpl("990", "990"));
-    CHECK(!isTrainingContestCodeReimpl("003", "990"));
-    CHECK(!isTrainingContestCodeReimpl("", "990"));
-    CHECK(!isTrainingContestCodeReimpl("990", ""));
-    CHECK(!isTrainingContestCodeReimpl(nullptr, "990"));
+TEST_CASE("trainingCodeMatch: 090 matches the programmed training code") {
+    CHECK(isTrainingContestCodeReimpl("090", "090"));
+    CHECK(!isTrainingContestCodeReimpl("003", "090"));
+    CHECK(!isTrainingContestCodeReimpl("", "090"));
+    CHECK(!isTrainingContestCodeReimpl("090", ""));
+    CHECK(!isTrainingContestCodeReimpl(nullptr, "090"));
+}
+
+TEST_CASE("trainingCodeMatch: tolerates the bare race number and space padding") {
+    // The device may echo the race number without the leading literal '0', or pad the
+    // 3-char field with a space -- both must still tag the race as training.
+    CHECK(isTrainingContestCodeReimpl("90", "090"));
+    CHECK(isTrainingContestCodeReimpl(" 90", "090"));
+    CHECK(!isTrainingContestCodeReimpl("91", "090"));
+    CHECK(!isTrainingContestCodeReimpl("003", "090"));
 }

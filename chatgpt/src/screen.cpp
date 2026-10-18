@@ -18,6 +18,7 @@
 #include "network_runtime_state.h"
 #include "sdcard.h" // SD card functions
 #include "psram_vfs.h" // PSRAM VFS functions
+#include "littlefs_manager.h"
 #include "languages/lang_active.h"
 
 #if ENABLE_UNIKON==1
@@ -731,14 +732,16 @@ void ScreenManager::showStatusScreen() {
             }
             storage_info = String(buf);
         }
-    } else if (currentStorageMode == STORAGE_MODE_PSRAM && psramVFSIsEnabled()) {
-        // PSRAM mode: show free space
-        size_t freeBytes = psramVFSGetFreeBytes();
-        uint32_t freeKB = (uint32_t)(freeBytes / 1024);
-        storage_info = "PSRAM: " + String(freeKB) + "KB livre";
     } else {
-        // No storage available
-        storage_info = "Storage: N/A";
+        // No SD: show LittleFS free space on every pack/screen
+        uint64_t freeBytes = littlefsFreeBytes();
+        uint64_t totalBytesFS = littlefsTotalBytes();
+        if (totalBytesFS > 0) {
+            uint32_t freeKB = (uint32_t)(freeBytes / 1024ULL);
+            storage_info = "FS: " + String(freeKB) + "KB livre";
+        } else {
+            storage_info = "Storage: N/A";
+        }
     }
     
     line2 = "Uptime: " + formatUptime(millis() - bootTime) +

@@ -51,6 +51,35 @@ assert(typeof win.trainingCheckAll==='function','trainingCheckAll is function');
   win.trainingCheckAll(false);
   assert(win.selectedTrainingRings(box).length===0,'uncheck all clears');
 })();
+// sendTraining payload sentinels: none -> "-", all -> "*", some -> the ring list
+// (the server maps them to UNIKON_TRAIN_MODE_NONE / ALL / LIST).
+(function(){
+  var box = win.document.getElementById('trainingPombalSelect');
+  box.innerHTML = '';
+  function addBox(value, checked) {
+    var lab = win.document.createElement('label');
+    var cb = win.document.createElement('input');
+    cb.type = 'checkbox'; cb.value = value; cb.checked = !!checked;
+    lab.appendChild(cb); box.appendChild(lab);
+  }
+  var sent = [];
+  win.fetch = function(url, opts) {
+    sent.push((opts && opts.body) || '');
+    return Promise.resolve({ json: function(){ return Promise.resolve({success:true,message:'ok'}); } });
+  };
+  addBox('24004342525', false);
+  addBox('02002830633', false);
+  win.sendTraining();
+  assertEq(sent.length, 1, 'sendTraining posts once');
+  assertEq(sent[0], 'rings=-', 'none ticked sends the "-" sentinel');
+  win.trainingCheckAll(true);
+  win.sendTraining();
+  assertEq(sent[1], 'rings=*', 'all ticked sends the "*" sentinel');
+  win.trainingCheckAll(false);
+  box.querySelectorAll('input[type="checkbox"]')[0].checked = true;
+  win.sendTraining();
+  assertEq(sent[2], 'rings=24004342525', 'some ticked sends the ring list');
+})();
 var _sp = win.splitArrivals([{ring:'A',kind:'race'},{ring:'B',kind:'training'},{ring:'C'}]);
 assert(_sp.race.length===2 && _sp.training.length===1,'splitArrivals separates race/training, missing kind defaults race');
 var _spEmpty = win.splitArrivals([]);

@@ -12,6 +12,7 @@
 #include "structures.h"
 #include "sdcard.h"
 #include "psram_vfs.h"
+#include "littlefs_manager.h"
 #if ENABLE_UNIKON==1
 #include "unikon_protocol.h"
 #endif
@@ -32,8 +33,12 @@ static inline void screenDrawPsramView(ScreenManager &mgr, Adafruit_SSD1306 &ole
         uint64_t usedBytes = sdcardUsedBytes();
         uint64_t freeBytes = (totalBytes > usedBytes) ? (totalBytes - usedBytes) : 0;
         storageCompact = String("SD:") + String((uint32_t)(freeBytes / (1024ULL * 1024ULL))) + "M";
-    } else if (currentStorageMode == STORAGE_MODE_PSRAM && psramVFSIsEnabled()) {
-        storageCompact = String("PS:") + String((uint32_t)(psramVFSGetFreeBytes() / 1024U)) + "K";
+    } else {
+        uint64_t freeBytes = littlefsFreeBytes();
+        uint64_t totalBytesFS = littlefsTotalBytes();
+        if (totalBytesFS > 0) {
+            storageCompact = String("FS:") + String((uint32_t)(freeBytes / 1024U)) + "K";
+        }
     }
 
     String uptimeLine = String("Up:") + mgr.formatUptime(millis() - bootTime);
