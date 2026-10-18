@@ -26,7 +26,7 @@
 ## 3. Known Limitations
 
 - **NVS passwords are NOT encrypted** — plaintext storage. AES encryption derived from chip unique ID is planned.
-- **Weak default passwords**: `admin`/`admin`, `12345678`, `ap32hub`.
+- **Weak default passwords**: Telnet `root`/`root`, AP mode password `12345678`. (Web admin ships with empty credentials — set them before exposing the device.)
 - **No forced password change** on first boot.
 - **No HTTPS/TLS** — all traffic (including credentials) travels in cleartext.
 - **No rate limiting** on login attempts — brute-force is feasible on LAN.
