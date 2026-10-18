@@ -1,6 +1,6 @@
 # Node32-HUB — Agent Guide (short)
 
-ESP32-S3/P4 industrial communication hub: RS232, LPT/DB25, Modbus RTU/TCP, CAN, GRBL, sensors (AHT20, MQ135, HX711, INA226, proximity), email, scheduler, camera, radio, audio, web over WiFi or Ethernet (W5500). Packs (`packs/pack_*.h`) reconfigure per board (N16R8, Waveshare 8DI8DO, P4 CNC).
+ESP32-S3/P4 industrial communication hub: RS232, LPT/DB25, Modbus RTU/TCP, CAN, GRBL, sensors (AHT20, MQ135, HX711, INA226, MAX31865, sound, proximity), email, scheduler, camera, radio, audio, web over WiFi or Ethernet (W5500). Packs (`packs/pack_*.h`) reconfigure per board (N16R8 class, Waveshare 8DI8DO, S3 TouchLCD-7, P4 CNC / USB-Server / CAM).
 
 Design: modules independent (disabled at compile time = zero RAM), heap frugal (PSRAM + PROGMEM), no bloat.
 
@@ -10,16 +10,16 @@ cd chatgpt
 pio run -e n16r8              # S3 N16R8
 pio run -e waveshare_8di8do   # Waveshare 8DI8DO
 pio run -e esp32p4            # P4 (RISC-V, ~5 min)
-pio run -e esp32p4cam         # P4 CAM only (Arduino 3.3.11 dual-platform, see platformio.ini)
+pio run -e esp32p4cam         # P4 CAM only (Arduino 3.3.12 dual-platform, see platformio.ini)
 ```
 
 ## Repo quirks (read before touching build/source layout)
 - `src_dir = .` — project root IS the source tree. Unwanted dirs (`.pio/`, `.pio-linux/`, `.pio-p4cam/`, `build/`, some `managed_components/`) excluded via `build_src_filter` + pre-scripts. **`build/` must stay excluded**: it holds the `rename_firmware.py` output tree AND the generated LGPL bundle `build/third-party/lgpl-sources/**` (real `.cpp` — ESPAsyncWebServer examples, AsyncTCP, arduino-esp32); without `-<build/**>` PlatformIO compiles them and the build dies with `redefinition of 'class fs::File'`.
 - `managed_components/` is auto-generated (IDF Component Manager), NOT in git.
-- Pre-scripts run on every `pio run`: i18n validation, feature-flag validation, pack validation/injection, native tests (S3), ccache, `fix_includes.py`. Post: `rename_firmware.py`. Manual: `scripts/format_check.py`, `scan_secrets.py`, etc.
+- Pre-scripts run on every `pio run`: i18n validation, feature-flag validation, pack validation/injection, third-party + version validation, native tests (S3 envs), ccache, `fix_includes.py`. Post: `rename_firmware.py`. Manual: `scripts/format_check.py`, `scan_secrets.py`, etc.
 
 ## Feature flags
-- Edit `user_config.h` (project root). `src/feature_flags.h` is a relay — never add flags there.
+- Edit `chatgpt/user_config.h`. `src/feature_flags.h` is a relay — never add flags there.
 - `#define ENABLE_X 1` (numeric), never `#ifdef`. Packs override per use-case (`SELECTED_PACK`).
 - Every `.cpp` module needs `#if ENABLE_X==1` guard at top (`||` for deps). Core files (log/config/network) exempt.
 
@@ -28,8 +28,8 @@ pio run -e esp32p4cam         # P4 CAM only (Arduino 3.3.11 dual-platform, see p
 - Build-time validation: Sniffer+RS232, Sniffer+DB25, ModbusRTU+DB25 → error (UART1). Dependencies: USBIP→USB_HOST, MODBUS_*→MODBUS, etc.
 - Telemetry/storage standard (all packs, present + future): `ARCHITECTURE.md` §6.1 — dual-sink identical paths, configured cadence, always-on PSRAM ring, merged API serving, cleanup-covered, email reads both. Consult it when adding any source/pack that writes files.
 
-## Display / screen (`src/screen/`)
-- 3 layers: `display_profiles.h` (one profile per panel: geometry, VCC mode, pins, timings; `DISPLAY_*` registry + `activeDisplayProfile()`) → `screen.cpp` core (`ScreenManager`: begin/update/scroll/blink/popups, pack-agnostic) → `view_*.h` (one status layout per pack) picked by `view_selector.h` via `ScreenStatusContext`.
+## Display / screen (`chatgpt/src/screen/` views, core in `chatgpt/src/`)
+- 3 layers: `display_profiles.h` (one profile per panel: geometry, VCC mode, pins, timings; `DISPLAY_*` registry + `activeDisplayProfile()`) → `screen.cpp` core in `chatgpt/src/` (`ScreenManager`: begin/update/scroll/blink/popups, pack-agnostic) → `view_*.h` (one status layout per pack) picked by `view_selector.h` via `ScreenStatusContext`.
 - `screen.h` keeps the public API stable — external callers never include `screen/*` directly. All view/animation headers are header-only (`static inline`, no new build units).
 - New panel: add a profile (+ a view only if the layout differs). New pack screen: add `view_<pack>.h` guarded by its `SELECTED_PACK` (same compile exposure as the old `#if` branch had) + one branch in `view_selector.h`.
 - Never put pack `#if`s back into `screen.cpp` core; never add `.cpp` under `src/screen/` (headers only, so `build_src_filter` needs no changes).
@@ -41,7 +41,7 @@ pio run -e esp32p4cam         # P4 CAM only (Arduino 3.3.11 dual-platform, see p
 - UI: `customAlert`/`customConfirm` (never native), `d.success` not `d.ok`, no arrow functions (ESP32 browser compat), use `.key` not `.keyCode`. Home button = first child of `.wrap`.
 
 ## Page docs (`PAGES/`) — MANDATORY on any page change
-- One file per web page: `PAGES/<page_name>.md` (English snake_case: `inactivity_alerts.md`, `configure_email.md`, `proximity_sensors.md`). Central fix backlog: `PAGES/BACKLOG.md`.
+- One file per web page: `PAGES/<page_name>.md` (English snake_case: `inactivity_alerts.md`, `email.md`, `proximity_sensors.md`). Central fix backlog: `PAGES/BACKLOG.md`.
 - **Cross-page reference table** (`PAGES/WEB_PAGES_REFERENCE.md`): ONE table with every page — what it does, local-processing vs static (poll intervals), access rules per IP / per open page (session engine), which pages never kick by time, feature flags. **Consult it when wiring pages/access; keep it in sync on any page/route/poll/flag/access change** (same change, alongside `PAGES/<page>.md`).
 - Fixed doc structure (all pages identical order): objective → access/routing → layout → inputs → buttons → client logic → server API → persistence → runtime engine → i18n keys → review findings table → source map.
 - **RULE: any code change to a page (layout, buttons, inputs, handlers, routes, config schema) requires updating its `PAGES/<page>.md` in the same change.** New page ⇒ new doc.
@@ -53,10 +53,10 @@ pio run -e esp32p4cam         # P4 CAM only (Arduino 3.3.11 dual-platform, see p
 - HTML fallback text in English.
 
 ## Config & persistence
-- ALL config via `ConfigManager` — never raw NVS. NVS only for boot-critical (`cfg_wifi`, passwords). LittleFS for the rest (9 slot files + independent sensor files, path `/config/<stem>.json`).
+- ALL config via `ConfigManager` — never raw NVS. NVS only for boot-critical and secrets that must survive LittleFS issues (`cfg_wifi`, `cfg_saved_net`, SMTP password, plus segmented section mirrors). LittleFS for the rest (per-section files + independent sensor files, path `/config/<stem>.json`).
 - **Atomic write** (all config): write `.tmp` → validate bytes>0 → remove original → rename. Never write final path directly.
 - `littlefsBegin()` always (never `littlefsMounted()`). `saveAllConfigs()` is dead code. Prefer `markDirtyAndScheduleSave()`.
-- Adding a config section: new stem → `saveToLittleFS()` + `tryLoadSet()` + `stems[]` + `pages.reg` + `buildSlotPath()` (save & load).
+- Adding a config section: new stem → defaults in `initDefaults()` + backfill in `ensureAllFieldsExist()` + save via `saveSection(stem)` (save & load); files at `/config/<stem>.json`.
 
 ## Logging
 - `sendVirtualMessage(F("msg"), LEVEL)` → Serial + Telnet + Web monitor.
@@ -70,7 +70,7 @@ pio run -e esp32p4cam         # P4 CAM only (Arduino 3.3.11 dual-platform, see p
 
 ## Firmware versioning (MANDATORY on commit/push)
 - NEVER bump during implementation. Only at commit/push.
-- `FIRMWARE_VERSION_STR` in `chatgpt/src/smtp_core_impl.h` (currently v1.114) + `_hreg[HR_FW_VERSION]` in `chatgpt/src/modbus_slave.cpp` (numeric, no dots: 1114). Commit message includes version.
+- `FIRMWARE_VERSION_STR` in `chatgpt/src/smtp_core_impl.h` (currently v1.120) + `_hreg[HR_FW_VERSION]` in `chatgpt/src/modbus_slave.cpp` (numeric, no dots: 1120). Commit message includes version.
 
 ## Release gate (`release_check.sh`) — run before publishing
 - One command, fail-fast, for the whole pre-release check: `./release_check.sh` (bench only) or `./release_check.sh --host <ip> [--packs waveshare,homee32] [--build] [--package] [--strict]`.
@@ -111,7 +111,7 @@ To keep the repo root clean, every agent-produced artifact goes in a dedicated f
 - **Agent briefs** (`_OPENCE_*.md`, instructions for opencode/big-pickle/other models): `agents/briefs/` (repo root). When launching `opencode run @_OPENCE_x.md`, point the path at `agents/briefs/_OPENCE_x.md`.
 - **Agent process docs / specs** (e.g. `self-test.md` MASTER SPEC for HW/web testing): `agents/docs/` (repo root).
 - **Pack history**: `HISTORIC/` (repo root, **git-ignored**, kept local) is the single source of truth for per-pack history: discoveries, issues, key decisions and relevant findings. One subfolder per pack, file `HISTORIC/<pack>/HISTORICO.md` (e.g. `HISTORIC/P4-CNC/HISTORICO.md`, `HISTORIC/Waveshare/HISTORICO.md`; folder names match the pack names, e.g. `P4-CNC`, `Waveshare`, `HomeE32`, `Pack Radio` — create the folder if a pack has no history yet). **MANDATORY: any agent work on a pack — investigations, fixes, new discoveries, decisions, HW findings — must be logged there by the LLM at session end** (short entry, same change/session, not later). Keep entries short: date, symptom, root cause, fix applied, binary/commit, revert instructions; drop stale detail on revision. Do NOT create history files in `agents/docs/`, `SHARE/` or other repo folders.
-- **HW / integration tests**: `tests/hw/` (repo root). Shared lib: `tests/hw/lib_persist.sh`. Per-pack real tests live in `tests/packs/<pack>/test_real_<pack>.sh` (e.g. `waveshare/`, `homee32/`, `p4/`, `harmonica/`, `sim_waveshare/`, `sim_homee32/`). Each folder also holds that pack's API test scripts, `TESTE_API_*.md`, plans, and results (migrated from `SHARE/`). Do NOT duplicate tests into `SHARE/` — SHARE is for Nuno's working docs only.
+- **HW / integration tests**: `tests/hw/` (repo root). Shared lib: `tests/hw/lib_persist.sh`. Per-pack real tests live in `tests/packs/<pack>/test_real_<pack>.sh` (e.g. `waveshare/`, `homee32/`, `p4/`, `harmonica/`, `cam/`; `sim_*` are run_pack_regression keys, not folders). Each folder also holds that pack's API test scripts, `TESTE_API_*.md`, plans, and results (migrated from `SHARE/`). Do NOT duplicate tests into `SHARE/` — SHARE is for Nuno's working docs only.
 - **Pack regression runner**: `tests/hw/run_pack_regression.sh` (runs all `tests/packs/*/test_real_*.sh` after a build; exits 1 if any pack loses persistence → "do NOT OTA"). Per-pack folders (`cam/`, `harmonica/`, `homee32/`, `p4/`, `waveshare/`) hold `test_real_<pack>.sh` plus that pack's API test scripts, `TESTE_API_*.md`, plans and results (consolidated here from the old `agent_docs/pack_tests/`).
 - **Hardware / board guides** for humans (e.g. `px_8di8do.md`): `docs/` (repo root), not agent folders.
 - Native tests stay in `tests/native/` (see "Native tests" section).
