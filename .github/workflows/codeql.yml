@@ -56,4 +56,5 @@ jobs:
         run: pio run --project-dir chatgpt -e n16r8
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
-        category: "/language:cpp"
+        with:
+          category: "/language:cpp"
