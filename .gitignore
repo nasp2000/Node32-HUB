@@ -19,6 +19,9 @@ build_p4cam.sh
 
 # Build artifacts
 *.a
+# Exception: vendored prebuilt DSP lib (Espressif Modified MIT, see SBOM) —
+# required at link time, no sources available, must be versioned
+!chatgpt/lib/esp_audio_codec/src/lib_esp32s3/libesp_audio_codec.a
 *.so
 *.d
 *.exe
