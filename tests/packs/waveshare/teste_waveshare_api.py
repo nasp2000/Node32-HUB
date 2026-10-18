@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real API test harness for the Waveshare 8DI8DO pack (Node32-HUB) on 192.168.1.29.
+"""Real API test harness for the Waveshare 8DI8DO pack (Node32-HUB).
 
 Per Nuno's directive (issues.txt, 2026-08-28): test every page/endpoint via
 api/curl, verify persistence (save/load round-trip), and exercise reboot recovery.
@@ -14,13 +14,17 @@ Outputs a PASS/FAIL report to stdout and a JSON summary next to this file.
 """
 import base64
 import json
+import os
 import time
 import urllib.request
 import urllib.error
 
-BASE = "http://192.168.1.29"
-AUTH = "Basic " + base64.b64encode(b"admin:admin").decode()
-UA = {"User-Agent": "Joana-TestHarness/1.0", "Authorization": AUTH}
+if "TEST_IP" not in os.environ:
+    raise SystemExit("define TEST_IP com o IP do device")
+BASE = "http://" + os.environ["TEST_IP"]
+UA = {"User-Agent": "Joana-TestHarness/1.0"}
+if os.environ.get("TEST_AUTH"):
+    UA["Authorization"] = "Basic " + base64.b64encode(os.environ["TEST_AUTH"].encode()).decode()
 
 GET_ENDPOINTS = [
     ("/api/status", 200, "board confirm"),
@@ -88,7 +92,7 @@ def main():
         fw = o.get("firmware_version")
         a = o.get("inactivity_alerts", {}).get("slots", [{}])[0]
         print(f"[CONFIRM] board OK  ip={ip}  fw={fw}  eth_link={o.get('ethernet_link')}  wifi={o.get('wifi_connected')}")
-        results.append(("confirm", "ip==192.168.1.29", ip == "192.168.1.29", f"fw={fw} ip={ip}"))
+        results.append(("confirm", "ip==TEST_IP", ip == os.environ["TEST_IP"], f"fw={fw} ip={ip}"))
     else:
         print(f"[CONFIRM] FAILED to reach board: status={st} err={err}")
         # still try the rest

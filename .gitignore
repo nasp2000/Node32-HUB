@@ -133,3 +133,4 @@ third-party/
 # Personal local routines (cron/nightly) - never commit
 tests/hw/night_cycle.sh
 scripts/reminder_cam_p4_30m.sh
+tests/packs/homee32/testes_api_resultado.txt

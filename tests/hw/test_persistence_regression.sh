@@ -20,7 +20,7 @@
 #
 # Uso:
 #   ./test_persistence_regression.sh <IP> [auth_user:auth_pass] [--no-auth]
-#   ex: ./test_persistence_regression.sh 192.168.1.100 admin:admin
+#   ex: ./test_persistence_regression.sh 192.168.1.100 user:pass
 #       ./test_persistence_regression.sh 192.168.1.101           # --no-auth implicito se sem auth
 #       ./test_persistence_regression.sh 192.168.1.102 user:pass --no-auth
 #

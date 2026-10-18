@@ -19,7 +19,7 @@
 #   ./run_pack_regression.sh                 # corre todos os packs reais
 #   ./run_pack_regression.sh waveshare       # só um pack (nome da pasta)
 #   ./run_pack_regression.sh sim_waveshare   # simulador (usa teste waveshare + IP .33)
-#   PACKS_WAVESHARE="192.168.1.100:admin:admin" ./run_pack_regression.sh
+#   PACKS_WAVESHARE="192.168.1.100:user:pass" ./run_pack_regression.sh
 #
 # Regra: se algum teste FAIL, o script devolve 1 => "NÃO FAZER OTA".
 # =============================================================================

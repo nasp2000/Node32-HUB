@@ -27,7 +27,7 @@ declare -a P_FAILS P_SKIPS
 
 # Base + auth (definidos pelo caller antes de source)
 # BASE="http://192.168.1.x"
-# AUTHARG=(-u admin:admin)   ou   AUTHARG=()
+# AUTHARG=(-u user:pass)   ou   AUTHARG=()
 
 phttp() {
   local m="$1" p="$2" d="${3:-}"
