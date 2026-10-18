@@ -136,6 +136,12 @@ jobs:
         env:
           PLATFORMIO_BUILD_FLAGS: ${{ matrix.flags }}
         run: pio run --project-dir chatgpt -e ${{ matrix.env }}
+      - name: Collect firmware artifacts
+        if: env.MATRIX_ENV == '' || env.MATRIX_ENV == matrix.env
+        working-directory: chatgpt
+        env:
+          DIST_THIRD_PARTY: "0"
+        run: python rename_firmware.py --copy --env ${{ matrix.env }} --pack ${{ matrix.pack }}
       - name: Upload firmware artifacts
         if: env.MATRIX_ENV == '' || env.MATRIX_ENV == matrix.env
         uses: actions/upload-artifact@v4
