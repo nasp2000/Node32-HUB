@@ -40,18 +40,6 @@ Pre-built firmware binaries are published in dedicated per-board repositories, e
 | [**Cam-M**](https://github.com/nasp2000/Cam-M) | Camera companion board (MJPEG stream, snapshots, AVI/motion). |
 | [**Node32-OEE**](https://github.com/nasp2000/Node32-OEE) | Production counting & OEE terminal (8DI8DO, shifts + CSV, A×P×Q, email). |
 
-## Quick Start (build & flash)
-
-Requires Python 3 + [PlatformIO](https://platformio.org/); dependencies download on first build.
-
-```bash
-./build_firmware.sh                          # interactive menu
-./build_firmware.sh -e n16r8 -p RAMBOX       # direct build (boards: n16r8 | waveshare_8di8do | s3_touch7 | esp32p4 | esp32p4cam)
-./flash_firmware.sh                          # interactive flash (modes: 1 update · 2 full · 3 erase+full)
-```
-
-Artifacts: `chatgpt/build/<board>/<pack>/<version>/<timestamp>/`. Windows: `chatgpt/build_firmware.bat`.
-
 ## License
 
 This project is licensed under the **MIT License** — you may freely use, copy, modify, merge, publish, distribute, sublicense, and sell the software (source code and pre-compiled binaries) for any purpose, commercial or non-commercial, provided the copyright notice is retained. Complete pre-built binaries are made available in dedicated per-board repositories (see the Releases section).
