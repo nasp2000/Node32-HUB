@@ -114,7 +114,7 @@ jobs:
       - name: Install PlatformIO
         run: pip install --quiet platformio
       - name: Cache PlatformIO platforms and packages
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.platformio
           key: ${{ runner.os }}-pio-${{ matrix.env }}-${{ hashFiles('chatgpt/platformio.ini') }}
@@ -122,7 +122,7 @@ jobs:
             ${{ runner.os }}-pio-${{ matrix.env }}-
             ${{ runner.os }}-pio-
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ccache
           key: ${{ runner.os }}-ccache-${{ matrix.env }}-${{ matrix.pack }}-${{ github.sha }}
