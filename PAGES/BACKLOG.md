@@ -6,6 +6,10 @@ Fixing an item ALWAYS includes updating the corresponding `PAGES/<page>.md`.
 
 Status values: `open` · `in-progress` · `fixed` · `wontfix`
 
+Pages audited after 2026-10-17 (`bricon.md`, `unikon.md`, `api_reference.md`) keep
+their findings tables in the page doc itself; this file stays the cross-page
+history and is still the place to look before changing shared wiring.
+
 ---
 
 ## TouchMeteo-7 (`touch7.md` → `/falas`, pack `S3_TOUCH7`)
@@ -90,7 +94,7 @@ Status values: `open` · `in-progress` · `fixed` · `wontfix`
 | RECIP-5 | Medium | `freq` gap: server default `0` (= always) not in the UI option list (starts at 180) — stored `freq:0` renders as 600 and a save converts it. | `page_recipients_asset.cpp` (freq options), `ConfigManager.h:1724-1726` | open |
 | RECIP-6 | Low | `/api/recipients` omits the `active` field (only `/api/recipient-slots` includes it). | `handlers/recipients_handler.cpp:59-66`, `ethernet_bootstrap_handlers.h:3068-3075` | open |
 | RECIP-7 | Low | `saveSlot` falls back to `freq:'0'` — not in the option list (should be `'600'`). | `page_recipients_asset.cpp:122` | open |
-| RECIP-8 | Info | `handleRecipientSlotPost` truncates emails to 800 then ConfigManager to 256 — the 800 cap is dead code. | `recipients_handler.cpp:179`, `ConfigManager.h:1723` | open |
+| RECIP-8 | Info | `handleRecipientSlotPost` truncates emails to 800 then ConfigManager to 256 — the 800 cap is dead code. | `recipients_handler.cpp:179` (unified handler), `ConfigManager.h:1723` | open |
 
 ---
 
@@ -128,7 +132,7 @@ Status values: `open` · `in-progress` · `fixed` · `wontfix`
 | FIL-1 | Medium | All fallback text hardcoded PT (`Explorador de Ficheiros`, `Apagar`, `Selecionar`, `PÁGINA`, dialogs `Cancelar`/`Confirmar`/`OK`, 503 pages) + `doc.lang='pt'` — **fixed:** all English fallbacks, `lang='en'`, 503 pages translated. | `files_page_handler.cpp` | fixed |
 | FIL-2 | Low | `/api/sd/download` guarded only client-side (2 s in-progress flag); no server-side single-download guard. | `files_page_handler.cpp:721-729` | open |
 | FIL-3 | Low | `sortByType()` (client reorder) competes with URL `sort=name|date` server sort — two behaviours. | `files_page_handler.cpp:382` | open |
-| FIL-4 | Low | Keyboard handler uses arrow functions (`e=>`), diverging from the no-arrow project rule. | `files_page_handler.cpp:815-819` | open |
+| FIL-4 | Low | Keyboard handler uses arrow functions (`e=>`), diverging from the no-arrow project rule. | `files_page_handler.cpp:825,833` | open |
 | FIL-5 | Low | PSRAM selector shows `(não disponível)` when VFS disabled but stays clickable → dead option. | `files_page_handler.cpp:462-467` | open |
 | FIL-6 | Info | Move/rename/create use hidden-form POST (page navigates) vs delete uses JSON+reload — inconsistent UX. | `files_page_handler.cpp:839-840` | open |
 
@@ -204,8 +208,6 @@ Status values: `open` · `in-progress` · `fixed` · `wontfix`
 | ST-2 | Low | `opMap` in monitoring render doesn't match the real operator set (`I/D/+/−/G/L/R/DR/V/C/P/Cw/Hy`) — labels can be wrong. | `status_page_renderer.cpp` | open |
 | ST-3 | Low | Rapid refresh can hit the 500 ms 429; the page renders the `{error}` body as data instead of showing stale/graceful state. | `status_page_renderer.cpp` (`u()`), `core_admin_handler.cpp:31` | open |
 | ST-4 | Info | Single ~12 KB JSON rebuilt per request — no ETag/caching on the payload. | `core_admin_handler.cpp:38` | open |
-
----
 
 ---
 
