@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width,initial-scale=1'>
+  <title>Falas (Test) (Test)</title>
+</head>
+<body>
+
+<div class="wrap">
+<a class="btn" href="/" data-i18n="btnHome">Inicio</a>
+<h1 data-i18n="touch7Falas">🔊 Falas locais</h1>
+<p>Frases WAV em <code>/falas</code> (16-bit PCM mono, 16 kHz). Para enviar ficheiros novos use a pagina <a href="/files">Ficheiros</a>.</p>
+<div class="card">
+<button class="btn" id="bFalasRef">Atualizar lista</button>
+<span id="falasStatus">A carregar...</span>
+<table id="falasTable"><thead><tr><th>Ficheiro</th><th>Tamanho</th><th></th><th></th></tr></thead><tbody id="falasBody"></tbody></table>
+</div>
+<div class="card">
+<h2 data-i18n="touch7Peers">Peers (viewer 2+2)</h2>
+<p>Configure os nodes remotos (ex. pack CAM) em JSON e grave. Teste com o botao.</p>
+<textarea id="peersJson" rows="10" cols="60"></textarea><br>
+<button class="btn" id="bPeersLoad">Ler config</button>
+<button class="btn" id="bPeersSave">Guardar</button>
+<button class="btn" id="bPeersTest" data-i18n="touch7Test">Testar agora</button>
+</div>
+
+<script>
+// ===== MOCK API LAYER =====
+(function() {
+  window.fetch = function(url, opts) {
+    var u = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+    var MOCKS = typeof window.__MOCK_API__ !== 'undefined' ? window.__MOCK_API__ : {};
+    if (opts && opts.method && opts.method !== 'GET') {
+      window.__postBodies = window.__postBodies || [];
+      window.__postBodies.push({ url: u, method: opts.method, body: opts.body || '' });
+    }
+    var mock = MOCKS[u];
+    if (!mock) {
+      for (var k in MOCKS) {
+        if (u.indexOf(k) >= 0) { mock = MOCKS[k]; break; }
+      }
+    }
+    if (typeof mock === 'function') mock = mock();
+    return Promise.resolve({
+      ok: true, status: 200,
+      json: function() { return Promise.resolve(mock || {}); },
+      text: function() { return Promise.resolve(JSON.stringify(mock || {})); }
+    });
+  };
+  window.customAlert = function(m) { console.log('[mock] customAlert:', m); };
+  window.customConfirm = function(m, cb) { if (cb) cb(true); };
+  window.showLoading = function() {};
+  window.hideLoading = function() {};
+  window.disableBtn = function(b) { if (b) { b.disabled = true; } };
+  window.enableBtn = function(b) { if (b) { b.disabled = false; } };
+  window.showSavedCard = function() {};
+  // Feature flags used by some pages (default: off)
+  window._rs232Enabled = false;
+  window._modbusEnabled = false;
+  window.__test__ = {};  // ensure window.__test__ exists even on non-IIFE pages
+})();
+</script>
+
+<script>
+function falasShow(m){ customAlert(m); }
+function falasLoad(){
+  fetch('/api/falas').then(function(r){ return r.json(); }).then(function(d){
+    var tb = $('falasBody'); tb.innerHTML = '';
+    if(!d.success || !d.files || !d.files.length){ $('falasStatus').textContent = 'Sem ficheiros.'; return; }
+    $('falasStatus').textContent = d.files.length + ' ficheiro(s).';
+    d.files.forEach(function(f){
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td></td><td></td><td></td><td></td>';
+      tr.children[0].textContent = f.name;
+      tr.children[1].textContent = f.size;
+      var bP = document.createElement('button'); bP.className = 'btn'; bP.textContent = 'Ouvir';
+      bP.onclick = function(){ falasPlay(f.name); };
+      var bD = document.createElement('button'); bD.className = 'btn'; bD.textContent = 'Apagar';
+      bD.onclick = function(){ customConfirm('Apagar ' + f.name + '?', function(){ falasDel(f.name); }); };
+      tr.children[2].appendChild(bP); tr.children[3].appendChild(bD);
+      tb.appendChild(tr);
+    });
+  });
+}
+function falasPlay(n){
+  fetch('/api/falas-play?file=' + encodeURIComponent(n), {method:'POST'}).then(function(r){ return r.json(); }).then(function(d){
+    if(d.success) falasShow('A tocar ' + n); else falasShow('Falha: ' + (d.msg || '?'));
+  });
+}
+function falasDel(n){
+  fetch('/api/falas-delete?file=' + encodeURIComponent(n), {method:'POST'}).then(function(r){ return r.json(); }).then(function(d){
+    if(d.success){ falasShow('Apagado.'); falasLoad(); } else falasShow('Falha: ' + (d.msg || '?'));
+  });
+}
+function peersLoad(){
+  fetch('/api/touch7-config').then(function(r){ return r.json(); }).then(function(d){
+    if(d.success) $('peersJson').value = JSON.stringify(d, null, 1);
+  });
+}
+function peersSave(){
+  fetch('/api/touch7-config', {method:'POST', headers:{'Content-Type':'application/json'}, body:$('peersJson').value}).then(function(r){ return r.json(); }).then(function(d){
+    if(d.success) falasShow('Guardado.'); else falasShow('Falha a guardar.');
+  });
+}
+function peersTest(){
+  fetch('/api/touch7-peer-refresh', {method:'POST'}).then(function(r){ return r.json(); }).then(function(d){
+    if(d.success) falasShow('A atualizar peers...'); else falasShow('Falha.');
+  });
+}
+if (typeof $ !== 'undefined' && $('bFalasRef')) {
+  $('bFalasRef').onclick = falasLoad;
+  $('bPeersLoad').onclick = peersLoad;
+  $('bPeersSave').onclick = peersSave;
+  $('bPeersTest').onclick = peersTest;
+  falasLoad();
+}
+window.__test__ = window.__test__ || {};
+window.__test__.falasRow = function(name, size){
+  return {name: name, size: size, label: name + ' (' + size + ' B)'};
+};
+window.__test__.falasSafe = function(name){
+  if(!name || name.length > 64) return false;
+  if(name.indexOf('..') >= 0 || name.indexOf('/') >= 0) return false;
+  return name.endsWith('.wav') || name.endsWith('.WAV');
+};
+</script>
+
+<script>
+
+// ===== TEST HOOKS (standalone — no IIFE found) =====
+// Preserve hooks the page already installed (e.g. page_ecra_asset sets
+// window.__test__.* at the end of its script); only fill missing ones below.
+window.__test__ = window.__test__ || {};
+// Spy mechanism
+window.__spy__ = {};
+window.__spy__.calls = {};
+window.__spy__.reset = function() { window.__spy__.calls = {}; };
+window.__spy__.wrap = function(name, fn) {
+  return function() {
+    window.__spy__.calls[name] = window.__spy__.calls[name] || [];
+    window.__spy__.calls[name].push(Array.prototype.slice.call(arguments));
+    return fn.apply(this, arguments);
+  };
+};
+// Wrap key functions for spying
+if (typeof postSend !== 'undefined') postSend = window.__spy__.wrap('postSend', postSend);
+if (typeof showAlert !== 'undefined') showAlert = window.__spy__.wrap('showAlert', showAlert);
+// Helper: reset IIFE-local state vars (P, C, SH, RP used by radio page)
+window.__test__._reset = function(p, c, sh, rp) {
+  try { if (p !== undefined) { var _a=p; P.length=0; for(var _i=0;_i<_a.length;_i++)P.push(_a[_i]); } } catch(e) {}
+  try { if (c !== undefined) C = c; } catch(e) {}
+  try { if (sh !== undefined) SH = sh; } catch(e) {}
+  try { if (rp !== undefined) RP = rp; } catch(e) {}
+};
+// Expose functions via eval (runs in outer IIFE scope)
+var _testNames = [
+  // Recipients page
+  'rt','rowHTML','addRow','updateNameHint','saveSlot','saveDontCopy','preload',
+  'removeRow',
+  'switchTab',
+  // Proximity page (status + config + shifts)
+  'render','renderCfg','fetchData','resetCh','resetAll','_lockOutFields',
+  'renderShiftSlots','loadShiftCfg','loadShiftdayEmails','saveAll','loadCfg',
+  '_applyVisFilter','onVisChChange','applyTemplate',
+  // Commands page
+  'esc','readLangCache','t','templateOptions','unitSelect','daysSelect',
+  'tplSelect','addRow','attachRow','saveSlot','attachSaveAll','rowHTML','removeRow',
+  // DateTime Commands page
+  'e','t','to','r','addRow','attachRow','init','lt','ls','la','tt','ss','attachSaveAll','rm',
+  // Sidebar / dock
+  'renderWidgetSidebar','moveWidgetUp','moveWidgetDown','moveWidgetToSide',
+  'toggleWidgetVis','applyTheme','readUiPrefs','saveUiPrefs','saveDockLayout',
+  'restoreDockLayout','saveWidgetPrefs','restoreWidgetPrefs','initLeftPanel',
+  'byId','qsa','localStorage','state',
+  // Utility
+  'fmtEta','fmtLagMs','fmtGcodeNum','normalizeZStepValue',
+  'setXyStepFromPreset','syncMainStepFromSelectors','updateXyStepButtons',
+  'sanitizeFileName','formatFileSize','ensureAllowedUploadPath',
+  'recentErrorMeta','clamp',
+  // Jog
+  'runJog','runJogXY','runJogXYCenter','quickUnlock','quickHome','quickZeroWcs','quickReset','quickStatus',
+  // Job
+  'startFileStream','pauseStream','resumeStream','cancelStream',
+  'sendManualCommand','applyPollInterval','applyUsbLineCoding',
+  'postActionOnce','postAction','refreshStatus','saveMacros',
+  // Frame
+  'runFrameFromPreview','updateFrameInfo',
+  'getPreviewFrameBounds','setCommandMode',
+  // Override (scoped inside bindEvents)
+  // 'sendOverrideFeed','sendOverrideSpin','applyOverrides','stepOverride',
+  // Probe
+  'runAutoProbeZZero',
+  // Macros
+  'defaultMacros','getMacroEntry','runMacro','loadMacrosToForm','saveMacrosFromForm',
+  // Console
+  'ingestConsoleEvents','logLine','clearConsole','toggleConsoleFullscreen',
+  // Workspace / DRO
+  'extractDroFromStatus','renderDro','fmtDro','hasValidDroValue',
+  'parseNumber3','parsePosTriplet','firstNumber3',
+  // USB / Connection
+  'selectedSlot','normalizeUsbSlots','renderSlots',
+  'syncSelectedUsbBaud','ensureUsbBaudOption','usbBaudPrefId',
+  'getPreferredUsbBaud','savePreferredUsbBaud',
+  // SD Card
+  'sdFileNameFromPath','sdParentDir','formatSdSize','normalizeSdEntry',
+  'isPreviewSizeBlocked','isPreviewAutoRenderHeavy',
+  // PSRAM
+  'refreshPsramFileStatus',
+  // Preview utilities (pure functions)
+  'extractAxisValue','extractAxisInMm','appendLinear',
+  'quickWireframe','applyWireframePreview',
+  'parseToolpath3dAsync',
+  // Critical confirm
+  'runWithCriticalConfirm','requireAxesAtZero',
+  // Render
+  'renderStatus','applyRuntimeControls','applyStatusSnapshot',
+  // Job helpers
+  'getSegmentExecNo','getActiveExecNo',
+  // Light preview (inner functions may not resolve)
+  'simplifyPolylineLight',
+  // Contour selection (GRBL light preview)
+  'filterContoursPreserveCoords',
+  'buildLightPreview','buildLightPieceContoursFromGcode',
+  'buildPieceContoursFromSegments','_syncContoursFromSegments',
+  '_toggleContourSelect','_undoContourToggle','_updateContourSelectInfo',
+  '_navContourHighlight','_spaceToggleHighlighted',
+  '_handleCanvasContourClick','_screenToMachine','_minDistToContour','_computeTopTransformPx',
+  '_distToSegment','_pointInPolygon','_lightPreviewScalePx',
+  'renderPreviewFromText','_computeBounds','_drawTopView','_drawIsoView',
+  'applyLightPreviewFromText','applyLightPreviewFromBounds','_keepDerivedContours',
+  '_drawPreviewNow','_drawContourOverlay','_drawCrosshair',
+  'bindPreviewInteractions',
+  // MQ135 sensor page
+  't','uiLocale','trendArrow','aqiInfo','pickReadableTextColor',
+  'applySensorValueTheme','mqTone','showStatus',
+  // Sensor config page
+  'updateStatistics',
+  // HX711 page
+  'UNIT_LABELS','t','uiLocale','updateDisplay','showStatus','performTare',
+  // INA226 page
+  't','uiLocale','updateDisplay','showStatus',
+  // Sound page
+  't','uiLocale','updateDisplay','showStatus',
+  // MAX31865 page
+  't','uiLocale','updateDisplay','showStatus',
+  // Sensor charts page
+  'numericSeries','hasSeriesData','calcTrend','metricColor',
+  'calcDew','calcHeat','calcAlt','fmtVal',
+  'isRS232Metric','isModbusMetric','isProximityMetric',
+  'getMetricMeta','getData','seriesValues','pickData',
+  'updateMaxVisibleOptions','setPointStrideAutoValue',
+  'mkOpts','fmtTs','trim','mkGradient','registerChartPlugins',
+  'mkChart','updChart','saveAllCharts',
+  'getY2Key','yPad','yPadNeg','hasNeg',
+  'setChartCenterBadge','updStats','setStatRow','calcSt','calcAdv',
+  'getMetricAdapter','metricPointCount','showSts','setTheme',
+  'fetchChartJson','waitChartRetry','isRetryableChartStatus',
+  'TH','currentTheme',
+  // Radio UI (IIFE-scoped)
+  'T','AP','APJ','BN','sw','onSearch','addPlay','playToggle',
+  'radioStop','radioNext','radioPrev','playUrl','updUI','setVol',
+  'togSh','togRp','loadFav','addFav','favPlay','favDel',
+  'touchActivity','IDLE_T','NAV_DEF','NAV_N','NAV_OFF','NAV_ICON','NAV_LABEL','PNL_ALL',
+  'syncQ','rQ','rmQ','savePl','loadPls','loadPl','delPl','loadQ','loadSt','fh',
+  'isSup','chkSup','loadResume','renderResume','saveResume','resumeToggle','resumeTargetToggle','RESUME_A','RESUME_F',
+];
+_testNames.forEach(function(n) {
+  try { window.__test__[n] = eval(n); } catch(e) { window.__test__[n] = null; }
+});
+
+</script>
+
+<script>
+(function() {
+  for (var k in window.__test__) {
+    if (window.__test__[k] === null || typeof window.__test__[k] === 'undefined') {
+      try { window.__test__[k] = eval(k); } catch(e) {}
+    }
+  }
+})();
+</script>
+
+</body>
+</html>

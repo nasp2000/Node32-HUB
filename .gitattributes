@@ -1,0 +1,41 @@
+# ---------------------------------------------------------------------------
+# Line-ending policy (dual-OS: Windows + Linux share this folder via Samba)
+# ---------------------------------------------------------------------------
+# The working tree must have IDENTICAL bytes on both OSes, so the folder can
+# live on a Samba share and be built from Windows and Linux simultaneously.
+#
+#   * text=auto eol=lf  -> all text files normalized to LF in the index AND
+#                          checked out as LF on every platform.
+#   *.bat / *.ps1       -> CRLF on disk (cmd.exe and PowerShell require it).
+#
+# With these rules, core.autocrlf is irrelevant — keep it unset/false on all
+# machines to avoid double conversion.
+
+* text=auto eol=lf
+
+# Windows scripts need CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binaries — never normalize
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.bin binary
+*.a binary
+*.o binary
+*.exe binary
+*.elf binary
+*.zip binary
+*.7z binary
+*.ttf binary
+*.otf binary
+*.mhtml binary
+*.lnk binary
+*.mp3 binary
+*.wav binary
+*.aac binary
+*.flac binary

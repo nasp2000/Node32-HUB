@@ -1,0 +1,198 @@
+# Bricon Rambox — `/bricon`
+
+> One-stop reference for the **Bricon module page**: purpose, layout, every
+> button/input, client logic, API endpoints, persistence and the firmware-side
+> engine. Twin of `/unikon`, slimmer.
+>
+> **HARDWARE PENDING (2026-10-17):** the wire driver is not implemented — the
+> page, API and poll engine exist as structure. Poll/training actions answer
+> honestly (`a aguardar hardware`); the passive RX sniffer already logs raw
+> bytes to the monitor so the first Little/Speedy bytes on the wire are
+> visible immediately. Do NOT treat poll results as functional before the tap.
+
+---
+
+## 1. Objective
+
+Configure and monitor a **Bricon loft module** (Little/Speedy over RS232,
+9600 8N1 default) with the same UX as Unikon: connection status, arrivals,
+loft registrations, contests, training send/clear, and module config. Only
+**one module is active at a time** (rambox XOR bricon — enabling one disables
+the other and switches the RS232 profile automatically).
+
+---
+
+## 2. Access & routing
+
+| Item | Value |
+|---|---|
+| Page URL | `GET /bricon` |
+| Feature flag | `ENABLE_BRICON` (`config_defaults.h`, default `0`; enabled by `pack_rambox.h`) — page + all APIs gated (404 stubs when `0`) |
+| WiFi server | `web_routes_bricon.cpp` — chunked 3-segment stream (`buildPageFrame` + `PAGE_BRICON`), title "🕊 Bricon Rambox" |
+| Ethernet (W5500) | NOT mirrored (gap — see BRC-1) |
+| API (GET) | `/api/bricon-status`, `/api/bricon-arrivals`, `/api/bricon-registrations`, `/api/bricon-contests`, `/api/bricon-pombal` (live PSRAM data; empty until first ingest) |
+| API (POST) | `/api/bricon-config` (urlencoded `enabled`, `interval`, `baud`), `/api/bricon-poll`, `/api/bricon-sync-pombal`, `/api/bricon-sync-calendar`, `/api/bricon-reset`, `/api/bricon-send-training`, `/api/bricon-clear-training` |
+| Auth | Basic auth (`ensureBasicAuth`) + HTML clients only (`allowHtmlClient`) |
+| Caching | `ETag` = `FIRMWARE_BUILD`, `Cache-Control: private, max-age=15, must-revalidate` |
+| Session exemption | Local processing — `window._localPagesNeverExpire=true` (same as unikon) |
+
+---
+
+## 3. Layout (same look as `/unikon`: dark cards, `.uk-tabs` / `.uk-tab-btn` / `.uk-tab-panel`, sticky `.uk-savebar`)
+
+```
+main.page > div.wrap
+├ [🏠 Home]
+├ H1 "🕊 Bricon Rambox"
+├ .uk-tabs#briconTabBar (4 buttons, static HTML)
+│   ├ [0] "📊 Status & Config"      → #bk-tab-0
+│   ├ [1] "🏁 Arrivals & Contests"  → #bk-tab-1
+│   ├ [2] "🕊 Pigeon Loft"          → #bk-tab-2
+│   └ [3] "🏋️ Training"            → #bk-tab-3
+├ #bk-tab-0.uk-tab-panel.active
+│   ├ #bk-sec-status (H3 Status + #briconStatus + 4 .stat-cards #bkStatTotal/#bkStatContests/#bkStatPombal/#bkStatAgo + [Update] [Reset] + #bricon-poll-toast)
+│   └ #bk-sec-config (H3 Configuration + #bkRs232Info + form#briconForm: checkbox #briconEnabled, select #briconInterval, select #briconBaud)
+├ #bk-tab-1.uk-tab-panel
+│   ├ #bk-sec-arrivals (H3 Race Arrivals + table > tbody#briconArrivalsBody — TODO: wire when driver lands)
+│   └ #bk-sec-contests (H3 Calendar + [Sync Calendar → briconSyncCalendar] + table > tbody#briconContestsBody + #bricon-calendar-toast)
+├ #bk-tab-2.uk-tab-panel
+│   └ #bk-sec-pombal (H3 Loft + [Sync Pigeon Loft → briconSyncPombal] + table > tbody#briconPombalBody + #bricon-pombal-toast)
+├ #bk-tab-3.uk-tab-panel
+│   └ #bk-sec-training (H3 Training + [Send Training] [Clear Training] + #bricon-training-toast)
+├ .uk-savebar ([💾 Save Configuration → saveBriconConfig], common to all tabs)
+└ #bricon-config-status
+```
+
+Tab switching: `bkSwitchTab(idx)` toggles `.active` on buttons + panels, persists to `localStorage['bk_tab']`; `bkShowTab(idx)` is a kept alias; `bkBuildTabs()` restores the saved tab. Active tab button uses Bricon green (`#15803d`, not Unikon blue `#1d4ed8`).
+
+---
+
+## 4. Inputs
+
+| Input | ID / name | Type / range | Notes |
+|---|---|---|---|
+| Module active | `enabled` | checkbox | master enable; **enabling Bricon disables Unikon** (exclusive rule) |
+| Polling interval | `interval` | select (s): 0 Manual, 60, 180 (default), 300, 600, 900, 1200, 1800, 3600 | 0 = manual only |
+| Baud | `baud` | select: 1200–115200, default 9600 | stored in `/config/bricon.json`; applied via deferred `_pendingRS232Apply` |
+
+---
+
+## 5. Buttons
+
+| Button | Behaviour |
+|---|---|
+| 🏠 Home | link `/` |
+| 🔍 Update | `briconPoll()` → `POST /api/bricon-poll` → toast + status refresh |
+| 🔄 Reset | `briconReset()` → `POST /api/bricon-reset` → status refresh |
+| 🗓️ Sync Calendar | `briconSyncCalendar()` → `POST /api/bricon-sync-calendar` → toast + contests/status refresh (pending message until driver lands) |
+| 🔄 Sync Pigeon Loft | `briconSyncPombal()` → `POST /api/bricon-sync-pombal` → toast + loft/status refresh (pending message until driver lands) |
+| 📡 Send Training | `briconSendTraining()` → `POST /api/bricon-send-training` → toast (pending message until driver lands) |
+| 🗑️ Clear Training | `briconClearTraining()` → `POST /api/bricon-clear-training` → toast (pending message) |
+| 💾 Save Configuration (savebar, all tabs) | `saveBriconConfig()` → urlencoded `POST /api/bricon-config` (`enabled`, `interval`, `baud`) → status reload |
+
+---
+
+## 6. Client-side logic (inline JS in `page_bricon_asset.h`, mirrors `page_unikon_asset.h`)
+
+- **`bt(key, fallback)`** — `window._lang` (auto.js `/api/lang` dict) first, then `[data-i18n]` element text, else fallback. JS-only keys (no DOM anchor) now translate via the dict.
+- **`besc(s)`** — HTML escape (null-safe).
+- **`bkTabs` (4 groups) / `bkSwitchTab(idx)` / `bkShowTab(idx)` alias / `bkBuildTabs()`** — 4 tab panels (`#bk-tab-0..3`), persisted in `localStorage['bk_tab']`; same pattern as Unikon `ukSwitchTab` but with Bricon-green active button.
+- **`loadBriconStatus()`** — `GET /api/bricon-status`; renders connected badge/module/pending/RX counters + stat cards (`#bkStatTotal/Contests/Pombal/Ago`); syncs `enabled`/`interval`/`baud` on first load; chains `loadBriconArrivals/Pombal/Contests/loadBkRs232Info`; auto-refresh every 8 s (same as Unikon).
+- **`briconRow(a, n)` / `briconCat(c)`** — same row formatting as Unikon (HHMMSS → HH:MM:SS, DDMMYY → DD/MM) plus Bricon `category`/`speed` columns.
+- **Actions** — `briconPoll/Reset/SyncCalendar/SyncPombal/SendTraining/ClearTraining/saveBriconConfig` as above; no arrow functions; no `customAlert` (toasts only).
+- **Web tests** (`tests/web/test_bricon.js`) cover `besc`, `bt`, 4-tab bar, panel show/hide, all section + stat-card IDs and function existence against `tests/web/pages/bricon_asset.html`.
+
+---
+
+## 7. Server API
+
+Handlers in `handlers_unified/bricon_handler.cpp` (WiFi, via `registerApiRoute`); 404 stubs when disabled (same pattern as unikon).
+
+### `GET /api/bricon-status`
+
+```json
+{"connected":false,"hardwarePending":true,"enabled":false,"intervalSec":180,
+ "baud":9600,"lastRxAgoSec":0,"bytesRx":0,"framesSeen":0,"activeModule":"none"}
+```
+
+`connected` flips true on the first RX byte; `activeModule` is `rambox`|`bricon`|`none`.
+
+### List endpoints
+
+Live PSRAM data (empty until first ingest):
+`GET /api/bricon-arrivals|registrations|contests|pombal`. Arrivals carry
+`kind`, `race`, `sex`, `color`, `category` (0 unknown/1 old/2 yearling/3 young),
+`speed`, `speed2`, `antenna`, `posArriveClub`, `posEnterClub`; contests carry
+`club`, `distance`, `pigeonCount`, `emailSent`, `webSent` (fields Bricon
+provides natively and Unikon does not). Pombal returns raw ring/chip.
+
+### POST actions
+
+| Endpoint | Effect |
+|---|---|
+| `/api/bricon-config` | `briconSetConfig()` + `briconSetEnabled()` (enabling applies RS232 profile + disables Unikon). Success toast follows `system_language` (`apiBriconCfgActive`/`apiBriconCfgOff`) |
+| `/api/bricon-poll` | `briconRequestWOnlyPoll()` → pending message (driver TBD) |
+| `/api/bricon-sync-pombal` | `briconRequestXOnlyPoll()` → pending message |
+| `/api/bricon-sync-calendar` | `briconRequestIcOnlyPoll()` → pending message |
+| `/api/bricon-reset` | no-op success (no data yet) |
+| `/api/bricon-send-training` | pending message (driver TBD) |
+| `/api/bricon-clear-training` | pending message (driver TBD) |
+
+All poll/sync/training POSTs refuse with the localized `apiBriconDisabled` message when inactive; the pending-driver message is the localized `apiBriconPending` (both follow `system_language` via `L(activeLang->…)`).
+
+---
+
+## 8. Persistence
+
+Dedicated file **`/config/bricon.json`** (`bricon_protocol.cpp`), written atomically (`.tmp` → `bytes>0` check → remove original → rename):
+
+```json
+{"enabled":false,"interval":0,"baud":9600,"parity":"none","data":8,"stop":1}
+```
+
+---
+
+## 9. Runtime engine (skeleton)
+
+`bricon_protocol.{h,cpp}` (`#if ENABLE_BRICON==1`).
+
+- **Lifecycle**: `briconBegin()` (setup) loads config, enforces exclusion, requests RS232 profile; `briconUpdate()` (loop) drives poll flags + passive RX sniffer (non-blocking, throttled 500 ms hex log).
+- **Exclusion**: `briconSetEnabled(true)` disables Unikon (`unikonSetConfig`); enabling Unikon (`handlers/unikon_handler.cpp` config POST) disables Bricon. `briconActiveModuleName()` reports `rambox`|`bricon`|`none`.
+- **RS232 profiles**: `briconApplySerialProfile()` writes `rs232_baudrate[_index]/_data_bits/_parity/_stop_bits` (pins untouched) + `_pendingRS232Apply`. Rambox profile = 9600 8N1 standard.
+- **Data model**: `BriconArrival`/`BriconContest` carry the fields Bricon natively exposes (sex, colour, category, speed, antenna, club positions, distance, email/web flags) — not just Unikon's ring/chip/time. Ingestion is a single funnel (`briconIngestArrival`) shared by the future poll parser and spontaneous frames.
+- **Driver gap**: `briconPollNow()` funnels everything through the pending-driver message. Search marker `BriconPending` for the fill-in point.
+
+---
+
+## 10. i18n keys
+
+**Added (full PT/EN coverage, `lang_en_ui.h` + `lang_pt_ui.h`):** 34 key(s) — `briconArrivals`, `briconArrivalsHint`, `briconBtnClearTraining`, `briconBtnPoll`, `briconBtnReset`, `briconBtnSave`, `briconBtnSendTraining`, `briconBtnSyncCalendar`, `briconBtnSyncPombal`, `briconConfig`, `briconContests`, `briconFrames`, `briconHardwarePending`, `briconInterval`, `briconModuleActive`, `briconNoArrivals`, `briconNoContests`, `briconNoPigeons`, `briconPombal`, `briconPombalHint`, `briconRxBytes`, `briconStatArrivals`, `briconStatContests`, `briconStatLoft`, `briconStatRx`, `briconStatus`, `briconTab1`, `briconTab2`, `briconTab3`, `briconTab4`, `briconTitle`, `briconTraining`, `briconTrainingHint`, `ukColRace` (+ shared `statusInactive` "Inactive"/"Inativo"). HTML fallback text is English; PT is served from the packs.
+
+`briconTitle/Status/BtnPoll/BtnReset/Arrivals/Pombal/Training/BtnSendTraining/BtnClearTraining/Contests/Config/ModuleActive/BtnSave` in `lang_en_ui.h` + `lang_pt_ui.h` (after `ukColRace`).
+
+---
+
+## 11. Review findings & improvement ideas
+
+| # | Finding | Severity | Suggested fix |
+|---|---|---|---|
+| BRC-1 | **No Ethernet mirror.** Only WiFi routes registered; no `/bricon` page or `/api/bricon-*` dispatch over W5500. | Medium | Mirror like unikon (page + API dispatch) once the driver lands. |
+| BRC-2 | **Driver is structure-only.** Poll/training POSTs answer but transmit nothing. | High (known) | Fill `BriconPending` point after the Little tap (§9 briconREA.md). |
+| BRC-3 | **No arrivals storage yet.** No PSRAM ring for Bricon arrivals/registrations. | Medium | Mirror unikon storage when the driver lands. |
+| BRC-4 | ~~Server toast messages hardcoded (mostly PT)~~ **RESOLVIDO 2026-10-18:** handler now uses `L(activeLang->apiBriconCfgActive/CfgOff/Disabled/Pending/NothingReset)` (`lang_types.h` + `lang_active.cpp` PT/EN) so toasts follow `system_language`, same pattern as other handlers. | Done | — |
+
+---
+
+## 12. Source map
+
+| Concern | File |
+|---|---|
+| Page HTML/JS (PROGMEM) | `chatgpt/src/webpages/assets/page_bricon_asset.h` |
+| Routes (WiFi) | `chatgpt/src/webpages/routes/web_routes_bricon.{h,cpp}` |
+| REST handlers (WiFi) | `chatgpt/src/webpages/handlers_unified/bricon_handler.{h,cpp}` (+ 404 stubs when disabled) |
+| Protocol engine + persistence | `chatgpt/src/bricon_protocol.{h,cpp}` (`/config/bricon.json`) |
+| Loop/setup hooks | `chatgpt/src/loop_impl.h`, `chatgpt/src/setup_impl.h`, `chatgpt/chatgpt.ino` |
+| Config flag | `chatgpt/src/config_defaults.h` (default `0`), `chatgpt/packs/pack_rambox.h` (sets `1`) |
+| Manifest | `chatgpt/src/webpages/routes/route_registry_api.cpp` |
+| Web tests | `tests/web/test_bricon.js`, `tests/web/pages/bricon_asset.html` |
+| Native tests | `tests/native/test_bricon_mode.cpp` |

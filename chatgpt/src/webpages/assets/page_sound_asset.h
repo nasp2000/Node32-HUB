@@ -1,0 +1,279 @@
+#ifndef PAGE_SOUND_ASSET_H
+#define PAGE_SOUND_ASSET_H
+
+#include "../../feature_flags.h"
+
+#if ENABLE_SOUND_SENSOR==1
+
+#include <Arduino.h>
+
+// Page served at /sound — Sound level sensor configuration (MAX4466 / MAX9814).
+static const char SOUND_CONFIG_PAGE[] PROGMEM = R"rawliteral(
+    <style>
+        .section-box {
+            margin: 20px 0;
+            padding: 18px;
+            background: #0f172a;
+            border-radius: 8px;
+            border: 2px solid #3b82f6;
+        }
+        .section-title { margin: 0 0 15px 0; font-size: 20px; color: #60a5fa; font-weight: bold; }
+        .checkbox-label {
+            display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+            padding: 6px 12px; background: #1e293b; border-radius: 6px; font-size: 13px;
+        }
+        .checkbox-label input[type="checkbox"] { width: auto; min-height: auto; }
+        .cfg-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            align-items: start;
+        }
+        .field-label { font-size: 13px; color: #94a3b8; display: block; margin-bottom: 4px; }
+        .field-hint  { font-size: 11px; color: #64748b; margin-top: 3px; }
+        .metric-card {
+            background: #1e293b; border-radius: 6px; padding: 14px; text-align: center;
+        }
+        .metric-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.05em; }
+        .metric-value { font-size: 28px; font-weight: 700; transition: color 0.3s ease; }
+        .metric-unit  { font-size: 12px; color: #64748b; margin-top: 2px; }
+        .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+        @media (max-width: 480px) {
+            .cfg-grid { grid-template-columns: 1fr; }
+            .metrics-grid { grid-template-columns: 1fr; }
+            .metric-value { font-size: 22px; }
+        }
+    </style>
+    <main class='page'>
+        <div class='wrap'>
+            <div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome' title='Go to home page' data-i18n-title='otaTipHome'>&#127968; Home</a></div>
+            <h1 data-i18n='soundPageTitle'>&#128266; Sound Level Sensor</h1>
+
+            <!-- Section 1: Live readings -->
+            <div class='section-box'>
+                <h3 class='section-title' data-i18n='ina226LiveTitle'>&#128202; Current Reading</h3>
+                <div class='metrics-grid'>
+                    <div class='metric-card'>
+                        <div class='metric-label' data-i18n='soundPeakToPeak'>Peak-to-Peak</div>
+                        <div class='metric-value' id='peakToPeak' style='color:#4ade80'>--</div>
+                        <div class='metric-unit'>ADC</div>
+                    </div>
+                    <div class='metric-card'>
+                        <div class='metric-label' data-i18n='soundAmplitude'>Amplitude</div>
+                        <div class='metric-value' id='peakMv' style='color:#60a5fa'>--</div>
+                        <div class='metric-unit'>mV</div>
+                    </div>
+                    <div class='metric-card'>
+                        <div class='metric-label' data-i18n='soundDbfs'>dBFS Level</div>
+                        <div class='metric-value' id='dbfsVal' style='color:#f59e0b'>--</div>
+                        <div class='metric-unit'>dBFS</div>
+                    </div>
+                </div>
+                <!-- Level bar -->
+                <div style='margin:10px 0 12px 0'>
+                    <div class='field-label' data-i18n='soundLevelBar'>Sound level:</div>
+                    <div style='background:#1e293b;border-radius:4px;height:20px;overflow:hidden;border:1px solid #334155'>
+                        <div id='levelBar' style='height:100%;background:linear-gradient(90deg,#10b981,#f59e0b,#ef4444);width:0%;transition:width 0.4s ease'></div>
+                    </div>
+                </div>
+                <div style='font-size:12px;color:#64748b;text-align:center;margin-bottom:10px' id='lastReadTime' data-i18n='hx711NoReading'>No reading</div>
+                <div style='text-align:center'>
+                    <button id='btnMeasure' class='btn' style='background:#10b981;border-color:#10b981;padding:10px 20px' data-i18n='sensorMeasureNow' title='Take immediate reading' data-i18n-title='sensorTipMeasure'>&#128300; Measure Now</button>
+                </div>
+            </div>
+
+            <!-- Section 2: Main control -->
+            <div class='section-box'>
+                <h3 class='section-title' data-i18n='hx711MainTitle'>&#9881;&#65039; Main Control</h3>
+                <div style='display:flex;gap:15px;align-items:center;flex-wrap:wrap'>
+                    <label class='checkbox-label' style='margin:0'>
+                        <input type='checkbox' id='sensorEnabled' title='Enable sound sensor' data-i18n-title='soundTipEnable'>
+                        <span data-i18n='soundEnable'>Enable Sound Sensor</span>
+                    </label>
+                    <div style='display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end'>
+                        <label style='font-size:13px;color:#94a3b8;white-space:nowrap' data-i18n='mq135IntervalLbl'>&#9203;&#65039; Interval:</label>
+                        <select id='readInterval' style='max-width:160px' title='Reading interval (seconds)' data-i18n-title='sensorTipInterval'>
+                            <option value='2' data-i18n='hx711Int2s'>2 seconds</option>
+                            <option value='5' data-i18n='hx711Int5s'>5 seconds</option>
+                            <option value='10' data-i18n='mq135Int10s'>10 seconds</option>
+                            <option value='30' selected data-i18n='mq135Int30s'>30 seconds</option>
+                            <option value='60' data-i18n='sensorInt1m'>1 minute</option>
+                            <option value='300' data-i18n='sensorInt5m'>5 minutes</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: Sampling parameters -->
+            <div class='section-box'>
+                <h3 class='section-title' data-i18n='soundSamplingTitle'>&#127925; Sampling Parameters</h3>
+                <div class='cfg-grid'>
+                    <div>
+                        <label class='field-label' data-i18n='soundWindowMs'>Sampling Window (ms)</label>
+                        <input type='number' id='sampleWindowMs' min='10' max='500' value='50' style='max-width:100px' title='Sampling window (ms)' data-i18n-title='soundTipWindow'>
+                        <div class='field-hint' data-i18n='soundWindowHint'>Capture time per reading. E.g.: 50 ms</div>
+                    </div>
+                    <div>
+                        <label class='field-label' data-i18n='soundSampleCount'>ADC Sample Count</label>
+                        <input type='number' id='sampleCount' min='10' max='1000' value='200' style='max-width:100px' title='ADC sample count' data-i18n-title='soundTipSampleCount'>
+                        <div class='field-hint' data-i18n='soundSampleCountHint'>More samples = higher precision. E.g.: 200</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 5: Output options -->
+            <div class='section-box'>
+                <h3 class='section-title' style='font-size:18px' data-i18n='sensorOutputTitle'>&#128228; Output Options</h3>
+                <div style='display:flex;gap:20px;flex-wrap:wrap;align-items:center'>
+                    <label class='checkbox-label' style='background:#1e3a8a;padding:8px 12px;border-radius:6px'>
+                        <input type='checkbox' id='injectBuffer' title='Send data to monitor' data-i18n-title='sensorTipMonitor'>
+                        <span style='font-weight:bold' data-i18n='sensorInjectBuffer'>&#128202; Data in Monitor</span>
+                    </label>
+                    <label class='checkbox-label'>
+                        <input type='checkbox' id='outputCsv' title='Use CSV output' data-i18n-title='sensorTipCsv'>
+                        <span data-i18n='mq135DataImportCsv'>Data for Import (CSV)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Save button -->
+            <div style='text-align:center'>
+                <button id='btnSave' class='btn' style='padding:10px 24px;margin-top:20px' data-i18n='sensorSaveConfig' title='Save sound config' data-i18n-title='soundTipSave'>&#128190; Save Configuration</button>
+            </div>
+            <div id='status' style='margin-top:15px;padding:12px;border-radius:6px;display:none'></div>
+        </div>
+    </main>
+
+    <script>
+        function t(key, fallback) {
+            if (typeof window._t === 'function') return window._t(key, fallback);
+            return fallback;
+        }
+
+        function uiLocale() {
+            var code = (localStorage.getItem('ui_lang_code') || document.documentElement.lang || 'en').toLowerCase();
+            return code.indexOf('en') === 0 ? 'en-GB' : 'pt-PT';
+        }
+
+        function updateDisplay(d) {
+            if (d.last_peak_to_peak !== undefined) {
+                document.getElementById('peakToPeak').textContent = d.last_peak_to_peak;
+            }
+
+            if (d.last_peak_mv !== undefined) {
+                document.getElementById('peakMv').textContent = Number(d.last_peak_mv).toFixed(1);
+            }
+
+            if (d.last_dbfs !== undefined) {
+                var db  = Number(d.last_dbfs);
+                var dbEl = document.getElementById('dbfsVal');
+                dbEl.textContent = db.toFixed(1);
+                // Color: red if alert triggered, orange if loud, yellow if medium, green if quiet
+                dbEl.style.color = db > -20 ? '#ef4444'
+                                 : db > -40 ? '#f59e0b'
+                                 : db > -60 ? '#fbbf24'
+                                 : '#4ade80';
+                // Level bar: map -90..0 to 0..100%
+                var pct = Math.max(0, Math.min(100, (db + 90) / 90 * 100));
+                document.getElementById('levelBar').style.width = pct + '%';
+            }
+
+            var timeEl = document.getElementById('lastReadTime');
+            if (d.last_reading_time && d.last_reading_time > 0) {
+                var dt = new Date(d.last_reading_time * 1000);
+                timeEl.textContent = t('sensorLastReadingPrefix', '&#128197; Last reading: ') +
+                    dt.toLocaleTimeString(uiLocale()) + ' (' + dt.toLocaleDateString(uiLocale()) + ')';
+            } else {
+                timeEl.textContent = t('hx711NoReading', 'No reading');
+            }
+        }
+
+        async function loadConfig() {
+            try {
+                var res = await fetch('/api/sound-config', {cache:'no-store'});
+                if (!res.ok) throw new Error(t('mq135LoadConfigFailed', 'Failed to load config'));
+                var d = await res.json();
+
+                document.getElementById('sensorEnabled').checked    = d.sensor_enabled;
+                document.getElementById('readInterval').value       = String(d.read_interval_sec || 30);
+                document.getElementById('sampleWindowMs').value     = d.sample_window_ms || 50;
+                document.getElementById('sampleCount').value        = d.sample_count || 200;
+                document.getElementById('injectBuffer').checked     = d.inject_to_buffer;
+                document.getElementById('outputCsv').checked        = d.output_csv;
+
+                updateDisplay(d);
+
+                if (!d.last_reading_time || d.last_reading_time === 0) {
+                    setTimeout(measureNow, 600);
+                }
+            } catch (e) {
+                showStatus(t('sensorLoadErrorPrefix', 'Error loading: ') + e.message, 'error');
+            }
+        }
+
+        async function saveConfig() {
+            disableBtn(btnSave);showLoading();
+            try {
+                var body = {
+                    sensor_enabled:    document.getElementById('sensorEnabled').checked,
+                    read_interval_sec: parseInt(document.getElementById('readInterval').value),
+                    sample_window_ms:  parseInt(document.getElementById('sampleWindowMs').value),
+                    sample_count:      parseInt(document.getElementById('sampleCount').value),
+                    inject_to_buffer:  document.getElementById('injectBuffer').checked,
+                    output_csv:        document.getElementById('outputCsv').checked
+                };
+                try {
+                    var res = await fetch('/api/sound-config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    if (!res.ok) throw new Error(t('mq135SaveFailed', 'Failed to save'));
+                    var d = await res.json();
+                    if (d.ok) {
+                        if (typeof customAlert   === 'function') customAlert(t('sensorAlertSaved', '&#10003;&#65039; Configuration saved!'));
+                        if (typeof showSavedCard === 'function') showSavedCard();
+                    } else {
+                        if (typeof customAlert === 'function') customAlert(t('sensorAlertError', '&#10060; Error: ') + (d.msg || 'unknown'));
+                    }
+                } catch (e) {
+                    if (typeof customAlert === 'function') customAlert(t('sensorAlertError', '&#10060; Error: ') + e.message);
+                }
+            } finally { hideLoading();enableBtn(btnSave); }
+        }
+
+        async function measureNow() {
+            showStatus(t('sensorMeasuring', '&#128300; Measuring...'), 'info');
+            try {
+                var res = await fetch('/api/sound-measure', { method: 'POST' });
+                if (!res.ok) throw new Error(t('mq135MeasureFailed', 'Failed'));
+                var d = await res.json();
+                updateDisplay(d);
+                showStatus(t('sensorMeasureDone', '&#10003;&#65039; Reading complete!'), 'success');
+            } catch (e) {
+                showStatus(t('sensorAlertError', '&#10060; Error: ') + e.message, 'error');
+            }
+        }
+
+        function showStatus(msg, type) {
+            if (typeof customAlert === 'function') { customAlert(msg); return; }
+            var el = document.getElementById('status');
+            if (!el) return;
+            el.textContent = msg;
+            el.style.display = 'block';
+            el.style.border     = type === 'error' ? '2px solid #ef4444' : type === 'success' ? '2px solid #10b981' : '2px solid #3b82f6';
+            el.style.background = type === 'error' ? '#7f1d1d' : type === 'success' ? '#064e3b' : '#1e3a8a';
+            el.style.color = '#e6f1ff';
+            setTimeout(function() { el.style.display = 'none'; }, 3000);
+        }
+
+        document.getElementById('btnSave').addEventListener('click', saveConfig);
+        document.getElementById('btnMeasure').addEventListener('click', measureNow);
+
+        setTimeout(loadConfig, 150);
+    </script>
+)rawliteral";
+
+#endif // ENABLE_SOUND_SENSOR==1
+#endif // PAGE_SOUND_ASSET_H
+

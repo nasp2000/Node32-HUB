@@ -1,0 +1,875 @@
+#ifndef PAGE_PROXIMITY_ASSET_H
+#define PAGE_PROXIMITY_ASSET_H
+
+#include "../../feature_flags.h"
+
+#if ENABLE_PROXIMITY==1
+
+#include <Arduino.h>
+
+// Page served at /proximity — live proximity sensor dashboard with per-channel config.
+static const char PROXIMITY_PAGE[] PROGMEM = R"rawliteral(
+  <style>
+    .ch-table{width:100%;border-collapse:collapse;margin-top:12px;table-layout:auto;min-width:1020px}
+    .ch-table th{background:#1e3a8a;color:#93c5fd;padding:8px 10px;text-align:center;font-size:13px;white-space:nowrap}
+    .ch-table td{padding:8px 10px;text-align:center;border-bottom:1px solid #1e293b;font-size:13px;color:#e2e8f0}
+    .ch-table tr:hover td{background:#0f2040}
+    .state-on{color:#4ade80;font-weight:bold}
+    .state-off{color:#64748b}
+    .badge{background:#1e3a8a;color:#93c5fd;padding:2px 7px;border-radius:4px;font-size:11px;white-space:nowrap;display:inline-block}
+    .ch-table .btn-reset{padding:4px 12px!important;background:#dc2626;color:#fff;border:none;border-radius:6px!important;cursor:pointer;font-size:12px!important;line-height:normal!important;transition:background .2s;white-space:nowrap;text-align:center;display:inline-block!important;width:auto!important;min-height:0!important;margin:0!important;overflow:visible!important}
+    .btn-reset:hover{background:#b91c1c}
+    .name-cell{text-align:left;font-weight:500}
+    .no-data{color:#64748b;font-style:italic;padding:16px}
+    .cfg-table{width:100%;border-collapse:collapse;margin-top:12px;min-width:1150px;table-layout:auto}
+    .cfg-table th{background:#1e3a8a;color:#93c5fd;padding:6px 8px;font-size:12px;text-align:center;white-space:nowrap}
+    .cfg-table td{padding:5px 4px;border-bottom:1px solid #1e293b;vertical-align:middle}
+    .cfg-table input,.cfg-table select{width:100%;min-width:54px;padding:4px 5px;border-radius:4px;border:1px solid #334155;background:#1e293b;color:#e2e8f0;font-size:12px;box-sizing:border-box}
+    /* Config column breathing room: name text wider, selects show full option
+       text (COUNTER/PRESENCE/DI3/None), numbers compact but readable. */
+    #cb input[type=text]{min-width:110px}
+    #cb select{min-width:98px;font-size:12px!important}
+    #cb input[type=number]{min-width:72px}
+    #cb input[type=checkbox]{min-width:0;width:14px;height:14px;margin:0 auto;display:block}
+    .table-wrapper{overflow-x:auto}
+    .cfg-table input:focus,.cfg-table select:focus{outline:none;border-color:#3b82f6}
+    .note{color:#94a3b8;font-size:11px;margin-top:8px;line-height:1.5}
+    @media(max-width:600px){
+      .ch-table th,.ch-table td,.cfg-table th,.cfg-table td{padding:5px 3px;font-size:11px!important}
+      .cfg-table input,.cfg-table select{min-width:40px}
+    }
+    @media(max-width:480px){
+      .table-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch;justify-content:flex-start}
+      .ch-table{min-width:730px}
+      .cfg-table{min-width:920px}
+      .cfg-table[style*="max-width"]{min-width:0;width:100%;max-width:100%}
+      #oee-status-tbl{min-width:700px}#oee-cfg-tbl{min-width:620px}
+      .cfg-table th,.cfg-table td{padding:4px 2px;font-size:10px!important}
+      .cfg-table input,.cfg-table select{min-width:36px;font-size:10px!important;padding:3px 2px}
+      #cb input[type=text]{min-width:80px}
+      #cb select{min-width:72px}
+      #cb input[type=number]{min-width:52px}
+      .badge{font-size:10px!important}
+      .ch-table .btn-reset{padding:8px 16px!important;font-size:13px!important}
+    }
+  </style>
+<main class='page'>
+<div class='wrap'>
+  <div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome'>&#127968; Home</a></div>
+  <h1 data-i18n='proxTitle'>&#128205; Production Management and OEE</h1>
+
+  <!-- Live status table -->
+  <div data-prox-tab='status' style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'>
+    <h2><span data-i18n='proxStatusTitle'>Real-Time Status</span> <span id='ri' style='font-size:12px;color:#64748b;font-weight:normal'></span></h2>
+    <div class='table-wrapper'>
+      <table class='ch-table'>
+        <thead>
+          <tr>
+            <th data-i18n='proxColN' title='Channel number' data-i18n-title='proxTipColN'>#</th><th data-i18n='proxColName' title='Channel label' data-i18n-title='proxTipColName'>Name</th><th data-i18n='proxColMode' title='Counter / Presence / Speed' data-i18n-title='proxTipColMode'>Mode</th><th data-i18n='proxColCountIn' title='Parts counted (pulses on GPIO IN)' data-i18n-title='proxTipColCountIn'>Count IN</th><th data-i18n='proxColCountOut' title='Parts on output (pulses on GPIO IN2)' data-i18n-title='proxTipColCountOut'>Count OUT</th>
+            <th data-i18n='proxColCycle' title='Time between the last two pulses' data-i18n-title='proxTipColCycle'>Cycle (ms)</th><th data-i18n='proxColPPM' title='Throughput in pulses per minute (COUNTER/SPEED only; shown as — in PRESENCE)' data-i18n-title='proxTipColPpm'>Quantity/Minute</th><th data-i18n='proxColState' title='Live ON/OFF state (PRESENCE mode only)' data-i18n-title='proxTipColState'>State</th><th data-i18n='proxColSetup' title='Setup pieces counted while gate is OFF' data-i18n-title='proxTipColSetup'>Setup</th><th data-i18n='proxColElapsed' title='Seconds elapsed since last channel Reset' data-i18n-title='proxTipColElapsed'>Elapsed</th><th data-i18n='proxColReset' title='Reset counters of this channel' data-i18n-title='proxTipColReset'>Reset</th>
+          </tr>
+        </thead>
+        <tbody id='sb'><tr><td colspan='11' class='no-data' data-i18n='proxLoading'>Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Per-channel config -->
+  <div data-prox-tab='config' style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'>
+    <h2 data-i18n='proxConfigTitle'>⚙️ Per-Channel Configuration</h2>
+    <p class='note' data-i18n='proxConfigNote'>⚠️ Changes to <strong>GPIO IN/OUT</strong> require reboot to take effect. All other parameters apply immediately.</p>
+    <details style='margin-bottom:14px;background:#1e293b;border-radius:6px;padding:10px 14px'>
+      <summary style='cursor:pointer;color:#93c5fd;font-weight:600;font-size:13px' data-i18n='proxFieldDesc'>ℹ️ Field Description</summary>
+      <div class='table-wrapper'>
+      <table style='margin-top:10px;width:100%;font-size:12px;border-collapse:collapse'>
+        <thead><tr><th style='text-align:left;padding:4px 8px;color:#94a3b8;border-bottom:1px solid #334155' data-i18n='proxFieldColField'>Field</th><th style='text-align:left;padding:4px 8px;color:#94a3b8;border-bottom:1px solid #334155' data-i18n='proxFieldColDesc'>Description</th></tr></thead>
+        <tbody data-i18n-html='proxFieldHelpHtml'></tbody>
+      </table>
+      </div>
+    </details>
+    <div class='table-wrapper'>
+      <table class='cfg-table'>
+        <thead>
+          <tr>
+            <th data-i18n='proxColN'>#</th><th style='min-width:112px' data-i18n='proxCfgColName' title='Channel label' data-i18n-title='proxTipCfgName'>Name</th><th style='min-width:112px' data-i18n='proxColMode' title='Counter / Presence / Speed' data-i18n-title='proxTipCfgMode'>Mode</th>
+            <th class='gpio-col' data-i18n='proxCfgColGpioIn' title='Sensor input pin' data-i18n-title='proxTipCfgGpioIn'>GPIO IN</th>
+            <th class='gpio-col' title='Secondary count pin (255=off)' data-i18n-title='proxTipCfgGpioIn2'><span data-i18n='proxCfgColGpioIn2'>GPIO IN2</span></th>
+            <th class='gpio-col' title='Relay/LED output pin (255=off)' data-i18n-title='proxTipCfgGpioOut'><span data-i18n='proxCfgColGpioOut'>GPIO OUT</span></th>
+            <th style='min-width:80px;white-space:nowrap' title='Noise filter (ms)' data-i18n-title='proxTipCfgDebounce'><span data-i18n='proxCfgColDebounce'>Debounce</span> <small style='font-weight:normal;color:#94a3b8'>ms</small></th>
+            <th style='min-width:80px' data-i18n='proxCfgColGoal' title='Pulse limit for output (0=unlimited)' data-i18n-title='proxTipCfgGoal'>Goal</th>
+            <th style='min-width:80px' title='Pulse-to-output delay (ms)' data-i18n-title='proxTipCfgDoDelay'><span data-i18n='proxCfgColDoDelay'>DO Delay</span> <small style='font-weight:normal;color:#94a3b8'>ms</small></th>
+            <th style='min-width:80px' title='Output pulse width (ms)' data-i18n-title='proxTipCfgDoDur'><span data-i18n='proxCfgColDoDur'>DO Dur</span> <small style='font-weight:normal;color:#94a3b8'>ms</small></th>
+            <th style='min-width:96px' data-i18n='proxCfgColMul' title='Count multiplier: 1 count = N parts; always applied' data-i18n-title='proxTipCfgMul'>Mult.</th>
+            <th style='min-width:96px' data-i18n='proxCfgColDiv' title='Count divider: N counts = 1 part' data-i18n-title='proxTipCfgDiv'>Div.</th>
+            <th data-i18n='proxCfgColOnlyGpio' title='Passive mode, no output' data-i18n-title='proxTipCfgOnlyGpio'>Only GPIO IN</th>
+            <th style='min-width:112px' title='Presence channel that gates OEE for this channel (255=none)' data-i18n-title='proxTipCfgGateCh'>Gate</th>
+            <th style='min-width:112px' title='Scrap channel subtracted for Quality OEE (255=none)' data-i18n-title='proxTipCfgScrapCh'>Scrap</th>
+          </tr>
+        </thead>
+        <tbody id='cb'><tr><td colspan='12' class='no-data' data-i18n='proxLoading'>Loading...</td></tr></tbody>
+      </table>
+    </div>
+    <!-- Relay DO names (TCA9554, shown only on boards that have it) -->
+    <div id='do-names-block' style='display:none;margin-top:18px;background:#1e293b;border-radius:8px;padding:14px 16px'>
+      <h3 style='margin:0 0 10px;font-size:14px;color:#60a5fa' data-i18n='proxDoNamesTitle'>🔌 Relay DO Names (TCA9554)</h3>
+      <div style='display:grid;grid-template-columns:repeat(auto-fill,160px);gap:10px'>
+        <div style='display:flex;flex-direction:column;gap:4px'>
+          <label style='font-size:12px;color:#93c5fd;font-weight:600'>DO 1</label>
+          <input type='text' id='doName0' maxlength='16' style='width:100%;padding:5px 7px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px;box-sizing:border-box' data-i18n-title='proxTipDoName' title='Relay name (max 16 chars)'>
+        </div>
+        <div style='display:flex;flex-direction:column;gap:4px'>
+          <label style='font-size:12px;color:#93c5fd;font-weight:600'>DO 2</label>
+          <input type='text' id='doName1' maxlength='16' style='width:100%;padding:5px 7px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px;box-sizing:border-box' data-i18n-title='proxTipDoName' title='Relay name (max 16 chars)'>
+        </div>
+        <div style='display:flex;flex-direction:column;gap:4px'>
+          <label style='font-size:12px;color:#93c5fd;font-weight:600'>DO 3</label>
+          <input type='text' id='doName2' maxlength='16' style='width:100%;padding:5px 7px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px;box-sizing:border-box' data-i18n-title='proxTipDoName' title='Relay name (max 16 chars)'>
+        </div>
+        <div style='display:flex;flex-direction:column;gap:4px'>
+          <label style='font-size:12px;color:#93c5fd;font-weight:600'>DO 4</label>
+          <input type='text' id='doName3' maxlength='16' style='width:100%;padding:5px 7px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px;box-sizing:border-box' data-i18n-title='proxTipDoName' title='Relay name (max 16 chars)'>
+        </div>
+        <div style='display:flex;flex-direction:column;gap:4px'>
+          <label style='font-size:12px;color:#93c5fd;font-weight:600'>DO 5</label>
+          <input type='text' id='doName4' maxlength='16' style='width:100%;padding:5px 7px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px;box-sizing:border-box' data-i18n-title='proxTipDoName' title='Relay name (max 16 chars)'>
+        </div>
+        <div style='display:flex;flex-direction:column;gap:4px'>
+          <label style='font-size:12px;color:#93c5fd;font-weight:600'>DO 6</label>
+          <input type='text' id='doName5' maxlength='16' style='width:100%;padding:5px 7px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px;box-sizing:border-box' data-i18n-title='proxTipDoName' title='Relay name (max 16 chars)'>
+        </div>
+        <div style='display:flex;flex-direction:column;gap:4px'>
+          <label style='font-size:12px;color:#93c5fd;font-weight:600'>DO 7</label>
+          <input type='text' id='doName6' maxlength='16' style='width:100%;padding:5px 7px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px;box-sizing:border-box' data-i18n-title='proxTipDoName' title='Relay name (max 16 chars)'>
+        </div>
+        <div style='display:flex;flex-direction:column;gap:4px'>
+          <label style='font-size:12px;color:#93c5fd;font-weight:600'>DO 8</label>
+          <input type='text' id='doName7' maxlength='16' style='width:100%;padding:5px 7px;border-radius:4px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;font-size:12px;box-sizing:border-box' data-i18n-title='proxTipDoName' title='Relay name (max 16 chars)'>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shift management config -->
+  <div data-prox-tab='shift' style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'>
+    <h2 data-i18n='proxShiftTitle'>⏱️ Shift Management</h2>
+    <p class='note'><span data-i18n='proxShiftNote'>The system automatically detects shift transitions and writes a CSV on the SD.</span></p>
+    <div style='display:flex;flex-wrap:wrap;gap:14px;justify-content:center'>
+      <label style='display:flex;align-items:center;gap:6px' title='Enable shift management' data-i18n-title='proxTipShiftEnable'>
+        <input type='checkbox' id='shen' style='width:13px;height:13px'>
+        <strong data-i18n='proxShiftEnable'>Enable shift management</strong>
+      </label>
+      <label style='display:flex;align-items:center;gap:6px' data-i18n-title='proxTipShiftAutoReset' title='Reset counters on shift change'>
+        <input type='checkbox' id='shar' style='width:13px;height:13px'>
+        <strong data-i18n='proxShiftAutoReset'>Auto-reset counters on shift transition</strong>
+      </label>
+    </div>
+    <div class='table-wrapper' style='display:flex;justify-content:center'>
+    <table class='cfg-table' style='max-width:330px;min-width:0;margin-top:10px'>
+      <tr><td style='white-space:nowrap;padding-right:12px'><label data-i18n='proxShiftNumber'>Number of shifts per day</label></td>
+          <td style='width:110px'><select id='shnsl' onchange='renderShiftSlots()' data-i18n-title='proxTipShiftCount' title='Shifts per day'>
+            <option value='1' data-i18n='proxShift1'>1 shift</option>
+            <option value='2' data-i18n='proxShift2'>2 shifts</option>
+            <option value='3' selected data-i18n='proxShift3'>3 shifts</option>
+          </select></td></tr>
+
+    </table>
+    </div>
+    <div id='shift-slots' style='margin-top:10px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center'></div>
+
+    <div style='margin-top:14px;border:1px solid #1e3a8a;border-radius:6px;padding:12px'>
+      <strong style='font-size:13px;color:#93c5fd' data-i18n='proxStopsTitle'>🛑 Planned stops</strong>
+      <p class='note'><span data-i18n='proxStopsHint'>Daily planned stops (e.g. lunch break) excluded from Availability — planned busy time (ISO 22400-2). Unused rows stay off: an empty list keeps the current behavior.</span></p>
+      <div id='stop-rows' style='margin-top:8px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center'></div>
+    </div>
+
+    <!-- SHIFTDAY email recipients -->
+  </div>
+  <div data-prox-tab='shiftday' style='margin-top:20px;border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a'>
+    <h2 style='margin-top:0;font-size:18px;color:#60a5fa' data-i18n='proxShiftdayTitle'>⌨️ SHIFTDAY Command</h2>
+    <div style='margin-bottom:12px;padding:8px 12px;background:#064e3b;border-left:4px solid #10b981;border-radius:4px;font-size:12px;color:#d1fae5' data-i18n='proxShiftdayHint'>
+      💡 Use this command on the Scheduled Commands pages to send the shift CSV by email.
+    </div>
+    <div style='background:#1e3a8a;border-left:4px solid #3b82f6;padding:12px;margin:12px 0;font-size:13px;color:#e0e7ff;border-radius:4px'>
+      <div style='display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap'>
+        <div style='flex:1;min-width:180px'>
+          <strong style='color:#60a5fa'>📅 SHIFTDAY</strong> <span data-i18n='proxShiftdaySends'>— Sends current day's shift CSV by email</span>
+          <div style='margin-top:4px;color:#cbd5e1;font-size:12px'><span data-i18n='proxShiftdayExample'>Example:</span> <code style='background:#0f172a;padding:2px 6px;border-radius:3px;color:#38bdf8'>shiftday</code></div>
+        </div>
+        <div style='flex:1;min-width:180px'>
+          <strong style='color:#60a5fa'>📅 SHIFTDAY [date]</strong> <span data-i18n='proxShiftdaySendsDate'>— Sends shift CSV for a specific date</span>
+          <div style='margin-top:4px;color:#cbd5e1;font-size:12px'><span data-i18n='proxShiftdayExample'>Example:</span> <code style='background:#0f172a;padding:2px 6px;border-radius:3px;color:#38bdf8'>shiftday 28-03-2026</code></div>
+        </div>
+      </div>
+    </div>
+    <div style='margin-top:16px'>
+      <label for='shiftday-emails' style='display:block;font-weight:bold;color:#60a5fa;margin-bottom:8px' data-i18n='proxShiftdayEmails'>📨 Destination Emails:</label>
+      <input type='text' id='shiftday-emails' placeholder='email1@example.com, email2@example.com'
+             style='width:100%;padding:8px;border:1px solid #3b82f6;border-radius:4px;font-size:13px;background:#0a1929;color:#e0e7ff;box-sizing:border-box'
+             data-i18n-title='proxTipShiftdayEmails' title='CSV report recipients (comma-sep.)'>
+      <div style='margin-top:6px;font-size:11px;color:#94a3b8;font-style:italic' data-i18n='proxShiftdayEmailsHint'>💡 Separate multiple emails with commas. These recipients are added to the global recipients configured in the Email section.</div>
+    </div>
+    <div style='margin-top:16px;text-align:center'>
+      <button class='btn' id='btn-test-email' style='padding:8px 20px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;transition:background .2s' data-i18n='proxTestEmailBtn' title='Send a test ShiftDay email now'>&#9993; Send Test Email</button>
+      <div id='test-email-result' style='margin-top:8px;font-size:12px;color:#94a3b8'></div>
+    </div>
+  </div>
+
+  <!-- OEE Configuration -->
+  <div data-prox-tab='oee' style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'>
+    <h2 style='margin-top:0;font-size:18px;color:#60a5fa' data-i18n='proxOeeTitle'>&#128200; OEE Configuration</h2>
+    <p class='note' style='margin-bottom:14px' data-i18n='proxOeeDesc'>Overall Equipment Effectiveness (ISO 22400-2): OEE = Availability &times; Performance &times; Quality. Configure how each channel calculates its OEE components.</p>
+
+    <!-- Current OEE Status -->
+    <div style='margin-bottom:20px;background:#1e293b;border-radius:8px;padding:14px 16px'>
+      <h3 style='margin:0 0 10px;font-size:14px;color:#93c5fd' data-i18n='proxOeeCurrentTitle'>Current OEE Status</h3>
+      <div class='table-wrapper'>
+        <table class='cfg-table' id='oee-status-tbl'>
+          <thead>
+            <tr>
+              <th data-i18n='proxColN' title='Channel number' data-i18n-title='proxTipColN'>#</th>
+              <th data-i18n='proxColName' title='Channel label' data-i18n-title='proxTipColName'>Name</th>
+              <th title='Percentage of time the channel was running' data-i18n-title='proxOeeTipAvail'>Availability %</th>
+              <th title='Actual output vs theoretical maximum output' data-i18n-title='proxOeeTipPerf'>Performance %</th>
+              <th title='Good parts vs total parts produced' data-i18n-title='proxOeeTipQual'>Quality %</th>
+              <th title='OEE = A × P × Q' data-i18n-title='proxOeeTipOee'>OEE %</th>
+              <th data-i18n='proxOeeColRun' title='Total running time in the OEE window' data-i18n-title='proxOeeTipRun'>Running</th>
+              <th data-i18n='proxOeeColStop' title='Total stopped time (no parts) in the OEE window' data-i18n-title='proxOeeTipStop'>Stopped</th>
+              <th title='Parts scrapped (from Scrap channel)' data-i18n-title='proxOeeTipScrap'>Scrap</th>
+            </tr>
+          </thead>
+          <tbody id='oee-sb'><tr><td colspan='9' class='no-data' data-i18n='proxOeeLoading'>Loading OEE data...</td></tr></tbody>
+        </table>
+      </div>
+      <div style='text-align:center;margin-top:12px'>
+        <button class='btn-reset' id='oee-reset-all' onclick='oeeResetAll()' data-i18n='proxOeeResetAllBtn' data-i18n-title='proxOeeTipResetAll' title='Reset OEE counters for all channels'>&#128260; Reset All OEE</button>
+      </div>
+    </div>
+
+    <!-- OEE Formulas Reference -->
+    <details style='margin-bottom:14px;background:#1e293b;border-radius:6px;padding:10px 14px'>
+      <summary style='cursor:pointer;color:#93c5fd;font-weight:600;font-size:13px' data-i18n='proxOeeFormulas'>OEE Formulas (ISO 22400-2)</summary>
+      <div class='table-wrapper'>
+      <table style='margin-top:10px;width:100%;font-size:12px;border-collapse:collapse'>
+        <thead><tr><th style='text-align:left;padding:4px 8px;color:#94a3b8;border-bottom:1px solid #334155' data-i18n='proxOeeColComponent'>Component</th><th style='text-align:left;padding:4px 8px;color:#94a3b8;border-bottom:1px solid #334155' data-i18n='proxOeeColFormula'>Formula</th></tr></thead>
+        <tbody data-i18n-html='proxOeeFormulasHtml'></tbody>
+      </table>
+      </div>
+    </details>
+
+    <!-- OEE Configuration Table -->
+    <div style='background:#1e293b;border-radius:8px;padding:14px 16px;margin-bottom:14px'>
+      <h3 style='margin:0 0 10px;font-size:14px;color:#93c5fd' data-i18n='proxOeeCfgTitle'>OEE Parameters per Channel</h3>
+      <div class='table-wrapper'>
+        <table class='cfg-table' id='oee-cfg-tbl'>
+          <thead>
+            <tr>
+              <th data-i18n='proxColN' title='Channel number' data-i18n-title='proxTipColN'>#</th>
+              <th data-i18n='proxColName' title='Channel label' data-i18n-title='proxTipCfgName'>Name</th>
+              <th data-i18n='proxOeeColTarget' title='Ideal production rate (parts per minute)' data-i18n-title='proxOeeTipTarget'>Target PPM</th>
+              <th data-i18n='proxOeeColOeeTarget' title='Reference target only — colors the OEE cell, never overrides the calculation' data-i18n-title='proxOeeTipOeeTarget'>Target OEE %</th>
+              <th data-i18n='proxOeeColGate' title='Presence channel controlling Availability' data-i18n-title='proxOeeTipGateChCfg'>Gate Channel</th>
+              <th data-i18n='proxOeeColScrap' title='Channel whose count is subtracted for Quality' data-i18n-title='proxOeeTipScrapChCfg'>Scrap Channel</th>
+            </tr>
+          </thead>
+          <tbody id='oee-cb'><tr><td colspan='6' class='no-data' data-i18n='proxOeeLoading'>Loading OEE data...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div style='display:flex;gap:10px;justify-content:center;flex-wrap:wrap'>
+      <button class='btn' onclick='oeeApply()' style='padding:8px 20px;background:#1d4ed8;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;transition:background .2s' data-i18n='proxOeeApplyBtn' data-i18n-title='proxOeeTipApply' title='Apply OEE changes (included in Save)'>Apply Changes</button>
+      <button class='btn-reset' onclick='oeeDefaults()' style='padding:8px 20px;font-size:13px;font-weight:600' data-i18n='proxOeeDefaultsBtn' data-i18n-title='proxOeeTipDefaults' title='Reset all OEE parameters to factory defaults'>Defaults</button>
+    </div>
+  </div>
+
+  <!-- Unified save -->
+  <div style='text-align:center;margin-top:24px;padding-bottom:80px'>
+    <div style='display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px'>
+      <span style='color:#94a3b8;font-size:12px' data-i18n='proxShow'>Show:</span>
+      <select id='visCh' onchange='onVisChChange()' style='width:auto;min-width:unset;padding:4px 10px;font-size:12px' data-i18n-title='proxTipVisChannels' title='Visible channels (1–8)'>
+        <option value='1' selected data-i18n='proxCh1'>1 channel</option>
+        <option value='2' data-i18n='proxCh2'>2 channels</option>
+        <option value='3' data-i18n='proxCh3'>3 channels</option>
+        <option value='4' data-i18n='proxCh4'>4 channels</option>
+        <option value='5' data-i18n='proxCh5'>5 channels</option>
+        <option value='6' data-i18n='proxCh6'>6 channels</option>
+        <option value='7' data-i18n='proxCh7'>7 channels</option>
+        <option value='8' data-i18n='proxCh8'>8 channels</option>
+      </select>
+    </div>
+    <button class='btn' onclick='saveAll()' data-i18n='btnSave' data-i18n-title='proxTipSave' title='Save all settings'>&#128190; Save</button>
+  </div>
+</div>
+</main>
+
+<script>
+function t(k,fb){try{if(typeof window._t==='function')return window._t(k,fb);var raw=localStorage.getItem('ui_lang_cache');if(raw){var p=JSON.parse(raw);if(p&&p[k]!==undefined)return p[k];}}catch(e){}return fb!==undefined?fb:k;}
+const MODES=['COUNTER','PRESENCE','SPEED'];
+let errs=0, cfgLoaded=false, visibleChannels=1;
+try{var _lc=parseInt(localStorage.getItem('prox_visCh'));if(_lc>=1&&_lc<=8){visibleChannels=_lc;var _lv=document.getElementById('visCh');if(_lv)_lv.value=String(_lc);}}catch(e){}
+
+function onVisChChange(){
+  visibleChannels=parseInt(document.getElementById('visCh').value)||1;
+  try{localStorage.setItem('prox_visCh',String(visibleChannels));}catch(e){}
+  if(cfgLoaded) _applyVisFilter();
+  _applyDoNameVisibility();
+}
+
+function _applyDoNameVisibility(){
+  var block=document.getElementById('do-names-block');
+  if(!block) return;
+  if(!_tcaAvailable){block.style.display='none';return;}
+  block.style.display='block';
+  for(var i=0;i<8;i++){
+    var el=document.getElementById('doName'+i);
+    if(el && el.parentNode) el.parentNode.style.display=(i<visibleChannels)?'':'none';
+  }
+}
+
+function _applyVisFilter(){
+  var sbRows=document.querySelectorAll('#sb tr');
+  for(var i=0;i<sbRows.length;i++){ sbRows[i].style.display=i<visibleChannels?'':'none'; }
+  var cbRows=document.querySelectorAll('#cb tr');
+  for(var i=0;i<cbRows.length;i++){ cbRows[i].style.display=i<visibleChannels?'':'none'; }
+}
+
+// -- Config helpers (DI1 form snapshot/restore for visibility handling) --
+var _proxDgi = [];        // board default GPIO per channel (from /api/proximity/config)
+var _fixedPins = false;   // true on boards with hardwired DI pins (8DI8DO) — no GPIO config
+
+// -- Status rendering --
+function render(data){
+  const chs=data.channels||[];
+  if(!chs.length){document.getElementById('sb').innerHTML='<tr><td colspan="11" class="no-data">'+t('proxNoChannelsCfg','No channels configured.')+'</td></tr>';return;}
+  let h='';
+  chs.forEach(function(ch,i){
+    const ml=MODES[ch.mode]||'?';
+    const isPr=ch.mode===1;
+    let sl,sc;
+    if(isPr){sl=ch.state?t('proxStateOn','● ON'):t('proxStateOff','○ OFF');sc=ch.state?'state-on':'state-off';}
+    else{sl=ch.count_in>0?'✓':'—';sc='';}
+    // Setup: show count when sensor/gate is OFF (Nuno spec: setup counts appear while off)
+    let su = (ch.state===false && ch.setup_count>0) ? ('<span class="state-off">'+ch.setup_count+'</span>') : '—';
+    h+='<tr><td>DI'+(i+1)+'</td><td class="name-cell">'+(ch.name||'')+'</td>'
+      +'<td><span class="badge">'+ml+'</span></td>'
+      +'<td>'+ch.count_in+'</td><td>'+ch.count_out+'</td>'
+      +'<td>'+(ch.cycle_ms>0?ch.cycle_ms:'—')+'</td>'
+      +'<td>'+(isPr?'—':ch.ppm.toFixed(1))+'</td>'
+      +'<td class="'+sc+'">'+sl+'</td>'
+      +'<td>'+su+'</td>'
+      +'<td>'+_fmtElapsed(ch.elapsed_sec||0)+'</td>'
+      +'<td style="text-align:center;white-space:nowrap"><button class="btn-reset" onclick="resetCh('+i+')">'+t('proxColReset','Reset')+'</button></td></tr>';
+  });
+  document.getElementById('sb').innerHTML=h;
+}
+
+var _oeePollN=0;
+function fetchData(){
+  fetch('/api/proximity', {cache:'no-store'})
+    .then(function(r){return r.json();})
+    .then(function(d){errs=0;render(d);_applyVisFilter();document.getElementById('ri').textContent='';})
+    .catch(function(){errs++;document.getElementById('ri').textContent='(error '+errs+')';});
+  _oeePollN++;if(_oeePollN%3===0)loadOeeData();
+}
+
+function _lockOutFields(i, lock){
+  ['cgo','cgl','cpd','cpu'].forEach(function(p){
+    var el=document.getElementById(p+i);
+    if(el){el.disabled=lock;el.style.opacity=lock?'0.35':'1';}
+  });
+}
+
+// -- Config rendering --
+function _fmtElapsed(sec){
+  sec=Math.floor(Number(sec)||0);
+  var hsec=sec%60, msec=Math.floor((sec/60)%60), hh=Math.floor(sec/3600);
+  function p2(n){return (n<10?'0':'')+n;}
+  return hh+':'+p2(msec)+':'+p2(hsec);
+}
+function renderCfg(data){
+  const chs=data.channels||[];
+  if(!chs.length){
+    document.getElementById('cb').innerHTML='<tr><td colspan="15" class="no-data">'+t('proxNoChannels','No channels.')+'</td></tr>';
+    return;}
+  let h='';
+  _proxDgi=[];
+  _fixedPins = chs.length>0 && !!chs[0].fixedPins;
+  // Remove the GPIO columns (header + cells) entirely on fixed-pin boards or
+  // when a TCA9554 relay expander is present (8DI8DO). Detecting via the
+  // expander covers builds where the TARGET_BOARD_8DI8DO_POE flag is not set.
+  var _hideGpio = _fixedPins || _tcaAvailable;
+  if(_hideGpio) _removeGpioCols();
+  // Build Gate/Scrap dropdown options: list all channels
+  function _chOpts(sel,maxN){
+    var s='<option value="255"'+(sel===255?' selected':'')+'>--</option>';
+    for(var j=0;j<maxN;j++){
+      s+='<option value="'+j+'"'+(sel===j?' selected':'')+'>DI'+(j+1)+'</option>';
+    }
+    return s;
+  }
+  chs.forEach(function(ch,i){
+    const mo=!!ch.mo;
+    _proxDgi.push(ch.dgi!=null?ch.dgi:255);
+    h+='<tr><td>DI'+(i+1)+'</td>'
+      +'<td><input id="cn'+i+'" title="'+t('proxTipCfgName','Channel label')+'" value="'+(ch.n||'')+'" maxlength="31" style="min-width:90px"></td>'
+      +'<td><select id="cm'+i+'" title="'+t('proxTipCfgMode','Counter / Presence / Speed')+'">'
+        +'<option value="0"'+(ch.m===0?' selected':'')+'>COUNTER</option>'
+        +'<option value="1"'+(ch.m===1?' selected':'')+'>PRESENCE</option>'
+        +'<option value="2"'+(ch.m===2?' selected':'')+'>SPEED</option>'
+      +'</select></td>'
+      +(_hideGpio?''
+        :'<td><input type="number" id="cgi'+i+'" title="'+t('proxTipCfgGpioIn','Sensor input pin')+'" value="'+(ch.gi!=null?ch.gi:255)+'" min="0" max="255"></td>'
+        +'<td><input type="number" id="cgi2'+i+'" title="'+t('proxTipCfgGpioIn2','Secondary count pin (255=off)')+'" value="'+(ch.gi2!=null?ch.gi2:255)+'" min="0" max="255"></td>'
+        +'<td><input type="number" id="cgo'+i+'" title="'+t('proxTipCfgGpioOut','Relay/LED output pin (255=off)')+'" value="'+(ch.go!=null?ch.go:255)+'" min="0" max="255"></td>')
+      +'<td><input type="number" id="cdb'+i+'" title="'+t('proxTipCfgDebounce','Noise filter (ms)')+'" value="'+(ch.db!=null?ch.db:50)+'" min="0" max="65535"></td>'
+      +'<td><input type="number" id="cgl'+i+'" title="'+t('proxTipCfgGoal','Pulse limit for output (0=unlimited)')+'" value="'+(ch.gl!=null?ch.gl:0)+'" min="0"></td>'
+      +'<td><input type="number" id="cpd'+i+'" title="'+t('proxTipCfgDoDelay','Pulse-to-output delay (ms)')+'" value="'+(ch.pd!=null?ch.pd:0)+'" min="0" max="65535"></td>'
+      +'<td><input type="number" id="cpu'+i+'" title="'+t('proxTipCfgDoDur','Output pulse width (ms)')+'" value="'+(ch.pu!=null?ch.pu:0)+'" min="0" max="65535"></td>'
+      +'<td style="text-align:center"><input type="number" id="cmul'+i+'" min="1" max="9999" step="1" style="width:88px" value="'+(ch.ml||1)+'" title="'+t('proxTipCfgMul','Count multiplier: 1 count = N parts; always applied')+'"></td>'
+      +'<td style="text-align:center"><input type="number" id="cdiv'+i+'" min="1" max="9999" step="1" style="width:88px" value="'+(ch.dv||1)+'" title="'+t('proxTipCfgDiv','Count divider: N counts = 1 part')+'"></td>'
+      +'<td style="text-align:center"><input type="checkbox" id="cmo'+i+'" title="'+t('proxTipCfgOnlyGpio','Passive mode, no output')+'"'+(mo?' checked':'')+' onchange="_lockOutFields('+i+',this.checked)" style="width:13px;height:13px"></td>'
+      +'<td style="text-align:center"><select id="cgc'+i+'" title="'+t('proxTipCfgGateCh','Presence channel that gates OEE')+'">'+_chOpts(ch.gc!=null?ch.gc:255,chs.length)+'</select></td>'
+      +'<td style="text-align:center"><select id="csc'+i+'" title="'+t('proxTipCfgScrapCh','Scrap channel for Quality OEE')+'">'+_chOpts(ch.sc!=null?ch.sc:255,chs.length)+'</select></td>'
+      +'</tr>';
+  });
+  document.getElementById('cb').innerHTML=h;
+  // Apply initial lock state after DOM is ready.
+  chs.forEach(function(ch,i){ _lockOutFields(i,!!ch.mo); });
+  // Paint TCA9554 relay column if the board has it.
+  if (_tcaAvailable) _paintTcaCells();
+  // Restore user-selected visibility from localStorage; fall back to auto-detect from active channels.
+  var _saved=0;try{_saved=parseInt(localStorage.getItem('prox_visCh'))||0;}catch(e){}
+  if(_saved>=1&&_saved<=8){ visibleChannels=_saved; var _v=document.getElementById('visCh'); if(_v)_v.value=String(_saved); }
+  else { var _en=0; chs.forEach(function(ch){ if(ch.gi!=null && ch.gi!==255) _en++; }); if(_en>0){ visibleChannels=_en; var _v=document.getElementById('visCh'); if(_v&&_v.options[_en-1]) _v.value=String(_en); } }
+  _applyVisFilter();
+  _applyDoNameVisibility();
+  cfgLoaded=true;
+}
+
+function loadCfg(){
+  fetch('/api/proximity/config', {cache:'no-store'})
+    .then(function(r){
+      if(!r.ok){throw new Error('HTTP '+r.status);}
+      return r.json();
+    })
+    .then(renderCfg)
+    .catch(function(e){
+      console.error('loadCfg failed:',e);
+      customAlert('❌ '+t('proxErrLoadConfig','Error loading configuration')+(e&&e.message?' ('+e.message+')':''));
+    });
+}
+
+function saveAll(){
+  var btn=document.querySelector('[onclick="saveAll()"]');disableBtn(btn);showLoading();
+  if(!cfgLoaded){customAlert('⚠️ '+t('proxLoadConfigFirst','Load configuration first'));hideLoading();enableBtn(btn);return;}
+  var n=document.querySelectorAll('[id^="cn"]').length;
+  var chs=[];
+  function _iv(id,def){var v=parseInt(document.getElementById(id).value);return isNaN(v)?def:v;}
+  for(var i=0;i<n;i++){
+    var _hideGpio = _fixedPins || _tcaAvailable;
+    chs.push({
+      n:document.getElementById('cn'+i).value,
+      m:_iv('cm'+i,0),
+      gi:_hideGpio ? (_proxDgi[i]!=null?_proxDgi[i]:255) : _iv('cgi'+i,255),
+      gi2:_hideGpio ? 255 : _iv('cgi2'+i,255),
+      go:_hideGpio ? 255 : _iv('cgo'+i,255),
+      db:_iv('cdb'+i,50),
+      gl:_iv('cgl'+i,0),
+      pd:_iv('cpd'+i,0),
+      pu:_iv('cpu'+i,0),
+      ml:(function(){var v=Math.round(_iv('cmul'+i,1)||0); return (v<1||v>9999)?1:v;})(),
+      dv:(function(){var v=Math.round(_iv('cdiv'+i,1)||0); return (v<1||v>9999)?1:v;})(),
+      mo:document.getElementById('cmo'+i).checked,
+      gc:_iv('cgc'+i,255),
+      sc:_iv('csc'+i,255),
+      tp:(_oeeCfg[i]&&_oeeCfg[i].tp!=null)?_oeeCfg[i].tp:0,
+      om:(_oeeCfg[i]&&_oeeCfg[i].om!=null)?_oeeCfg[i].om:0
+    });
+  }
+  var nSlots=document.querySelectorAll('#shift-slots > div').length||parseInt(document.getElementById('shnsl').value)||1;
+  var slots=[];
+  for(var j=0;j<nSlots;j++){
+    slots.push({h:parseInt(document.getElementById('sh_h'+j).value)||0,
+                m:parseInt(document.getElementById('sh_m'+j).value)||0});
+  }
+  var stops=[];
+  for(var k=0;k<6;k++){
+    var useEl=document.getElementById('pst_use'+k);
+    if(!useEl||!useEl.checked) continue;
+    stops.push({sh:parseInt(document.getElementById('pst_sh'+k).value)||0,
+                sm:parseInt(document.getElementById('pst_sm'+k).value)||0,
+                eh:parseInt(document.getElementById('pst_eh'+k).value)||0,
+                em:parseInt(document.getElementById('pst_em'+k).value)||0});
+  }
+  var payload={
+    channels:chs,
+    shift:{en:document.getElementById('shen').checked,ar:document.getElementById('shar').checked,nSlots:nSlots,slots:slots,stops:stops},
+    emails:(document.getElementById('shiftday-emails').value||'').trim()
+  };
+  if(_tcaAvailable){
+    var map=[];
+    document.querySelectorAll('#cb tr').forEach(function(tr,i){
+      var sel=document.getElementById('ctca'+i);map.push(sel?parseInt(sel.value):255);
+    });
+    payload.tca=map;
+  }
+  fetch('/api/proximity/save-all',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.ok){
+        // Save relay DO names (TCA9554) — best-effort, after the proximity config.
+        if(_tcaAvailable){
+          var names=[];
+          for(var di=0;di<8;di++){
+            var el=document.getElementById('doName'+di);
+            names.push(el?el.value.trim().substring(0,16):'');
+          }
+          return fetch('/api/do/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({names:names})})
+            .then(function(r){return r.json();})
+            .then(function(rd){
+              if(rd && rd.success){
+                for(var di2=0;di2<8;di2++) _tcaNames[di2]=names[di2];
+                _paintTcaCells();
+                customAlert('✅ '+t('proxConfigSaved','Configuration saved!'));showSavedCard();
+              } else {
+                customAlert('✅ '+t('proxConfigSaved','Configuration saved!')+' — '+t('proxDoNamesSaveErr','relay names not saved'));
+              }
+            });
+        }
+        customAlert('✅ '+t('proxConfigSaved','Configuration saved!'));showSavedCard();
+      }
+      else customAlert('❌ '+t('proxErrSaving','Error:')+' '+(d.msg||'unknown'));
+    })
+    .catch(function(){customAlert('❌ '+t('proxErrNetworkSave','Network error while saving'));})
+    .finally(function(){hideLoading();enableBtn(btn);});
+}
+
+// -- Counter reset --
+function resetCh(idx){
+  customConfirm(t('proxConfirmResetCh','Reset DI%d?').replace('%d',idx+1), function(ok){
+    if(!ok)return;
+    fetch('/api/proximity/reset?ch='+idx,{method:'POST'})
+      .then(function(r){return r.json();})
+      .then(function(d){if(d.ok){customAlert('✅ '+t('proxChReset','DI%d reset').replace('%d',idx+1));fetchData();}else customAlert('❌ '+t('proxErrSaving','Error:'));});
+  });
+}
+function resetAll(){
+  customConfirm(t('proxConfirmResetAll','Reset all channels?'), function(ok){
+    if(!ok)return;
+    fetch('/api/proximity/reset-all',{method:'POST'})
+      .then(function(r){return r.json();})
+      .then(function(d){if(d.ok){customAlert('✅ '+t('proxAllReset','All channels reset'));fetchData();}else customAlert('❌ '+t('proxErrSaving','Error:'));});
+  });
+}
+
+// -- Shift config --
+function renderShiftSlots(){
+  const n=parseInt(document.getElementById('shnsl').value);
+  const cont=document.getElementById('shift-slots');
+  let h='';
+  for(let i=0;i<n;i++){
+    const hv=document.getElementById('sh_h'+i)?document.getElementById('sh_h'+i).value:'';
+    const mv=document.getElementById('sh_m'+i)?document.getElementById('sh_m'+i).value:'';
+    h+='<div style="background:#0f172a;border:1px solid #1e3a8a;border-radius:6px;padding:10px;min-width:160px">'
+      +'<strong style="font-size:12px;color:#93c5fd">'+t('proxShiftLabel','Shift ') +(i+1)+'</strong><br>'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-top:6px">'
+      +'<input type="number" id="sh_h'+i+'" title="'+t('proxTipShiftTime','Shift start time')+'" value="'+(hv||String(6+i*8))+'" min="0" max="23" style="width:64px;text-align:center">'
+      +' : '
+      +'<input type="number" id="sh_m'+i+'" title="'+t('proxTipShiftTime','Shift start time')+'" value="'+(mv||'0')+'" min="0" max="59" style="width:64px;text-align:center">'
+      +'</div></div>';
+  }
+  cont.innerHTML=h;
+}
+
+function loadShiftCfg(){
+  fetch('/api/proximity/shift-config', {cache:'no-store'})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      document.getElementById('shen').checked = !!d.en;
+      document.getElementById('shar').checked = !!d.ar;
+      document.getElementById('shnsl').value  = d.nSlots||3;
+
+      // Render slot inputs first, then fill values.
+      renderShiftSlots();
+      (d.slots||[]).forEach(function(s,i){
+        const eh=document.getElementById('sh_h'+i);
+        const em=document.getElementById('sh_m'+i);
+        if(eh) eh.value=s.h;
+        if(em) em.value=s.m;
+      });
+
+      // Planned stops: 6 fixed rows, only received rows are enabled.
+      renderPlannedStops();
+      (d.stops||[]).forEach(function(s,i){
+        if(i>=6) return;
+        const ue=document.getElementById('pst_use'+i);
+        if(ue) ue.checked=true;
+        const sh=document.getElementById('pst_sh'+i);
+        const sm=document.getElementById('pst_sm'+i);
+        const eh=document.getElementById('pst_eh'+i);
+        const em=document.getElementById('pst_em'+i);
+        if(sh) sh.value=s.sh; if(sm) sm.value=s.sm;
+        if(eh) eh.value=s.eh; if(em) em.value=s.em;
+      });
+    })
+    .catch(function(){customAlert('❌ '+t('proxErrLoadConfig','Error loading configuration'));});
+}
+
+// Planned-stop rows: checkbox + start/end time. Only checked rows are sent;
+// an unchecked row never reaches the server (no zero-length ambiguity).
+function renderPlannedStops(){
+  const cont=document.getElementById('stop-rows');
+  if(!cont) return;
+  let h='';
+  for(let i=0;i<6;i++){
+    h+='<div style="background:#0f172a;border:1px solid #1e3a8a;border-radius:6px;padding:10px;min-width:210px">'
+      +'<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#93c5fd;cursor:pointer">'
+      +'<input type="checkbox" id="pst_use'+i+'" style="width:13px;height:13px">'
+      +'<span data-i18n="proxStopsUse">Use</span></label>'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-top:6px">'
+      +'<input type="number" id="pst_sh'+i+'" title="'+t('proxTipStops','Planned stop window')+'" value="12" min="0" max="23" style="width:56px;text-align:center">'
+      +' : '
+      +'<input type="number" id="pst_sm'+i+'" title="'+t('proxTipStops','Planned stop window')+'" value="0" min="0" max="59" style="width:56px;text-align:center">'
+      +'<span style="color:#64748b">→</span>'
+      +'<input type="number" id="pst_eh'+i+'" title="'+t('proxTipStops','Planned stop window')+'" value="13" min="0" max="23" style="width:56px;text-align:center">'
+      +' : '
+      +'<input type="number" id="pst_em'+i+'" title="'+t('proxTipStops','Planned stop window')+'" value="0" min="0" max="59" style="width:56px;text-align:center">'
+      +'</div></div>';
+  }
+  cont.innerHTML=h;
+}
+
+function loadShiftdayEmails(){
+  fetch('/api/proximity/shiftday-emails', {cache:'no-store'})
+    .then(function(r){return r.json();})
+    .then(function(d){document.getElementById('shiftday-emails').value=d.emails||'';})
+    .catch(function(){});
+}
+
+// --- TCA9554 relay DO column ---
+// Silently injected when /api/do/status returns 200 (8DI8DO board).
+// On boards without TCA9554 the fetch fails and nothing changes.
+var _tcaAvailable = false;
+var _tcaMap = [255,255,255,255,255,255,255,255];
+var _tcaNames = [];
+var _gpioColsRemoved = false;
+function _removeGpioCols(){
+  if(_gpioColsRemoved) return;
+  var gpThs=document.querySelectorAll('.cfg-table thead th.gpio-col');
+  for(var gi=gpThs.length-1;gi>=0;gi--){gpThs[gi].parentNode.removeChild(gpThs[gi]);}
+  _gpioColsRemoved = true;
+}
+function _escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function _paintTcaCells() {
+  var rows = document.querySelectorAll('#cb tr');
+  rows.forEach(function(tr, i) {
+    if (tr.querySelector('.tca-sel')) return;
+    var td = document.createElement('td');
+    var s = '<select class="tca-sel" id="ctca'+i+'" title="'+t('proxTipTcaRelay','TCA9554 relay assignment')+'">';
+    s += '<option value="255"'+(_tcaMap[i]===255?' selected':'')+'>'+t('proxTcaNone','None')+'</option>';
+    for (var v = 0; v <= 7; v++) {
+      var lbl = (_tcaNames[v]&&_tcaNames[v].length) ? ('DO'+(v+1)+' \u00b7 '+_escHtml(_tcaNames[v])) : ('DO'+(v+1));
+      s += '<option value="'+v+'"'+(_tcaMap[i]===v?' selected':'')+'>'+lbl+'</option>';
+    }
+    s += '</select>';
+    td.innerHTML = s;
+    tr.appendChild(td);
+  });
+}
+function _fillDoNameInputs(){
+  var block=document.getElementById('do-names-block');
+  if(!block) return;
+  for(var i=0;i<8;i++){
+    var el=document.getElementById('doName'+i);
+    if(el) el.value=(_tcaNames[i]&&_tcaNames[i].length)?_tcaNames[i]:'';
+  }
+  _applyDoNameVisibility();
+}
+function loadTca9554Relay() {
+  fetch('/api/do/status',{cache:'no-store'})
+    .then(function(r) {
+      if (!r.ok) throw new Error('no-tca');
+      return fetch('/api/proximity/tca9554',{cache:'no-store'});
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      _tcaAvailable = true;
+      _tcaMap = d.map || _tcaMap;
+      _removeGpioCols();
+      var thead = document.querySelector('.cfg-table thead tr');
+      if (thead && !document.getElementById('th-tca')) {
+        var th = document.createElement('th');
+        th.id = 'th-tca';
+        th.textContent = 'Relay DO';
+        th.setAttribute('title', t('proxTipTcaRelay','TCA9554 relay assignment'));
+        thead.appendChild(th);
+      }
+      _paintTcaCells();
+      if (cfgLoaded) loadCfg();
+      return fetch('/api/do/config',{cache:'no-store'});
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d && d.names) _tcaNames = d.names;
+      _paintTcaCells();
+      _fillDoNameInputs();
+    })
+    .catch(function() {}); // silent: N16R8 board has no /api/do/status
+}
+
+// --- end TCA9554 ---
+
+// --- Test email button ---
+(function(){
+  var btn=document.getElementById('btn-test-email');
+  if(!btn)return;
+  btn.addEventListener('click',function(){
+    var res=document.getElementById('test-email-result');
+    if(res)res.textContent='Sending...';
+    disableBtn(btn);showLoading();
+    fetch('/api/proximity/test-email',{method:'POST'})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(res)res.innerHTML=d.ok?'<span style="color:#4ade80">'+t('proxTestEmailOk','Email sent!')+'</span>':'<span style="color:#f87171">'+(d.msg||t('proxTestEmailFail','Failed'))+'</span>';
+      })
+      .catch(function(){
+        if(res)res.innerHTML='<span style="color:#f87171">'+t('proxTestEmailNet','Network error')+'</span>';
+      })
+      .finally(function(){hideLoading();enableBtn(btn);});
+  });
+})();
+
+// --- OEE Tab functions ---
+var _oeeCfg = [];
+function _oeeChOpts(sel, maxN) {
+  var s = '<option value="255"' + (sel === 255 ? ' selected' : '') + '>&#8212;</option>';
+  for (var j = 0; j < maxN; j++) {
+    s += '<option value="' + j + '"' + (sel === j ? ' selected' : '') + '>DI' + (j + 1) + '</option>';
+  }
+  return s;
+}
+function renderOeeStatus(data) {
+  var tbody = document.getElementById('oee-sb');
+  if (!tbody) return;
+  var h = '';
+  if (!data || !data.length) { h = '<tr><td colspan="9" class="no-data">'+t('proxNoOeeData','No OEE data.')+'</td></tr>'; }
+  else {
+    data.forEach(function(ch) {
+      var oeeVal = ch.oee || 0;
+      // Target colors the cell (0 = default 85): green at/above target, amber
+      // within 25pp below, red further below. The target NEVER enters the math.
+      var tgt = (ch.oee_manual > 0) ? ch.oee_manual : 85;
+      var gap = oeeVal - tgt;
+      var oeeColor = gap >= 0 ? '#4ade80' : (gap >= -25 ? '#fbbf24' : '#f87171');
+      var gapTxt = 'Target ' + tgt + '%: ' + (gap >= 0 ? '+' : '') + gap.toFixed(1) + 'pp ' +
+        (gap >= 0 ? t('proxOeeGapAbove', 'above target') : t('proxOeeGapBelow', 'below target'));
+      h += '<tr><td>DI' + (ch.ch + 1) + '</td><td class="name-cell">' + (ch.name || '') + '</td>'
+        + '<td>' + (ch.availability || 0).toFixed(1) + '%</td>'
+        + '<td>' + (ch.performance || 0).toFixed(1) + '%</td>'
+        + '<td>' + (ch.quality != null ? ch.quality : 100).toFixed(1) + '%</td>'
+        + '<td title="' + gapTxt + '" style="font-weight:bold;color:' + oeeColor + '">' + oeeVal.toFixed(1) + '%</td>'
+        + '<td>' + _fmtElapsed(ch.running_sec || 0) + '</td>'
+        + '<td>' + _fmtElapsed(ch.downtime_sec || 0) + '</td>'
+        + '<td>' + (ch.scrap_count || 0) + '</td></tr>';
+    });
+  }
+  tbody.innerHTML = h;
+}
+function renderOeeCfg(channels) {
+  var tbody = document.getElementById('oee-cb');
+  if (!tbody || !channels || !channels.length) return;
+  _oeeCfg = channels;
+  var h = '';
+  channels.forEach(function(ch, i) {
+    var tp = ch.tp != null ? ch.tp : 0;
+    var om = ch.om != null ? ch.om : 0;
+    var gc = ch.gc != null ? ch.gc : 255;
+    var sc = ch.sc != null ? ch.sc : 255;
+    h += '<tr><td>DI' + (i + 1) + '</td><td class="name-cell">' + (ch.n || '') + '</td>'
+      + '<td><input type="number" id="otp' + i + '" value="' + tp + '" min="0" max="99999" step="0.1"'
+      + ' title="' + t('proxOeeTipTarget','Ideal production rate (parts per minute)') + '"'
+      + ' data-i18n-title="proxOeeTipTarget" style="width:80px"></td>'
+      + '<td><input type="number" id="oom' + i + '" value="' + om + '" min="0" max="100" step="0.1"'
+      + ' title="' + t('proxOeeTipOeeTarget','Reference target only — colors the OEE cell, never overrides the calculation') + '"'
+      + ' data-i18n-title="proxOeeTipOeeTarget" style="width:80px"></td>'
+      + '<td><select id="ogc' + i + '" title="' + t('proxOeeTipGateChCfg','Presence channel controlling Availability') + '"'
+      + ' data-i18n-title="proxOeeTipGateChCfg">' + _oeeChOpts(gc, channels.length) + '</select></td>'
+      + '<td><select id="osc' + i + '" title="' + t('proxOeeTipScrapChCfg','Channel whose count is subtracted for Quality') + '"'
+      + ' data-i18n-title="proxOeeTipScrapChCfg">' + _oeeChOpts(sc, channels.length) + '</select></td>'
+      + '</tr>';
+  });
+  tbody.innerHTML = h;
+}
+function loadOeeData() {
+  fetch('/api/proximity/oee', {cache:'no-store'})
+    .then(function(r){return r.json();})
+    .then(function(d){renderOeeStatus(d);})
+    .catch(function(){});
+}
+function loadOeeCfg() {
+  fetch('/api/proximity/config', {cache:'no-store'})
+    .then(function(r){return r.json();})
+    .then(function(d){renderOeeCfg(d.channels||[]);})
+    .catch(function(){});
+}
+function oeeApply() {
+  if (!cfgLoaded) { customAlert(t('proxLoadConfigFirst','Load configuration first')); return; }
+  var n = document.querySelectorAll('#oee-cb tr').length;
+  for (var i = 0; i < n; i++) {
+    var el;
+    el = document.getElementById('otp'+i); if(el){var c=_oeeCfg[i];if(c)c.tp=parseFloat(el.value)||0;}
+    el = document.getElementById('oom'+i); if(el){var c2=_oeeCfg[i];if(c2)c2.om=parseFloat(el.value)||0;}
+    el = document.getElementById('ogc'+i); if(el){var c3=_oeeCfg[i];if(c3)c3.gc=parseInt(el.value)||255;}
+    el = document.getElementById('osc'+i); if(el){var c4=_oeeCfg[i];if(c4)c4.sc=parseInt(el.value)||255;}
+  }
+  for (var j = 0; j < n; j++) {
+    var oc = _oeeCfg[j]; if(!oc) continue;
+    el = document.getElementById('cgc'+j); if(el && oc.gc!=null) el.value=oc.gc;
+    el = document.getElementById('csc'+j); if(el && oc.sc!=null) el.value=oc.sc;
+  }
+  customAlert(t('proxOeeApplied','OEE changes applied. Use Save to persist.'));
+}
+var _OEE_DEFAULTS={tp:0,om:0,gc:255,sc:255};
+function oeeDefaults() {
+  var n = document.querySelectorAll('#oee-cb tr').length;
+  for (var i = 0; i < n; i++) {
+    var el;
+    el = document.getElementById('otp'+i); if(el) el.value=_OEE_DEFAULTS.tp;
+    el = document.getElementById('oom'+i); if(el) el.value=_OEE_DEFAULTS.om;
+    el = document.getElementById('ogc'+i); if(el) el.value=_OEE_DEFAULTS.gc;
+    el = document.getElementById('osc'+i); if(el) el.value=_OEE_DEFAULTS.sc;
+  }
+  customAlert(t('proxOeeDefaultsApplied','Default OEE parameters restored. Use Apply then Save.'));
+}
+function oeeResetAll() {
+  customConfirm(t('proxOeeConfirmReset','Reset OEE counters for all channels?'), function(ok){
+    if(!ok) return;
+    var n = document.querySelectorAll('#oee-sb tr').length;
+    var proms = [];
+    for (var i = 0; i < n; i++) {
+      proms.push(fetch('/api/proximity/oee-reset?ch='+i, {method:'POST'}));
+    }
+    Promise.all(proms)
+      .then(function(){customAlert(t('proxOeeAllReset','OEE counters reset'));loadOeeData();})
+      .catch(function(){customAlert(t('proxErrNetworkSave','Network error'));});
+  });
+}
+function _initOeeTab() { loadOeeCfg(); loadOeeData(); }
+// --- end OEE Tab ---
+
+loadCfg();
+loadShiftCfg();
+loadShiftdayEmails();
+loadTca9554Relay();
+_initOeeTab();
+var _proxPollTimer=null;
+function _startProxPoll(){if(!_proxPollTimer){fetchData();_proxPollTimer=setInterval(fetchData,2000);}}
+function _stopProxPoll(){if(_proxPollTimer){clearInterval(_proxPollTimer);_proxPollTimer=null;}}
+document.addEventListener('visibilitychange',function(){document.hidden?_stopProxPoll():_startProxPoll();});
+_startProxPoll();
+</script>
+)rawliteral";
+
+#endif // ENABLE_PROXIMITY==1
+#endif // PAGE_PROXIMITY_ASSET_H

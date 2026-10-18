@@ -1,0 +1,53 @@
+===== TESTE API HomeE32 (Sat 29 Aug 23:15:40 WEST 2026) =====
+Board: 192.168.1.24  Pack: ENVIRONMENT (HomeE32)  ESP32-S3 N16R8
+
+--- 0. ACESSIBILIDADE ---
+GET / -> 200
+GET /Home32 -> 302
+GET /api/configs -> 200
+GET /status -> 200
+
+--- 0b. MAPEAR STATUS ---
+GET /api/status -> 200 | head: {   "wifi_connected": true,   "network_connected": true,   "ip_address": "192.168.1.24",   "wifi_ip": "192.168.1.24"
+GET /system/status -> 302 | head: 
+GET /info -> 302 | head: 
+GET /health -> 302 | head: 
+
+--- 1. SENSORES (AHT20/BMP280) ---
+GET /api/sensor-config -> 200 | {"sensor_enabled":true,"read_interval":600,"output_pretty":false,"output_csv":true,"inject_to_buffer":true,"csv_separator":",","csv_include_timestamp"
+GET /api/sensor-slots -> 200 | [{"slot":0,"enabled":true,"name":"mq135_co2","label":"CO2 (MQ-135)","unit":"ppm","scale":1.0},{"slot":1,"enabled":true,"name":"mq135_co","label":"CO (
+GET /api/sensor-flags -> 200 | {"aht20_bmp280":true,"mq135":true}
+GET /api/sensor-measure -> 302 | 
+GET /api/sensor-reset-stats -> 302 | 
+GET /api/sensor-flush -> 302 | 
+GET /api/sensor-history -> 200 | {"count":14,"labels":["00:00","21:06","21:16","21:26","21:36","21:46","21:56","22:06","22:16","22:26","22:36","22:46","22:56","23:06"],"timestamps":[1
+GET /api/sensor-history-files -> 200 | ["2026-03-16","2026-03-17","2026-03-18","2026-03-19","2026-03-20","2026-03-21","2026-03-22","2026-03-23","2026-03-24","2026-03-25","2026-03-26","2026-
+POST /api/sensor-measure -> 200 | {"sensor_enabled":true,"read_interval":600,"output_pretty":false,"output_csv":true,"inject_to_buffer":true,"csv_separator":",","csv_include_timestamp"
+POST /api/sensor-config (enable,5s) -> 200 | {"success":true}
+
+--- 2. MQ135 ---
+GET /api/mq135-config -> 200 | {"sensor_enabled":true,"adc_pin":5,"r0":76.6300,"rl":10000,"read_interval_sec":60,"use_env_compensation":true,"inject_to
+GET /api/mq135-measure -> 302 | 
+GET /api/mq135-calibrate-r0 -> 302 | 
+POST /api/mq135-measure -> 200 | {"sensor_enabled":true,"adc_pin":5,"r0":76.6300,"rl":10000,"read_interval_sec":60,"use_env_compensation":true,"inject_to
+
+--- 3. RS232 ---
+GET /api/rs232-status -> 302 | 
+GET /api/rs232/persist-current-template -> 302 | 
+
+--- 4-7. SCHEDULER/COMMANDS/FILES/RECIPIENTS ---
+GET /api/scheduler -> 302 | 
+GET /api/commands -> 302 | 
+GET /api/files -> 302 | 
+GET /api/recipient-slot -> 400 | {"status":"err","msg":"indice invalido"}
+GET /api/sensorday-extra-emails -> 200 | {"status":"ok","emails":""}
+
+--- 8. MONITOR ---
+GET /api/serial-monitor -> 200 | {"heap_free":171772,"psram_found":true,"messages":[{"ts":1788036976,"timestamp":1788036976,"text":"I|SD Write task: OK (
+GET /api/monitor-open -> 302 | 
+GET /api/monitor-close -> 302 | 
+
+--- 9. RESTART ---
+POST /api/restart -> 000 | 
+
+===== FIM TESTE API HomeE32 =====

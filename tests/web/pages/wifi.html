@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width,initial-scale=1'>
+  <title>WiFi (Test)</title>
+</head>
+<body>
+
+<main class='page'><div class='wrap'>
+<div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome'>🏠 Home</a></div><h1 data-i18n='wifiPageTitle'>📶 Wi-Fi</h1>
+<div style='border:2px solid #3b82f6;border-radius:8px;padding:16px;background:#0f172a;margin-top:16px'><h2 style='margin-top:0;font-size:18px;color:#60a5fa' data-i18n='infoTitle'>ℹ️ Information</h2><div id='wifiInfoDesc' style='background:#1e3a8a;border-left:4px solid #3b82f6;padding:12px;margin:0;font-size:13px;line-height:1.6;color:#e0e7ff;border-radius:4px' data-i18n-html='wifiInfoDesc'>✅ After the first successful connection, the <strong>internal Access Point</strong> is disabled to reduce interference. 🔍 Use <strong>Scan</strong> to find available networks and tap one to fill the configuration automatically. 🔄 Whenever Node32-Hub reboots, the AP is reactivated if no Wi-Fi network is saved as a client.</div></div>
+<div style='border:2px solid #3b82f6;border-radius:8px;padding:16px;background:#0f172a;margin-top:20px'><h2 style='margin-top:0;font-size:18px;color:#60a5fa' data-i18n='wifiConfigTitle'>⚙️ Configuration</h2><form id='send-config-form' action='/api/config' method='POST'><input type='hidden' name='_html' value='1'><div style='margin-bottom:16px'><label style='display:block;font-size:14px;color:#e0e7ff;margin-bottom:6px'><span data-i18n='wifiSsidLbl'>📡 SSID</span> <span id='wifiSsidHint' style='font-size:12px;color:#94a3b8;font-weight:normal' data-i18n='wifiSsidHint'>(Wi-Fi network name)</span></label><input name='ssid' id='ssid' placeholder='' style='width:100%;padding:10px;border-radius:6px;border:1px solid #3b82f6;background:#020617;color:#e0e7ff;font-size:14px'></div><div style='margin-bottom:16px'><label style='display:block;font-size:14px;color:#e0e7ff;margin-bottom:6px'><span id='wifiPasswordLbl' data-i18n='wifiPasswordLbl'>🔐 Password</span> <span id='wifiPasswordHint' style='font-size:12px;color:#94a3b8;font-weight:normal' data-i18n='wifiPasswordHint'>(Leave empty for open networks)</span></label><input type='password' name='password' id='password' placeholder='' style='width:100%;padding:10px;border-radius:6px;border:1px solid #3b82f6;background:#020617;color:#e0e7ff;font-size:14px'></div><div style='text-align:center;margin-top:20px'><button type='submit' class='btn' style='padding:10px 24px' data-i18n='btnSave'>💾 Save</button></div></form></div>
+<div style='border:2px solid #3b82f6;border-radius:8px;padding:16px;background:#0f172a;margin-top:20px'><h2 style='margin-top:0;font-size:18px;color:#60a5fa' data-i18n='wifiNetworksTitle'>📡 Available Networks</h2><div style='text-align:center;margin-bottom:14px'><button onclick='scan()' class='btn' id='sb' style='padding:10px 24px' data-i18n='wifiScanBtn'>🔍 Scan</button></div><div id='nets'></div></div></div></main>
+
+<script>
+// ===== MOCK API LAYER =====
+(function() {
+  window.fetch = function(url, opts) {
+    var u = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+    var MOCKS = typeof window.__MOCK_API__ !== 'undefined' ? window.__MOCK_API__ : {};
+    var mock = MOCKS[u];
+    if (!mock) {
+      for (var k in MOCKS) {
+        if (u.indexOf(k) >= 0) { mock = MOCKS[k]; break; }
+      }
+    }
+    if (typeof mock === 'function') mock = mock();
+    return Promise.resolve({
+      ok: true, status: 200,
+      json: function() { return Promise.resolve(mock || {}); },
+      text: function() { return Promise.resolve(JSON.stringify(mock || {})); }
+    });
+  };
+  window.customAlert = function(m) { console.log('[mock] customAlert:', m); };
+  window.customConfirm = function(m, cb) { if (cb) cb(true); };
+  window.showLoading = function() {};
+  window.hideLoading = function() {};
+  window.disableBtn = function(b) { if (b) { b.disabled = true; } };
+  window.enableBtn = function(b) { if (b) { b.disabled = false; } };
+  window.showSavedCard = function() {};
+  // Feature flags used by some pages (default: off)
+  window._rs232Enabled = false;
+  window._modbusEnabled = false;
+
+// ===== TEST HOOKS (inside page IIFE scope) =====
+window.__test__ = {};
+// Spy mechanism
+window.__spy__ = {};
+window.__spy__.calls = {};
+window.__spy__.reset = function() { window.__spy__.calls = {}; };
+window.__spy__.wrap = function(name, fn) {
+  return function() {
+    window.__spy__.calls[name] = window.__spy__.calls[name] || [];
+    window.__spy__.calls[name].push(Array.prototype.slice.call(arguments));
+    return fn.apply(this, arguments);
+  };
+};
+// Wrap key functions for spying
+if (typeof postSend !== 'undefined') postSend = window.__spy__.wrap('postSend', postSend);
+if (typeof showAlert !== 'undefined') showAlert = window.__spy__.wrap('showAlert', showAlert);
+// Helper: reset IIFE-local state vars (P, C, SH, RP used by radio page)
+window.__test__._reset = function(p, c, sh, rp) {
+  try { if (p !== undefined) { var _a=p; P.length=0; for(var _i=0;_i<_a.length;_i++)P.push(_a[_i]); } } catch(e) {}
+  try { if (c !== undefined) C = c; } catch(e) {}
+  try { if (sh !== undefined) SH = sh; } catch(e) {}
+  try { if (rp !== undefined) RP = rp; } catch(e) {}
+};
+// Expose functions via eval (runs in outer IIFE scope)
+var _testNames = [
+  // Recipients page
+  'rt','rowHTML','addRow','updateNameHint','saveSlot','saveDontCopy','preload',
+  'switchTab',
+  // Commands page
+  'esc','readLangCache','t','templateOptions','unitSelect','daysSelect',
+  'tplSelect','addRow','attachRow','saveSlot','attachSaveAll','rowHTML',
+  // DateTime Commands page
+  'e','t','to','r','addRow','attachRow','init','lt','ls','la','tt','ss','attachSaveAll',
+  // Sidebar / dock
+  'renderWidgetSidebar','moveWidgetUp','moveWidgetDown','moveWidgetToSide',
+  'toggleWidgetVis','applyTheme','readUiPrefs','saveUiPrefs','saveDockLayout',
+  'restoreDockLayout','saveWidgetPrefs','restoreWidgetPrefs','initLeftPanel',
+  'byId','qsa','localStorage','state',
+  // Utility
+  'fmtEta','fmtLagMs','fmtGcodeNum','normalizeZStepValue',
+  'setXyStepFromPreset','syncMainStepFromSelectors','updateXyStepButtons',
+  'sanitizeFileName','formatFileSize','ensureAllowedUploadPath',
+  'recentErrorMeta','clamp',
+  // Jog
+  'runJog','runJogXY','quickUnlock','quickHome','quickZeroWcs','quickReset','quickStatus',
+  // Job
+  'startFileStream','pauseStream','resumeStream','cancelStream',
+  'sendManualCommand','applyPollInterval','applyUsbLineCoding',
+  // Frame
+  'runFrameFromPreview','updateFrameInfo',
+  'getPreviewFrameBounds','setCommandMode',
+  // Override (scoped inside bindEvents)
+  // 'sendOverrideFeed','sendOverrideSpin','applyOverrides','stepOverride',
+  // Probe
+  'runAutoProbeZZero',
+  // Macros
+  'defaultMacros','getMacroEntry','runMacro','loadMacrosToForm','saveMacrosFromForm',
+  // Console
+  'ingestConsoleEvents','logLine','clearConsole','toggleConsoleFullscreen',
+  // Workspace / DRO
+  'extractDroFromStatus','renderDro','fmtDro','hasValidDroValue',
+  'parseNumber3','parsePosTriplet','firstNumber3',
+  // USB / Connection
+  'selectedSlot','normalizeUsbSlots','renderSlots',
+  'syncSelectedUsbBaud','ensureUsbBaudOption','usbBaudPrefId',
+  'getPreferredUsbBaud','savePreferredUsbBaud',
+  // SD Card
+  'sdFileNameFromPath','sdParentDir','formatSdSize','normalizeSdEntry',
+  'isPreviewSizeBlocked','isPreviewAutoRenderHeavy',
+  // PSRAM
+  'refreshPsramFileStatus',
+  // 3D / Preview utilities (pure functions)
+  'project3dPoint','computeProjectedBounds','computeToolpathBounds',
+  'formatMmLabel','classifyStartPlacement',
+  'extractAxisValue','extractAxisInMm','appendLinear',
+  'formatScaleHudMm','get3dPreviewMode','resolve3dPreviewMode',
+  // Critical confirm
+  'runWithCriticalConfirm','requireAxesAtZero',
+  // Render
+  'renderStatus','applyRuntimeControls','applyStatusSnapshot',
+  // 3D helpers
+  'getEffectiveCurrentLine','get3dMaxLineFromSegments','getSegmentExecNo',
+  'getActiveExecNo','update3dScrubUi',
+  // Light preview (inner functions may not resolve)
+  'simplifyPolylineLight',
+  // Radio UI (IIFE-scoped)
+  'T','AP','APJ','BN','sw','onSearch','addPlay','playToggle',
+  'radioStop','radioNext','radioPrev','playUrl','updUI','setVol',
+  'togSh','togRp','loadFav','addFav','favPlay','favDel',
+  'syncQ','rQ','rmQ','savePl','loadPls','loadPl','delPl','loadQ','loadSt','fh',
+];
+_testNames.forEach(function(n) {
+  try { window.__test__[n] = eval(n); } catch(e) { window.__test__[n] = null; }
+});
+
+})();</script>
+
+<script>function wt(k,fb){try{if(typeof window._t==='function')return window._t(k,fb);var raw=localStorage.getItem('ui_lang_cache');if(raw){var parsed=JSON.parse(raw);if(parsed&&parsed[k]!==undefined)return parsed[k];}}catch(err){}return fb!==undefined?fb:k;}function applyWifiTexts(){var ssid=document.getElementById('ssid');var password=document.getElementById('password');if(ssid)ssid.placeholder=wt('wifiSsidPlaceholder','Network name');if(password)password.placeholder=wt('wifiPasswordPlaceholder','Password (if any)');}function loadWifiConfig(){fetch('/api/config?section=wifi').then(r=>r.json()).then(d=>{var wifi=d.wifi||{};document.getElementById('ssid').value=wifi.ssid||'';}).catch(()=>{}).finally(applyWifiTexts);}function scan(){document.getElementById('sb').disabled=1;document.getElementById('nets').innerHTML=wt('wifiSearching','Scanning...');fetch('/api/wifi-scan').then(r=>r.json()).then(d=>{var h='';if(d.networks)d.networks.forEach(n=>{var s=n.rssi>-50?'📶📶📶':n.rssi>-70?'📶📶':'📶';var sec=n.encryption==='Open'?'🔓':'🔒';h+=`<div class="net" onclick="sel('${n.ssid}','${n.encryption}',event)">${sec} ${n.ssid} ${s}</div>`;});document.getElementById('nets').innerHTML=h||wt('wifiNoNetworks','No networks');}).catch(()=>customAlert('❌ '+wt('wifiGenericError','Error'))).finally(()=>document.getElementById('sb').disabled=0);}function sel(ssid,enc,ev){document.getElementById('ssid').value=ssid;var p=document.getElementById('password');if(enc==='Open'){p.value='';p.style.display='none'}else{p.style.display='block';p.focus()}document.querySelectorAll('.net').forEach(n=>n.classList.remove('sel'));if(ev&&ev.target)ev.target.classList.add('sel');}document.getElementById('send-config-form').addEventListener('submit',function(e){e.preventDefault();var btn=this.querySelector('button[type="submit"]');disableBtn(btn);showLoading();var fd=new FormData(this);fd.set('section','wifi');fetch(this.action,{method:'POST',body:new URLSearchParams(fd),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(r=>r.json()).then(d=>{if(d.success){customAlert(d.message||wt('alertSaved','✅ Configuração guardada!'));if(typeof showSavedCard==='function')showSavedCard();}else{customAlert(d.message||wt('alertSaveError','❌ Erro ao guardar'));}}).catch(e2=>customAlert(wt('wifiErrorPrefix','Erro: ')+(e2&&e2.message?e2.message:e2))).finally(function(){hideLoading();enableBtn(btn);});});loadWifiConfig();setTimeout(scan,1000);setTimeout(applyWifiTexts,250);</script>
+
+<script>
+(function() {
+  for (var k in window.__test__) {
+    if (window.__test__[k] === null || typeof window.__test__[k] === 'undefined') {
+      try { window.__test__[k] = eval(k); } catch(e) {}
+    }
+  }
+})();
+</script>
+
+</body>
+</html>

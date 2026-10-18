@@ -1,0 +1,16 @@
+{
+  "name": "node32-web-tests",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "extract": "python extract.py \"../../chatgpt/src/webpages/assets/page_grbl_controller_asset.cpp\" \"pages/grbl_controller.html\"",
+    "extract:mq135": "python extract.py \"../../chatgpt/src/webpages/assets/page_mq135_config_asset.h\" \"pages/mq135_config.html\"",
+    "extract:sensor": "python extract.py \"../../chatgpt/src/webpages/assets/page_sensor_config_asset.h\" \"pages/sensor_config.html\"",
+    "extract:all": "npm run extract && npm run extract:mq135 && npm run extract:sensor",
+    "test": "node test_grbl_sidebar.js",
+    "go": "npm run extract && node test_grbl_sidebar.js"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.0"
+  }
+}

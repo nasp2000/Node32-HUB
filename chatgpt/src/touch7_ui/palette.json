@@ -1,0 +1,96 @@
+{
+  "name": "TouchMeteo-7 themes (6)",
+  "notes": "LVGL styles for the editor. Screen 800x480, RGB565. panelOpa: 0-255 (255 solid, lower = frosted card over the gradient).",
+  "themes": [
+    {
+      "id": 0,
+      "name": "Claro",
+      "bg_gradient": [
+        "#667eea",
+        "#764ba2"
+      ],
+      "panel": "#1B2A6B",
+      "panelOpa": 120,
+      "text_on_gradient": "#FFFFFF",
+      "text_on_card": "#FFFFFF",
+      "accent": "#667eea",
+      "accent_dark": "#4C3575",
+      "border": "#5A6CC0"
+    },
+    {
+      "id": 1,
+      "name": "Medio (RSK World)",
+      "bg_gradient": [
+        "#667eea",
+        "#764ba2"
+      ],
+      "panel": "#1B2A6B",
+      "panelOpa": 120,
+      "text_on_gradient": "#FFFFFF",
+      "text_on_card": "#FFFFFF",
+      "accent": "#764ba2",
+      "accent_dark": "#4C3575",
+      "border": "#5A6CC0"
+    },
+    {
+      "id": 2,
+      "name": "Escuro",
+      "bg_gradient": [
+        "#1A202C",
+        "#2D3748"
+      ],
+      "panel": "#2D3748",
+      "panelOpa": 255,
+      "text_on_gradient": "#F7FAFC",
+      "text_on_card": "#F7FAFC",
+      "accent": "#6A7BE0",
+      "accent_dark": "#4A5ABF",
+      "border": "#8093F1"
+    },
+    {
+      "id": 3,
+      "name": "Sky",
+      "bg_gradient": [
+        "#2B5C8F",
+        "#6F9FCA"
+      ],
+      "panel": "#1C3F66",
+      "panelOpa": 153,
+      "text_on_gradient": "#FFFFFF",
+      "text_on_card": "#FFFFFF",
+      "accent": "#3E6EA8",
+      "accent_dark": "#2B5C8F",
+      "border": "#4A7BAB"
+    },
+    {
+      "id": 4,
+      "name": "Navy",
+      "bg_gradient": [
+        "#0E1B2A",
+        "#22344A"
+      ],
+      "panel": "#1B2838",
+      "panelOpa": 180,
+      "text_on_gradient": "#F2F6FA",
+      "text_on_card": "#F2F6FA",
+      "accent": "#2E7DBE",
+      "accent_dark": "#1E5C93",
+      "border": "#2C4A6B"
+    },
+    {
+      "id": 5,
+      "name": "Bright",
+      "bg_gradient": [
+        "#2F7FC1",
+        "#7FB8E0"
+      ],
+      "panel": "#3A7FC0",
+      "panelOpa": 178,
+      "text_on_gradient": "#FFFFFF",
+      "text_on_card": "#FFFFFF",
+      "accent": "#2E7DBE",
+      "accent_dark": "#1E5C93",
+      "border": "#5A9BD4"
+    }
+  ]
+}

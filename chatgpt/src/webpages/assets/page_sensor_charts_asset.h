@@ -1,0 +1,2953 @@
+#ifndef PAGE_SENSOR_CHARTS_ASSET_H
+#define PAGE_SENSOR_CHARTS_ASSET_H
+
+// Sensor charts page: slide-in left panel, banner, tab bar, source dropdown
+static const char SENSOR_CHARTS_HTML[] PROGMEM = R"RAWHTML(
+<!DOCTYPE html>
+<html lang='en' data-theme='dark'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1'>
+<title>Monitoring Charts</title>
+<script defer src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'></script>
+<script defer src='https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js'></script>
+<style>
+/* ---- THEMES ---- */
+:root,[data-theme='dark']{
+  --bg:#0f172a;--panel:#1e293b;--bdr:#334155;
+  --txt:#e2e8f0;--txt2:#94a3b8;--txt3:#64748b;
+  --acc:#3b82f6;--hdr:linear-gradient(135deg,#1e40af,#3b82f6);
+  --btn:linear-gradient(135deg,#1e40af,#2563eb);
+  --sel:#0f172a;--cgrid:#2d3f55;--ctick:#64748b;
+  --ttbg:#0f172a;--tttt:#e2e8f0;--ttbd:#94a3b8;
+  --banner-bg:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
+  --banner-border:#334155;--tab-active-bg:#3b82f6;--tab-active-txt:#fff;
+  --tab-bg:#1e293b;--tab-txt:#94a3b8;--tab-hover:#2d3f55;
+  --lp-bg:#1e293b;--lp-bdr:#334155;
+}
+[data-theme='sky']{
+  --bg:#f0f9ff;--panel:#ffffff;--bdr:#bae6fd;
+  --txt:#0c4a6e;--txt2:#0369a1;--txt3:#0284c7;
+  --acc:#0284c7;--hdr:linear-gradient(135deg,#0284c7,#38bdf8);
+  --btn:linear-gradient(135deg,#0284c7,#0ea5e9);
+  --sel:#f0f9ff;--cgrid:#bfdbfe;--ctick:#0369a1;
+  --ttbg:#fff;--tttt:#0c4a6e;--ttbd:#0369a1;
+  --banner-bg:linear-gradient(135deg,#e0f2fe,#f0f9ff);
+  --banner-border:#bae6fd;--tab-active-bg:#0284c7;--tab-active-txt:#fff;
+  --tab-bg:#e0f2fe;--tab-txt:#0369a1;--tab-hover:#bfdbfe;
+  --lp-bg:#fff;--lp-bdr:#bae6fd;
+}
+[data-theme='forest']{
+  --bg:#f0fdf4;--panel:#ffffff;--bdr:#bbf7d0;
+  --txt:#064e3b;--txt2:#047857;--txt3:#059669;
+  --acc:#059669;--hdr:linear-gradient(135deg,#047857,#10b981);
+  --btn:linear-gradient(135deg,#047857,#059669);
+  --sel:#f0fdf4;--cgrid:#bbf7d0;--ctick:#047857;
+  --ttbg:#fff;--tttt:#064e3b;--ttbd:#047857;
+  --banner-bg:linear-gradient(135deg,#dcfce7,#f0fdf4);
+  --banner-border:#bbf7d0;--tab-active-bg:#059669;--tab-active-txt:#fff;
+  --tab-bg:#dcfce7;--tab-txt:#047857;--tab-hover:#bbf7d0;
+  --lp-bg:#fff;--lp-bdr:#bbf7d0;
+}
+[data-theme='warm']{
+  --bg:#fffbeb;--panel:#ffffff;--bdr:#fde68a;
+  --txt:#78350f;--txt2:#92400e;--txt3:#b45309;
+  --acc:#d97706;--hdr:linear-gradient(135deg,#d97706,#f59e0b);
+  --btn:linear-gradient(135deg,#d97706,#f59e0b);
+  --sel:#fffbeb;--cgrid:#fde68a;--ctick:#92400e;
+  --ttbg:#fff;--tttt:#78350f;--ttbd:#92400e;
+  --banner-bg:linear-gradient(135deg,#fef3c7,#fffbeb);
+  --banner-border:#fde68a;--tab-active-bg:#d97706;--tab-active-txt:#fff;
+  --tab-bg:#fef3c7;--tab-txt:#92400e;--tab-hover:#fde68a;
+  --lp-bg:#fff;--lp-bdr:#fde68a;
+}
+
+/* ---- BASE ---- */
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Noto Sans','Ubuntu','Cantarell','Helvetica Neue',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;transition:background .3s,color .3s;overflow-x:hidden}
+
+/* ---- BANNER ---- */
+.banner{
+  background:var(--banner-bg);
+  border:2px solid var(--acc);
+  border-radius:16px;
+  margin:12px 12px 0;
+  padding:16px 24px 12px;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 4px 32px rgba(59,130,246,.35),0 2px 10px rgba(0,0,0,.5);
+}
+.banner::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#1e40af,#3b82f6,#93c5fd,#3b82f6,#1e40af);background-size:200% 100%;animation:bannerShine 3s linear infinite}
+@keyframes bannerShine{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.banner h1{font-size:clamp(17px,3.5vw,26px);font-weight:800;color:var(--txt);letter-spacing:1px;text-shadow:0 2px 12px rgba(59,130,246,.5)}
+.banner p{font-size:clamp(10px,1.4vw,12px);color:var(--acc);margin-top:4px;font-weight:600;letter-spacing:.4px;opacity:.9}
+
+/* ---- CONTROL BAR ---- */
+.ctrlbar{
+  background:var(--panel);
+  border:2px solid var(--bdr);
+  border-radius:12px;
+  margin:8px 12px;
+  padding:8px 12px;
+  box-shadow:0 2px 14px rgba(0,0,0,.35);
+}
+.cr{display:flex;flex-wrap:nowrap;align-items:center;gap:6px;overflow-x:auto;padding:4px 0}
+.cr+.cr{border-top:1px solid var(--bdr);margin-top:4px;padding-top:8px}
+.cb-sep{width:1px;min-height:32px;flex-shrink:0;background:var(--bdr);margin:0 2px}
+.cb-actions{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.cg{display:flex;flex-direction:column;gap:2px;min-width:80px;flex-shrink:0}
+.cg label{font-size:9px;color:var(--txt2);font-weight:700;white-space:nowrap;text-transform:uppercase;letter-spacing:.3px}
+select{padding:4px 6px;background:var(--sel);color:var(--txt);border:1px solid var(--bdr);border-radius:4px;font-size:11px;cursor:pointer;width:100%;transition:border-color .2s}
+select:focus{outline:2px solid var(--acc);border-color:var(--acc)}
+.tbtn{padding:5px 8px;background:var(--btn);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;transition:opacity .2s,transform .15s;white-space:nowrap;flex-shrink:0}
+.tbtn:hover{opacity:.85;transform:translateY(-1px)}
+.tbtn:active{transform:translateY(0)}
+.brow{display:flex;gap:4px}
+.brow .tbtn{flex:1}
+
+/* ---- STATUS ---- */
+#sts{padding:7px 12px;text-align:center;display:none;font-size:12px;font-weight:600;border-bottom:1px solid var(--bdr)}
+.sok{background:rgba(16,185,129,.12);border-color:#10b981!important;color:#10b981}
+.serr{background:rgba(239,68,68,.12);border-color:#ef4444!important;color:#ef4444}
+.sload{background:rgba(59,130,246,.12);border-color:#3b82f6!important;color:#3b82f6}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sload-spin{display:inline-block;animation:spin .8s linear infinite;margin-right:5px}
+
+/* ---- INFO BAR ---- */
+.info{
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;
+  padding:6px 14px;
+  border-bottom:1px solid var(--bdr);
+  background:var(--panel);
+  font-size:11px;
+}
+.info span{color:var(--txt2)}
+.info .mid{flex:1 1 220px;text-align:center;font-weight:700;color:var(--acc)}
+.info .edge{flex:1 1 180px}
+.info .edge:last-child{text-align:right}
+.info strong{color:var(--acc);font-weight:700}
+@media(max-width:700px){
+  .info .mid{order:3;flex-basis:100%;text-align:left}
+  .info .edge:last-child{text-align:left}
+}
+
+/* ---- CONTENT AREA ---- */
+.content{padding:clamp(8px,1.8vw,16px)}
+
+/* ---- CHART BOX ---- */
+.cbox{background:var(--panel);padding:clamp(10px,1.8vw,16px);border-radius:8px;margin-bottom:10px;border:1px solid var(--bdr)}
+.chdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px}
+.ctitle{font-size:clamp(13px,2.2vw,17px);font-weight:700;color:var(--acc);display:flex;align-items:center;gap:6px}
+.tip{cursor:help;background:var(--acc);color:#fff;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;transition:transform .2s}
+.tip:hover{transform:scale(1.18)}
+.cbtn{display:flex;gap:4px}
+.cbtn .tbtn{padding:4px 9px;font-size:11px}
+.cwrap{position:relative;height:clamp(180px,40vw,400px);min-height:160px}
+@media(max-width:600px){.cwrap{height:clamp(160px,55vw,280px)}}
+canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
+
+/* ---- STATS ---- */
+.sbox{margin-top:10px;padding:8px;background:var(--bg);border-radius:7px;border:1px solid var(--bdr);display:flex;flex-direction:column;gap:5px}
+.shead{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.stog{font-size:10px;color:var(--txt2);cursor:pointer;padding:2px 7px;background:var(--panel);border-radius:4px;border:1px solid var(--bdr);transition:all .2s}
+.stog:hover{background:var(--acc);color:#fff}
+.srow{display:flex;flex-wrap:wrap;gap:5px;width:100%;align-items:center}
+.srow+.srow{padding-top:7px;border-top:1px solid var(--bdr)}
+.sitm{flex:1 1 76px;min-width:68px;text-align:center;padding:5px 2px;background:var(--panel);border-radius:5px;border:1px solid var(--bdr)}
+.slbl{font-size:9px;color:var(--txt3);margin-bottom:2px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.sval{font-size:clamp(11px,1.6vw,14px);font-weight:700}
+.sname{font-size:11px;font-weight:700;white-space:nowrap;padding:0 4px;align-self:center}
+.sadv{display:none}
+.sadv.show{display:flex}
+
+/* ---- LEFT SLIDE PANEL ---- */
+#lpTrigger{
+  position:fixed;top:0;left:0;width:12px;height:100vh;z-index:200;cursor:e-resize;
+}
+#leftPanel{
+  position:fixed;top:0;left:0;height:100vh;width:280px;
+  background:var(--lp-bg);border-right:2px solid var(--lp-bdr);
+  z-index:201;overflow-y:auto;
+  transform:translateX(-100%);transition:transform .25s ease;
+  box-shadow:4px 0 24px rgba(0,0,0,.35);
+  display:flex;flex-direction:column;
+}
+#leftPanel.open{transform:translateX(0)}
+.lp-header{
+  padding:14px 14px 10px;
+  border-bottom:1px solid var(--bdr);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.lp-title{font-size:13px;font-weight:700;color:var(--acc)}
+.lp-close{background:none;border:none;color:var(--txt2);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:4px;transition:color .2s}
+.lp-close:hover{color:var(--acc)}
+.lp-body{padding:10px 12px;display:flex;flex-direction:column;gap:10px;flex:1}
+.lp-section{border:1px solid var(--bdr);border-radius:6px;padding:10px;background:var(--panel);display:flex;flex-direction:column;gap:7px}
+.lp-section-title{font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.lp-row{display:flex;flex-direction:column;gap:3px}
+.lp-row label{font-size:10px;color:var(--txt2);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.lp-note{font-size:11px;color:var(--txt3);line-height:1.35}
+.lp-btnrow{display:flex;gap:6px;flex-wrap:wrap}
+.lp-btnrow .tbtn{flex:1 1 110px}
+#lpTrigger:hover ~ #leftPanel, #leftPanel:hover{transform:translateX(0)}
+
+/* V2: Chart box entry animation */
+@keyframes cboxIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.content .cbox{animation:cboxIn .42s ease both}
+.content .cbox:nth-child(2){animation-delay:.1s}
+.content .cbox:nth-child(3){animation-delay:.2s}
+
+/* V6: Per-chart fullscreen overlay */
+.cbox.fullscreen{
+  position:fixed;top:0;left:0;right:0;bottom:0;z-index:500;
+  margin:0;border-radius:0;padding:16px;overflow:hidden;
+  background:var(--panel);
+}
+.cbox.fullscreen .cwrap{height:calc(100vh - 118px)!important}
+.cbox.fullscreen .sbox{display:none}
+
+/* F10: Chart height variants */
+.cwrap.compact{height:130px!important}
+.cwrap.tall{height:560px!important}
+.hbtn{padding:3px 8px;background:var(--panel);color:var(--txt2);border:1px solid var(--bdr);border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;transition:all .18s}
+.hbtn:hover{background:var(--bdr)}
+.hbtn.hactive{background:var(--acc);color:#fff;border-color:var(--acc)}
+.chdr-r{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.chdr-hg{display:flex;gap:2px}
+
+/* F9: Trend arrow badge */
+.trarr{font-size:13px;font-weight:900;margin-left:3px;vertical-align:middle}
+.trarr.up{color:#10b981}
+.trarr.dn{color:#ef4444}
+.trarr.eq{color:#64748b}
+
+/* V7: Highlighted current value */
+.sval-live{font-weight:900;text-shadow:0 0 8px currentColor;transition:color .5s}
+</style>
+</head>
+<body>
+
+<!-- Hidden period select — controlled by presets; not shown to user -->
+<select id='period' style='display:none' title='Time period' data-i18n-title='chartTipPeriod'>
+  <option value='1h' selected>1h</option>
+  <option value='12h'>12h</option>
+  <option value='24h'>24h</option>
+</select>
+
+<!-- ===== LEFT EDGE TRIGGER ===== -->
+<div id='lpTrigger'></div>
+
+<!-- ===== LEFT SLIDE PANEL ===== -->
+<div id='leftPanel'>
+  <div class='lp-header'>
+    <span class='lp-title'>⚙️ Chart Options</span>
+    <button class='lp-close' onclick='closeLP()' title='Close panel' data-i18n-title='chartTipClose'>✕</button>
+  </div>
+  <div class='lp-body'>
+
+    <div class='lp-section'>
+      <div class='lp-section-title'>Vista</div>
+      <div class='lp-row'>
+        <label style='color:var(--acc)'>📊 Metrics via tabs in the top bar</label>
+      </div>
+      <div class='lp-row'>
+        <label>📈 Type</label>
+        <select id='chartStyle' title='Chart display type' data-i18n-title='chartTipStyle'>
+          <option value='line'>📈 Lines</option>
+          <option value='dual' selected>⚡ Dual Y</option>
+          <option value='bar'>📊 Bars</option>
+          <option value='dualbar'>📊📊 Dual Bars</option>
+        </select>
+      </div>
+      <div class='lp-row'>
+        <label>〰️ Tension / Curve</label>
+        <select id='lineTension' onchange='rerender();savePref()' title='Line curve smoothness' data-i18n-title='chartTipTension'>
+          <option value='0'>Straight (sharp)</option>
+          <option value='0.3'>Smooth</option>
+          <option value='0.5' selected>Very smooth</option>
+        </select>
+      </div>
+      <div class='lp-row'>
+        <label>● Data points</label>
+        <select id='pointVis' onchange='rerender();savePref()' title='Data point size' data-i18n-title='chartTipPoints'>
+          <option value='0'>No points (line only)</option>
+          <option value='2'>Small</option>
+          <option value='4' selected>Medium</option>
+          <option value='7'>Large</option>
+        </select>
+      </div>
+      <div class='lp-row'>
+        <label>🎨 Theme</label>
+        <select id='themeSelect' onchange='setTheme(this.value)' title='Color theme' data-i18n-title='chartTipTheme'>
+          <option value='dark'>🌑 Night</option>
+          <option value='sky'>🌤️ Sky</option>
+          <option value='forest'>🌿 Forest</option>
+          <option value='warm'>🌅 Warm</option>
+        </select>
+      </div>
+    </div>
+
+    <div class='lp-section'>
+      <div class='lp-section-title'>Data</div>
+      <div class='lp-row'>
+        <label>📊 No. of data points to show</label>
+        <select id='maxVisiblePoints' title='Max visible data points' data-i18n-title='chartTipMaxPts'>
+          <option value='0'>All</option>
+          <option value='24'>24 points</option>
+          <option value='48'>48 points</option>
+          <option value='72' selected>72 points</option>
+          <option value='96'>96 points</option>
+          <option value='144'>144 points</option>
+          <option value='192'>192 points</option>
+          <option value='288'>288 points</option>
+        </select>
+      </div>
+      <div class='lp-row'>
+        <label>⏭️ Stride (1 in every N readings)</label>
+        <select id='pointStride' title='Sampling stride' data-i18n-title='chartTipStride'>
+          <option value='1' selected>1 in 1</option>
+          <option value='2'>1 in 2</option>
+          <option value='3'>1 in 3</option>
+          <option value='4'>1 in 4</option>
+          <option value='6'>1 in 6</option>
+          <option value='8'>1 in 8</option>
+          <option value='10'>1 in 10</option>
+          <option value='12'>1 in 12</option>
+          <option value='15'>1 in 15</option>
+          <option value='20'>1 in 20</option>
+          <option value='30'>1 in 30</option>
+          <option value='60'>1 in 60</option>
+          <option value='120'>1 in 120</option>
+          <option value='240'>1 in 240</option>
+        </select>
+      </div>
+      <div class='lp-row'>
+        <label>💾 Local cache</label>
+        <div class='lp-btnrow'>
+          <button class='tbtn' onclick='clearLocalChartCache()' title='Clear local cache' data-i18n-title='chartTipClearCache'>🧹 Clear cache</button>
+          <button class='tbtn' onclick='forceFreshData()' title='Force fresh data' data-i18n-title='chartTipForceFresh'>🛰️ Fresh data</button>
+        </div>
+        <div class='lp-note'>The cache is stored only in this device's browser and speeds up repeated loads.</div>
+      </div>
+    </div>
+
+    <div class='lp-section'>
+      <div class='lp-section-title'>Scale</div>
+      <div class='lp-row'>
+        <label>🕐 X Axis</label>
+        <select id='timeAxis' title='X axis format' data-i18n-title='chartTipTimeAxis'>
+          <option value='auto' selected>Auto</option>
+          <option value='hhmm'>HH:MM</option>
+          <option value='ddhhmm'>DD/MM HH:MM</option>
+          <option value='ddmm'>DD/MM</option>
+        </select>
+      </div>
+      <div class='lp-row'>
+        <label>↕️ Y Scale</label>
+        <select id='yRange' title='Y axis range' data-i18n-title='chartTipYRange'>
+          <option value='zero1'>0 → Max (default)</option>
+          <option value='fit'>Fit to data</option>
+          <option value='zero2'>0 → 2× Max</option>
+          <option value='auto' selected>Auto (Chart.js)</option>
+        </select>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== BANNER ===== -->
+<div class='banner'>
+  <h1>📊 Monitoring Charts</h1>
+  <p data-i18n='sensorChartsTitle'>Page with local processing</p>
+</div>
+
+<!-- ===== CONTROL BAR (2 rows) ===== -->
+<div class='ctrlbar'>
+
+  <!-- Row 1: Auto‑Refresh + Metrics + File selects -->
+  <div class='cr'>
+    <div class='cb-actions'>
+      <div style='font-size:9px;color:var(--txt2);font-weight:700;text-transform:uppercase;letter-spacing:.3px'>Refresh</div>
+      <select id='arInterval' onchange='_applyAutoRefresh()' style='background:var(--c2);color:var(--txt);border:1px solid var(--bdr);border-radius:4px;padding:3px 4px;font-size:10px;cursor:pointer' title='Auto-refresh interval (live data only)'>
+        <option value='0'>&#9208; Off</option>
+        <option value='30'>30s</option>
+        <option value='60'>1min</option>
+        <option value='120'>2min</option>
+        <option value='300'>5min</option>
+        <option value='600'>10min</option>
+      </select>
+    </div>
+
+    <div class='cg'>
+      <label>G1</label>
+      <select id='chart1Type' onchange='rerender();savePref()' style='padding:3px 4px;font-size:10px' title='Chart 1 metric' data-i18n-title='chartTipType'>
+        <option value='temp' selected>🌡️ Temp</option>
+        <option value='humidity'>💧 Hum</option>
+        <option value='pressure'>🌊 Press</option>
+        <option value='dew'>💦 Dew</option>
+        <option value='heat'>🔥 Heat</option>
+        <option value='altitude'>⛰️ Alt</option>
+      </select>
+      <label id='lbl1y2' style='display:none;margin-top:2px'>G1 Y2</label>
+      <select id='chart1Type2' style='display:none;padding:3px 4px;font-size:10px' onchange='rerender();savePref()' title='Chart 1 Y2 metric' data-i18n-title='chartTipType'>
+        <option value='temp'>🌡️ Temp</option>
+        <option value='humidity' selected>💧 Hum</option>
+        <option value='pressure'>🌊 Press</option>
+      </select>
+    </div>
+
+    <div class='cg'>
+      <label>G2</label>
+      <select id='chart2Type' onchange='rerender();savePref()' style='padding:3px 4px;font-size:10px' title='Chart 2 metric' data-i18n-title='chartTipType'>
+        <option value='temp'>🌡️ Temp</option>
+        <option value='humidity' selected>💧 Hum</option>
+        <option value='pressure'>🌊 Press</option>
+        <option value='dew'>💦 Dew</option>
+        <option value='heat'>🔥 Heat</option>
+        <option value='altitude'>⛰️ Alt</option>
+      </select>
+      <label id='lbl2y2' style='display:none;margin-top:2px'>G2 Y2</label>
+      <select id='chart2Type2' style='display:none;padding:3px 4px;font-size:10px' onchange='rerender();savePref()' title='Chart 2 Y2 metric' data-i18n-title='chartTipType'>
+        <option value='temp'>🌡️ Temp</option>
+        <option value='humidity'>💧 Hum</option>
+        <option value='pressure' selected>🌊 Press</option>
+      </select>
+    </div>
+
+    <div class='cg'>
+      <label>G3</label>
+      <select id='chart3Type' onchange='rerender();savePref()' style='padding:3px 4px;font-size:10px' title='Chart 3 metric' data-i18n-title='chartTipType'>
+        <option value='temp'>🌡️ Temp</option>
+        <option value='humidity'>💧 Hum</option>
+        <option value='pressure' selected>🌊 Press</option>
+        <option value='dew'>💦 Dew</option>
+        <option value='heat'>🔥 Heat</option>
+        <option value='altitude'>⛰️ Alt</option>
+      </select>
+      <label id='lbl3y2' style='display:none;margin-top:2px'>G3 Y2</label>
+      <select id='chart3Type2' style='display:none;padding:3px 4px;font-size:10px' onchange='rerender();savePref()' title='Chart 3 Y2 metric' data-i18n-title='chartTipType'>
+        <option value='temp'>🌡️ Temp</option>
+        <option value='humidity' selected>💧 Hum</option>
+        <option value='pressure'>🌊 Press</option>
+      </select>
+    </div>
+
+    <div class='cb-sep'></div>
+
+    <div class='cg' id='sdFileCg'>
+      <label>Sensors</label>
+      <select id='dailyFile' style='padding:3px 4px;font-size:10px' title='Sensor data file' data-i18n-title='chartTipDailyFile'><option value=''>--</option></select>
+    </div>
+    <div class='cg' id='rs232FileCg'>
+      <label>RS232</label>
+      <select id='rs232DailyFile' style='padding:3px 4px;font-size:10px' title='RS232 data file' data-i18n-title='chartTipDailyFile'><option value=''>--</option></select>
+    </div>
+    <div class='cg' id='modbusFileCg'>
+      <label>Modbus</label>
+      <select id='modbusDailyFile' style='padding:3px 4px;font-size:10px' title='Modbus data file' data-i18n-title='chartTipDailyFile'><option value=''>--</option></select>
+    </div>
+    <div class='cg' id='proxFileCg'>
+      <label>Proximity</label>
+      <select id='proxDailyFile' style='padding:3px 4px;font-size:10px' title='Proximity data file' data-i18n-title='chartTipDailyFile'><option value=''>--</option></select>
+    </div>
+  </div>
+
+  <!-- Row 2: Presets + Action buttons -->
+  <div class='cr'>
+    <div class='cb-actions'>
+      <button class='tbtn' onclick='applyPreset("live")' style='font-size:10px;padding:4px 7px' title='Apply presets' data-i18n-title='chartTipPreset'>🔴 Live</button>
+      <button class='tbtn' onclick='applyPreset("8h")' style='font-size:10px;padding:4px 7px' title='Apply presets' data-i18n-title='chartTipPreset'>🕗 8h</button>
+      <button class='tbtn' onclick='applyPreset("day")' style='font-size:10px;padding:4px 7px' title='Apply presets' data-i18n-title='chartTipPreset'>📅 Day</button>
+    </div>
+    <div class='cb-sep'></div>
+    <button class='tbtn' onclick='forceFreshData()' style='font-size:10px;padding:4px 7px' title='Force fresh data' data-i18n-title='chartTipForceFresh'>🔄 Refresh</button>
+    <button class='tbtn' onclick='exportCSV()' style='font-size:10px;padding:4px 7px' title='Export CSV' data-i18n-title='chartTipExport'>📄 CSV</button>
+    <button class='tbtn' onclick='saveAllCharts()' style='font-size:10px;padding:4px 7px' title='Save all charts' data-i18n-title='chartTipSaveAll'>💾 PNG</button>
+  </div>
+
+</div>
+
+<!-- ===== STATUS ===== -->
+<div id='sts'></div>
+
+<!-- ===== INFO BAR ===== -->
+<div class='info'>
+  <span class='edge'>⏱️ <strong id='lastUpd'>--</strong></span>
+  <span class='mid'>👁️ <strong id='viewInfo'>--</strong></span>
+  <span class='edge'>📊 <strong id='ptCount'>--</strong></span>
+</div>
+
+<!-- ===== CHARTS ===== -->
+<div class='content'>
+
+<!-- CHART 1 -->
+<div class='cbox' id='cbox1'>
+  <div class='chdr'>
+    <div class='ctitle' id='ct1'>🌡️ Temperature<span class='tip' title='Temperature measured by the AHT20 sensor'>?</span></div>
+    <div class='chdr-r'>
+      <div class='chdr-hg'>
+        <button class='hbtn' id='hc1c' onclick='setH(1,"compact")' title='Compact'>S</button>
+        <button class='hbtn hactive' id='hc1n' onclick='setH(1,"normal")' title='Normal'>M</button>
+        <button class='hbtn' id='hc1t' onclick='setH(1,"tall")' title='Tall'>L</button>
+      </div>
+      <button class='tbtn' onclick='resetZoom(chart1)' title='Reset zoom' data-i18n-title='chartTipResetZoom'>🔍 Reset</button>
+      <button class='tbtn' onclick='fsChart(1)' title='Fullscreen'>⛶</button>
+    </div>
+  </div>
+  <div class='cwrap'><canvas id='cv1'></canvas></div>
+  <div class='sbox'>
+    <div class='shead'><span></span><button class='stog' onclick='togAdv(1)' title='Toggle advanced stats' data-i18n-title='chartTipAdv'>📈 Stats+</button></div>
+    <div class='srow' id='sr1a'>
+      <span class='sname' id='sn1a'></span>
+      <div class='sitm'><div class='slbl'>Min</div><div class='sval' id='s1am'>--</div></div>
+      <div class='sitm'><div class='slbl'>Max</div><div class='sval' id='s1aM'>--</div></div>
+      <div class='sitm'><div class='slbl'>Avg</div><div class='sval' id='s1aa'>--</div></div>
+      <div class='sitm'><div class='slbl'>Current</div><div class='sval' id='s1ac'>--</div></div>
+    </div>
+    <div class='srow sadv' id='sr1x'>
+      <div class='sitm'><div class='slbl'>Median</div><div class='sval' id='s1xmed'>--</div></div>
+      <div class='sitm'><div class='slbl'>Std Dev</div><div class='sval' id='s1xstd'>--</div></div>
+      <div class='sitm'><div class='slbl'>P25</div><div class='sval' id='s1xp25'>--</div></div>
+      <div class='sitm'><div class='slbl'>P75</div><div class='sval' id='s1xp75'>--</div></div>
+    </div>
+    <div class='srow' id='sr1b' style='display:none'>
+      <span class='sname' id='sn1b'></span>
+      <div class='sitm'><div class='slbl'>Min</div><div class='sval' id='s1bm'>--</div></div>
+      <div class='sitm'><div class='slbl'>Max</div><div class='sval' id='s1bM'>--</div></div>
+      <div class='sitm'><div class='slbl'>Avg</div><div class='sval' id='s1ba'>--</div></div>
+      <div class='sitm'><div class='slbl'>Current</div><div class='sval' id='s1bc'>--</div></div>
+    </div>
+    <div class='srow sadv' id='sr1y' style='display:none'>
+      <div class='sitm'><div class='slbl'>Median</div><div class='sval' id='s1ymed'>--</div></div>
+      <div class='sitm'><div class='slbl'>Std Dev</div><div class='sval' id='s1ystd'>--</div></div>
+      <div class='sitm'><div class='slbl'>P25</div><div class='sval' id='s1yp25'>--</div></div>
+      <div class='sitm'><div class='slbl'>P75</div><div class='sval' id='s1yp75'>--</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- CHART 2 -->
+<div class='cbox' id='cbox2'>
+  <div class='chdr'>
+    <div class='ctitle' id='ct2'>💧 Humidity<span class='tip' title='Relative humidity measured by the AHT20 sensor'>?</span></div>
+    <div class='chdr-r'>
+      <div class='chdr-hg'>
+        <button class='hbtn' id='hc2c' onclick='setH(2,"compact")' title='Compact'>S</button>
+        <button class='hbtn hactive' id='hc2n' onclick='setH(2,"normal")' title='Normal'>M</button>
+        <button class='hbtn' id='hc2t' onclick='setH(2,"tall")' title='Tall'>L</button>
+      </div>
+      <button class='tbtn' onclick='resetZoom(chart2)' title='Reset zoom' data-i18n-title='chartTipResetZoom'>🔍 Reset</button>
+      <button class='tbtn' onclick='fsChart(2)' title='Fullscreen'>⛶</button>
+    </div>
+  </div>
+  <div class='cwrap'><canvas id='cv2'></canvas></div>
+  <div class='sbox'>
+    <div class='shead'><span></span><button class='stog' onclick='togAdv(2)' title='Toggle advanced stats' data-i18n-title='chartTipAdv'>📈 Stats+</button></div>
+    <div class='srow' id='sr2a'>
+      <span class='sname' id='sn2a'></span>
+      <div class='sitm'><div class='slbl'>Min</div><div class='sval' id='s2am'>--</div></div>
+      <div class='sitm'><div class='slbl'>Max</div><div class='sval' id='s2aM'>--</div></div>
+      <div class='sitm'><div class='slbl'>Avg</div><div class='sval' id='s2aa'>--</div></div>
+      <div class='sitm'><div class='slbl'>Current</div><div class='sval' id='s2ac'>--</div></div>
+    </div>
+    <div class='srow sadv' id='sr2x'>
+      <div class='sitm'><div class='slbl'>Median</div><div class='sval' id='s2xmed'>--</div></div>
+      <div class='sitm'><div class='slbl'>Std Dev</div><div class='sval' id='s2xstd'>--</div></div>
+      <div class='sitm'><div class='slbl'>P25</div><div class='sval' id='s2xp25'>--</div></div>
+      <div class='sitm'><div class='slbl'>P75</div><div class='sval' id='s2xp75'>--</div></div>
+    </div>
+    <div class='srow' id='sr2b' style='display:none'>
+      <span class='sname' id='sn2b'></span>
+      <div class='sitm'><div class='slbl'>Min</div><div class='sval' id='s2bm'>--</div></div>
+      <div class='sitm'><div class='slbl'>Max</div><div class='sval' id='s2bM'>--</div></div>
+      <div class='sitm'><div class='slbl'>Avg</div><div class='sval' id='s2ba'>--</div></div>
+      <div class='sitm'><div class='slbl'>Current</div><div class='sval' id='s2bc'>--</div></div>
+    </div>
+    <div class='srow sadv' id='sr2y' style='display:none'>
+      <div class='sitm'><div class='slbl'>Median</div><div class='sval' id='s2ymed'>--</div></div>
+      <div class='sitm'><div class='slbl'>Std Dev</div><div class='sval' id='s2ystd'>--</div></div>
+      <div class='sitm'><div class='slbl'>P25</div><div class='sval' id='s2yp25'>--</div></div>
+      <div class='sitm'><div class='slbl'>P75</div><div class='sval' id='s2yp75'>--</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- CHART 3 -->
+<div class='cbox' id='cbox3'>
+  <div class='chdr'>
+    <div class='ctitle' id='ct3'>🌊 Pressure<span class='tip' title='Atmospheric pressure measured by BMP280.'>?</span></div>
+    <div class='chdr-r'>
+      <div class='chdr-hg'>
+        <button class='hbtn' id='hc3c' onclick='setH(3,"compact")' title='Compact'>S</button>
+        <button class='hbtn hactive' id='hc3n' onclick='setH(3,"normal")' title='Normal'>M</button>
+        <button class='hbtn' id='hc3t' onclick='setH(3,"tall")' title='Tall'>L</button>
+      </div>
+      <button class='tbtn' onclick='resetZoom(chart3)' title='Reset zoom' data-i18n-title='chartTipResetZoom'>🔍 Reset</button>
+      <button class='tbtn' onclick='fsChart(3)' title='Fullscreen'>⛶</button>
+    </div>
+  </div>
+  <div class='cwrap'><canvas id='cv3'></canvas></div>
+  <div class='sbox'>
+    <div class='shead'><span></span><button class='stog' onclick='togAdv(3)' title='Toggle advanced stats' data-i18n-title='chartTipAdv'>📈 Stats+</button></div>
+    <div class='srow' id='sr3a'>
+      <span class='sname' id='sn3a'></span>
+      <div class='sitm'><div class='slbl'>Min</div><div class='sval' id='s3am'>--</div></div>
+      <div class='sitm'><div class='slbl'>Max</div><div class='sval' id='s3aM'>--</div></div>
+      <div class='sitm'><div class='slbl'>Avg</div><div class='sval' id='s3aa'>--</div></div>
+      <div class='sitm'><div class='slbl'>Current</div><div class='sval' id='s3ac'>--</div></div>
+    </div>
+    <div class='srow sadv' id='sr3x'>
+      <div class='sitm'><div class='slbl'>Median</div><div class='sval' id='s3xmed'>--</div></div>
+      <div class='sitm'><div class='slbl'>Std Dev</div><div class='sval' id='s3xstd'>--</div></div>
+      <div class='sitm'><div class='slbl'>P25</div><div class='sval' id='s3xp25'>--</div></div>
+      <div class='sitm'><div class='slbl'>P75</div><div class='sval' id='s3xp75'>--</div></div>
+    </div>
+    <div class='srow' id='sr3b' style='display:none'>
+      <span class='sname' id='sn3b'></span>
+      <div class='sitm'><div class='slbl'>Min</div><div class='sval' id='s3bm'>--</div></div>
+      <div class='sitm'><div class='slbl'>Max</div><div class='sval' id='s3bM'>--</div></div>
+      <div class='sitm'><div class='slbl'>Avg</div><div class='sval' id='s3ba'>--</div></div>
+      <div class='sitm'><div class='slbl'>Current</div><div class='sval' id='s3bc'>--</div></div>
+    </div>
+    <div class='srow sadv' id='sr3y' style='display:none'>
+      <div class='sitm'><div class='slbl'>Median</div><div class='sval' id='s3ymed'>--</div></div>
+      <div class='sitm'><div class='slbl'>Std Dev</div><div class='sval' id='s3ystd'>--</div></div>
+      <div class='sitm'><div class='slbl'>P25</div><div class='sval' id='s3yp25'>--</div></div>
+      <div class='sitm'><div class='slbl'>P75</div><div class='sval' id='s3yp75'>--</div></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- .content -->
+
+<script>
+// ===== GLOBALS =====
+var chart1=null,chart2=null,chart3=null,cachedData=null,cachedDataRS232=null,cachedDataModbus=null,cachedDataProximity=null;
+var seaLvl=1013.25,sessionId=null,hbTimer=null;
+var rs232MetaLoaded=false,rs232LoadingPromise=null,rs232MetaDate='';
+var modbusMetaLoaded=false,modbusLoadingPromise=null,modbusMetaDate='';
+var proximityMetaLoaded=false,proximityLoadingPromise=null,proximityMetaDate='';
+
+function customAlert(msg){
+  var o=document.createElement('div');
+  o.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center';
+  var b=document.createElement('div');
+  b.style.cssText='background:#0f172a;border:1px solid #3b82f6;border-radius:12px;padding:24px;max-width:400px;width:90%;text-align:center';
+  b.innerHTML='<div style="font-size:15px;margin-bottom:20px;line-height:1.5;color:#e0e7ff">'+msg+'</div>';
+  var btn=document.createElement('button');
+  btn.textContent='OK';
+  btn.style.cssText='background:#1e66c7;color:#fff;border:none;padding:10px 24px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600';
+  btn.onclick=function(){document.body.removeChild(o);};
+  b.appendChild(btn);
+  o.appendChild(b);
+  document.body.appendChild(o);
+  btn.focus();
+}
+
+function isRS232Metric(mkey){
+  return mkey.indexOf('rs232_col')===0;
+}
+function isModbusMetric(mkey){
+  return mkey.indexOf('mb_')===0;
+}
+function isProximityMetric(mkey){
+  return mkey.indexOf('prox_ch')===0;
+}
+
+function getMetricMeta(mkey){
+  return MET[mkey]||{title:mkey,color:'#94a3b8',unit:'',sym:'',lbl:mkey};
+}
+
+// Return the right data source for a given metric key.
+function pickData(mkey){
+  if(isRS232Metric(mkey))return cachedDataRS232||{};
+  if(isModbusMetric(mkey))return cachedDataModbus||{};
+  if(isProximityMetric(mkey))return cachedDataProximity||{};
+  return cachedData||{};
+}
+
+function getMetricAdapter(mkey,applyTrim){
+  var src=pickData(mkey);
+  var labels=Array.isArray(src.labels)?src.labels.slice():[];
+  var timestamps=Array.isArray(src.timestamps)?src.timestamps.slice():[];
+  var values=getData(mkey,src)||[];
+  if(applyTrim){
+    labels=trim(labels);
+    timestamps=trim(timestamps);
+    values=trim(values);
+  }
+  return {
+    key:mkey,
+    meta:getMetricMeta(mkey),
+    source:src,
+    labels:labels,
+    timestamps:timestamps,
+    values:values,
+    count:Math.max(values.length,timestamps.length,labels.length)
+  };
+}
+
+function seriesValues(mkey){
+  return getMetricAdapter(mkey,false).values||[];
+}
+
+function numericSeries(arr){
+  return (arr||[]).map(function(v){
+    if(v===null||v===undefined||v==='')return NaN;
+    return Number(v);
+  }).filter(function(v){return Number.isFinite(v);});
+}
+
+function hasSeriesData(arr){
+  return numericSeries(arr).length>0;
+}
+
+function metricPointCount(mkey){
+  return getMetricAdapter(mkey,false).count||0;
+}
+
+var BASE_MAX_VISIBLE_OPTIONS=[24,48,72,96,144,192,288];
+var STRIDE_OPTIONS=[1,2,3,4,6,8,10,12,15,20,30,60,120,240];
+var pointStrideAuto=true;
+function updateMaxVisibleOptions(rawTotal){
+  var sel=document.getElementById('maxVisiblePoints');
+  if(!sel)return;
+  var prev=parseInt(sel.value)||0;
+  var opts=[0];
+  BASE_MAX_VISIBLE_OPTIONS.forEach(function(v){
+    if(rawTotal<=0||v<rawTotal)opts.push(v);
+  });
+  if(rawTotal>0)opts.push(rawTotal);
+  opts=Array.from(new Set(opts)).sort(function(a,b){return a-b;});
+
+  sel.innerHTML='';
+  opts.forEach(function(v){
+    var o=document.createElement('option');
+    o.value=String(v);
+    if(v===0)o.textContent='All';
+    else if(rawTotal>0&&v===rawTotal)o.textContent=v+' points (current max)';
+    else o.textContent=v+' points';
+    sel.appendChild(o);
+  });
+
+  var next='0';
+  if(prev===0){
+    next='0';
+  } else if(opts.indexOf(prev)>=0){
+    next=String(prev);
+  } else {
+    var fallback=0;
+    opts.forEach(function(v){if(v>0&&v<=prev)fallback=v;});
+    if(!fallback&&rawTotal>0)fallback=rawTotal;
+    next=String(fallback||0);
+  }
+  sel.value=next;
+}
+
+function setPointStrideAutoValue(rawTotal){
+  var sel=document.getElementById('pointStride');
+  if(!sel||rawTotal<=0)return;
+  var targetVisible=currentPreset==='live'?72:(currentPreset==='8h'?96:144);
+  var ideal=Math.max(1,Math.ceil(rawTotal/targetVisible));
+  var chosen=STRIDE_OPTIONS[0];
+  STRIDE_OPTIONS.forEach(function(v){if(v<=ideal)chosen=v;});
+  sel.value=String(chosen);
+}
+
+function normalizeMetricSelection(id,fallbackKey){
+  var sel=document.getElementById(id);
+  if(!sel)return fallbackKey;
+  var hasCurrent=Array.from(sel.options).some(function(o){return o.value===sel.value;});
+  if((!sel.value||!hasCurrent) && Array.from(sel.options).some(function(o){return o.value===fallbackKey;})){
+    sel.value=fallbackKey;
+  }
+  return sel.value||fallbackKey;
+}
+
+function ensureChartMetricWithData(id,fallbackKey){
+  var sel=document.getElementById(id);
+  if(!sel)return fallbackKey;
+  var key=normalizeMetricSelection(id,fallbackKey);
+  if(hasSeriesData(seriesValues(key)))return key;
+  if(key!==fallbackKey && Array.from(sel.options).some(function(o){return o.value===fallbackKey;}) && hasSeriesData(seriesValues(fallbackKey))){
+    sel.value=fallbackKey;
+    return fallbackKey;
+  }
+  return key;
+}
+var sessionIsPriority=true,sessionTimeoutSec=900,sessionStart=0,countdownTimer=null;
+var currentTheme='dark';
+var chartHeights={1:'normal',2:'normal',3:'normal'};  // F10: per-chart height state
+var fsActive=0;                                        // V6: chart N currently fullscreen
+
+// V8: Day-separator plugin and center-count badge — registered in registerChartPlugins()
+// called from window.load after Chart.js is confirmed loaded.
+function registerChartPlugins(){
+  Chart.register({
+    id:'dayLines',
+    afterDraw:function(chart){
+      var brk=chart._dayBreaks;
+      if(!brk||!brk.length)return;
+      var ctx=chart.ctx,xS=chart.scales.x;
+      if(!xS)return;
+      var top=chart.chartArea.top,bot=chart.chartArea.bottom;
+      ctx.save();
+      ctx.strokeStyle='rgba(148,163,184,0.35)';
+      ctx.lineWidth=1;
+      ctx.setLineDash([5,4]);
+      ctx.font='10px Segoe UI,sans-serif';
+      ctx.fillStyle='#64748b';
+      ctx.textAlign='center';
+      brk.forEach(function(b){
+        var x=xS.getPixelForValue(b.idx);
+        if(x<chart.chartArea.left||x>chart.chartArea.right)return;
+        ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,bot);ctx.stroke();
+        ctx.fillText(b.label,x,top-3);
+      });
+      ctx.restore();
+    }
+  });
+  Chart.register({
+    id:'centerCountBadge',
+    afterDatasetsDraw:function(chart){
+      return;
+    }
+  });
+}
+
+// V1: Create vertical linear gradient for fill area under line
+function mkGradient(ctx,color,h){
+  var g=ctx.createLinearGradient(0,0,0,h||280);
+  g.addColorStop(0,color+'cc');
+  g.addColorStop(0.6,color+'44');
+  g.addColorStop(1,color+'04');
+  return g;
+}
+
+// F9: Linear-regression trend on last 8 points — returns '↑' '↓' or '→'
+function calcTrend(arr){
+  var v=numericSeries(arr);
+  if(v.length<3)return '→';
+  var last=v.slice(-Math.min(8,v.length)),n=last.length;
+  var sX=0,sY=0,sXY=0,sX2=0;
+  last.forEach(function(y,i){sX+=i;sY+=y;sXY+=i*y;sX2+=i*i;});
+  var den=n*sX2-sX*sX;
+  if(!den)return '→';
+  var slope=(n*sXY-sX*sY)/den;
+  var range=Math.max.apply(null,last)-Math.min.apply(null,last)||1;
+  var norm=slope/range*n;
+  if(norm>0.08)return '↑';
+  if(norm<-0.08)return '↓';
+  return '→';
+}
+
+// V7: Contextual color for current value based on metric + magnitude
+function metricColor(key,val){
+  var n=parseFloat(val);
+  if(!isFinite(n))return '#94a3b8';
+  if(key==='temp'||key==='heat'||key==='dew'){
+    if(n<10)return '#60a5fa';   // cold
+    if(n<20)return '#34d399';   // cool
+    if(n<28)return '#10b981';   // comfort
+    if(n<35)return '#f59e0b';   // warm
+    return '#ef4444';            // hot
+  }
+  if(key==='humidity'){
+    if(n<30)return '#f59e0b';
+    if(n<70)return '#10b981';
+    return '#60a5fa';
+  }
+  if(key==='pressure'){
+    if(n<1000)return '#f59e0b';
+    if(n<1020)return '#10b981';
+    return '#60a5fa';
+  }
+  return '#94a3b8';
+}
+
+// Theme palette for Chart.js (grid, tick, tooltip)
+var TH={
+  dark:  {grid:'#2d3f55',tick:'#64748b',ttbg:'#0f172a',tttt:'#e2e8f0',ttbd:'#94a3b8'},
+  sky:   {grid:'#bfdbfe',tick:'#0369a1',ttbg:'#fff',tttt:'#0c4a6e',ttbd:'#0369a1'},
+  forest:{grid:'#bbf7d0',tick:'#047857',ttbg:'#fff',tttt:'#064e3b',ttbd:'#047857'},
+  warm:  {grid:'#fde68a',tick:'#92400e',ttbg:'#fff',tttt:'#78350f',ttbd:'#92400e'}
+};
+
+// Metric definitions: title, primary color, label, unit
+var MET={
+  temp:    {title:'Temperature',          color:'#ef4444',unit:'C',  sym:'°C', lbl:'Temperature'},
+  humidity:{title:'Humidity',             color:'#3b82f6',unit:'%',  sym:'%',  lbl:'Humidity'},
+  pressure:{title:'Atmospheric Pressure', color:'#06b6d4',unit:'hPa',sym:'hPa',lbl:'Pressure'},
+  dew:     {title:'Dew Point',            color:'#8b5cf6',unit:'C',  sym:'°C', lbl:'Dew Point'},
+  heat:    {title:'Heat Index',           color:'#f59e0b',unit:'C',  sym:'°C', lbl:'Heat Index'},
+  altitude:{title:'Altitude',             color:'#10b981',unit:'m',  sym:'m',  lbl:'Altitude'}
+};
+
+// Show/hide Y2 selects based on whether dual style is active
+function syncDualSelectors(){
+  var isDual=['dual','dualbar'].indexOf(document.getElementById('chartStyle').value)>=0;
+  var d=isDual?'':'none';
+  [1,2,3].forEach(function(n){
+    var s=document.getElementById('chart'+n+'Type2');
+    var l=document.getElementById('lbl'+n+'y2');
+    if(s)s.style.display=d;
+    if(l)l.style.display=d;
+  });
+}
+
+// Helper: get resolved Y2 metric key for chart n in dual mode
+function getY2Key(mkey, n){
+  var sel=document.getElementById('chart'+n+'Type2');
+  if(sel&&sel.style.display!=='none') return sel.value;
+  // Fallback to auto-pairing
+  var pr=DPAIR[mkey]||DPAIR.temp;
+  return pr.key;
+}
+
+// Dual-Y secondary axis pairing for each primary metric
+var DPAIR={
+  temp:    {key:'humidity', color:'#3b82f6'},
+  humidity:{key:'temp',     color:'#ef4444'},
+  pressure:{key:'temp',     color:'#ef4444'},
+  dew:     {key:'humidity', color:'#3b82f6'},
+  heat:    {key:'humidity', color:'#3b82f6'},
+  altitude:{key:'pressure', color:'#06b6d4'}
+};
+
+// Chart title emojis
+var EMOJI={temp:'🌡️',humidity:'💧',pressure:'🌊',dew:'💦',heat:'🔥',altitude:'⛰️'};
+
+// Extra slot metadata loaded at init from /api/sensor-slots
+var extraSlotsMeta = [];  // Array of {slot, enabled, name, label, unit, scale}
+// Color palette for extra slots (slot index -> palette[index % 8])
+var EXTRA_COLORS=['#a855f7','#f97316','#ec4899','#14b8a6','#84cc16','#eab308','#6366f1','#f43f5e'];
+
+// ===== LEFT PANEL =====
+function closeLP(){document.getElementById('leftPanel').classList.remove('open');}
+
+// Hover-to-open the left panel on the trigger strip
+document.getElementById('lpTrigger').addEventListener('mouseenter',function(){
+  document.getElementById('leftPanel').classList.add('open');
+});
+document.getElementById('leftPanel').addEventListener('mouseleave',function(e){
+  // Only close if mouse left to the right (not back to trigger strip)
+  if(e.clientX>12)document.getElementById('leftPanel').classList.remove('open');
+});
+
+
+// ===== SESSION =====
+function showKickOverlay(msg){
+  if(hbTimer){clearInterval(hbTimer);hbTimer=null;}
+  if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null;}
+  sessionId=null;
+  var o=document.getElementById('kickOverlay');
+  if(o){document.getElementById('kickMsg').textContent=msg||'A tua sess\u00e3o terminou.';o.style.display='flex';}
+  else{customAlert(msg||'Sess\u00e3o terminada.');window.location.href='/';}
+}
+function updateSessionTimer(){
+  var el=document.getElementById('sesTimer');
+  if(!el)return;
+  if(sessionIsPriority){el.textContent='';return;}
+  var elapsed=Math.floor((Date.now()-sessionStart)/1000);
+  var left=sessionTimeoutSec-elapsed;
+  if(left<=0){showKickOverlay('Your access time (5 min) has expired. Only one priority user can be connected.');return;}
+  var m=Math.floor(left/60),s=left%60;
+  el.textContent='\u23f1 '+m+':'+(s<10?'0':'')+s;
+  el.style.color=left<=60?'#ef4444':left<=120?'#f59e0b':'#94a3b8';
+}
+async function regSession(){
+  try{
+    var r=await fetch('/api/sensor-charts-session',{method:'POST'});
+    if(!r.ok){
+      if(r.status===503){customAlert('User limit reached. Try again later.');window.location.href='/';return false;}
+      throw new Error('fail');
+    }
+    var d=await r.json();
+    sessionId=d.sessionId;
+    sessionIsPriority=d.priority!==false;
+    sessionTimeoutSec=d.timeoutSec||900;
+    sessionStart=Date.now();
+    // Heartbeat every 45s — also handles kick detection for secondary
+    hbTimer=setInterval(function(){
+      if(!sessionId)return;
+      fetch('/api/sensor-charts-heartbeat?sid='+sessionId,{method:'POST'})
+        .then(function(res){
+          if(!res.ok){showKickOverlay('A tua sess\u00e3o foi terminada pelo servidor.');return;}
+          return res.json();
+        })
+        .then(function(j){
+          if(!j)return;
+          if(j.kicked){showKickOverlay('Your access time (5 min) has expired.');return;}
+        })
+        .catch(function(){});
+    },45000);
+    // Countdown tick every second (visible only for secondary users)
+    countdownTimer=setInterval(updateSessionTimer,1000);
+    updateSessionTimer();
+    return true;
+  }catch(e){customAlert('Error starting session.');return false;}
+}
+window.addEventListener('beforeunload',function(){
+  if(sessionId){
+    clearInterval(hbTimer);
+    // sendBeacon is reliable on page close (fires even when browser kills the tab)
+    var ok=navigator.sendBeacon&&navigator.sendBeacon('/api/sensor-charts-session-end?sid='+sessionId,'');
+    if(!ok){try{fetch('/api/sensor-charts-session?sid='+sessionId,{method:'DELETE',keepalive:true}).catch(function(){});}catch(e){}}
+  }
+});
+
+// ===== THEME =====
+function setTheme(name){
+  currentTheme=name;
+  document.documentElement.setAttribute('data-theme',name);
+  var t=TH[name]||TH.dark;
+  [chart1,chart2,chart3].forEach(function(c){
+    if(!c)return;
+    c.options.plugins.tooltip.backgroundColor=t.ttbg;
+    c.options.plugins.tooltip.titleColor=t.tttt;
+    c.options.plugins.tooltip.bodyColor=t.ttbd;
+    Object.keys(c.options.scales).forEach(function(k){
+      var s=c.options.scales[k];
+      if(s.ticks)s.ticks.color=t.tick;
+      if(s.grid) s.grid.color=t.grid;
+    });
+    c.update();
+  });
+  savePref();
+}
+
+function autoTheme(){
+  try{
+    if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches){
+      var saved=localStorage.getItem('scv3');
+      if(!saved||!JSON.parse(saved).th){setTheme('sky');document.getElementById('themeSelect').value='sky';}
+    }
+  }catch(e){}
+}
+
+// ===== ZOOM CONTROLS =====
+function resetZoom(c){if(c)c.resetZoom();}
+
+var zoomSync=false;
+function syncZoomAll(){
+  if(zoomSync||!chart1||!chart2||!chart3)return;
+  zoomSync=true;
+  var c1=chart1.scales.x,c2=chart2.scales.x,c3=chart3.scales.x;
+  var mn=Math.min(c1.min,c2.min,c3.min),mx=Math.max(c1.max,c2.max,c3.max);
+  [chart1,chart2,chart3].forEach(function(c){c.zoomScale('x',{min:mn,max:mx},{});});
+  zoomSync=false;
+}
+
+// ===== CALCULATIONS =====
+function calcDew(t,h){var a=17.27,b=237.7,al=((a*t)/(b+t))+Math.log(h/100);return (b*al)/(a-al);}
+function calcHeat(t,h){if(t<27)return t;var F=t*9/5+32,hi=-42.379+2.049*F+10.143*h-0.225*F*h-6.838e-3*F*F-5.482e-2*h*h+1.229e-3*F*F*h+8.528e-4*F*h*h-1.99e-6*F*F*h*h;return (hi-32)*5/9;}
+function calcAlt(p,sl){return 44330*(1-Math.pow(p/sl,1/5.255));}
+
+function getData(key,d){
+  var t=d.temperature||d.temp_avg||[],h=d.humidity||[],p=d.pressure||d.pressure_hpa||[];
+  if(key==='temp')     return t;
+  if(key==='humidity') return h;
+  if(key==='pressure') return p;
+  // Prefer real sensor values from API; fall back to client-side calculation if not present
+  if(key==='dew')      return (d.dew_point&&d.dew_point.length)?d.dew_point:t.map(function(v,i){return calcDew(v,h[i]);});
+  if(key==='heat')     return (d.heat_index&&d.heat_index.length)?d.heat_index:t.map(function(v,i){return calcHeat(v,h[i]);});
+  if(key==='altitude') return (d.altitude&&d.altitude.length)?d.altitude:p.map(function(v){return calcAlt(v,seaLvl);});
+  // Generic extra sensor slot: key = 'extra_0' .. 'extra_7'
+  if(key.indexOf('extra_')===0) return d[key]||[];
+  // RS232 column: key = 'rs232_col1' .. 'rs232_col16'
+  if(key.indexOf('rs232_col')===0) return d[key]||[];
+  // Modbus column: key = 'mb_<slaveId>_<label>'
+  if(key.indexOf('mb_')===0) return d[key]||[];
+  // Proximity column: key = 'prox_ch<N>_in|out|ppm'
+  if(key.indexOf('prox_ch')===0) return d[key]||[];
+  return [];
+}
+
+// ===== Y-RANGE =====
+function yPad(arr){
+  var r=document.getElementById('yRange').value;
+  if(r==='auto')return {}; // Chart.js native auto
+  var v=numericSeries(arr);
+  if(!v.length)return {};
+  var mn=Math.min.apply(null,v),mx=Math.max.apply(null,v);
+  if(r==='zero1') return {min:0,max:mx<=0?1:mx*1.05};          // 0 to max+5%
+  if(r==='fit')   return {min:mn*0.99-(mn===0?.01:0),max:mx*1.01+(mx===0?.01:0)}; // tight fit
+  if(r==='zero2') return {min:0,max:mx<=0?2:mx*2};             // 0 to 2x max
+  return {};
+}
+
+// Returns true if the array contains at least one finite value below zero.
+function hasNeg(arr){
+  return (arr||[]).some(function(v){return Number.isFinite(Number(v))&&Number(v)<0;});
+}
+
+// Builds Y-axis scale config for data that spans zero (has negatives).
+// Computes min/max with padding on both sides so 0 is always visible.
+// withGrid: if true, adds a callback that highlights the zero gridline.
+function yPadNeg(arr,withGrid,gridCol){
+  var v=numericSeries(arr);
+  if(!v.length) return {};
+  var mn=Math.min.apply(null,v), mx=Math.max.apply(null,v);
+  var pad=Math.max(Math.abs(mn),Math.abs(mx))*0.08;
+  if(pad<0.5) pad=0.5;
+  var cfg={min:mn-pad, max:mx<=0?pad:mx+pad};
+  if(withGrid){
+    var gc=gridCol||'#2d3f55';
+    cfg.grid={
+      color:function(ctx){return ctx.tick.value===0?'rgba(226,232,240,0.75)':gc;},
+      lineWidth:function(ctx){return ctx.tick.value===0?2:1;}
+    };
+  }
+  return cfg;
+}
+
+  function fmtVal(v){
+    var n=Number(v);
+    if(!Number.isFinite(n))return '--';
+    if(Math.abs(n)>=100)return String(Number(n.toFixed(0)));
+    if(Math.abs(n)>=10)return String(Number(n.toFixed(1)));
+    return String(Number(n.toFixed(2)));
+  }
+
+// ===== CREATE CHART =====
+// V2: Build Chart.js options — includes entry animation
+function mkOpts(col){
+  var t=TH[currentTheme];
+  return {
+    responsive:true,maintainAspectRatio:false,
+    animation:{duration:600,easing:'easeOutQuart'},
+    interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{labels:{color:t.tick,font:{size:12},boxWidth:14}},
+      tooltip:{backgroundColor:t.ttbg,titleColor:t.tttt,bodyColor:t.ttbd,borderColor:'#475569',borderWidth:1},
+      zoom:{pan:{enabled:true,mode:'x'},zoom:{wheel:{enabled:true},pinch:{enabled:true},mode:'x'}}
+    },
+    scales:{
+      x:{ticks:{color:t.tick,maxRotation:45,autoSkip:true,maxTicksLimit:12},grid:{color:t.grid}},
+      y:{ticks:{color:col||t.tick},grid:{color:t.grid}}
+    }
+  };
+}
+
+function mkChart(cvId,col){
+  var ctx=document.getElementById(cvId).getContext('2d');
+  return new Chart(ctx,{
+    type:'line',
+    data:{labels:[],datasets:[{label:'',data:[],borderColor:col,backgroundColor:col+'22',tension:.3,fill:true,pointRadius:2,pointHoverRadius:5,borderWidth:2}]},
+    options:mkOpts(col)
+  });
+}
+
+// ===== STRIDE + WINDOW =====
+function trim(arr){
+  var s=parseInt(document.getElementById('pointStride').value)||1;
+  var n=parseInt(document.getElementById('maxVisiblePoints').value)||0;
+  var r=(s>1)?arr.filter(function(_,i){return i%s===0;}):arr.slice();
+  if(n>0&&r.length>n)r=r.slice(r.length-n);
+  return r;
+}
+
+// ===== LABEL FORMAT =====
+function fmtTs(ts,fb,multiDay){
+  if(!ts)return fb||'';
+  var d=new Date(ts*1000);
+  var hh=String(d.getHours()).padStart(2,'0'),mm=String(d.getMinutes()).padStart(2,'0');
+  var dd=String(d.getDate()).padStart(2,'0'),mo=String(d.getMonth()+1).padStart(2,'0');
+  var mode=document.getElementById('timeAxis').value;
+  if(mode==='ddmm')  return dd+'/'+mo;
+  if(mode==='ddhhmm')return dd+'/'+mo+' '+hh+':'+mm;
+  if(mode==='hhmm')  return hh+':'+mm;
+  if(multiDay)       return dd+'/'+mo+' '+hh+':'+mm;
+  return hh+':'+mm;
+}
+
+function currentCountScopeLabel(){
+  var sensorDay=document.getElementById('dailyFile').value;
+  var rs232Day=document.getElementById('rs232DailyFile').value;
+  if(sensorDay&&rs232Day&&sensorDay===rs232Day)return sensorDay;
+  if(sensorDay)return 'Sensor '+sensorDay;
+  if(rs232Day)return 'RS232 '+rs232Day;
+  if(currentPreset==='live')return 'Live';
+  if(currentPreset==='8h')return '8h';
+  if(currentPreset==='day')return 'Day';
+  var period=document.getElementById('period').value;
+  if(period==='1h')return '1h';
+  if(period==='12h')return '12h';
+  if(period==='24h')return '24h';
+  return '';
+}
+
+function countLabelElementForChart(chart){
+  return null;
+}
+
+function setChartCenterBadge(chart,visibleCount,rawCount){
+  if(!chart)return;
+  chart._centerBadge=null;
+}
+
+function rawCountForChart(n,primaryKey){
+  var raw=Math.max(0,metricPointCount(primaryKey)||0);
+  var style=document.getElementById('chartStyle').value;
+  if(style==='dual'||style==='dualbar')raw=Math.max(raw,metricPointCount(getY2Key(primaryKey,n))||0);
+  return raw;
+}
+
+function applyCenterBadges(k1,a1,k2,a2,k3,a3){
+  setChartCenterBadge(chart1,a1.count||0,rawCountForChart(1,k1));
+  setChartCenterBadge(chart2,a2.count||0,rawCountForChart(2,k2));
+  setChartCenterBadge(chart3,a3.count||0,rawCountForChart(3,k3));
+}
+
+// ===== UPDATE CHART =====
+// Applies new data, style (line/dual/bar), gradient fill (V1), tension (V3),
+// point visibility (V4), day separators (V8) to an existing chart instance.
+function updChart(chart,metric,n){
+  if(!chart||!metric)return;
+  var style =document.getElementById('chartStyle').value;
+  var t     =TH[currentTheme];
+  var tens  =parseFloat(document.getElementById('lineTension').value)||0.3;
+  var pRad  =parseInt(document.getElementById('pointVis').value)||0;
+  var pHov  =Math.max(pRad+3,5);
+  var isBar    =(style==='bar');
+  var isDualBar =(style==='dualbar');
+  var mkey=metric.key;
+
+  var rawLbl=metric.labels||[];
+  var rawTs =metric.timestamps||[];
+
+  // V8: detect day boundaries for the separator plugin
+  chart._dayBreaks=[];
+  if(rawTs.length>1){
+    var prevDate=null;
+    rawTs.forEach(function(ts,i){
+      var d=new Date(ts*1000);
+      var ds=d.getDate()+'/'+(d.getMonth()+1);
+      if(prevDate!==null&&prevDate!==ds)chart._dayBreaks.push({idx:i,label:ds});
+      prevDate=ds;
+    });
+  }
+
+  var multiDay=false;
+  if(rawTs.length>1){var span=rawTs[rawTs.length-1]-rawTs[0];multiDay=(span>23*3600)&&(document.getElementById('timeAxis').value==='auto');}
+  var labels=(rawTs.length>0)?rawTs.map(function(ts,i){return fmtTs(ts,rawLbl[i],multiDay);}):rawLbl;
+
+  var pm=metric.meta;
+  var primData=(metric.values||[]).slice();
+
+  // Pad the x-axis to the declared range so the timeline is always anchored
+  var _padFront=false,_padBack=false;
+  if(rangeStartTs>0&&rawTs.length>0&&rawTs[0]>rangeStartTs+60){
+    labels.unshift(fmtTs(rangeStartTs,'',multiDay));primData.unshift(null);_padFront=true;
+    if(chart._dayBreaks.length>0)chart._dayBreaks.forEach(function(b){b.idx++;});
+  }
+  if(rangeEndTs>0&&rawTs.length>0&&rawTs[rawTs.length-1]<rangeEndTs-60){
+    labels.push(fmtTs(rangeEndTs,'',multiDay));primData.push(null);_padBack=true;
+  }
+
+  // V1: Create gradient from canvas context
+  var gCtx=chart.canvas.getContext('2d');
+  var h=chart.canvas.offsetHeight||chart.canvas.clientHeight||280;
+  var grad=mkGradient(gCtx,pm.color,h);
+
+  chart.data.labels=labels;
+  chart.options.animation={duration:400,easing:'easeOutQuart'};
+
+  if(style==='dual'){
+    var y2key=getY2Key(mkey,n);
+    var secMetric=getMetricAdapter(y2key,true);
+    var visibleCount=Math.max(metric.count||0,secMetric.count||0);
+    var sm=secMetric.meta;
+    var smColor=sm.color;
+    var secData=(secMetric.values||[]).slice();
+    if(_padFront)secData.unshift(null);if(_padBack)secData.push(null);
+    var gradS=mkGradient(gCtx,smColor,h);
+    // Zero-split scale: auto-detect negatives per axis; y2 grid stays hidden
+    var yp1=hasNeg(primData)?yPadNeg(primData,true,t.grid):yPad(primData);
+    var yp2=hasNeg(secData)?yPadNeg(secData,false):yPad(secData);
+    chart.config.type='line';
+    chart.data.datasets=[
+      {label:pm.lbl+' ('+pm.sym+')',data:primData,borderColor:pm.color,backgroundColor:grad,tension:tens,fill:true,pointRadius:pRad,pointHoverRadius:pHov,borderWidth:2,yAxisID:'y'},
+      {label:sm.lbl+' ('+sm.sym+')',data:secData, borderColor:smColor,backgroundColor:gradS,tension:tens,fill:true,pointRadius:pRad,pointHoverRadius:pHov,borderWidth:2,yAxisID:'y2'}
+    ];
+    chart.options.scales={
+      x:{ticks:{color:t.tick,maxRotation:45,autoSkip:true,maxTicksLimit:12},grid:{color:t.grid}},
+      y: Object.assign({type:'linear',position:'left', ticks:{color:pm.color},grid:{color:t.grid},title:{display:true,text:pm.lbl+' ('+pm.sym+')',color:pm.color}},yp1),
+      y2:Object.assign({type:'linear',position:'right',ticks:{color:smColor},grid:{display:false},title:{display:true,text:sm.lbl+' ('+sm.sym+')',color:smColor}},yp2)
+    };
+    chart.options.plugins.legend.labels.color=t.tick;
+    setChartCenterBadge(chart,visibleCount,visibleCount);
+    chart.update();
+    updStats(n,primData,pm,secData,sm,smColor);
+  } else if(isDualBar){
+    var y2key=getY2Key(mkey,n);
+    var secMetric=getMetricAdapter(y2key,true);
+    var visibleCount=Math.max(metric.count||0,secMetric.count||0);
+    var sm=secMetric.meta;
+    var smColor=sm.color;
+    var secData=(secMetric.values||[]).slice();
+    if(_padFront)secData.unshift(null);if(_padBack)secData.push(null);
+    // Zero-split scale for bars: auto-detect negatives per axis
+    var yp1=hasNeg(primData)?yPadNeg(primData,true,t.grid):yPad(primData);
+    var yp2=hasNeg(secData)?yPadNeg(secData,false):yPad(secData);
+    chart.config.type='bar';
+    chart.data.datasets=[
+      {label:pm.lbl+' ('+pm.sym+')',data:primData,backgroundColor:pm.color+'bb',borderColor:pm.color,borderWidth:1,borderRadius:3,borderSkipped:false,yAxisID:'y'},
+      {label:sm.lbl+' ('+sm.sym+')',data:secData, backgroundColor:smColor+'bb',borderColor:smColor,borderWidth:1,borderRadius:3,borderSkipped:false,yAxisID:'y2'}
+    ];
+    chart.options.scales={
+      x:{ticks:{color:t.tick,maxRotation:45,autoSkip:true,maxTicksLimit:12},grid:{color:t.grid}},
+      y: Object.assign({type:'linear',position:'left', ticks:{color:pm.color},grid:{color:t.grid},title:{display:true,text:pm.lbl+' ('+pm.sym+')',color:pm.color}},yp1),
+      y2:Object.assign({type:'linear',position:'right',ticks:{color:smColor},grid:{display:false},title:{display:true,text:sm.lbl+' ('+sm.sym+')',color:smColor}},yp2)
+    };
+    chart.options.plugins.legend.labels.color=t.tick;
+    setChartCenterBadge(chart,visibleCount,visibleCount);
+    chart.update();
+    updStats(n,primData,pm,secData,sm,smColor);
+  } else if(isBar){
+    var visibleCount=metric.count||0;
+    var yp=hasNeg(primData)?yPadNeg(primData,true,t.grid):yPad(primData);
+    chart.config.type='bar';
+    chart.data.datasets=[{
+      label:pm.lbl+' ('+pm.sym+')',data:primData,
+      backgroundColor:pm.color+'bb',borderColor:pm.color,
+      borderWidth:1,borderRadius:3,borderSkipped:false
+    }];
+    chart.options.scales=Object.assign({
+      x:{ticks:{color:t.tick,maxRotation:45,autoSkip:true,maxTicksLimit:12},grid:{color:t.grid}},
+      y:{type:'linear',ticks:{color:pm.color},grid:{color:t.grid}}
+    },{y:Object.assign({type:'linear',ticks:{color:pm.color},grid:{color:t.grid}},yp)});
+    chart.options.plugins.legend.labels.color=t.tick;
+    setChartCenterBadge(chart,visibleCount,visibleCount);
+    chart.update();
+    updStats(n,primData,pm,null,null,null);
+  } else {
+    var visibleCount=metric.count||0;
+    var yp=hasNeg(primData)?yPadNeg(primData,true,t.grid):yPad(primData);
+    chart.config.type='line';
+    chart.data.datasets=[{label:pm.lbl+' ('+pm.sym+')',data:primData,borderColor:pm.color,backgroundColor:grad,tension:tens,fill:true,pointRadius:pRad,pointHoverRadius:pHov,borderWidth:2}];
+    chart.options.scales=Object.assign({
+      x:{ticks:{color:t.tick,maxRotation:45,autoSkip:true,maxTicksLimit:12},grid:{color:t.grid}},
+      y:{type:'linear',ticks:{color:pm.color},grid:{color:t.grid}}
+    },{y:Object.assign({type:'linear',ticks:{color:pm.color},grid:{color:t.grid}},yp)});
+    chart.options.plugins.legend.labels.color=t.tick;
+    setChartCenterBadge(chart,visibleCount,visibleCount);
+    chart.update();
+    updStats(n,primData,pm,null,null,null);
+  }
+}
+
+// ===== STATS =====
+function calcSt(arr){
+  var v=numericSeries(arr);
+  if(!v.length)return null;
+  var mn=Math.min.apply(null,v),mx=Math.max.apply(null,v),av=v.reduce(function(a,b){return a+b;},0)/v.length;
+  return {min:mn.toFixed(2),max:mx.toFixed(2),avg:av.toFixed(2),cur:v[v.length-1].toFixed(2)};
+}
+
+function calcAdv(arr){
+  var v=numericSeries(arr).slice().sort(function(a,b){return a-b;});
+  if(!v.length)return null;
+  var n=v.length,med=n%2?v[Math.floor(n/2)]:(v[n/2-1]+v[n/2])/2;
+  var avg=v.reduce(function(a,b){return a+b;},0)/n;
+  var variance=v.reduce(function(s,x){return s+Math.pow(x-avg,2);},0)/n;
+  var std=Math.sqrt(variance);
+  var p25=v[Math.floor(n*0.25)],p75=v[Math.floor(n*0.75)];
+  return {med:med.toFixed(2),std:std.toFixed(2),p25:p25.toFixed(2),p75:p75.toFixed(2)};
+}
+
+function togAdv(n){
+  var x=document.getElementById('sr'+n+'x'),y=document.getElementById('sr'+n+'y');
+  x.classList.toggle('show');
+  if(y)y.classList.toggle('show');
+}
+
+// V7 + F9: Update stat row with per-metric color on current value + trend arrow
+function setStatRow(n,ab,data,met,col,isDual){
+  var p=calcSt(data||[]);
+  var u=met?met.sym:'';
+  var c=col||'#94a3b8';
+  var ids=['m','M','a','c'];
+  var vals=p?[p.min,p.max,p.avg,p.cur]:['--','--','--','--'];
+  ids.forEach(function(k,i){
+    var el=document.getElementById('s'+n+ab+k);
+    if(!el)return;
+    el.textContent=(p?vals[i]+' '+u:'--');
+    if(k==='c'&&p){
+      // V7: highlight current value with metric-contextual color
+      el.className='sval sval-live';
+      var liveCol=metricColor(met?met.unit==='C'?'temp':met.lbl.toLowerCase():'',(p?p.cur:''));
+      if(met&&met.lbl){
+        var lk=met.lbl.toLowerCase();
+        if(lk.indexOf('humidade')!==-1||lk.indexOf('humid')!==-1)liveCol=metricColor('humidity',p.cur);
+        else if(lk.indexOf('press')!==-1)liveCol=metricColor('pressure',p.cur);
+        else if(met.unit==='C')liveCol=metricColor('temp',p.cur);
+        else liveCol=c;
+      }
+      el.style.color=liveCol;
+      // F9: append trend arrow
+      var trend=calcTrend(data||[]);
+      var tCls=trend==='↑'?'up':trend==='↓'?'dn':'eq';
+      el.textContent=vals[i]+' '+u;
+      var sp=document.createElement('span');
+      sp.className='trarr '+tCls;
+      sp.textContent=' '+trend;
+      el.appendChild(sp);
+    } else {
+      el.className='sval';
+      el.style.color=c;
+    }
+  });
+  var nl=document.getElementById('sn'+n+ab);
+  if(nl){nl.textContent=isDual?(met?met.lbl:''):'';nl.style.color=c;}
+  var row=document.getElementById('sr'+n+ab);
+  if(row)row.style.display=(ab==='b'&&!isDual)?'none':'';
+
+  var adv=calcAdv(data||[]);
+  var xy=ab==='a'?'x':'y';
+  var advIds=['med','std','p25','p75'];
+  var advVals=adv?[adv.med,adv.std,adv.p25,adv.p75]:['--','--','--','--'];
+  advIds.forEach(function(k,i){
+    var el=document.getElementById('s'+n+xy+k);
+    if(el){el.textContent=(adv?advVals[i]+' '+u:'--');el.style.color=c;}
+  });
+}
+
+function updStats(n,dA,mA,dB,mB,colB){
+  var isDual=(dB!==null&&dB!==undefined);
+  setStatRow(n,'a',dA,mA,mA?mA.color:'#94a3b8',isDual);
+  setStatRow(n,'b',dB,mB,colB,isDual);
+}
+
+// ===== PREFERENCES =====
+function savePref(){
+  try{
+    localStorage.setItem('scv3',JSON.stringify({
+      pr:document.getElementById('period').value,
+      mv:document.getElementById('maxVisiblePoints').value,
+      ta:document.getElementById('timeAxis').value,
+      ps:document.getElementById('pointStride').value,
+      c1:document.getElementById('chart1Type').value,
+      c2:document.getElementById('chart2Type').value,
+      c3:document.getElementById('chart3Type').value,
+      c1y2:document.getElementById('chart1Type2').value,
+      c2y2:document.getElementById('chart2Type2').value,
+      c3y2:document.getElementById('chart3Type2').value,
+      cs:document.getElementById('chartStyle').value,
+      yr:document.getElementById('yRange').value,
+      th:document.getElementById('themeSelect').value,
+      df:document.getElementById('dailyFile').value,
+      lt:document.getElementById('lineTension').value,
+      pv:document.getElementById('pointVis').value,
+      rdf:document.getElementById('rs232DailyFile').value,
+      mdf:document.getElementById('modbusDailyFile').value,
+      pdf:document.getElementById('proxDailyFile').value,
+      h1:chartHeights[1],h2:chartHeights[2],h3:chartHeights[3],
+      cp:currentPreset,
+      psa:pointStrideAuto
+    }));
+  }catch(e){}
+}
+
+function loadPref(){
+  try{
+    var p=JSON.parse(localStorage.getItem('scv3')||'{}');
+    function sv(id,v){var el=document.getElementById(id);if(el&&v!==undefined)try{el.value=v;}catch(e){}}
+    var savedStyle=(p.cs==='scatter'||p.cs==='histogram')?'dual':p.cs;
+    var savedPreset=(p.cp==='stats')?'day':p.cp;
+    sv('period',p.pr);
+    sv('maxVisiblePoints',p.mv);sv('timeAxis',p.ta);sv('pointStride',p.ps);
+    sv('chart1Type',p.c1);sv('chart2Type',p.c2);sv('chart3Type',p.c3);
+    if(p.c1y2)sv('chart1Type2',p.c1y2);
+    if(p.c2y2)sv('chart2Type2',p.c2y2);
+    if(p.c3y2)sv('chart3Type2',p.c3y2);
+    sv('chartStyle',savedStyle);sv('yRange',p.yr);
+    sv('lineTension',p.lt);sv('pointVis',p.pv);
+    if(p.h1)chartHeights[1]=p.h1;
+    if(p.h2)chartHeights[2]=p.h2;
+    if(p.h3)chartHeights[3]=p.h3;
+    if(p.th){sv('themeSelect',p.th);setTheme(p.th);}
+    if(typeof p.psa==='boolean')pointStrideAuto=p.psa;
+    else if(p.ps!==undefined)pointStrideAuto=false;
+    if(savedPreset)currentPreset=savedPreset;
+    if(!p.cp && !p.df && !p.rdf && !p.mdf){currentPreset='live';sv('period','1h');}
+    syncDualSelectors(); // Show/hide Y2 selects based on restored style
+  }catch(e){}
+}
+
+// ===== PRESETS =====
+var currentPreset='live';
+var rangeStartTs=0; // intended range start (epoch s, 0=no anchor)
+var rangeEndTs  =0; // intended range end   (epoch s, 0=no anchor)
+var bypassLocalCacheOnce=false;
+function applyPreset(p){
+  currentPreset=p;
+  pointStrideAuto=true;
+  var now=Math.floor(Date.now()/1000);
+  var period=document.getElementById('period'),pts=document.getElementById('maxVisiblePoints'),st=document.getElementById('pointStride');
+  var chartStyle=document.getElementById('chartStyle');
+  var yRange=document.getElementById('yRange');
+  var timeAxis=document.getElementById('timeAxis');
+  var lineTension=document.getElementById('lineTension');
+  var pointVis=document.getElementById('pointVis');
+  // Set per-preset display cap matching server resolution to avoid heavy renders
+  var ptsCap={live:'72','8h':'96',day:'144'};
+  pts.value=ptsCap[p]||'96'; st.value='1';
+  if(p==='day'){
+    period.value='24h';
+    var d=new Date(); d.setHours(0,0,0,0);
+    rangeStartTs=Math.floor(d.getTime()/1000);
+    rangeEndTs=now;
+  }
+  if(p==='8h'){
+    period.value='12h';
+    rangeStartTs=now-28800;
+    rangeEndTs=now;
+  }
+  if(p==='live'){
+    period.value='1h';
+    rangeStartTs=now-3600;
+    rangeEndTs=now;
+  }
+  document.getElementById('dailyFile').value='';
+  document.getElementById('rs232DailyFile').value='';
+  period.disabled=false;
+  syncDualSelectors();
+  updateViewInfo();
+  savePref();refreshCharts();
+}
+
+function syncPeriodLockFromPickers(){
+  var sensorDay=document.getElementById('dailyFile').value;
+  var rs232Day=document.getElementById('rs232DailyFile').value;
+  var proxDay=document.getElementById('proxDailyFile').value;
+  document.getElementById('period').disabled=(sensorDay!==''||rs232Day!==''||proxDay!=='');
+}
+
+function syncPresetRange(){
+  var now=Math.floor(Date.now()/1000);
+  if(currentPreset==='live'){
+    document.getElementById('period').value='1h';
+    rangeStartTs=now-3600;
+    rangeEndTs=now;
+  } else if(currentPreset==='8h'){
+    document.getElementById('period').value='12h';
+    rangeStartTs=now-28800;
+    rangeEndTs=now;
+  } else if(currentPreset==='day' && !document.getElementById('dailyFile').value && !document.getElementById('rs232DailyFile').value && !document.getElementById('modbusDailyFile').value && !document.getElementById('proxDailyFile').value){
+    document.getElementById('period').value='24h';
+    var d=new Date(); d.setHours(0,0,0,0);
+    rangeStartTs=Math.floor(d.getTime()/1000);
+    rangeEndTs=now;
+  }
+}
+
+function formatViewWindowLabel(){
+  var sensorDay=document.getElementById('dailyFile').value;
+  var rs232Day=document.getElementById('rs232DailyFile').value;
+  var modbusDay=document.getElementById('modbusDailyFile').value;
+  var proxDay=document.getElementById('proxDailyFile').value;
+  if(currentPreset==='live' && !sensorDay && !rs232Day && !modbusDay && !proxDay)return 'Now: Live, last hour';
+  if(currentPreset==='8h' && !sensorDay && !rs232Day && !modbusDay && !proxDay)return 'Now: 8h, last 8 hours';
+  if(currentPreset==='day' && !sensorDay && !rs232Day && !modbusDay && !proxDay)return 'Now: Day, 00:00 to now';
+  if(sensorDay)return 'Now: Sensor SD ' + sensorDay;
+  if(rs232Day)return 'Now: RS232 SD ' + rs232Day;
+  if(modbusDay)return 'Now: Modbus SD ' + modbusDay;
+  if(proxDay)return 'Now: Proximity SD ' + proxDay;
+  var period=document.getElementById('period').value;
+  if(period==='1h')return 'Now: last hour';
+  if(period==='12h')return 'Now: last 12 hours';
+  if(period==='24h')return 'Now: last 24 hours';
+  return 'Now: current interval';
+}
+
+function updateViewInfo(){
+  var el=document.getElementById('viewInfo');
+  if(el)el.textContent=formatViewWindowLabel();
+}
+
+function chartCacheTtlMs(){
+  if(currentPreset==='live')return 120000;
+  if(currentPreset==='8h')return 300000;
+  return 900000;
+}
+
+function currentMinuteCacheBucket(){
+  return Math.floor(Date.now()/60000);
+}
+
+// ===== PRODUCTION-DAY WINDOW (shift boundary) =====
+// The "Day" preset covers the current production day. When a shift boundary
+// (>0, e.g. 22h on the Waveshare) is configured, the production day starts at
+// the boundary hour on the PREVIOUS calendar date, so the day view must fetch
+// both that previous-date tail and the aligned date — a single from=midnight
+// request on the aligned file never contains yesterday 22:00-24:00. Sensors
+// (temp/humidity) keep the plain calendar-day window; only RS232/Modbus/
+// Proximity use the production-day merge.
+var _dayBoundary = 0;            // shift boundary in hours; 0 = calendar day (legacy)
+var _dayBoundaryLoading = null;  // memoized shift-config fetch
+
+function prodDayBoundary(shiftCfg) {
+  if (!shiftCfg || !shiftCfg.en) return 0;
+  var slots = shiftCfg.slots || [];
+  if (!slots.length) return 0;
+  var last = 0;
+  for (var i = 0; i < slots.length; i++) {
+    var h = slots[i].h || 0;
+    if (h === 0) return 0;
+    if (h > last) last = h;
+  }
+  return last;
+}
+function prodDayDates(now, boundary) {
+  var aligned = new Date(now.getTime());
+  if (boundary > 0 && now.getHours() >= boundary) aligned.setDate(aligned.getDate() + 1);
+  var prev = new Date(aligned.getTime());
+  prev.setDate(prev.getDate() - 1);
+  return { aligned: aligned, prev: prev };
+}
+function dayBoundaryTs(dateObj, boundary) {
+  var d = new Date(dateObj.getTime());
+  d.setHours(boundary, 0, 0, 0);
+  return Math.floor(d.getTime() / 1000);
+}
+function _fmtDate(d) {
+  var dd = d.getDate().toString().padStart(2, '0');
+  var mm = (d.getMonth() + 1).toString().padStart(2, '0');
+  return dd + '-' + mm + '-' + d.getFullYear();
+}
+
+// Returns the production-day boundary (0 = none/legacy), fetched once from the
+// shift config. Degrades to 0 on failure so the page stays usable on boards
+// where proximity (and the endpoint) is not compiled.
+function ensureDayBoundary() {
+  if (_dayBoundaryLoading) return _dayBoundaryLoading;
+  _dayBoundaryLoading = fetchChartJson('/api/proximity/shift-config', null, 1)
+    .then(function(s) { _dayBoundary = prodDayBoundary(s || null); return _dayBoundary; })
+    .catch(function() { _dayBoundary = 0; return 0; });
+  return _dayBoundaryLoading;
+}
+
+// Fetch the prev-date tail and aligned-date head of the current production day
+// and merge them chronologically (prev first) into one time-series object.
+// Returns {data, keyUrl} on success (cached by keyUrl), or null when there is
+// no boundary or nothing usable was fetched (caller falls back to the legacy
+// calendar-day request). Fetches are sequential: the chart-data routes are
+// rate-limited (~1 request/s) on the WiFi path.
+async function dayProdData(baseUrl, cacheKey, label) {
+  var B = await ensureDayBoundary();
+  if (!B) return null;
+  var now = new Date();
+  var dates = prodDayDates(now, B);
+  var prevStr = _fmtDate(dates.prev), alignedStr = _fmtDate(dates.aligned);
+  var keyUrl = baseUrl + '?pd=1&b=' + B + '&p=' + prevStr + '&a=' + alignedStr + '&_now=' + currentMinuteCacheBucket();
+  var cached = readLocalChartCache(cacheKey, keyUrl);
+  if (cached) return { data: cached, keyUrl: keyUrl };
+  showStsLoading((label ? label : 'Receiving') + ' data\u2026');
+  var prevSeg = null, alignedSeg = null;
+  try { prevSeg = await fetchChartJson(baseUrl + '?date=' + prevStr + '&mode=day&from=' + dayBoundaryTs(dates.prev, B), null, 2); } catch (e) {}
+  try { alignedSeg = await fetchChartJson(baseUrl + '?date=' + alignedStr + '&mode=day', null, 2); } catch (e) {}
+  var merged = null;
+  function take(d) { if (d && d.count > 0) merged = d; }
+  take(prevSeg);
+  if (alignedSeg && alignedSeg.count > 0) {
+    if (merged) _mergeData(merged, alignedSeg);
+    else merged = alignedSeg;
+  }
+  if (!merged) return null;
+  writeLocalChartCache(cacheKey, keyUrl, merged);
+  return { data: merged, keyUrl: keyUrl };
+}
+
+function clearLocalChartCache(){
+  try{
+    localStorage.removeItem('scv3_sensor_cache');
+    localStorage.removeItem('scv3_rs232_cache');
+    localStorage.removeItem('scv3_modbus_cache');
+    localStorage.removeItem('scv3_proximity_cache');
+    showSts('Local cache cleared',true);
+  }catch(e){showSts('Error clearing cache',false);}
+}
+
+async function forceFreshData(){
+  bypassLocalCacheOnce=true;
+  showSts('Refreshing without local cache...',true);
+  await refreshCharts();
+}
+
+function readLocalChartCache(key,url){
+  try{
+    if(bypassLocalCacheOnce)return null;
+    var raw=localStorage.getItem(key);
+    if(!raw)return null;
+    var payload=JSON.parse(raw);
+    if(!payload||payload.url!==url||!payload.data)return null;
+    if((Date.now()-(payload.ts||0))>chartCacheTtlMs())return null;
+    return payload.data;
+  }catch(e){return null;}
+}
+
+function writeLocalChartCache(key,url,data){
+  try{
+    if(!data)return;
+    localStorage.setItem(key,JSON.stringify({ts:Date.now(),url:url,data:data}));
+  }catch(e){}
+}
+
+function readLocalChartCacheFallback(key,url){
+  try{
+    var raw=localStorage.getItem(key);
+    if(!raw)return null;
+    var payload=JSON.parse(raw);
+    if(!payload||payload.url!==url||!payload.data)return null;
+    return payload.data;
+  }catch(e){return null;}
+}
+
+function waitChartRetry(ms){
+  return new Promise(function(resolve){setTimeout(resolve,ms);});
+}
+
+function isRetryableChartStatus(status){
+  return status===429||status===503;
+}
+
+async function fetchChartJson(url,options,retries){
+  var attempt=0;
+  var maxRetries=(typeof retries==='number')?retries:2;
+  while(attempt<=maxRetries){
+    try{
+      if(!options) options = {};
+      if(!options.cache && !options.method) options.cache = 'no-store';
+      var response=await fetch(url,options);
+      if(response.ok)return await response.json();
+
+      var payload=null;
+      var contentType=response.headers.get('content-type')||'';
+      if(contentType.indexOf('application/json')>=0){
+        try{payload=await response.json();}catch(e){}
+      }
+
+      var retryMs=0;
+      var retryAfter=response.headers.get('Retry-After');
+      if(retryAfter){
+        var retrySec=parseInt(retryAfter,10);
+        if(retrySec>0)retryMs=retrySec*1000;
+      }
+      if(payload&&payload.retry_ms)retryMs=Math.max(retryMs,parseInt(payload.retry_ms,10)||0);
+
+      if(isRetryableChartStatus(response.status)&&attempt<maxRetries){
+        if(!retryMs)retryMs=response.status===429?1000:(1500*(attempt+1));
+        showSts('Server busy, retrying...',true);
+        await waitChartRetry(retryMs);
+        attempt++;
+        continue;
+      }
+
+      throw new Error(payload&&payload.message?payload.message:('HTTP '+response.status));
+    }catch(e){
+      if(attempt<maxRetries){
+        await waitChartRetry(1000*(attempt+1));
+        attempt++;
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new Error('HTTP busy');
+}
+
+// ===== LOAD DATA =====
+async function loadData(){
+  try{
+    syncPresetRange();
+    var df=document.getElementById('dailyFile').value;
+    var url;
+    if(df){
+      // Manual daily file selection: load that specific SD file
+      url='/api/sensor-history-file?date='+encodeURIComponent(df);
+    } else if(currentPreset==='day'){
+      // Day preset means from today's midnight until now.
+      // Use the RAM endpoint with midnight anchor so the backend can still fall back
+      // to the daily archive after reboot, while the browser cache stays fresh each minute.
+      var dayFromTs=Math.max(0,rangeStartTs||0);
+      url='/api/sensor-history?from='+encodeURIComponent(String(dayFromTs))+
+          '&_now='+encodeURIComponent(String(currentMinuteCacheBucket()));
+    } else if(currentPreset==='live'||currentPreset==='8h'){
+      // Live and 8h use the in-memory history buffer to avoid heavy SD reads.
+      // This is much lighter on the ESP32 and still covers the normal monitoring case.
+      var fromTs=Math.max(0,rangeStartTs||0);
+      url='/api/sensor-history?from='+encodeURIComponent(String(fromTs));
+    } else {
+      // Manual period selector (no preset active): read from RAM buffer
+      var period=document.getElementById('period').value;
+      url='/api/sensor-history?period='+period;
+    }
+    var cached=readLocalChartCache('scv3_sensor_cache',url);
+    if(cached){cachedData=cached;return cachedData;}
+    showStsLoading((df?'Loading sensor SD file '+df:'Receiving sensor data')+'\u2026');
+    cachedData=await fetchChartJson(url,null,2);
+    writeLocalChartCache('scv3_sensor_cache',url,cachedData);
+    return cachedData;
+  }catch(e){
+    var fallback=readLocalChartCacheFallback('scv3_sensor_cache',url);
+    if(fallback){cachedData=fallback;showSts('Local cache loaded',true);return cachedData;}
+    showSts('Error: '+e.message,false);return null;
+  }
+}
+
+async function loadDailyFiles(){
+  try{
+    var files=await fetchChartJson('/api/sensor-history-files',null,2),sel=document.getElementById('dailyFile');
+    sel.innerHTML='<option value="">--</option>';
+    files.sort().reverse().forEach(function(d){var o=document.createElement('option');o.value=d;o.textContent='📅 '+d;sel.appendChild(o);});
+  }catch(e){}
+}
+
+async function loadRS232DailyFiles(){
+  try{
+    var files=await fetchChartJson('/api/rs232-history-files',null,2),sel=document.getElementById('rs232DailyFile');
+    if(!sel)return;
+    // Do not hide when empty: filterMetricsByCapabilities hides when module is not compiled.
+    if(!files||!files.length){return;}
+    sel.innerHTML='<option value="">--</option>';
+    files.sort().reverse().forEach(function(d){var o=document.createElement('option');o.value=d;o.textContent='📟 '+d;sel.appendChild(o);});
+  }catch(e){}
+}
+
+async function loadRS232Meta(selectedDate){
+  try{
+    var url='/api/rs232-cols';
+    if(selectedDate)url+='?date='+encodeURIComponent(selectedDate);
+    var d=await fetchChartJson(url,null,2);var n=d.cols||0;
+    rs232MetaDate=d.date||selectedDate||'';
+    var selIds=['chart1Type','chart2Type','chart3Type','chart1Type2','chart2Type2','chart3Type2'];
+    // Remove old rs232_col options (allows re-call)
+    selIds.forEach(function(id){
+      var sel=document.getElementById(id);if(!sel)return;
+      Array.from(sel.options).forEach(function(o){if(o.value.indexOf('rs232_col')===0)sel.removeChild(o);});
+    });
+    var RS232_COLORS=['#f97316','#a855f7','#14b8a6','#ec4899','#84cc16','#eab308','#6366f1','#f43f5e','#06b6d4','#10b981','#ef4444','#3b82f6'];
+    var colNames=Array.isArray(d.col_names)?d.col_names:[];
+    for(var i=1;i<=n;i++){
+      var key='rs232_col'+i;
+      var cname=colNames.length>=i?colNames[i-1]:null;
+      var lbl=cname||('RS232 Col '+i);
+      var title=cname||('RS232 Col '+i);
+      MET[key]={title:title,color:RS232_COLORS[(i-1)%RS232_COLORS.length],unit:'',sym:'',lbl:lbl};
+      EMOJI[key]='📟';
+      selIds.forEach(function(id){
+        var sel=document.getElementById(id);if(!sel)return;
+        var o=document.createElement('option');o.value=key;o.textContent='📟 '+title;sel.appendChild(o);
+      });
+    }
+  }catch(e){}
+}
+
+// Remove sensor metric options and fix defaults when sensor modules are not compiled.
+// Called once during init, after RS232 meta is loaded so RS232 cols are available.
+async function filterMetricsByCapabilities(){
+  try{
+    var r=await fetch('/api/chart-caps',{cache:'no-store'});if(!r.ok)return;
+    var caps=await r.json();
+    var selIds=['chart1Type','chart2Type','chart3Type','chart1Type2','chart2Type2','chart3Type2'];
+    // Hide SD/Env+Gas Day picker when neither ambient nor gas sensors are compiled.
+    if(!caps.sensors){
+      var sdCg=document.getElementById('sdFileCg');
+      if(sdCg)sdCg.style.display='none';
+    }
+    if(!caps.aht20){
+      // AHT20/BMP280 not compiled: remove fixed ambient metric options.
+      var sensorKeys=['temp','humidity','pressure','dew','heat','altitude'];
+      selIds.forEach(function(id){
+        var sel=document.getElementById(id);if(!sel)return;
+        Array.from(sel.options).forEach(function(o){
+          if(sensorKeys.indexOf(o.value)>=0)sel.removeChild(o);
+        });
+      });
+      // Set default selection to first available RS232 column or gas slot.
+      var rs1=document.getElementById('chart1Type');
+      var rs2=document.getElementById('chart2Type');
+      var rs3=document.getElementById('chart3Type');
+      function firstOption(sel){return sel&&sel.options.length>0?sel.options[0].value:null;}
+      function fixDefault(sel,preferredIdx){
+        if(!sel)return;
+        var isStillSensor=sensorKeys.indexOf(sel.value)>=0||sel.selectedIndex<0||sel.options.length===0;
+        if(!isStillSensor)return;
+        var target=null;
+        // Prefer RS232 cols, then any remaining option
+        var rs232Opts=Array.from(sel.options).filter(function(o){return o.value.indexOf('rs232_col')===0;});
+        if(rs232Opts.length>preferredIdx)target=rs232Opts[preferredIdx].value;
+        else if(rs232Opts.length>0)target=rs232Opts[0].value;
+        else{var first=firstOption(sel);if(first)target=first;}
+        if(target)sel.value=target;
+      }
+      fixDefault(rs1,0);fixDefault(rs2,1);fixDefault(rs3,2);
+      fixDefault(document.getElementById('chart1Type2'),1);
+      fixDefault(document.getElementById('chart2Type2'),2);
+      fixDefault(document.getElementById('chart3Type2'),0);
+    }
+    if(!caps.modbus){
+      // Modbus charts not compiled: hide the day picker and remove any injected mb_ options.
+      var mbCg=document.getElementById('modbusFileCg');
+      if(mbCg)mbCg.style.display='none';
+      selIds.forEach(function(id){
+        var sel=document.getElementById(id);if(!sel)return;
+        Array.from(sel.options).forEach(function(o){if(o.value.indexOf('mb_')===0)sel.removeChild(o);});
+      });
+    }
+    if(!caps.proximity){
+      // Proximity charts not compiled: hide the day picker and remove any injected prox_ options.
+      var prxCg=document.getElementById('proxFileCg');
+      if(prxCg)prxCg.style.display='none';
+      selIds.forEach(function(id){
+        var sel=document.getElementById(id);if(!sel)return;
+        Array.from(sel.options).forEach(function(o){if(o.value.indexOf('prox_ch')===0)sel.removeChild(o);});
+      });
+    }
+  }catch(e){}
+}
+
+async function ensureRS232Ready(){
+  var wantedDate='';
+  try{
+    var rsSel=document.getElementById('rs232DailyFile');
+    wantedDate=rsSel&&rsSel.value?rsSel.value:'';
+  }catch(e){}
+  if(rs232MetaLoaded && ((wantedDate && rs232MetaDate===wantedDate) || (!wantedDate && rs232MetaDate)))return true;
+  if(rs232LoadingPromise)return rs232LoadingPromise;
+  rs232LoadingPromise=(async function(){
+    await loadRS232Meta(wantedDate);
+    try{
+      var p=JSON.parse(localStorage.getItem('scv3')||'{}');
+      var keyMap={chart1Type:'c1',chart2Type:'c2',chart3Type:'c3',chart1Type2:'c1y2',chart2Type2:'c2y2',chart3Type2:'c3y2'};
+      Object.keys(keyMap).forEach(function(id){
+        var saved=p[keyMap[id]];
+        var sel=document.getElementById(id);
+        if(sel&&saved&&Array.from(sel.options).find(function(o){return o.value===saved;}))sel.value=saved;
+      });
+      await loadRS232DailyFiles();
+      // Restore selection: prefer wantedDate (value the user just picked, captured before
+      // loadRS232DailyFiles rebuilt the <select>), fall back to the last saved pref.
+      var restoreDate=wantedDate||p.rdf||'';
+      if(restoreDate){
+        var rs=document.getElementById('rs232DailyFile');
+        if(rs&&Array.from(rs.options).find(function(o){return o.value===restoreDate;})){
+          rs.value=restoreDate;
+          if(rs232MetaDate!==restoreDate)await loadRS232Meta(restoreDate);
+        }
+      }
+    }catch(e){}
+    rs232MetaLoaded=true;
+    rs232LoadingPromise=null;
+    return true;
+  })().catch(function(){rs232LoadingPromise=null;return false;});
+  return rs232LoadingPromise;
+}
+
+function requestRS232MetaSoon(){
+  if(rs232LoadingPromise)return;
+  ensureRS232Ready();
+}
+
+async function loadConfig(){
+  try{var r=await fetch('/api/sensor-config',{cache:'no-store'});if(!r.ok)return;var c=await r.json();seaLvl=c.sea_level_pressure_hpa||1013.25;}catch(e){}
+}
+
+async function loadSlotsMeta(){
+  try{
+    var r=await fetch('/api/sensor-slots',{cache:'no-store'});if(!r.ok)return;
+    var slots=await r.json();
+    extraSlotsMeta=slots;
+    // Remove previously injected extra options (allows re-call on refresh)
+    var selIds=['chart1Type','chart2Type','chart3Type','chart1Type2','chart2Type2','chart3Type2'];
+    selIds.forEach(function(id){
+      var sel=document.getElementById(id);if(!sel)return;
+      Array.from(sel.options).forEach(function(o){if(o.value.indexOf('extra_')===0)sel.removeChild(o);});
+    });
+    slots.forEach(function(s){
+      if(!s.enabled)return;
+      var key='extra_'+s.slot;
+      var col=EXTRA_COLORS[s.slot%EXTRA_COLORS.length];
+      var lbl=s.label||('Sensor '+s.slot);
+      var unt=s.unit||'';
+      // Register in MET so updChart, refreshCharts, etc. work transparently
+      MET[key]={title:lbl,color:col,unit:unt,sym:unt,lbl:lbl};
+      EMOJI[key]='📡';
+      // Inject <option> into all 3 metric selects
+      selIds.forEach(function(id){
+        var sel=document.getElementById(id);if(!sel)return;
+        var o=document.createElement('option');
+        o.value=key;
+        o.textContent='📡 '+lbl+(unt?' ('+unt+')':'');
+        sel.appendChild(o);
+      });
+    });
+    // Hide hardcoded options that belong to sensor modules that are currently disabled
+    try{
+      var rf=await fetch('/api/sensor-flags',{cache:'no-store'});
+      if(rf.ok){
+        var flags=await rf.json();
+        // AHT20/BMP280 module off: remove all environment metric options from the dropdowns
+        if(!flags.aht20_bmp280){
+          var ahtOpts=['temp','humidity','dew','heat','pressure','altitude'];
+          selIds.forEach(function(id){
+            var sel=document.getElementById(id);if(!sel)return;
+            Array.from(sel.options).forEach(function(o){
+              if(ahtOpts.indexOf(o.value)!==-1)sel.removeChild(o);
+            });
+            // If the previously selected value was removed, pick the first remaining option
+            if(!sel.value||ahtOpts.indexOf(sel.value)!==-1)sel.selectedIndex=0;
+          });
+        }
+      }
+    }catch(e){}
+  }catch(e){}
+}
+
+// ===== REFRESH =====
+async function loadRS232Data(){
+  syncPresetRange();
+  var date=document.getElementById('rs232DailyFile').value;
+  var url='/api/rs232-history';
+  if(date){
+    url+='?date='+encodeURIComponent(date);
+  } else if(currentPreset==='day'){
+    // Production-day merge (prev tail + aligned) when a shift boundary exists;
+    // otherwise the legacy calendar-day request below.
+    var pd=await dayProdData('/api/rs232-history','scv3_rs232_cache','RS232');
+    if(pd){cachedDataRS232=pd.data;return;}
+    url+='?from='+encodeURIComponent(String(Math.max(0,rangeStartTs||0)))+
+         '&_now='+encodeURIComponent(String(currentMinuteCacheBucket()));
+  } else if(currentPreset==='live'||currentPreset==='8h'){
+    url+='?from='+encodeURIComponent(String(Math.max(0,rangeStartTs||0)));
+  } else {
+    url+='?period='+encodeURIComponent(document.getElementById('period').value);
+  }
+  try{
+    var cached=readLocalChartCache('scv3_rs232_cache',url);
+    if(cached){cachedDataRS232=cached;return;}
+    showStsLoading((date?'Loading RS232 file '+date:'Receiving RS232 data')+'\u2026');
+    cachedDataRS232=await fetchChartJson(url,null,2);
+    writeLocalChartCache('scv3_rs232_cache',url,cachedDataRS232);
+  }catch(e){
+    var fallback=readLocalChartCacheFallback('scv3_rs232_cache',url);
+    cachedDataRS232=fallback||null;
+  }
+}
+async function loadModbusDailyFiles(){
+  try{
+    var files=await fetchChartJson('/api/modbus-chart-files',null,2),sel=document.getElementById('modbusDailyFile');
+    if(!sel)return;
+    // Do not hide when empty: filterMetricsByCapabilities hides when module is not compiled.
+    if(!files||!files.length){return;}
+    sel.innerHTML='<option value="">--</option>';
+    files.sort().reverse().forEach(function(d){var o=document.createElement('option');o.value=d;o.textContent='\uD83D\uDD0C '+d;sel.appendChild(o);});
+  }catch(e){}
+}
+
+async function loadModbusMeta(selectedDate){
+  try{
+    var url='/api/modbus-chart-cols';
+    if(selectedDate)url+='?date='+encodeURIComponent(selectedDate);
+    var d=await fetchChartJson(url,null,2);var n=d.cols||0;
+    modbusMetaDate=d.date||selectedDate||'';
+    var selIds=['chart1Type','chart2Type','chart3Type','chart1Type2','chart2Type2','chart3Type2'];
+    // Remove stale mb_ options to allow re-call when date changes.
+    selIds.forEach(function(id){
+      var sel=document.getElementById(id);if(!sel)return;
+      Array.from(sel.options).forEach(function(o){if(o.value.indexOf('mb_')===0)sel.removeChild(o);});
+    });
+    var MODBUS_COLORS=['#06b6d4','#84cc16','#f97316','#a855f7','#ec4899','#eab308','#6366f1','#f43f5e','#10b981','#ef4444','#3b82f6','#14b8a6'];
+    var colKeys=Array.isArray(d.col_names)?d.col_names:[];
+    for(var i=0;i<n;i++){
+      var key=colKeys.length>i?colKeys[i]:('mb_col'+(i+1));
+      // Human label: strip "mb_<digits>_" prefix for display
+      var lbl=key;
+      var mm=key.match(/^mb_\d+_(.+)$/);
+      if(mm)lbl=mm[1];
+      MET[key]={title:lbl,color:MODBUS_COLORS[i%MODBUS_COLORS.length],unit:'',sym:'',lbl:lbl};
+      EMOJI[key]='\uD83D\uDD0C';
+      selIds.forEach(function(id){
+        var sel=document.getElementById(id);if(!sel)return;
+        var o=document.createElement('option');o.value=key;o.textContent='\uD83D\uDD0C '+lbl;sel.appendChild(o);
+      });
+    }
+  }catch(e){}
+}
+
+async function ensureModbusReady(){
+  var wantedDate='';
+  try{
+    var mbSel=document.getElementById('modbusDailyFile');
+    wantedDate=mbSel&&mbSel.value?mbSel.value:'';
+  }catch(e){}
+  if(modbusMetaLoaded&&((wantedDate&&modbusMetaDate===wantedDate)||(!wantedDate&&modbusMetaDate)))return true;
+  if(modbusLoadingPromise)return modbusLoadingPromise;
+  modbusLoadingPromise=(async function(){
+    await loadModbusMeta(wantedDate);
+    try{
+      var p=JSON.parse(localStorage.getItem('scv3')||'{}');
+      var keyMap={chart1Type:'c1',chart2Type:'c2',chart3Type:'c3',chart1Type2:'c1y2',chart2Type2:'c2y2',chart3Type2:'c3y2'};
+      Object.keys(keyMap).forEach(function(id){
+        var saved=p[keyMap[id]];
+        var sel=document.getElementById(id);
+        if(sel&&saved&&Array.from(sel.options).find(function(o){return o.value===saved;}))sel.value=saved;
+      });
+      await loadModbusDailyFiles();
+      var restoreDate=wantedDate||p.mdf||'';
+      if(restoreDate){
+        var ms=document.getElementById('modbusDailyFile');
+        if(ms&&Array.from(ms.options).find(function(o){return o.value===restoreDate;})){
+          ms.value=restoreDate;
+          if(modbusMetaDate!==restoreDate)await loadModbusMeta(restoreDate);
+        }
+      }
+    }catch(e){}
+    modbusMetaLoaded=true;
+    modbusLoadingPromise=null;
+    return true;
+  })().catch(function(){modbusLoadingPromise=null;return false;});
+  return modbusLoadingPromise;
+}
+
+function requestModbusMetaSoon(){
+  if(modbusLoadingPromise)return;
+  ensureModbusReady();
+}
+
+// === Proximity chart helpers ===
+
+async function loadProximityDailyFiles(){
+  try{
+    var files=await fetchChartJson('/api/proximity-chart-files',null,1);
+    var cg=document.getElementById('proxFileCg');
+    if(!files||!files.length){if(cg)cg.style.display='none';return;}
+    if(cg)cg.style.display='';
+    var sel=document.getElementById('proxDailyFile');
+    var prevVal=sel.value;
+    sel.innerHTML='<option value="">--</option>';
+    // Sort descending (most recent first)
+    files.sort(function(a,b){return b>a?1:b<a?-1:0;});
+    files.forEach(function(f){var o=document.createElement('option');o.value=f;o.textContent=f;sel.appendChild(o);});
+    if(prevVal&&Array.from(sel.options).find(function(o){return o.value===prevVal;}))sel.value=prevVal;
+  }catch(e){var cg=document.getElementById('proxFileCg');if(cg)cg.style.display='none';}
+}
+
+async function loadProximityMeta(selectedDate){
+  try{
+    var url='/api/proximity-chart-cols'+(selectedDate?'?date='+encodeURIComponent(selectedDate):'');
+    var d=await fetchChartJson(url,null,1);
+    if(!d||!d.cols)return;
+    proximityMetaDate=d.date||selectedDate||'';
+    var PROX_COLORS=['#f97316','#3b82f6','#10b981','#a855f7','#f43f5e','#06b6d4','#84cc16','#eab308',
+                     '#f97316','#3b82f6','#10b981','#a855f7','#f43f5e','#06b6d4','#84cc16','#eab308',
+                     '#f97316','#3b82f6','#10b981','#a855f7','#f43f5e','#06b6d4','#84cc16','#eab308'];
+    var SELIDS=['chart1Type','chart2Type','chart3Type','chart1Type2','chart2Type2','chart3Type2'];
+    // Remove old prox_ options
+    SELIDS.forEach(function(id){
+      var sel=document.getElementById(id);if(!sel)return;
+      Array.from(sel.options).forEach(function(o){if(o.value.indexOf('prox_ch')===0)sel.removeChild(o);});
+    });
+    if(d.col_names&&d.col_names.length){
+      d.col_names.forEach(function(key,i){
+        var lbl=key;
+        SELIDS.forEach(function(id){
+          var sel=document.getElementById(id);if(!sel)return;
+          var o=document.createElement('option');o.value=key;o.textContent='\uD83D\uDD0D '+lbl;sel.appendChild(o);
+        });
+        MET[key]={title:lbl,color:PROX_COLORS[i%PROX_COLORS.length],unit:'',sym:'',lbl:lbl};
+      });
+    }
+  }catch(e){}
+}
+
+async function ensureProximityReady(){
+  var wantedDate='';
+  try{
+    var prxSel=document.getElementById('proxDailyFile');
+    wantedDate=prxSel&&prxSel.value?prxSel.value:'';
+  }catch(e){}
+  if(proximityMetaLoaded&&((wantedDate&&proximityMetaDate===wantedDate)||(!wantedDate&&proximityMetaDate)))return true;
+  if(proximityLoadingPromise)return proximityLoadingPromise;
+  proximityLoadingPromise=(async function(){
+    await loadProximityMeta(wantedDate);
+    try{
+      var p=JSON.parse(localStorage.getItem('scv3')||'{}');
+      var keyMap={chart1Type:'c1',chart2Type:'c2',chart3Type:'c3',chart1Type2:'c1y2',chart2Type2:'c2y2',chart3Type2:'c3y2'};
+      Object.keys(keyMap).forEach(function(id){
+        var saved=p[keyMap[id]];
+        var sel=document.getElementById(id);
+        if(sel&&saved&&Array.from(sel.options).find(function(o){return o.value===saved;}))sel.value=saved;
+      });
+      await loadProximityDailyFiles();
+      var restoreDate=wantedDate||p.pdf||'';
+      if(restoreDate){
+        var ps=document.getElementById('proxDailyFile');
+        if(ps&&Array.from(ps.options).find(function(o){return o.value===restoreDate;})){
+          ps.value=restoreDate;
+          if(proximityMetaDate!==restoreDate)await loadProximityMeta(restoreDate);
+        }
+      }
+    }catch(e){}
+    proximityMetaLoaded=true;
+    proximityLoadingPromise=null;
+    return true;
+  })().catch(function(){proximityLoadingPromise=null;return false;});
+  return proximityLoadingPromise;
+}
+
+function requestProximityMetaSoon(){
+  if(proximityLoadingPromise)return;
+  ensureProximityReady();
+}
+
+async function loadModbusData(){
+  syncPresetRange();
+  var date=document.getElementById('modbusDailyFile').value;
+  var url='/api/modbus-chart-data';
+  if(date){
+    url+='?date='+encodeURIComponent(date);
+  } else if(currentPreset==='day'){
+    var pd=await dayProdData('/api/modbus-chart-data','scv3_modbus_cache','Modbus');
+    if(pd){cachedDataModbus=pd.data;return;}
+    url+='?from='+encodeURIComponent(String(Math.max(0,rangeStartTs||0)))+
+         '&_now='+encodeURIComponent(String(currentMinuteCacheBucket()));
+  } else if(currentPreset==='live'||currentPreset==='8h'){
+    url+='?from='+encodeURIComponent(String(Math.max(0,rangeStartTs||0)));
+  } else {
+    url+='?mode=day';
+  }
+  try{
+    var cached=readLocalChartCache('scv3_modbus_cache',url);
+    if(cached){cachedDataModbus=cached;return;}
+    showStsLoading((date?'Loading Modbus file '+date:'Receiving Modbus data')+'\u2026');
+    cachedDataModbus=await fetchChartJson(url,null,2);
+    writeLocalChartCache('scv3_modbus_cache',url,cachedDataModbus);
+  }catch(e){
+    var fallback=readLocalChartCacheFallback('scv3_modbus_cache',url);
+    cachedDataModbus=fallback||null;
+  }
+}
+
+async function loadProximityData(){
+  syncPresetRange();
+  var date=document.getElementById('proxDailyFile').value;
+  var url='/api/proximity-chart-data';
+  if(date){
+    url+='?date='+encodeURIComponent(date);
+  } else if(currentPreset==='day'){
+    var pd=await dayProdData('/api/proximity-chart-data','scv3_proximity_cache','Proximity');
+    if(pd){cachedDataProximity=pd.data;return;}
+    url+='?from='+encodeURIComponent(String(Math.max(0,rangeStartTs||0)))+
+         '&_now='+encodeURIComponent(String(currentMinuteCacheBucket()));
+  } else if(currentPreset==='live'||currentPreset==='8h'){
+    url+='?from='+encodeURIComponent(String(Math.max(0,rangeStartTs||0)));
+  } else {
+    url+='?mode=day';
+  }
+  try{
+    var cached=readLocalChartCache('scv3_proximity_cache',url);
+    if(cached){cachedDataProximity=cached;return;}
+    showStsLoading((date?'Loading Proximity file '+date:'Receiving Proximity data')+'\u2026');
+    cachedDataProximity=await fetchChartJson(url,null,2);
+    writeLocalChartCache('scv3_proximity_cache',url,cachedDataProximity);
+  }catch(e){
+    var fallback=readLocalChartCacheFallback('scv3_proximity_cache',url);
+    cachedDataProximity=fallback||null;
+  }
+}
+
+async function refreshCharts(){
+  var bypassWasActive=bypassLocalCacheOnce;
+  showStsLoading('Updating charts\u2026');
+  try{
+  var style=document.getElementById('chartStyle').value;
+  var usesDual=(style==='dual'||style==='dualbar');
+  var t1=normalizeMetricSelection('chart1Type','temp');
+  var t2=normalizeMetricSelection('chart2Type','humidity');
+  var t3=normalizeMetricSelection('chart3Type','pressure');
+  var activeKeys=[t1,t2,t3];
+  if(usesDual){
+    activeKeys.push(normalizeMetricSelection('chart1Type2','humidity'));
+    activeKeys.push(normalizeMetricSelection('chart2Type2','temp'));
+    activeKeys.push(normalizeMetricSelection('chart3Type2','humidity'));
+  }
+  var needSensors=activeKeys.some(function(key){return !isRS232Metric(key)&&!isModbusMetric(key)&&!isProximityMetric(key);});
+  var needRS232=activeKeys.some(function(key){return isRS232Metric(key);});
+  var needModbus=activeKeys.some(function(key){return isModbusMetric(key);});
+  var needProximity=activeKeys.some(function(key){return isProximityMetric(key);});
+  var data=needSensors?await loadData():{};
+  if(needRS232){
+    var ok=await ensureRS232Ready();
+    if(ok){
+      var rsSel=document.getElementById('rs232DailyFile');
+      if((currentPreset==='day'||(rsSel&&rsSel.value)) && rsSel && rsSel.options.length<=1) await loadRS232DailyFiles();
+      await loadRS232Data();
+    }
+  }
+  if(needModbus){
+    var mbOk=await ensureModbusReady();
+    if(mbOk){
+      var mbSel=document.getElementById('modbusDailyFile');
+      if((currentPreset==='day'||(mbSel&&mbSel.value)) && mbSel && mbSel.options.length<=1) await loadModbusDailyFiles();
+      await loadModbusData();
+    }
+  }
+  if(needProximity){
+    var prxOk=await ensureProximityReady();
+    if(prxOk){
+      var prxSel=document.getElementById('proxDailyFile');
+      if((currentPreset==='day'||(prxSel&&prxSel.value)) && prxSel && prxSel.options.length<=1) await loadProximityDailyFiles();
+      await loadProximityData();
+    }
+  }
+  if(!data&&!needRS232&&!needModbus&&!needProximity)return;
+  if(!data)data={};
+  t1=ensureChartMetricWithData('chart1Type','temp');
+  t2=ensureChartMetricWithData('chart2Type','humidity');
+  t3=ensureChartMetricWithData('chart3Type','pressure');
+  var rawTotal=Math.max(metricPointCount(t1),metricPointCount(t2),metricPointCount(t3));
+  updateMaxVisibleOptions(rawTotal);
+  var a1=getMetricAdapter(t1,true);
+  var a2=getMetricAdapter(t2,true);
+  var a3=getMetricAdapter(t3,true);
+  // Keep range anchors in sync with the actual request time
+  if(currentPreset==='live'){var _rn=Math.floor(Date.now()/1000);rangeStartTs=_rn-3600;rangeEndTs=_rn;}
+  else if(currentPreset==='8h'){var _rn=Math.floor(Date.now()/1000);rangeStartTs=_rn-28800;rangeEndTs=_rn;}
+  else if(currentPreset==='day'){rangeEndTs=Math.floor(Date.now()/1000);}
+  // Auto-adapt stride only while in auto mode; manual selection must stay stable.
+  var _rpts=rawTotal;
+  if(pointStrideAuto&&_rpts>0)setPointStrideAutoValue(_rpts);
+  a1=getMetricAdapter(t1,true);
+  a2=getMetricAdapter(t2,true);
+  a3=getMetricAdapter(t3,true);
+  updChart(chart1,a1,1);
+  updChart(chart2,a2,2);
+  updChart(chart3,a3,3);
+  applyCenterBadges(t1,a1,t2,a2,t3,a3);
+  [chart1,chart2,chart3].forEach(function(c){if(c)c.update();});
+  var m1=a1.meta,m2=a2.meta,m3=a3.meta;
+  document.getElementById('ct1').innerHTML=(EMOJI[t1]||'')+' '+m1.title+'<span class=\"tip\" title=\"'+getTip(t1)+'\">?</span>';
+  document.getElementById('ct2').innerHTML=(EMOJI[t2]||'')+' '+m2.title+'<span class=\"tip\" title=\"'+getTip(t2)+'\">?</span>';
+  document.getElementById('ct3').innerHTML=(EMOJI[t3]||'')+' '+m3.title+'<span class=\"tip\" title=\"'+getTip(t3)+'\">?</span>';
+
+  var now=new Date(),h=String(now.getHours()).padStart(2,'0'),m=String(now.getMinutes()).padStart(2,'0'),s=String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('lastUpd').textContent='Updated at '+h+':'+m+':'+s;
+  updateViewInfo();
+
+  var stride=parseInt(document.getElementById('pointStride').value)||1;
+  var maxPts=parseInt(document.getElementById('maxVisiblePoints').value)||0;
+  var afterStride=Math.ceil(rawTotal/stride);
+  var visible=maxPts>0?Math.min(afterStride,maxPts):afterStride;
+  document.getElementById('ptCount').textContent='Data: '+visible+' of '+rawTotal+' total (stride '+stride+')';
+
+  showSts('Charts updated!',true);
+  } finally {
+    hideStsLoading();
+    if(bypassWasActive)bypassLocalCacheOnce=false;
+  }
+}
+
+function getTip(key){
+  var tips={
+    temp:'Average temperature (AHT20 + BMP280) measured by sensor',
+    humidity:'Relative humidity measured by AHT20 sensor',
+    pressure:'Atmospheric pressure measured by BMP280. Sea-level corrected.',
+    dew:'Dew point measured/calculated from temperature and humidity',
+    heat:'Heat index measured/calculated (above 27°C)',
+    altitude:'Estimated altitude based on atmospheric pressure'
+  };
+  // Extra sensor slot: return slot label + unit from metadata
+  if(key.indexOf('extra_')===0){
+    var idx=parseInt(key.replace('extra_',''));
+    var m=extraSlotsMeta.find(function(s){return s.slot===idx;});
+    if(m)return (m.label||key)+(m.unit?' ['+m.unit+']':'');
+  }
+  // RS232 column: use MET label which may contain a structure-aware column name
+  if(key.indexOf('rs232_col')===0){var m=MET[key];return 'RS232: '+(m&&m.title?m.title:'col '+key.replace('rs232_col',''));}
+  // Modbus column: human label from register name
+  if(key.indexOf('mb_')===0){var mm=MET[key];return 'Modbus: '+(mm&&mm.title?mm.title:key);}
+  // Proximity column: channel number + metric type (in/out/ppm)
+  if(key.indexOf('prox_ch')===0){var pm=MET[key];return 'Proximity: '+(pm&&pm.title?pm.title:key);}
+  return tips[key]||'Measurement metric';
+}
+
+// ===== EXPORT =====
+function exportCSV(){
+  function csvEscape(val){
+    var s=(val===null||val===undefined)?'':String(val);
+    if(/[",\n\r]/.test(s))return '"'+s.replace(/"/g,'""')+'"';
+    return s;
+  }
+  function fmtExportValue(val){
+    if(val===null||val===undefined||val==='')return '';
+    var n=Number(val);
+    if(Number.isFinite(n))return String(Number(n.toFixed(4)));
+    return String(val);
+  }
+  function buildColumnName(adapter,indexMap){
+    var base=adapter.meta.title||adapter.meta.lbl||adapter.key;
+    var unit=adapter.meta.sym||adapter.meta.unit||'';
+    var name=unit?base+' ('+unit+')':base;
+    indexMap[name]=(indexMap[name]||0)+1;
+    if(indexMap[name]>1)name+=' ['+adapter.key+']';
+    return name;
+  }
+  var selected=[
+    document.getElementById('chart1Type').value,
+    document.getElementById('chart2Type').value,
+    document.getElementById('chart3Type').value
+  ];
+  if(['dual','dualbar'].indexOf(document.getElementById('chartStyle').value)>=0){
+    selected.push(document.getElementById('chart1Type2').value);
+    selected.push(document.getElementById('chart2Type2').value);
+    selected.push(document.getElementById('chart3Type2').value);
+  }
+
+  var seenKeys={};
+  var adapters=selected.filter(function(k){
+    if(!k||seenKeys[k])return false;
+    seenKeys[k]=true;
+    return true;
+  }).map(function(k){return getMetricAdapter(k,true);}).filter(function(adapter){return adapter.values&&adapter.values.length;});
+  if(!adapters.length){showSts('No data',false);return;}
+
+  var rowMap={};
+  adapters.forEach(function(adapter){
+    var len=Math.max(adapter.values.length,adapter.timestamps.length,adapter.labels.length);
+    for(var i=0;i<len;i++){
+      var ts=(adapter.timestamps.length>i)?Number(adapter.timestamps[i]):NaN;
+      var lbl=(adapter.labels.length>i)?adapter.labels[i]:'';
+      var key=Number.isFinite(ts)?('ts:'+ts):('lbl:'+lbl+':'+i);
+      if(!rowMap[key]){
+        rowMap[key]={
+          _sort:Number.isFinite(ts)?ts:(1000000000+i),
+          _label:Number.isFinite(ts)?fmtTs(ts,lbl,false):(lbl||String(i+1))
+        };
+      }
+      rowMap[key][adapter.key]=(adapter.values.length>i)?adapter.values[i]:'';
+    }
+  });
+
+  var ordered=Object.keys(rowMap).sort(function(a,b){return rowMap[a]._sort-rowMap[b]._sort;});
+  var nameCount={};
+  var headers=['Date/Time'].concat(adapters.map(function(adapter){return buildColumnName(adapter,nameCount);}));
+  var csv=headers.map(csvEscape).join(',')+'\n';
+  ordered.forEach(function(rowKey){
+    var row=rowMap[rowKey];
+    var cols=[row._label||''];
+    adapters.forEach(function(adapter){cols.push(fmtExportValue(row[adapter.key]));});
+    csv+=cols.map(csvEscape).join(',')+'\n';
+  });
+
+  var hasRS232=adapters.some(function(adapter){return isRS232Metric(adapter.key);});
+  var hasModbus=adapters.some(function(adapter){return isModbusMetric(adapter.key);});
+  var hasProximity=adapters.some(function(adapter){return isProximityMetric(adapter.key);});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=((hasRS232||hasModbus||hasProximity)?'charts_mixed_':'sensor_')+Date.now()+'.csv';
+  a.click();
+  showSts('CSV exported!',true);
+}
+
+// F8: Export all 3 charts as a single tall PNG
+function saveAllCharts(){
+  if(!chart1||!chart2||!chart3){showSts('Charts not initialized',false);return;}
+  var c1=chart1.canvas,c2=chart2.canvas,c3=chart3.canvas;
+  var gap=12,padX=16,padY=16;
+  var w=Math.max(c1.width,c2.width,c3.width)+padX*2;
+  var h=c1.height+c2.height+c3.height+gap*2+padY*2+30; // +30 for title
+  var off=document.createElement('canvas');
+  off.width=w;off.height=h;
+  var ctx=off.getContext('2d');
+  // Background matching current theme
+  var bgColor=(currentTheme==='dark')?'#0f172a':'#f8fafc';
+  ctx.fillStyle=bgColor;
+  ctx.fillRect(0,0,w,h);
+  // Title
+  ctx.fillStyle=(currentTheme==='dark')?'#94a3b8':'#475569';
+  ctx.font='bold 13px Segoe UI,sans-serif';
+  ctx.textAlign='center';
+  var now=new Date();
+  ctx.fillText('Node32-HUB — Charts '+now.toLocaleDateString('en-GB')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'),w/2,padY-2);
+  // Draw charts vertically
+  var y=padY+14;
+  [c1,c2,c3].forEach(function(c){
+    var x=(w-c.width)/2;
+    ctx.drawImage(c,x,y);
+    y+=c.height+gap;
+  });
+  var a=document.createElement('a');
+  a.download='graficos_'+Date.now()+'.png';
+  a.href=off.toDataURL('image/png');
+  a.click();
+  showSts('PNG exported!',true);
+}
+
+// ===== STATUS =====
+var _st=null;
+function showSts(msg,ok){
+  var el=document.getElementById('sts');
+  el.innerHTML=(ok?'✅ ':'❌ ')+msg;
+  el.className=ok?'sok':'serr';el.style.display='block';
+  clearTimeout(_st);_st=setTimeout(function(){el.style.display='none';},3000);
+}
+var _stsLoadActive=false;
+function showStsLoading(msg){
+  clearTimeout(_st);
+  _stsLoadActive=true;
+  var el=document.getElementById('sts');
+  el.innerHTML='<span class="sload-spin">&#9696;</span>'+msg;
+  el.className='sload';el.style.display='block';
+}
+function hideStsLoading(){
+  if(!_stsLoadActive)return;
+  _stsLoadActive=false;
+  var el=document.getElementById('sts');
+  el.style.display='none';
+}
+
+// ===== RERENDER (no fetch) =====
+function rerender(){
+  var k1=document.getElementById('chart1Type').value;
+  var k2=document.getElementById('chart2Type').value;
+  var k3=document.getElementById('chart3Type').value;
+  var a1=getMetricAdapter(k1,true),a2=getMetricAdapter(k2,true),a3=getMetricAdapter(k3,true);
+  if(!a1.count&&!a2.count&&!a3.count){savePref();return;}
+  // Chart.js does not support in-place type changes — destroy and recreate each chart
+  if(chart1){chart1.destroy();chart1=mkChart('cv1',a1.meta.color);}
+  if(chart2){chart2.destroy();chart2=mkChart('cv2',a2.meta.color);}
+  if(chart3){chart3.destroy();chart3=mkChart('cv3',a3.meta.color);}
+  updChart(chart1,a1,1);
+  updChart(chart2,a2,2);
+  updChart(chart3,a3,3);
+  applyCenterBadges(k1,a1,k2,a2,k3,a3);
+  [chart1,chart2,chart3].forEach(function(c){if(c)c.update();});
+  savePref();
+}
+
+// V6: Toggle fullscreen for chart n
+function fsChart(n){
+  [1,2,3].forEach(function(i){
+    var box=document.getElementById('cbox'+i);
+    if(box)box.classList.remove('fullscreen');
+  });
+  if(fsActive===n){fsActive=0;}
+  else{
+    fsActive=n;
+    var box=document.getElementById('cbox'+n);
+    if(box)box.classList.add('fullscreen');
+    setTimeout(function(){
+      var c=[null,chart1,chart2,chart3][n];
+      if(c)c.resize();
+    },50);
+  }
+}
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'&&fsActive){fsChart(fsActive);}
+});
+
+// F10: Set chart height (compact/normal/tall) and persist
+function setH(n,size){
+  chartHeights[n]=size;
+  var wrap=document.getElementById('cv'+n);
+  if(wrap)wrap=wrap.parentElement;
+  if(wrap){wrap.classList.remove('compact','tall');if(size==='compact')wrap.classList.add('compact');if(size==='tall')wrap.classList.add('tall');}
+  var keyMap={compact:'c',normal:'n',tall:'t'};
+  ['c','n','t'].forEach(function(k){
+    var el=document.getElementById('hc'+n+k);
+    if(el)el.classList.remove('hactive');
+  });
+  var actEl=document.getElementById('hc'+n+keyMap[size]);
+  if(actEl)actEl.classList.add('hactive');
+  var c=[null,chart1,chart2,chart3][n];
+  if(c)setTimeout(function(){c.resize();},30);
+  savePref();
+}
+
+// ===== EVENT LISTENERS =====
+document.getElementById('period').addEventListener('change',function(){
+  currentPreset=''; rangeStartTs=0; rangeEndTs=0; // Manual change: clear preset and range anchors
+  document.getElementById('dailyFile').value='';
+  document.getElementById('rs232DailyFile').value='';
+  document.getElementById('modbusDailyFile').value='';
+  document.getElementById('proxDailyFile').value='';
+  updateViewInfo();
+  document.getElementById('period').disabled=false;refreshCharts();savePref();
+});
+document.getElementById('dailyFile').addEventListener('change',function(){
+  var v=document.getElementById('dailyFile').value;
+  syncPeriodLockFromPickers();
+  if(v){
+    pointStrideAuto=true;
+    document.getElementById('maxVisiblePoints').value='0';
+    document.getElementById('pointStride').value='1';
+    currentPreset='day';
+    // Anchor axis to the full 24h of the selected day (parse DD-MM-YYYY from filename)
+    var m=v.match(/(\d{2})-(\d{2})-(\d{4})/);
+    if(m){
+      var dayStart=new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]),0,0,0,0);
+      rangeStartTs=Math.floor(dayStart.getTime()/1000);
+      rangeEndTs=rangeStartTs+86399;
+    }
+  }
+  updateViewInfo();
+  refreshCharts();savePref();
+});
+// RS232 day file selection
+document.getElementById('rs232DailyFile').addEventListener('change',function(){
+  var v=this.value;
+  syncPeriodLockFromPickers();
+  rs232MetaLoaded=false;
+  if(v){
+    pointStrideAuto=true;
+    document.getElementById('maxVisiblePoints').value='0';
+    document.getElementById('pointStride').value='1';
+    currentPreset='day';
+    // Anchor axis to the full 24h of the selected day (parse DD-MM-YYYY from filename)
+    var m=v.match(/(\d{2})-(\d{2})-(\d{4})/);
+    if(m){
+      var dayStart=new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]),0,0,0,0);
+      rangeStartTs=Math.floor(dayStart.getTime()/1000);
+      rangeEndTs=rangeStartTs+86399;
+    }
+  }
+  updateViewInfo();
+  ensureRS232Ready().then(function(){refreshCharts();savePref();});
+});
+// Modbus day file selection
+document.getElementById('modbusDailyFile').addEventListener('change',function(){
+  var v=this.value;
+  syncPeriodLockFromPickers();
+  modbusMetaLoaded=false;
+  if(v){
+    pointStrideAuto=true;
+    document.getElementById('maxVisiblePoints').value='0';
+    document.getElementById('pointStride').value='1';
+    currentPreset='day';
+    var m=v.match(/(\d{2})-(\d{2})-(\d{4})/);
+    if(m){
+      var dayStart=new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]),0,0,0,0);
+      rangeStartTs=Math.floor(dayStart.getTime()/1000);
+      rangeEndTs=rangeStartTs+86399;
+    }
+  }
+  updateViewInfo();
+  ensureModbusReady().then(function(){refreshCharts();savePref();});
+});
+// Proximity day file selection
+document.getElementById('proxDailyFile').addEventListener('change',function(){
+  var v=this.value;
+  syncPeriodLockFromPickers();
+  proximityMetaLoaded=false;
+  if(v){
+    pointStrideAuto=true;
+    document.getElementById('maxVisiblePoints').value='0';
+    document.getElementById('pointStride').value='1';
+    currentPreset='day';
+    // Proximity uses DD-MM-YYYY format (consistent with RS232/Modbus)
+    var m=v.match(/(\d{2})-(\d{2})-(\d{4})/);
+    if(m){
+      var dayStart=new Date(parseInt(m[3]),parseInt(m[2])-1,parseInt(m[1]),0,0,0,0);
+      rangeStartTs=Math.floor(dayStart.getTime()/1000);
+      rangeEndTs=rangeStartTs+86399;
+    }
+  }
+  updateViewInfo();
+  ensureProximityReady().then(function(){refreshCharts();savePref();});
+});
+['chart1Type','chart2Type','chart3Type'].forEach(function(id){
+  document.getElementById(id).addEventListener('change',function(){refreshCharts();savePref();});
+});
+// Y2 metric changes only need re-render (data already cached)
+['chart1Type2','chart2Type2','chart3Type2'].forEach(function(id){
+  document.getElementById(id).addEventListener('change',function(){rerender();savePref();});
+});
+['chart1Type','chart2Type','chart3Type','chart1Type2','chart2Type2','chart3Type2'].forEach(function(id){
+  var sel=document.getElementById(id);
+  if(!sel)return;
+  sel.addEventListener('focus',function(){requestRS232MetaSoon();requestModbusMetaSoon();requestProximityMetaSoon();});
+  sel.addEventListener('pointerdown',function(){requestRS232MetaSoon();requestModbusMetaSoon();requestProximityMetaSoon();});
+});
+['chartStyle','yRange','maxVisiblePoints','timeAxis','pointStride'].forEach(function(id){
+  document.getElementById(id).addEventListener('change',function(){
+    if(id==='pointStride')pointStrideAuto=false;
+    if(id==='chartStyle')syncDualSelectors();
+    rerender();
+    savePref();
+  });
+});
+
+// ===== EARLY METRIC FILTER =====
+// Runs immediately (no Chart.js dependency) to remove sensor options and populate
+// RS232 col options before the full init sequence runs inside window.load.
+// This prevents the selects from showing sensor metrics while Chart.js CDN loads.
+(function(){
+  var SKEYS=['temp','humidity','pressure','dew','heat','altitude'];
+  var SELIDS=['chart1Type','chart2Type','chart3Type','chart1Type2','chart2Type2','chart3Type2'];
+  function removeSensorOpts(){
+    SELIDS.forEach(function(id){
+      var sel=document.getElementById(id);if(!sel)return;
+      Array.from(sel.options).forEach(function(o){if(SKEYS.indexOf(o.value)>=0)sel.removeChild(o);});
+    });
+  }
+  function addRS232Opts(n,names){
+    // Guard: if the full init already ran (rs232MetaLoaded=true), don't overwrite proper names.
+    if(rs232MetaLoaded)return;
+    SELIDS.forEach(function(id){
+      var sel=document.getElementById(id);if(!sel)return;
+      Array.from(sel.options).forEach(function(o){if(o.value.indexOf('rs232_col')===0)sel.removeChild(o);});
+      for(var i=1;i<=n;i++){
+        var o=document.createElement('option');
+        o.value='rs232_col'+i;
+        o.textContent='\uD83D\uDCDF '+(names&&names[i-1]?names[i-1]:('RS232 Col '+i));
+        sel.appendChild(o);
+      }
+    });
+    // Set default: G1→col1, G2→col2, G3→col3
+    [['chart1Type',1],['chart2Type',2],['chart3Type',3]].forEach(function(p){
+      var sel=document.getElementById(p[0]);if(!sel)return;
+      var target='rs232_col'+p[1];
+      if(Array.from(sel.options).some(function(o){return o.value===target;}))sel.value=target;
+    });
+  }
+  fetch('/api/chart-caps',{cache:'no-store'}).then(function(r){return r.json();}).then(function(caps){
+    // Hide SD/Env+Gas Day picker early when neither AHT20 nor MQ135 is compiled.
+    if(!caps.sensors){
+      var sdCgE=document.getElementById('sdFileCg');
+      if(sdCgE)sdCgE.style.display='none';
+    }
+    // Remove fixed AHT20/BMP280 metric options when only those sensors are absent.
+    if(!caps.aht20){
+      removeSensorOpts();
+      if(caps.rs232){
+        fetch('/api/rs232-cols',{cache:'no-store'}).then(function(r2){return r2.json();}).then(function(d){
+          addRS232Opts(d&&d.cols>0?d.cols:8,d&&d.col_names?d.col_names:null);
+        }).catch(function(){addRS232Opts(8,null);});
+      }
+    }
+    if(!caps.modbus){
+      var mbCgE=document.getElementById('modbusFileCg');
+      if(mbCgE)mbCgE.style.display='none';
+    }
+    if(!caps.proximity){
+      var prxCgE=document.getElementById('proxFileCg');
+      if(prxCgE)prxCgE.style.display='none';
+    }
+  }).catch(function(){});
+}());
+
+// ===== LIGHTWEIGHT AUTO-REFRESH =====
+// Only fetches new points (from=lastTs+1) and merges into existing cache.
+// Does NOT reload all data, does NOT touch localStorage, does NOT destroy charts.
+
+// Return last epoch timestamp from a cached data object
+function _lastCachTs(c) {
+  if (!c || !Array.isArray(c.timestamps) || !c.timestamps.length) return 0;
+  return Number(c.timestamps[c.timestamps.length - 1]) || 0;
+}
+
+// Append all array fields from newD into baseD in place; update baseD.count
+function _mergeData(baseD, newD) {
+  if (!newD || !(newD.count > 0)) return false;
+  Object.keys(newD).forEach(function(k) {
+    if (!Array.isArray(newD[k])) return;
+    if (!Array.isArray(baseD[k])) baseD[k] = [];
+    for (var i = 0; i < newD[k].length; i++) baseD[k].push(newD[k][i]);
+  });
+  baseD.count = (baseD.count || 0) + newD.count;
+  return true;
+}
+
+var _arTimer = null;
+var _arRefreshing = false;
+
+async function _refreshLatest() {
+  if (_arRefreshing) return;
+  _arRefreshing = true;
+  try {
+    var k1=document.getElementById('chart1Type').value;
+    var k2=document.getElementById('chart2Type').value;
+    var k3=document.getElementById('chart3Type').value;
+    var ks=[k1,k2,k3];
+    var merged=false;
+
+    // Sensors (AHT20 / MQ135)
+    if (ks.some(function(k){return !isRS232Metric(k)&&!isModbusMetric(k)&&!isProximityMetric(k);})) {
+      if (!document.getElementById('dailyFile').value) {
+        var fromS=_lastCachTs(cachedData)+1;
+        try {
+          var nd=await fetchChartJson('/api/sensor-history?from='+fromS,null,1);
+          if (nd&&nd.count>0) {
+            if (!cachedData) cachedData={count:0,labels:[],timestamps:[]};
+            if (_mergeData(cachedData,nd)) merged=true;
+          }
+        } catch(e) {}
+      }
+    }
+
+    // RS232
+    if (ks.some(function(k){return isRS232Metric(k);})) {
+      if (!document.getElementById('rs232DailyFile').value) {
+        var fromR=_lastCachTs(cachedDataRS232)+1;
+        try {
+          var nr=await fetchChartJson('/api/rs232-history?from='+fromR,null,1);
+          if (nr&&nr.count>0) {
+            if (!cachedDataRS232) cachedDataRS232={count:0,labels:[],timestamps:[]};
+            if (_mergeData(cachedDataRS232,nr)) merged=true;
+          }
+        } catch(e) {}
+      }
+    }
+
+    // Modbus
+    if (ks.some(function(k){return isModbusMetric(k);})) {
+      if (!document.getElementById('modbusDailyFile').value) {
+        var fromM=_lastCachTs(cachedDataModbus)+1;
+        try {
+          var nm=await fetchChartJson('/api/modbus-chart-data?from='+fromM,null,1);
+          if (nm&&nm.count>0) {
+            if (!cachedDataModbus) cachedDataModbus={count:0,labels:[],timestamps:[]};
+            if (_mergeData(cachedDataModbus,nm)) merged=true;
+          }
+        } catch(e) {}
+      }
+    }
+
+    // Proximity
+    if (ks.some(function(k){return isProximityMetric(k);})) {
+      if (!document.getElementById('proxDailyFile').value) {
+        var fromP=_lastCachTs(cachedDataProximity)+1;
+        try {
+          var np=await fetchChartJson('/api/proximity-chart-data?from='+fromP,null,1);
+          if (np&&np.count>0) {
+            if (!cachedDataProximity) cachedDataProximity={count:0,labels:[],timestamps:[]};
+            if (_mergeData(cachedDataProximity,np)) merged=true;
+          }
+        } catch(e) {}
+      }
+    }
+
+    if (merged) {
+      // Lightweight re-render: update chart data in place, no destroy/recreate
+      var a1=getMetricAdapter(k1,true),a2=getMetricAdapter(k2,true),a3=getMetricAdapter(k3,true);
+      updChart(chart1,a1,1); updChart(chart2,a2,2); updChart(chart3,a3,3);
+      applyCenterBadges(k1,a1,k2,a2,k3,a3);
+      [chart1,chart2,chart3].forEach(function(c){if(c)c.update();});
+      var now=new Date(),h=String(now.getHours()).padStart(2,'0'),mi=String(now.getMinutes()).padStart(2,'0'),s=String(now.getSeconds()).padStart(2,'0');
+      document.getElementById('lastUpd').textContent='Updated at '+h+':'+mi+':'+s;
+    }
+  } finally {
+    _arRefreshing=false;
+  }
+}
+
+function _applyAutoRefresh() {
+  if (_arTimer) { clearInterval(_arTimer); _arTimer = null; }
+  var el = document.getElementById('arInterval');
+  var v = el ? (parseInt(el.value) || 0) : 0;
+  try { localStorage.setItem('sc_ar', String(v)); } catch(e){}
+  if (v > 0) {
+    _arTimer = setInterval(function(){ _refreshLatest(); }, v * 1000);
+  }
+}
+
+// ===== INIT =====
+window.addEventListener('load',async function(){
+  // Check if Chart.js loaded from CDN — fails when device has no internet access
+  if(typeof Chart==='undefined'){
+    document.body.style.cssText='background:#0f172a;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;font-family:system-ui,sans-serif;padding:24px';
+    document.body.innerHTML='<div><div style="font-size:48px;margin-bottom:16px">📉</div><h2 style="color:#f59e0b;margin-bottom:12px">Chart library not loaded</h2><p style="color:#94a3b8;margin-bottom:8px">The charts page requires the <strong style="color:#e2e8f0">Chart.js</strong> library via CDN.</p><p style="color:#94a3b8;margin-bottom:20px">Make sure the device has internet access (<em>cdn.jsdelivr.net</em>).</p><a href="/" style="background:#3b82f6;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none">← Home</a></div>';
+    return;
+  }
+  registerChartPlugins(); // Register inline Chart.js plugins — safe here since Chart.js is confirmed loaded
+  var ok=await regSession();if(!ok)return;
+  loadPref();
+  syncPresetRange();
+  updateViewInfo();
+  autoTheme();
+  await loadConfig();
+  await loadSlotsMeta();
+  await ensureRS232Ready();
+  await ensureModbusReady();
+  await ensureProximityReady();
+  await filterMetricsByCapabilities(); // Remove unavailable metric options (e.g. sensor cols when no sensor compiled)
+  await loadDailyFiles();
+  // Restore daily file selection after list is populated
+  try{
+    var p=JSON.parse(localStorage.getItem('scv3')||'{}');
+    if(p.df){var s2=document.getElementById('dailyFile');if(Array.from(s2.options).find(function(o){return o.value===p.df;}))s2.value=p.df;}
+    if(p.rdf){var s3=document.getElementById('rs232DailyFile');if(s3&&Array.from(s3.options).find(function(o){return o.value===p.rdf;}))s3.value=p.rdf;}
+    if(p.mdf){var s4=document.getElementById('modbusDailyFile');if(s4&&Array.from(s4.options).find(function(o){return o.value===p.mdf;}))s4.value=p.mdf;}
+    if(p.pdf){var s5=document.getElementById('proxDailyFile');if(s5&&Array.from(s5.options).find(function(o){return o.value===p.pdf;}))s5.value=p.pdf;}
+  }catch(e){}
+  syncPeriodLockFromPickers();
+
+  // Re-apply saved metric preferences after all async option loading
+  // (loadSlotsMeta / filterMetricsByCapabilities may have reset selects)
+  try{
+    var _pm=JSON.parse(localStorage.getItem('scv3')||'{}');
+    function _svM(id,v){var el=document.getElementById(id);if(el&&v!==undefined&&Array.from(el.options).some(function(o){return o.value===v;}))el.value=v;}
+    _svM('chart1Type',_pm.c1);_svM('chart2Type',_pm.c2);_svM('chart3Type',_pm.c3);
+    if(_pm.c1y2)_svM('chart1Type2',_pm.c1y2);
+    if(_pm.c2y2)_svM('chart2Type2',_pm.c2y2);
+    if(_pm.c3y2)_svM('chart3Type2',_pm.c3y2);
+  }catch(e){}
+
+  var k1=document.getElementById('chart1Type').value;
+  var k2=document.getElementById('chart2Type').value;
+  var k3=document.getElementById('chart3Type').value;
+  chart1=mkChart('cv1',(MET[k1]||MET.temp).color);
+  chart2=mkChart('cv2',(MET[k2]||MET.humidity).color);
+  chart3=mkChart('cv3',(MET[k3]||MET.pressure).color);
+
+  // F10: Restore chart heights from saved prefs
+  [1,2,3].forEach(function(n){setH(n,chartHeights[n]||'normal');});
+  [chart1,chart2,chart3].forEach(function(c){
+    if(c&&c.options.plugins.zoom){
+      c.options.plugins.zoom.zoom.onZoomComplete=syncZoomAll;
+      c.options.plugins.zoom.pan.onPanComplete=syncZoomAll;
+    }
+  });
+
+  await refreshCharts();
+
+  // Restore auto-refresh interval preference and start timer
+  try{var _arS=parseInt(localStorage.getItem('sc_ar')||'300');var _arEl=document.getElementById('arInterval');if(_arEl)_arEl.value=String(_arS);}catch(e){}
+  _applyAutoRefresh();
+  // Apply i18n for banner subtitle
+  (function(){
+    var el = document.querySelector('[data-i18n=\"sensorChartsTitle\"]');
+    if (!el) return;
+    try {
+      var raw = localStorage.getItem('ui_lang_cache');
+      if (raw) {
+        var d = JSON.parse(raw);
+        if (d && d.sensorChartsTitle) { el.textContent = d.sensorChartsTitle; return; }
+      }
+    } catch(e) {}
+    // Fallback: check if window._t exists (from config-manager.js)
+    if (typeof window._t === 'function') {
+      var v = window._t('sensorChartsTitle', '');
+      if (v) el.textContent = v;
+    }
+  })();
+});
+</script>
+
+<!-- ===== KICK OVERLAY (shown when secondary session expires) ===== -->
+<div id='kickOverlay' style='display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(10,23,41,.95);align-items:center;justify-content:center;flex-direction:column;gap:20px'>
+  <div style='font-size:48px'>⏱️</div>
+  <div id='kickMsg' style='color:#f1f5f9;font-size:18px;font-weight:700;text-align:center;max-width:340px;line-height:1.5'></div>
+  <div style='color:#94a3b8;font-size:13px;text-align:center'>The priority user can stay active for up to 15 minutes.</div>
+  <a href='/' style='margin-top:8px;padding:10px 28px;background:#3b82f6;color:#fff;border-radius:8px;font-weight:700;text-decoration:none;font-size:14px'>🏠 Back to Home</a>
+</div>
+
+</body>
+</html>
+)RAWHTML";
+
+#endif // PAGE_SENSOR_CHARTS_ASSET_H

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width,initial-scale=1'>
+  <title>alerts (Test)</title>
+</head>
+<body>
+<div id='loadingOverlay' style='display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,25,41,0.95);z-index:99999;align-items:center;justify-content:center'><div style='text-align:center'><div style='border:4px solid #1e40af;border-top:4px solid #3b82f6;border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;margin:0 auto'></div><p style='color:#e6f1ff;margin-top:15px;font-size:13px' data-i18n='loading'>Processing...</p></div></div><style>@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style><main class='page'><div class='wrap'><div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome' title='Go to home page' data-i18n-title='alertTipHome'>🏠 Home</a></div><h1 data-i18n='alertsPageTitle'>🚨 Configure Alerts</h1><div style='display:flex;gap:8px;margin-top:12px'><button type='button' id='tabBtnInact' onclick='alertsShowTab("inact")' style='padding:8px 18px;border-radius:8px 8px 0 0;border:2px solid #3b82f6;border-bottom:none;background:#1e3a8a;color:#fff;font-size:13px;font-weight:700;cursor:pointer' data-i18n='alertTabInact'>Inactivity</button><button type='button' id='tabBtnOee' onclick='alertsShowTab("oee")' style='padding:8px 18px;border-radius:8px 8px 0 0;border:2px solid #1e3a8a;border-bottom:none;background:#0f172a;color:#93c5fd;font-size:13px;font-weight:700;cursor:pointer' data-i18n='alertTabOee'>OEE</button></div><div id='tabInact'><div style='border:2px solid #3b82f6;border-radius:8px;padding:16px;background:#0f172a;margin-top:16px'><h2 style='margin-top:0;color:#60a5fa' data-i18n='recipInactivityTitle'>🚨 Inactivity Alert</h2><div style='background:#1e3a8a;border-left:4px solid #3b82f6;padding:12px;margin-bottom:16px;font-size:13px;line-height:1.8;color:#e0e7ff;border-radius:4px;text-align:left'><div data-i18n='recipInactivityDesc1'>Sends automatic email when the device stops receiving data for the specified time.</div></div><div style='margin-bottom:14px'><label style='display:block;font-size:14px;color:#e0e7ff;margin-bottom:8px' data-i18n='alertConfigsLbl'>📋 Alert configurations:</label><div style='overflow-x:auto'><table style='width:100%;border-collapse:collapse;font-size:13px'><thead><tr style='border-bottom:2px solid #3b82f6'><th style='padding:8px 6px;text-align:left;color:#60a5fa;min-width:220px'><span data-i18n='recipTimeoutLbl'>⏱️ Time</span> + <span data-i18n='recipInactivityEnable'>Enable</span></th><th style='padding:8px 6px;text-align:left;color:#60a5fa;min-width:120px'><span data-i18n='recipMaxPerDayLbl'>🔢 Alerts/day</span></th><th style='padding:8px 6px;text-align:left;color:#60a5fa;min-width:200px'><span data-i18n='recipEmailsLbl'>📧 Email</span></th></tr></thead><tbody id='alertRows'></tbody></table></div></div></div><div style='text-align:center;margin-top:16px'><button type='button' id='save_inactivity_alert' class='btn' style='padding:10px 24px;font-size:13px' data-i18n='btnSaveAlertConfig' title='Save alert settings' data-i18n-title='alertTipSave'>💾 Save Alert Configuration</button></div></div><div id='tabOee' style='display:none'><div style='border:2px solid #a78bfa;border-radius:8px;padding:16px;background:#0f172a;margin-top:16px'><h2 style='margin-top:0;color:#a78bfa' data-i18n='oeeAlertTitle'>📉 OEE Alerts</h2><div style='background:#4c1d95;border-left:4px solid #a78bfa;padding:12px;margin-bottom:16px;font-size:13px;line-height:1.8;color:#e0e7ff;border-radius:4px;text-align:left'><div data-i18n='oeeAlertDesc'>Sends email when Shift/Day OEE or Availability stays below target.</div></div><div style='margin-bottom:14px'><label style='display:block;font-size:14px;color:#e0e7ff;margin-bottom:8px' data-i18n='alertConfigsLbl'>📋 Alert configurations:</label><div style='overflow-x:auto'><table style='width:100%;border-collapse:collapse;font-size:13px'><thead><tr style='border-bottom:2px solid #a78bfa'><th style='padding:8px 6px;text-align:left;color:#a78bfa;min-width:170px'><span data-i18n='oeeAlertMetric'>Metric</span> + <span data-i18n='recipInactivityEnable'>Enable</span></th><th style='padding:8px 6px;text-align:left;color:#a78bfa;min-width:90px'><span data-i18n='oeeAlertThreshold'>Below %</span></th><th style='padding:8px 6px;text-align:left;color:#a78bfa;min-width:110px'><span data-i18n='oeeAlertPersist'>Persist min</span></th><th style='padding:8px 6px;text-align:left;color:#a78bfa;min-width:110px'><span data-i18n='recipMaxPerDayLbl'>🔢 Alerts/day</span></th><th style='padding:8px 6px;text-align:left;color:#a78bfa;min-width:190px'><span data-i18n='recipEmailsLbl'>📧 Email</span></th></tr></thead><tbody id='oeeRows'></tbody></table></div></div></div><div style='text-align:center;margin-top:16px'><button type='button' id='save_oee_alert' class='btn' style='padding:10px 24px;font-size:13px' data-i18n='btnSaveAlertConfig' title='Save OEE alert settings' data-i18n-title='alertTipSave'>💾 Save Alert Configuration</button></div></div>
+<script>
+// ===== MOCK API LAYER =====
+(function() {
+  window.fetch = function(url, opts) {
+    var u = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+    var MOCKS = typeof window.__MOCK_API__ !== 'undefined' ? window.__MOCK_API__ : {};
+    if (opts && opts.method && opts.method !== 'GET') {
+      window.__postBodies = window.__postBodies || [];
+      window.__postBodies.push({ url: u, method: opts.method, body: opts.body || '' });
+    }
+    var mock = MOCKS[u];
+    if (!mock) {
+      for (var k in MOCKS) {
+        if (u.indexOf(k) >= 0) { mock = MOCKS[k]; break; }
+      }
+    }
+    if (typeof mock === 'function') mock = mock();
+    return Promise.resolve({
+      ok: true, status: 200,
+      json: function() { return Promise.resolve(mock || {}); },
+      text: function() { return Promise.resolve(JSON.stringify(mock || {})); }
+    });
+  };
+  window.customAlert = function(m) { console.log('[mock] customAlert:', m); };
+  window.customConfirm = function(m, cb) { if (cb) cb(true); };
+  window.showLoading = function() {};
+  window.hideLoading = function() {};
+  window.disableBtn = function(b) { if (b) { b.disabled = true; } };
+  window.enableBtn = function(b) { if (b) { b.disabled = false; } };
+  window.showSavedCard = function() {};
+  // Feature flags used by some pages (default: off)
+  window._rs232Enabled = false;
+  window._modbusEnabled = false;
+  window.__test__ = {};  // ensure window.__test__ exists even on non-IIFE pages
+})();
+</script>
+
+<script>function alertsShowTab(which){var ina=document.getElementById('tabInact');var oee=document.getElementById('tabOee');var bI=document.getElementById('tabBtnInact');var bO=document.getElementById('tabBtnOee');var showOee=(which==='oee'&&oee);if(ina)ina.style.display=showOee?'none':'';if(oee)oee.style.display=showOee?'':'none';if(bI){bI.style.background=showOee?'#0f172a':'#1e3a8a';bI.style.color=showOee?'#93c5fd':'#fff';}if(bO){bO.style.background=showOee?'#1e3a8a':'#0f172a';bO.style.color=showOee?'#fff':'#93c5fd';}}</script><script>(function(){function rt(k,fb){try{if(typeof window._t==='function')return window._t(k,fb);var r=localStorage.getItem('ui_lang_cache');if(r){var p=JSON.parse(r);if(p&&p[k]!==undefined)return p[k];}}catch(e){}return fb!==undefined?fb:k;}var b=document.getElementById('save_oee_alert');if(!b)return;b.addEventListener('click',function(){var fd=new FormData();for(var i=0;i<3;i++){var en=document.getElementById('oee_enabled_'+i).checked;var me=document.getElementById('oee_metric_'+i).value;var th=document.getElementById('oee_threshold_'+i).value;var pe=document.getElementById('oee_persist_'+i).value;var mx=document.getElementById('oee_max_'+i).value;var em=document.getElementById('oee_emails_'+i).value.trim();fd.append('oee_enabled_'+i,en?'1':'0');fd.append('oee_metric_'+i,me);fd.append('oee_threshold_'+i,th);fd.append('oee_persist_'+i,pe);fd.append('oee_max_'+i,mx);fd.append('oee_emails_'+i,em);if(en){var tv=parseInt(th,10);if(isNaN(tv)||tv<1||tv>100){window.customAlert(rt('oeeErrThreshold','Threshold must be 1-100'));return;}var pv=parseInt(pe,10);if(isNaN(pv)||pv<1||pv>240){window.customAlert(rt('oeeErrPersist','Persist must be 1-240 minutes'));return;}if(em.length===0){window.customAlert(rt('recipErrMinEmail','Define at least one email when alerts are active!'));return;}if(em.indexOf('@')<0){window.customAlert(rt('recipErrEmail','Invalid email (missing @)'));return;}}}disableBtn(b);showLoading();fetch('/api/oee-alert-config',{method:'POST',body:new URLSearchParams(fd),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(function(r){return r.json();}).then(function(j){hideLoading();enableBtn(b);if(j.status==='ok'){window.customAlert(rt('recipSaved','Saved!'));if(typeof showSavedCard==='function')showSavedCard();}else{var msg=j.message||'Unknown error';window.customAlert(msg);}}).catch(function(){hideLoading();enableBtn(b);window.customAlert(rt('recipErrNetwork','Network error'));});});})();</script><script>(function(){function rt(k,fb){try{if(typeof window._t==='function')return window._t(k,fb);var r=localStorage.getItem('ui_lang_cache');if(r){var p=JSON.parse(r);if(p&&p[k]!==undefined)return p[k];}}catch(e){}return fb!==undefined?fb:k;}var b=document.getElementById('save_inactivity_alert');if(!b)return;b.addEventListener('click',function(){var fd=new FormData();for(var i=0;i<6;i++){var en=document.getElementById('alert_enabled_'+i).checked;var to=document.getElementById('alert_timeout_'+i).value;var mx=document.getElementById('alert_max_'+i).value;var em=document.getElementById('alert_emails_'+i).value.trim();fd.append('alert_enabled_'+i,en?'1':'0');fd.append('alert_timeout_'+i,to);fd.append('alert_max_'+i,mx);fd.append('alert_emails_'+i,em);if(en){if(em.length===0){window.customAlert(rt('recipErrMinEmail','Define at least one email when alerts are active!'));return;}if(em.indexOf('@')<0){window.customAlert(rt('recipErrEmail','Invalid email (missing @)'));return;}}}disableBtn(b);showLoading();fetch('/api/inactivity-alert-config',{method:'POST',body:new URLSearchParams(fd),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(function(r){return r.json();}).then(function(j){hideLoading();enableBtn(b);if(j.status==='ok'){window.customAlert(rt('recipSaved','Saved!'));if(typeof showSavedCard==='function')showSavedCard();}else{var msg=j.message||'Unknown error';window.customAlert(msg);}}).catch(function(){hideLoading();enableBtn(b);window.customAlert(rt('recipErrNetwork','Network error'));});});
+
+// ===== TEST HOOKS (inside page IIFE scope) =====
+// Preserve hooks the page already installed (e.g. page_ecra_asset sets
+// window.__test__.* at the end of its script); only fill missing ones below.
+window.__test__ = window.__test__ || {};
+// Spy mechanism
+window.__spy__ = {};
+window.__spy__.calls = {};
+window.__spy__.reset = function() { window.__spy__.calls = {}; };
+window.__spy__.wrap = function(name, fn) {
+  return function() {
+    window.__spy__.calls[name] = window.__spy__.calls[name] || [];
+    window.__spy__.calls[name].push(Array.prototype.slice.call(arguments));
+    return fn.apply(this, arguments);
+  };
+};
+// Wrap key functions for spying
+if (typeof postSend !== 'undefined') postSend = window.__spy__.wrap('postSend', postSend);
+if (typeof showAlert !== 'undefined') showAlert = window.__spy__.wrap('showAlert', showAlert);
+// Helper: reset IIFE-local state vars (P, C, SH, RP used by radio page)
+window.__test__._reset = function(p, c, sh, rp) {
+  try { if (p !== undefined) { var _a=p; P.length=0; for(var _i=0;_i<_a.length;_i++)P.push(_a[_i]); } } catch(e) {}
+  try { if (c !== undefined) C = c; } catch(e) {}
+  try { if (sh !== undefined) SH = sh; } catch(e) {}
+  try { if (rp !== undefined) RP = rp; } catch(e) {}
+};
+// Expose functions via eval (runs in outer IIFE scope)
+var _testNames = [
+  // Recipients page
+  'rt','rowHTML','addRow','updateNameHint','saveSlot','saveDontCopy','preload',
+  'removeRow',
+  'switchTab',
+  // Proximity page (status + config + shifts)
+  'render','renderCfg','fetchData','resetCh','resetAll','_lockOutFields',
+  'renderShiftSlots','loadShiftCfg','loadShiftdayEmails','saveAll','loadCfg',
+  '_applyVisFilter','onVisChChange','applyTemplate',
+  // Commands page
+  'esc','readLangCache','t','templateOptions','unitSelect','daysSelect',
+  'tplSelect','addRow','attachRow','saveSlot','attachSaveAll','rowHTML','removeRow',
+  // DateTime Commands page
+  'e','t','to','r','addRow','attachRow','init','lt','ls','la','tt','ss','attachSaveAll','rm',
+  // Sidebar / dock
+  'renderWidgetSidebar','moveWidgetUp','moveWidgetDown','moveWidgetToSide',
+  'toggleWidgetVis','applyTheme','readUiPrefs','saveUiPrefs','saveDockLayout',
+  'restoreDockLayout','saveWidgetPrefs','restoreWidgetPrefs','initLeftPanel',
+  'byId','qsa','localStorage','state',
+  // Utility
+  'fmtEta','fmtLagMs','fmtGcodeNum','normalizeZStepValue',
+  'setXyStepFromPreset','syncMainStepFromSelectors','updateXyStepButtons',
+  'sanitizeFileName','formatFileSize','ensureAllowedUploadPath',
+  'recentErrorMeta','clamp',
+  // Jog
+  'runJog','runJogXY','runJogXYCenter','quickUnlock','quickHome','quickZeroWcs','quickReset','quickStatus',
+  // Job
+  'startFileStream','pauseStream','resumeStream','cancelStream',
+  'sendManualCommand','applyPollInterval','applyUsbLineCoding',
+  'postActionOnce','postAction','refreshStatus','saveMacros',
+  // Frame
+  'runFrameFromPreview','updateFrameInfo',
+  'getPreviewFrameBounds','setCommandMode',
+  // Override (scoped inside bindEvents)
+  // 'sendOverrideFeed','sendOverrideSpin','applyOverrides','stepOverride',
+  // Probe
+  'runAutoProbeZZero',
+  // Macros
+  'defaultMacros','getMacroEntry','runMacro','loadMacrosToForm','saveMacrosFromForm',
+  // Console
+  'ingestConsoleEvents','logLine','clearConsole','toggleConsoleFullscreen',
+  // Workspace / DRO
+  'extractDroFromStatus','renderDro','fmtDro','hasValidDroValue',
+  'parseNumber3','parsePosTriplet','firstNumber3',
+  // USB / Connection
+  'selectedSlot','normalizeUsbSlots','renderSlots',
+  'syncSelectedUsbBaud','ensureUsbBaudOption','usbBaudPrefId',
+  'getPreferredUsbBaud','savePreferredUsbBaud',
+  // SD Card
+  'sdFileNameFromPath','sdParentDir','formatSdSize','normalizeSdEntry',
+  'isPreviewSizeBlocked','isPreviewAutoRenderHeavy',
+  // PSRAM
+  'refreshPsramFileStatus',
+  // Preview utilities (pure functions)
+  'extractAxisValue','extractAxisInMm','appendLinear',
+  'quickWireframe','applyWireframePreview',
+  'parseToolpath3dAsync',
+  // Critical confirm
+  'runWithCriticalConfirm','requireAxesAtZero',
+  // Render
+  'renderStatus','applyRuntimeControls','applyStatusSnapshot',
+  // Job helpers
+  'getSegmentExecNo','getActiveExecNo',
+  // Light preview (inner functions may not resolve)
+  'simplifyPolylineLight',
+  // Contour selection (GRBL light preview)
+  'filterContoursPreserveCoords',
+  'buildLightPreview','buildLightPieceContoursFromGcode',
+  'buildPieceContoursFromSegments','_syncContoursFromSegments',
+  '_toggleContourSelect','_undoContourToggle','_updateContourSelectInfo',
+  '_navContourHighlight','_spaceToggleHighlighted',
+  '_handleCanvasContourClick','_screenToMachine','_minDistToContour','_computeTopTransformPx',
+  '_distToSegment','_pointInPolygon','_lightPreviewScalePx',
+  'renderPreviewFromText','_computeBounds','_drawTopView','_drawIsoView',
+  'applyLightPreviewFromText','applyLightPreviewFromBounds','_keepDerivedContours',
+  '_drawPreviewNow','_drawContourOverlay','_drawCrosshair',
+  'bindPreviewInteractions',
+  // MQ135 sensor page
+  't','uiLocale','trendArrow','aqiInfo','pickReadableTextColor',
+  'applySensorValueTheme','mqTone','showStatus',
+  // Sensor config page
+  'updateStatistics',
+  // HX711 page
+  'UNIT_LABELS','t','uiLocale','updateDisplay','showStatus','performTare',
+  // INA226 page
+  't','uiLocale','updateDisplay','showStatus',
+  // Sound page
+  't','uiLocale','updateDisplay','showStatus',
+  // MAX31865 page
+  't','uiLocale','updateDisplay','showStatus',
+  // Sensor charts page
+  'numericSeries','hasSeriesData','calcTrend','metricColor',
+  'calcDew','calcHeat','calcAlt','fmtVal',
+  'isRS232Metric','isModbusMetric','isProximityMetric',
+  'getMetricMeta','getData','seriesValues','pickData',
+  'updateMaxVisibleOptions','setPointStrideAutoValue',
+  'mkOpts','fmtTs','trim','mkGradient','registerChartPlugins',
+  'mkChart','updChart','saveAllCharts',
+  'getY2Key','yPad','yPadNeg','hasNeg',
+  'setChartCenterBadge','updStats','setStatRow','calcSt','calcAdv',
+  'getMetricAdapter','metricPointCount','showSts','setTheme',
+  'fetchChartJson','waitChartRetry','isRetryableChartStatus',
+  'TH','currentTheme',
+  // Radio UI (IIFE-scoped)
+  'T','AP','APJ','BN','sw','onSearch','addPlay','playToggle',
+  'radioStop','radioNext','radioPrev','playUrl','updUI','setVol',
+  'togSh','togRp','loadFav','addFav','favPlay','favDel',
+  'touchActivity','IDLE_T','NAV_DEF','NAV_N','NAV_OFF','NAV_ICON','NAV_LABEL','PNL_ALL',
+  'syncQ','rQ','rmQ','savePl','loadPls','loadPl','delPl','loadQ','loadSt','fh',
+  'isSup','chkSup','loadResume','renderResume','saveResume','resumeToggle','resumeTargetToggle','RESUME_A','RESUME_F',
+];
+_testNames.forEach(function(n) {
+  try { window.__test__[n] = eval(n); } catch(e) { window.__test__[n] = null; }
+});
+
+})();</script></div><script src='/config-manager.js'></script><script>function rt(k,fb){try{if(typeof window._t==='function')return window._t(k,fb);var raw=localStorage.getItem('ui_lang_cache');if(raw){var parsed=JSON.parse(raw);if(parsed&&parsed[k]!==undefined)return parsed[k];}}catch(err){}return fb!==undefined?fb:k;}</script></div></main>
+<script>
+(function() {
+  for (var k in window.__test__) {
+    if (window.__test__[k] === null || typeof window.__test__[k] === 'undefined') {
+      try { window.__test__[k] = eval(k); } catch(e) {}
+    }
+  }
+})();
+</script>
+
+</body>
+</html>

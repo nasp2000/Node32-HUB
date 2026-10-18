@@ -1,0 +1,52 @@
+#!/bin/sh
+# Pre-commit hook for Node32-HUB
+# Runs local checks before each commit.
+# Activate: git config core.hooksPath .githooks
+
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+CHATGPT="$(cd "$(dirname "$0")/../chatgpt" && pwd)"
+FAILURES=0
+
+run_check() {
+    local name="$1"
+    local cmd="$2"
+    printf "${YELLOW}[pre-commit]${NC} Running %s...\n" "$name"
+    if eval "$cmd"; then
+        printf "  ${GREEN}PASS:${NC} %s\n" "$name"
+    else
+        printf "  ${RED}FAIL:${NC} %s\n" "$name"
+        FAILURES=$((FAILURES + 1))
+    fi
+}
+
+cd "$CHATGPT"
+
+# Python scripts directory
+SCRIPT_DIR="$CHATGPT/scripts"
+
+run_check "scan_secrets"    "python \"$SCRIPT_DIR/scan_secrets.py\""
+run_check "lint_comments"   "python \"$SCRIPT_DIR/lint_comments.py\""
+run_check "i18n sync"       "python \"$SCRIPT_DIR/validate_i18n.py\""
+run_check "pack validator"  "python \"$SCRIPT_DIR/validate_packs.py\""
+run_check "feature flags"   "python \"$SCRIPT_DIR/validate_feature_flags.py\""
+
+if [ -x "$(command -v clang-format)" ]; then
+    run_check "format check" "python \"$SCRIPT_DIR/format_check.py\""
+else
+    printf "  ${YELLOW}SKIP:${NC} clang-format not installed\n"
+fi
+
+echo ""
+if [ $FAILURES -gt 0 ]; then
+    printf "${RED}[pre-commit] BLOCKED: %d check(s) failed. Fix before committing.${NC}\n" "$FAILURES"
+    exit 1
+else
+    printf "${GREEN}[pre-commit] All checks passed.${NC}\n"
+    exit 0
+fi

@@ -1,0 +1,52 @@
+# Force Arduino IDE to use partitions.csv from sketch folder
+# Place this file in the same directory as chatgpt.ino
+
+esp32s3.menu.PartitionScheme.custom=Custom (from partitions.csv)
+esp32s3.menu.PartitionScheme.custom.build.partitions=partitions
+esp32s3.menu.PartitionScheme.custom.upload.maximum_size=5242880
+
+# PSRAM malloc thresholds - CRITICAL for SD_MMC DMA stability
+# ALWAYSINTERNAL=65536: all allocations <=64KB stay in DRAM (never PSRAM)
+# This prevents SD_MMC/FatFS internal DMA buffers from landing in PSRAM,
+# which caused "CORRUPT HEAP: Bad head at 0x3c33ff01" on every boot with SD card.
+# RESERVE_INTERNAL=65536: reserve 64KB of DRAM exclusively for DMA-capable allocations
+#
+# USB CDC note — Arduino IDE users (PlatformIO handles this automatically via env):
+#
+# The Waveshare 8DI8DO board has NO UART bridge chip. Serial only works via native USB CDC.
+# GPIO43/44 (UART0 default pins) are reassigned to RS232; using UART0 for Serial conflicts.
+#
+# MANDATORY: Tools -> USB CDC On Boot -> Enabled
+#
+# What boards.local.txt controls (hardware-level):
+#   esp32s3.build.cdc_on_boot=1  -> hardware is always initialised for USB CDC.
+# What you STILL MUST SET in the menu (C++ compile-time):
+#   The ARDUINO_USB_CDC_ON_BOOT C++ macro follows the Tools menu, NOT boards.local.txt.
+#   boards.local.txt cannot override it via template — the Arduino IDE core sets this value
+#   via a {build.cdc_on_boot} template in build.extra_flags.esp32s3. By overriding the base
+#   extra_flags key we lose that substitution entirely.
+#   FIX: -DARDUINO_USB_CDC_ON_BOOT=1 is now added explicitly to extra_flags below so it is
+#   always present regardless of the menu setting.
+#   Selecting "Disabled" in the menu has no effect on the C++ macro for this board.
+#   board_pins.h has a compile-time #error that fires if the macro is not 1 (safety net).
+esp32s3.build.cdc_on_boot=1
+# ARDUINO_LOOP_STACK_SIZE=16384: double the default 8 KB loop task stack.
+# The Ethernet page streaming chain (loop -> ethernetLoop -> ethernetBootstrapHandleClient
+# -> streamShared*Page -> many sub-functions) exceeded the default 8 KB stack, causing
+# memory corruption that ultimately manifested as a crash in spiTransferBytesNL.
+esp32s3.build.extra_flags=-DESP32 -DBOARD_HAS_PSRAM -mfix-esp32-psram-cache-issue -mtext-section-literals -DCONFIG_SPIRAM_USE_MALLOC=1 -DCONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=65536 -DCONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=65536 -DARDUINO_USB_MODE=1 -DARDUINO_USB_CDC_ON_BOOT=1 -DARDUINO_LOOP_STACK_SIZE=16384
+
+# ESP32-P4 extra flags (RISC-V toolchain — NO Xtensa flags).
+# -mtext-section-literals and -mfix-esp32-psram-cache-issue are Xtensa-only and must NOT appear here.
+# BOARD_HAS_PSRAM and ARDUINO_USB_MODE are already set by the Arduino IDE P4 board definition;
+# repeating them here is harmless and ensures they are present regardless of menu selection.
+esp32p4.build.extra_flags=-DESP32 -DBOARD_HAS_PSRAM -DCONFIG_SPIRAM_USE_MALLOC=1 -DCONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=65536 -DCONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL=65536 -DARDUINO_LOOP_STACK_SIZE=16384
+
+# Custom partition table for P4 (16MB flash) — same partitions.csv used by S3.
+# Matches: nvs 20KB + ota 8KB + app0 5MB + app1 5MB + littlefs 6MB + coredump 64KB = 16MB total.
+esp32p4.menu.PartitionScheme.custom=Custom (from partitions.csv)
+esp32p4.menu.PartitionScheme.custom.build.partitions=partitions
+esp32p4.menu.PartitionScheme.custom.upload.maximum_size=5242880
+
+# Custom build output naming: node32-hub-vX.X-YYYY-MM-DD
+esp32s3.build.project_name=node32-hub

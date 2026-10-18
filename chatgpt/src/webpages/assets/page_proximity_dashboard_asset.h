@@ -1,0 +1,1488 @@
+#ifndef PAGE_PROXIMITY_DASHBOARD_ASSET_H
+#define PAGE_PROXIMITY_DASHBOARD_ASSET_H
+
+#include "../../feature_flags.h"
+
+#if ENABLE_PROXIMITY==1
+
+#include <Arduino.h>
+
+static const char PROXIMITY_DASHBOARD_PAGE[] PROGMEM = R"rawliteral(
+<style>
+:root{
+  --pd-bg:#f0f9ff;--pd-panel:#ffffff;--pd-bdr:#bae6fd;
+  --pd-text:#0c4a6e;--pd-txt2:#0369a1;--pd-txt3:#0284c7;--pd-acc:#0284c7;
+  --pd-btn:linear-gradient(135deg,#0284c7,#0ea5e9);
+  --pd-banner-bg:linear-gradient(135deg,#e0f2fe,#f0f9ff);
+  --pd-success:#059669;--pd-warning:#d97706;--pd-danger:#dc2626;
+  --pd-grid-bg:#f8fafc;--pd-grid-border:#e2e8f0;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Noto Sans','Ubuntu','Cantarell','Helvetica Neue',sans-serif;background:var(--pd-bg);color:var(--pd-text);min-height:100vh;overflow-x:hidden}
+.page{max-width:none!important;width:100%!important;padding:0!important;margin:0!important;border:none!important;border-radius:0!important;box-shadow:none!important;background:var(--pd-bg)!important}
+.page .wrap{max-width:none!important;width:100%!important;padding:0!important;margin:0!important;background:var(--pd-bg)!important}
+
+.pd-banner{
+  border:2px solid var(--pd-acc);border-radius:14px;padding:14px 20px 10px;margin:12px 12px 0;
+  background:var(--pd-banner-bg);box-shadow:0 4px 32px rgba(2,132,199,.35),0 2px 10px rgba(0,0,0,.08);
+  position:relative;overflow:hidden;text-align:center;
+}
+.pd-banner h1{margin:0;font-size:clamp(17px,3.5vw,26px);font-weight:800;letter-spacing:1px;color:var(--pd-text);text-shadow:0 2px 12px rgba(2,132,199,.3)}
+.pd-banner p{margin:4px 0 0;color:var(--pd-acc);font-size:clamp(10px,1.4vw,12px);font-weight:600;letter-spacing:.4px;opacity:.9}
+
+.pd-statusbar{
+  display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;
+  padding:8px 12px;margin:10px 12px 0;
+  background:var(--pd-panel);border:1px solid var(--pd-bdr);border-radius:10px;
+}
+.pd-stat{
+  display:flex;flex-direction:column;align-items:center;gap:1px;
+  padding:6px 22px;border-radius:10px;min-width:150px;
+  box-shadow:0 1px 6px rgba(0,0,0,.08);
+}
+.pd-stat-top{display:flex;align-items:baseline;gap:8px}
+.pd-stat-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px}
+.pd-stat-val{font-size:clamp(11px,1.6vw,14px);font-weight:700;line-height:1.1}
+.pd-stat-sub{font-size:10px;font-weight:700;opacity:.85}
+.pd-stat-day{background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #34d399;color:#065f46}
+.pd-stat-day .pd-stat-label{color:#047857}
+.pd-stat-last{background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;color:#92400e}
+.pd-stat-last .pd-stat-label{color:#b45309}
+
+.pd-oee{
+  display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;
+  padding:8px 12px;margin:10px 12px 0;
+  background:var(--pd-panel);border:1px solid var(--pd-bdr);border-radius:10px;
+}
+.pd-kpi-shift{background:linear-gradient(135deg,#dbeafe,#bfdbfe);border:1px solid #3b82f6;color:#1e3a8a;min-width:150px}
+.pd-kpi-shift .pd-kpi-label{color:#1d4ed8}
+.pd-kpi-shift .pd-kpi-val{font-size:clamp(11px,1.6vw,14px)}
+.pd-kpi{display:flex;flex-direction:column;align-items:center;padding:3px 12px;border-radius:8px;min-width:108px}
+.pd-kpi-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+.pd-kpi-val{font-size:clamp(11px,1.6vw,14px);font-weight:700;line-height:1.1}
+.pd-kpi-oee{background:linear-gradient(135deg,#ede9fe,#ddd6fe);border:1px solid #a78bfa;color:#4c1d95}
+.pd-kpi-oee .pd-kpi-label{color:#6d28d9}
+.pd-kpi-day{background:linear-gradient(135deg,#ecfdf5,#a7f3d0);border:1px solid #10b981;color:#064e3b}
+.pd-kpi-day .pd-kpi-label{color:#047857}
+.pd-kpi-a{background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #34d399;color:#065f46}
+.pd-kpi-a .pd-kpi-label{color:#047857}
+.pd-kpi-q{background:linear-gradient(135deg,#dbeafe,#bfdbfe);border:1px solid #60a5fa;color:#1e3a8a}
+.pd-kpi-q .pd-kpi-label{color:#1d4ed8}
+.pd-kpi-p{background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;color:#92400e}
+.pd-kpi-p .pd-kpi-label{color:#b45309}
+.pd-donut-box{display:flex;align-items:center;gap:8px;padding:4px 10px;border-radius:10px;background:linear-gradient(135deg,#f8fafc,#e2e8f0);border:1px solid var(--pd-bdr)}
+#dayDonut{width:96px;height:96px;flex:none}
+.pd-donut-legend{display:flex;flex-direction:column;gap:2px;font-size:9px;font-weight:700;color:var(--pd-text);white-space:nowrap}
+.pd-donut-legend .pd-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+.pd-shift-box{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;flex:1 1 320px;padding:8px 12px;border-radius:10px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd}
+
+.pd-row{
+  display:flex;flex-wrap:wrap;gap:12px;margin:12px;align-items:stretch;
+}
+.pd-row-right{
+  flex:1 1 420px;min-width:320px;
+  border:2px solid var(--pd-bdr);border-radius:12px;padding:12px;
+  background:var(--pd-panel);box-shadow:0 3px 18px rgba(0,0,0,.1);
+  display:flex;flex-direction:column;
+  position:relative;
+}
+/* T19: per-chart color legend, pinned to the top-right corner of the graph. */
+.pd-legend{
+  position:absolute;top:8px;right:10px;z-index:2;
+  display:flex;gap:8px;align-items:center;
+  background:rgba(255,255,255,.88);border:1px solid var(--pd-bdr);border-radius:6px;
+  padding:2px 8px;font-size:9px;font-weight:700;color:var(--pd-txt2);white-space:nowrap;
+}
+.pd-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:3px;vertical-align:-1px}
+/* T22: timeline legend under each chart (donut colors). */
+.pd-tl{display:flex;gap:12px;justify-content:center;align-items:center;font-size:12px;font-weight:700;color:#1e3a8a;margin:8px 0 4px;padding:6px 12px;border-radius:10px;background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;white-space:nowrap;flex-wrap:wrap}
+.pd-tl i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.pd-row-right canvas{width:100%!important;height:360px;flex:none;display:block}
+.pd-chart-title{text-align:center;font-size:clamp(13px,2.2vw,17px);font-weight:700;color:var(--pd-text);margin:2px 0 6px;letter-spacing:.3px}
+
+.pd-empty{
+  margin:40px 12px;text-align:center;color:var(--pd-txt3);font-size:14px;font-weight:600;
+}
+
+/* ---- LEFT SLIDE PANEL (display options, same pattern as sensor-charts) ---- */
+#pdTrigger{
+  position:fixed;top:0;left:0;width:12px;height:100vh;z-index:200;cursor:e-resize;
+}
+#pdPanel{
+  position:fixed;top:0;left:0;height:100vh;width:280px;
+  background:var(--pd-panel);border-right:2px solid var(--pd-bdr);
+  z-index:201;overflow-y:auto;
+  transform:translateX(-100%);transition:transform .25s ease;
+  box-shadow:4px 0 24px rgba(0,0,0,.18);
+  display:flex;flex-direction:column;
+}
+#pdPanel.open{transform:translateX(0)}
+.pd-lp-header{
+  padding:6px 8px;border-bottom:1px solid var(--pd-bdr);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.pd-lp-title{font-size:10px;font-weight:700;color:var(--pd-acc)}
+.pd-lp-close{background:none;border:none;color:var(--pd-txt2);font-size:13px;cursor:pointer;padding:1px 5px;border-radius:4px}
+.pd-lp-close:hover{color:var(--pd-acc)}
+.pd-lp-body{padding:6px 8px;display:flex;flex-direction:column;gap:4px;flex:1}
+.pd-lp-section{border:1px solid var(--pd-bdr);border-radius:5px;padding:5px;background:var(--pd-grid-bg);display:flex;flex-direction:column;gap:3px}
+.pd-lp-section-title{font-size:8px;font-weight:700;color:var(--pd-txt3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:0}
+.pd-lp-row{display:flex;flex-direction:column;gap:1px}
+.pd-lp-row label{font-size:8px;color:var(--pd-txt2);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.pd-lp-row select{padding:2px 4px;border-radius:5px;border:1px solid var(--pd-bdr);background:var(--pd-panel);color:var(--pd-text);font-size:9px;font-weight:600;width:100%}
+#pdTrigger:hover ~ #pdPanel, #pdPanel:hover{transform:translateX(0)}
+
+@media(max-width:700px){
+  .pd-banner{padding:12px 14px 10px;margin:8px 8px 0}
+  .pd-statusbar{margin:8px 8px 0}
+  .pd-row{margin:8px}
+  .pd-row-right{flex:1 1 100%;min-width:0}
+}
+@media(max-width:400px){
+  .pd-banner{padding:10px 10px 8px;margin:6px 6px 0;border-radius:10px}
+  .pd-banner h1{font-size:16px}
+  .pd-banner p{font-size:10px}
+  .pd-statusbar{padding:6px 8px;margin:6px 6px 0;font-size:11px}
+  .pd-row{margin:6px;gap:8px}
+  .pd-row-right{padding:8px;border-radius:10px}
+}
+</style>
+<main class='page'>
+<div id='pdTrigger'></div>
+<div id='pdPanel'>
+  <div class='pd-lp-header'>
+    <span class='pd-lp-title' data-i18n='proxDashOpts'>Display options</span>
+    <button class='pd-lp-close' onclick='closePdPanel()' title='Close panel' data-i18n-title='proxDashTipOpts'>✕</button>
+  </div>
+  <div class='pd-lp-body'>
+    <div class='pd-lp-section'>
+      <div class='pd-lp-section-title' data-i18n='proxDashSecView'>View</div>
+      <div class='pd-lp-row'>
+        <label data-i18n='proxDashChartType'>Chart type</label>
+        <select id='pdChart' onchange='onDashOptChange()' title='Chart style' data-i18n-title='proxDashTipChart'>
+          <option value='bars' data-i18n='proxDashChartBars'>Bars</option>
+          <option value='line' data-i18n='proxDashChartLine'>Line</option>
+        </select>
+      </div>
+      <div class='pd-lp-row'>
+        <label data-i18n='proxDashTitleMode'>Title</label>
+        <select id='pdTitle' onchange='onDashOptChange()' title='Chart title format' data-i18n-title='proxDashTipTitleMode'>
+          <option value='sys' data-i18n='proxDashTitleSys'>System name</option>
+          <option value='ch' data-i18n='proxDashTitleName'>Channel name</option>
+        </select>
+      </div>
+      <div class='pd-lp-row'>
+        <label data-i18n='proxDashContent'>Content</label>
+        <select id='pdBarMode' onchange='onDashOptChange()' title='Bar style' data-i18n-title='proxDashTipBarMode'>
+          <option value='dual' data-i18n='proxDashBarsDual'>Production + scrap</option>
+          <option value='prod' data-i18n='proxDashBarsProd'>Production only</option>
+        </select>
+      </div>
+      <div class='pd-lp-row'>
+        <label data-i18n='proxDashColors'>Bar colors</label>
+        <select id='pdColors' onchange='onDashOptChange()' title='Bar color mode' data-i18n-title='proxDashTipColors'>
+          <option value='target' data-i18n='proxDashColorsTarget'>Green/orange vs target</option>
+          <option value='solid' data-i18n='proxDashColorsSolid'>Single color</option>
+        </select>
+      </div>
+      <div class='pd-lp-row'>
+        <label data-i18n='proxDashLabels'>Value labels</label>
+        <select id='pdLabels' onchange='onDashOptChange()' title='Show values above bars' data-i18n-title='proxDashTipLabels'>
+          <option value='on' data-i18n='proxDashOn'>On</option>
+          <option value='off' data-i18n='proxDashOff'>Off</option>
+        </select>
+      </div>
+      <div class='pd-lp-row'>
+        <label data-i18n='proxDashTargetLine'>Target line</label>
+        <select id='pdTargetLine' onchange='onDashOptChange()' title='Show hourly target line' data-i18n-title='proxDashTipTargetLine'>
+          <option value='on' data-i18n='proxDashOn'>On</option>
+          <option value='off' data-i18n='proxDashOff'>Off</option>
+        </select>
+      </div>
+      <div class='pd-lp-row'>
+        <label data-i18n='proxDashHourMark'>Current-hour marker</label>
+        <select id='pdHourMark' onchange='onDashOptChange()' title='Show current-hour marker' data-i18n-title='proxDashTipHourMark'>
+          <option value='on' data-i18n='proxDashOn'>On</option>
+          <option value='off' data-i18n='proxDashOff'>Off</option>
+        </select>
+      </div>
+    </div>
+    <div class='pd-lp-section'>
+      <div class='pd-lp-section-title' data-i18n='proxDashSecData'>Data</div>
+      <div class='pd-lp-row'>
+        <label data-i18n='proxDashWindow'>Hours shown</label>
+        <select id='pdWindow' onchange='onDashOptChange()' title='Hours visible per chart' data-i18n-title='proxDashTipWindow'>
+          <option value='24' data-i18n='proxDashWin24'>24 hours (full day)</option>
+          <option value='12' data-i18n='proxDashWin12'>Last 12 hours</option>
+          <option value='8' data-i18n='proxDashWin8'>Last 8 hours</option>
+        </select>
+      </div>
+    </div>
+    <div class='pd-lp-section'>
+      <div class='pd-lp-section-title' data-i18n='proxDashSecScale'>Scale</div>
+      <div class='pd-lp-row'>
+        <label data-i18n='proxDashYMode'>Y axis</label>
+        <select id='pdYMode' onchange='onDashOptChange()' title='Y axis scale mode' data-i18n-title='proxDashTipYMode'>
+          <option value='target' data-i18n='proxDashYTarget'>0 &#8594; target</option>
+          <option value='fit' data-i18n='proxDashYFit'>Fit to data</option>
+          <option value='wide' data-i18n='proxDashYWide'>0 &#8594; 2&#215; headroom</option>
+        </select>
+      </div>
+      <div class='pd-lp-row'>
+        <label data-i18n='proxDashTicks'>X labels</label>
+        <select id='pdTicks' onchange='onDashOptChange()' title='X axis label density' data-i18n-title='proxDashTipTicks'>
+          <option value='auto' data-i18n='proxDashTicksAuto'>Auto</option>
+          <option value='all' data-i18n='proxDashTicksAll'>Every hour</option>
+          <option value='sparse' data-i18n='proxDashTicksSparse'>Every 4th</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+<div class='pd-banner'>
+  <h1 data-i18n='proxDashTitle'>&#128202; Charts and OEE</h1>
+  <p data-i18n='proxDashSubtitle'>Real-time monitoring</p>
+</div>
+
+<div class='pd-statusbar' id='liveBar' style='display:none'>
+  <div class='pd-stat pd-stat-day'>
+    <div class='pd-stat-top'><span class='pd-stat-label' data-i18n='proxDashDay'>day</span><span class='pd-stat-val' id='liveDayTotal'>0</span></div>
+    <div class='pd-stat-sub' id='liveDayPpm'>0/min</div>
+  </div>
+  <div class='pd-stat pd-stat-last'>
+    <div class='pd-stat-top'><span class='pd-stat-label' data-i18n='proxDashLastHour'>last hour</span><span class='pd-stat-val' id='liveLastTotal'>0</span></div>
+    <div class='pd-stat-sub' id='liveLastPpm'>0/min</div>
+  </div>
+</div>
+
+<div class='pd-oee' id='oeeBar' style='display:none'>
+  <div class='pd-donut-box'>
+    <div class='pd-kpi pd-kpi-day' title='Day OEE' data-i18n-title='proxDashTipOee'><span class='pd-kpi-label' data-i18n='proxDashOeeDay'>Day OEE</span><span class='pd-kpi-val' id='dayOeeVal'>&#8212;</span></div>
+    <canvas id='dayDonut' width='120' height='120'></canvas>
+    <div class='pd-donut-legend'>
+      <div><span class='pd-dot' style='background:#16a34a'></span><span data-i18n='proxDashDonutProd'>Production</span> <b id='donutProd'>&#8212;</b></div>
+      <div><span class='pd-dot' style='background:#f59e0b'></span><span data-i18n='proxDashDonutPlan'>Planned</span> <b id='donutPlan'>&#8212;</b></div>
+      <div><span class='pd-dot' style='background:#dc2626'></span><span data-i18n='proxDashDonutUnplan'>Unplanned</span> <b id='donutUnplan'>&#8212;</b></div>
+    </div>
+  </div>
+  <div class='pd-shift-box'>
+  <div class='pd-kpi pd-kpi-shift'><span class='pd-kpi-label' data-i18n='proxDashShift'>Shift</span><span class='pd-kpi-val' id='shiftName'>&#8212;</span></div>
+  <div class='pd-kpi pd-kpi-oee' title='Shift OEE' data-i18n-title='proxDashTipOee'><span class='pd-kpi-label' data-i18n='proxDashOeeShift'>Shift OEE</span><span class='pd-kpi-val' id='oeeVal'>&#8212;</span></div>
+  <div class='pd-kpi pd-kpi-a' title='Availability' data-i18n-title='proxDashTipA'><span class='pd-kpi-label' data-i18n='proxDashA'>Availability</span><span class='pd-kpi-val' id='availVal'>&#8212;</span></div>
+  <div class='pd-kpi pd-kpi-p' title='Performance' data-i18n-title='proxDashTipP'><span class='pd-kpi-label' data-i18n='proxDashP'>Performance</span><span class='pd-kpi-val' id='perfVal'>&#8212;</span></div>
+  <div class='pd-kpi pd-kpi-q' title='Quality' data-i18n-title='proxDashTipQ'><span class='pd-kpi-label' data-i18n='proxDashQ'>Quality</span><span class='pd-kpi-val' id='qualVal'>&#8212;</span></div>
+  </div>
+</div>
+
+<div id='rows'></div>
+</main>
+<script>
+function t(k,fb){try{if(typeof window._t==='function')return window._t(k,fb);var raw=localStorage.getItem('ui_lang_cache');if(raw){var p=JSON.parse(raw);if(p&&p[k]!==undefined)return p[k];}}catch(e){}return fb!==undefined?fb:k;}
+
+var hourlyData = {};   // chIdx -> {counts, scrapCounts, baseline(s), lastCol:-1, lastCount:0, loaded, dayKey} (columns = production-day)
+var chartLines = {};
+var scrapMap = {};       // chartChIdx -> scrapChIdx from cfg (sc field); scrap bars use the scrap channel's IN
+var targetMap = {};      // chartChIdx -> target ppm (for the Y-axis max)
+var oeeTgtMap = {};     // chartChIdx -> Target OEE % (drives the target line)
+var _lastLive = null, _lastCfg = null;   // last poll payloads (title-mode re-render)
+var _lastShiftCfg = null;                // last shift-config payload (production-day window)
+var sysName = '';                        // system name, fetched once for chart titles
+var PALETTE = ['#0284c7','#059669','#d97706','#dc2626','#7c3aed','#db2777','#0891b2','#65a30d'];
+// T23 (Nuno): timeline stop cells — 12 cells of 5 min per hour (2 cells = one
+// 10-min block). A cell paints as stopped from half of it (2.5 min) on, so the
+// bar shows the real stop length: 10 min = 1 block, 15 min = 1.5, 20 min = 2.
+var STOP_CELL_MIN = 5;            // minutes per cell (half a block)
+var STOP_CELL_SEC = 300;          // seconds per cell
+var STOP_CELLS_PER_HOUR = 12;     // cells per hour column (= 6 blocks)
+var STOP_CELL_STOP_SEC = 150;     // cell counts as stopped from half of it
+var STOP_GAP_MAX_SEC = 1200;      // ignore data holes longer than 20 min
+var STOP_SEP_MIN_W = 3;           // draw block separators from 3px per cell
+
+function isActive(ch, cfg, i) {
+  if (ch.count_in > 0 || ch.count_out > 0) return true;
+  var c = cfg && cfg.channels ? cfg.channels[i] : null;
+  if (c && c.gi != null && c.gi !== 255) return true;
+  return false;
+}
+
+function fmtHMS(sec) {
+  sec = Math.max(0, Math.floor(sec || 0));
+  var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  function p2(n) { return (n < 10 ? '0' : '') + n; }
+  return h + ':' + p2(m) + ':' + p2(s);
+}
+
+// Day/last-hour counters for the statusbar chip. Pure (testable): the 24
+// buckets hold the production DAY (past columns from SD history, current
+// live). `boundary` (optional, 0 = legacy) re-bases the DAY rate on the
+// production-day start instead of midnight; omitted = midnight (legacy).
+function dayStats(hd, now, boundary) {
+  var counts = (hd && hd.counts) ? hd.counts : [];
+  var dayTotal = 0;
+  for (var di = 0; di < 24; di++) dayTotal += counts[di] || 0;
+  var dayStart = prodDayStart(boundary || 0);
+  var curH = now.getHours();
+  var minsDay;
+  if (boundary > 0) {
+    minsDay = Math.max(0, (now.getTime() - prodDayStartMs(now, boundary)) / 60000);
+  } else {
+    minsDay = curH * 60 + now.getMinutes() + now.getSeconds() / 60;
+  }
+  var minsH = now.getMinutes() + now.getSeconds() / 60;
+  var lastH = counts[colForHour(curH, dayStart)] || 0;
+  return {
+    dayTotal: dayTotal,
+    dayPpm: minsDay > 0 ? Math.round(dayTotal / minsDay) : 0,
+    lastH: lastH,
+    lastPpm: minsH > 0 ? Math.round(lastH / minsH) : 0
+  };
+}
+
+// Production-day helpers (mirror the firmware R2 day model): the 24 chart
+// columns follow the shift layout — column 0 is the boundary hour itself on
+// the previous date (production 22:00–23:00 for boundary 22), column 23 is
+// the hour before the boundary on the aligned date (production 21:00–22:00).
+// Columns are labelled by their END hour, like the shift email chart
+// (e.g. boundary 22 → labels run 23h,24h,1h…22h, i.e. "from 23H to 22H").
+// Boundary 0 (shifts disabled, empty slots, or a 00:00 slot) = calendar day,
+// identical to the legacy hour-indexed behavior.
+function prodDayBoundary(shiftCfg) {
+  if (!shiftCfg || !shiftCfg.en) return 0;
+  var slots = shiftCfg.slots || [];
+  if (!slots.length) return 0;
+  var last = 0;
+  for (var i = 0; i < slots.length; i++) {
+    var h = slots[i].h || 0;
+    if (h === 0) return 0;
+    if (h > last) last = h;
+  }
+  return last;
+}
+function prodDayStart(boundary) {
+  return boundary === 0 ? 0 : boundary;
+}
+function colForHour(h, dayStart) {
+  return (((h - dayStart) % 24) + 24) % 24;
+}
+function hourForCol(k, dayStart) {
+  return (dayStart + k) % 24;
+}
+// Aligned + previous dates of the production day (mirror firmware
+// proxShiftAlignedDate: at/after the boundary the day already ended into the
+// NEXT date). setDate arithmetic handles month/year rollover.
+function prodDayDates(now, boundary) {
+  var aligned = new Date(now.getTime());
+  if (boundary > 0 && now.getHours() >= boundary) aligned.setDate(aligned.getDate() + 1);
+  var prev = new Date(aligned.getTime());
+  prev.setDate(prev.getDate() - 1);
+  return { aligned: aligned, prev: prev };
+}
+// Epoch seconds of `date` at `boundary:00` local (from= anchor for the
+// previous-day chart-file fetch).
+function dayBoundaryTs(dateObj, boundary) {
+  var d = new Date(dateObj.getTime());
+  d.setHours(boundary, 0, 0, 0);
+  return Math.floor(d.getTime() / 1000);
+}
+// Start of the production day as epoch ms (for the DAY parts/min rate).
+// Boundary 0 = midnight (legacy).
+function prodDayStartMs(now, boundary) {
+  var d = new Date(now.getTime());
+  if (!boundary) {
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+  if (d.getHours() < boundary) d.setDate(d.getDate() - 1);
+  d.setHours(boundary, 0, 0, 0);
+  return d.getTime();
+}
+function currentBoundary() { return prodDayBoundary(_lastShiftCfg); }
+function currentDayStart() { return prodDayStart(currentBoundary()); }
+
+function _fmtDate(d) {
+  var dd = d.getDate().toString().padStart(2,'0');
+  var mm = (d.getMonth()+1).toString().padStart(2,'0');
+  var yyyy = d.getFullYear();
+  return dd + '-' + mm + '-' + yyyy;
+}
+
+// Y-axis maximum for the count charts. Pure (testable).
+// 'target' (standard): 0 to the hourly target exactly, rising past it only if
+// a real hour exceeds it; no target configured = data-driven.
+// 'fit': 0 to just above the visible data max. 'wide': 0 to 2x headroom.
+function chartYMax(dataMax, hourlyTarget, yMode) {
+  if (yMode === 'fit') return Math.max(1, Math.ceil(dataMax * 1.05));
+  if (yMode === 'wide') {
+    var ref = hourlyTarget > 0 ? hourlyTarget : dataMax;
+    return Math.max(1, Math.max(Math.ceil(ref * 2), Math.ceil(dataMax * 1.05)));
+  }
+  if (hourlyTarget > 0) return Math.max(hourlyTarget, Math.ceil(dataMax * 1.05));
+  return Math.ceil(dataMax * 1.15);
+}
+// Hourly target from the channel PPM and the sidebar target %. Pure
+// (testable): pct is the channel Target OEE % (0 = default 85);
+// tgtPpm <= 0 = no target.
+function targetHourly(tgtPpm, pct) {
+  var p = parseInt(pct, 10);
+  if (isNaN(p) || p < 60 || p > 100) p = 85;
+  if (!(tgtPpm > 0)) return 0;
+  return Math.round(tgtPpm * 60 * p / 100);
+}
+// X tick thinning. Pure (testable): 'all' labels every slot, 'sparse' every
+// 4th, 'auto' (standard) thins by slot width so labels never overlap.
+function chartTickStep(slotWpx, tickMode) {
+  if (tickMode === 'all') return 1;
+  if (tickMode === 'sparse') return 4;
+  return slotWpx < 16 ? 4 : (slotWpx < 30 ? 2 : 1);
+}
+
+function drawChart24(canvas, hourly, scrapHourly, chName, dateStr, curCol, color, tgtPpm, oeePct, vo, stopBins) {
+  if (!canvas) return;
+  var gridColor = '#bfdbfe';
+  var tickColor = '#0369a1';
+  var pr = canvas.parentElement || canvas.parentNode;
+  var W = canvas.clientWidth || (pr ? pr.clientWidth : 400) || 400;
+  var H = canvas.clientHeight || (pr ? pr.clientHeight : 180) || 180;
+  if (canvas.width !== W * window.devicePixelRatio || canvas.height !== H * window.devicePixelRatio) {
+    canvas.width = W * (window.devicePixelRatio || 1);
+    canvas.height = H * (window.devicePixelRatio || 1);
+  }
+  var ctx = canvas.getContext('2d');
+  ctx.setTransform((window.devicePixelRatio || 1), 0, 0, (window.devicePixelRatio || 1), 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  var padL = 50, padR = 14, padT = 46, padB = 68;
+  var plotW = W - padL - padR, plotH = H - padT - padB;
+  if (plotW < 20 || plotH < 20) return;
+
+  // View options (sidebar): undefined = standard look (24h, dual bars,
+  // target colors + labels + target line + hour marker, target Y, auto ticks).
+  vo = vo || {};
+  var dayStart = (vo.dayStart | 0) || 0;   // production-day first hour (0 = legacy calendar day)
+  var viewN = parseInt(vo.window, 10);
+  if (!(viewN === 12 || viewN === 8)) viewN = 24;
+  var yMode = (vo.y === 'fit' || vo.y === 'wide') ? vo.y : 'target';
+  var tickMode = (vo.ticks === 'all' || vo.ticks === 'sparse') ? vo.ticks : 'auto';
+  var mode = vo.chart === 'line' ? 'line' : 'bars';
+  var showScrap = vo.bars !== 'prod';
+  var solidColors = vo.colors === 'solid';
+  var showLabels = vo.labels !== 'off';
+  var showTarget = vo.target !== 'off';
+  var showHour = vo.hour !== 'off';
+  // Visible window: full production day, or the last viewN columns ending at
+  // curCol. All indices below are production-day columns, hour = hourForCol.
+  var startK = viewN >= 24 ? 0 : (((curCol - viewN + 1) % 24) + 24) % 24;
+
+  // Y axis: 0 to the hourly equipment maximum (hourly target = tgtPpm
+  // parts/min x 60 min x target %). Rises past that only if a real hour
+  // exceeds it (never clips); no target configured = data-driven.
+  var dataMax = 1;
+  for (var k = 0; k < viewN; k++) {
+    var hh = (startK + k) % 24;
+    if (hourly[hh] > dataMax) dataMax = hourly[hh];
+    if (scrapHourly && scrapHourly[hh] > dataMax) dataMax = scrapHourly[hh];
+  }
+  // T19b (Nuno): hourly target = PPM x 60 scaled by the channel Target OEE %
+  // (config per canal, 0 = 85). Sem seletor % separado. Drives the dashed
+  // target line, the green/orange bar threshold and the 'target' Y mode.
+  var hourlyTarget = targetHourly(tgtPpm, oeePct);
+  var maxVal = chartYMax(dataMax, hourlyTarget, yMode);
+  if (maxVal < 1) maxVal = 1;
+
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  var yTicks = 5;
+  for (var yi = 0; yi <= yTicks; yi++) {
+    var val = Math.round(maxVal * yi / yTicks);
+    var y = padT + plotH - (plotH * yi / yTicks);
+    ctx.strokeStyle = gridColor; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    ctx.fillStyle = tickColor;
+    ctx.fillText(String(val), padL - 6, y);
+  }
+
+  var slotW = Math.floor(plotW / viewN);
+
+  if (mode === 'line') {
+    // Production area + polyline through the hourly counts; scrap as a dashed
+    // red line. Current hour gets a filled dot with a white ring.
+    var pts = [];
+    var scPts = [];
+    for (var pk = 0; pk < viewN; pk++) {
+      var hk = (startK + pk) % 24;
+      var xk = padL + (slotW * pk) + slotW / 2;
+      pts.push({ x: xk, y: padT + plotH - plotH * (hourly[hk] || 0) / maxVal });
+      if (showScrap && scrapHourly) scPts.push({ x: xk, y: padT + plotH - plotH * (scrapHourly[hk] || 0) / maxVal });
+    }
+    // Area fill (channel color fading to transparent).
+    var grad = null;
+    try {
+      grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+      grad.addColorStop(0, color + '55');
+      grad.addColorStop(1, color + '00');
+    } catch (e) {}
+    ctx.save();
+    ctx.fillStyle = grad || (color + '33');
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, padT + plotH);
+    for (var pk2 = 0; pk2 < pts.length; pk2++) ctx.lineTo(pts[pk2].x, pts[pk2].y);
+    ctx.lineTo(pts[pts.length - 1].x, padT + plotH);
+    ctx.closePath();
+    ctx.fill();
+    // Production line.
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (var pk3 = 1; pk3 < pts.length; pk3++) ctx.lineTo(pts[pk3].x, pts[pk3].y);
+    ctx.stroke();
+    ctx.restore();
+    // Scrap line (red, dashed).
+    if (showScrap && scPts.length) {
+      ctx.save();
+      ctx.strokeStyle = '#dc2626';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 3]);
+      ctx.beginPath();
+      ctx.moveTo(scPts[0].x, scPts[0].y);
+      for (var sk2 = 0; sk2 < scPts.length; sk2++) ctx.lineTo(scPts[sk2].x, scPts[sk2].y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+    // Current-hour dot with white ring.
+    if (showHour && curCol >= 0 && curCol < 24) {
+      var ci = ((curCol - startK + 24) % 24);
+      if (ci < viewN) {
+        var cpt = pts[ci];
+        ctx.save();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(cpt.x, cpt.y, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(cpt.x, cpt.y, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+    }
+    // Value labels: vertical text above each non-zero point.
+    if (showLabels) {
+      for (var lk = 0; lk < pts.length; lk++) {
+        var lv = hourly[(startK + lk) % 24] || 0;
+        if (lv <= 0) continue;
+        ctx.save();
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = color;
+        ctx.translate(pts[lk].x, pts[lk].y - 6);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText(String(lv), 0, 0);
+        ctx.restore();
+      }
+    }
+  } else {
+  var barW = Math.max(2, Math.floor(slotW * 0.35));
+  var scrapW = Math.max(2, barW);
+  var gap = Math.max(1, Math.floor(slotW * 0.05));
+  var pairW = barW + gap + scrapW;
+  var pairOff = Math.floor((slotW - pairW) / 2);
+  for (var k2 = 0; k2 < viewN; k2++) {
+    var hi = (startK + k2) % 24;
+    var cx = padL + (slotW * k2) + pairOff;
+    var h = Math.round(plotH * hourly[hi] / maxVal);
+    var by = padT + plotH - h;
+    // Hourly bar vs target: green at/above the hourly target, orange below.
+    // No target configured: channel color (legacy look). 'solid' colors mode
+    // always uses the channel color.
+    var barColor = color;
+    if (!solidColors && hourlyTarget > 0) barColor = (hourly[hi] >= hourlyTarget) ? '#16a34a' : '#f59e0b';
+    if (hourly[hi] > 0 || hi === curCol) {
+      ctx.fillStyle = barColor;
+      ctx.globalAlpha = (hi === curCol) ? 1.0 : 0.85;
+      ctx.fillRect(cx, by, barW, h);
+      ctx.globalAlpha = 1.0;
+    }
+    // Scrap bar (red, side by side with production bar). Min 2px so a small
+    // scrap count stays visible next to large production bars. Hidden in
+    // 'prod' bars mode.
+    if (showScrap && scrapHourly && scrapHourly[hi] > 0) {
+      var sh = Math.round(plotH * scrapHourly[hi] / maxVal);
+      if (sh < 2) sh = 2;
+      var sby = padT + plotH - sh;
+      ctx.fillStyle = '#dc2626';
+      ctx.globalAlpha = 0.85;
+      ctx.fillRect(cx + barW + gap, sby, scrapW, sh);
+      ctx.globalAlpha = 1.0;
+      // Scrap count: vertical label above the red bar (same style as production).
+      ctx.save();
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#b91c1c';
+      ctx.translate(cx + barW + gap + scrapW / 2, sby - 4);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText(String(scrapHourly[hi]), 0, 0);
+      ctx.restore();
+    }
+    // Production value: vertical label above the bar (hourly values never
+    // overlap this way, at any viewport width), same color as its bar.
+    // Hidden in 'off' labels mode.
+    if (showLabels && hourly[hi] > 0) {
+      ctx.save();
+      ctx.font = (W < 500 ? 'bold 12px sans-serif' : 'bold 13px sans-serif');
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = barColor;
+      ctx.translate(cx + barW / 2, by - 4);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText(String(hourly[hi]), 0, 0);
+      ctx.restore();
+    }
+  }
+  }
+  // Hourly target line (target ppm x 60 x target %): dashed + caption.
+  // Drawn after the bars so it stays visible over empty hours. Hidden in
+  // 'off' target mode.
+  if (showTarget && hourlyTarget > 0 && hourlyTarget <= maxVal) {
+    var ty = padT + plotH - plotH * hourlyTarget / maxVal;
+    ctx.save();
+    ctx.strokeStyle = '#0284c7';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(padL, ty); ctx.lineTo(W - padR, ty); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = '#0284c7';
+    ctx.fillText(String(hourlyTarget) + '/h', W - padR - 2, ty - 2);
+    ctx.restore();
+  }
+
+  if (showHour && curCol >= 0 && curCol < 24) {
+    var cx2 = padL + (slotW * ((curCol - startK + 24) % 24)) + slotW / 2;
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = color;
+    ctx.fillText('\u25BC', cx2, padT + plotH + 1);
+  }
+
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  // X axis: equal hourly slots labelled by their production-day hour, 1H
+  // (00-01h) through 24H (23-24h) in the legacy calendar layout, or e.g.
+  // 24H,1H..23H left-to-right for a 22h day boundary (columns run 23H..22H).
+  // Thin the tick labels (not the slots) on narrow screens so all fit.
+  // 'all' ticks mode labels every visible slot, 'sparse' every 4th.
+  var slotWpx = plotW / viewN;
+  var tickStep = chartTickStep(slotWpx, tickMode);
+  if (W < 500) ctx.font = 'bold 9px sans-serif';
+  var lastTickX = -100;
+  for (var k3 = 0; k3 < viewN; k3++) {
+    var xi = (startK + k3) % 24;
+    var xh = hourForCol(xi, dayStart);
+    var xp = padL + (slotW * k3) + slotW / 2;
+    if (k3 % tickStep === 0 || k3 === viewN - 1 || (xh === 23 && xp - lastTickX > 26)) {
+      ctx.fillStyle = tickColor;
+      ctx.fillText(String(xh + 1) + 'h', xp, padT + plotH + 14);
+      lastTickX = xp;
+    }
+  }
+
+  // T22 (Nuno): OEE timeline strip under the hour labels — one segment per
+  // visible hour slot in donut colors (green production, amber planned stop,
+  // red unplanned stop, gray future). Same states as the day donut.
+  // T23 (Nuno): micro-stop cells — when stopBins carries per-channel stop
+  // SECONDS for the 5-min cells of the hour (see markStopSec), the segment
+  // paints cell by cell, so a stop keeps its real length: 10 min = 1 block,
+  // 15 min = 1.5 blocks, 20 min = 2 blocks (1 block = 2 cells = 10 min).
+  // Columns without samples (or no stopBins at all) fall back to the solid
+  // hour color.
+  (function drawTimeline() {
+    var scfg = (typeof _lastShiftCfg !== 'undefined') ? _lastShiftCfg : null;
+    var tlSlots = (scfg && scfg.en && scfg.slots) ? scfg.slots : null;
+    var tlStops = (scfg && scfg.stops) ? scfg.stops : null;
+    var tlY = padT + plotH + 44, tlH = 12;
+    var curBin = Math.floor(new Date().getMinutes() / STOP_CELL_MIN);
+    for (var k4 = 0; k4 < viewN; k4++) {
+      var kc4 = (startK + k4) % 24;
+      var hr4 = hourForCol(kc4, dayStart);
+      var inShift4 = hourInShift(hr4, tlSlots);
+      var inStop4 = hourInPlannedStop(hr4, tlStops);
+      var hourColor = timelineSlotColor(hourly[kc4] || 0, inShift4, inStop4, kc4 > curCol);
+      var segX = padL + slotW * k4 + 1, segW = slotW - 2;
+      var row4 = (stopBins && stopBins[kc4]) ? stopBins[kc4] : null;
+      if (!row4) {
+        ctx.fillStyle = hourColor;
+        ctx.fillRect(segX, tlY, segW, tlH);
+      } else {
+        var bw4 = segW / STOP_CELLS_PER_HOUR;
+        for (var b4 = 0; b4 < STOP_CELLS_PER_HOUR; b4++) {
+          var c4;
+          if (stopBinIsFuture(kc4, b4, curCol, curBin)) c4 = '#e2e8f0';
+          else if (row4[b4] >= STOP_CELL_STOP_SEC) c4 = (inStop4 || !inShift4) ? '#f59e0b' : '#dc2626';
+          else if (row4[b4] >= 0) c4 = '#16a34a';
+          else c4 = hourColor;
+          var xa4 = Math.round(segX + bw4 * b4);
+          var xb4 = Math.round(segX + bw4 * (b4 + 1));
+          ctx.fillStyle = c4;
+          ctx.fillRect(xa4, tlY, Math.max(1, xb4 - xa4), tlH);
+        }
+        // 10-min block separators (cells 0|1, 2|3, ... are one block) so the
+        // eye can count blocks: a 20-min stop reads as two blocks, a 15-min
+        // stop as one block plus half of the next.
+        if (bw4 >= STOP_SEP_MIN_W) {
+          ctx.fillStyle = 'rgba(255,255,255,.6)';
+          for (var s4 = 2; s4 < STOP_CELLS_PER_HOUR; s4 += 2) {
+            ctx.fillRect(Math.round(segX + bw4 * s4), tlY, 1, tlH);
+          }
+        }
+      }
+    }
+  })();
+}
+
+function chartLabel(i, ch) {
+  if (dashOpts().title === 'sys' && sysName) return sysName;
+  return ch.name || ('DI' + (i+1));
+}
+
+// T19: per-chart color legend for the top-right corner of the graph:
+// green/orange = good pieces vs the % target, red = scrap. Follows the
+// sidebar Content/Colors modes (single entry in solid mode, no scrap entry
+// in production-only mode). Pure apart from t() fallbacks (testable).
+function chartLegendHTML(color, vo) {
+  vo = vo || {};
+  var s = '<div class="pd-legend">';
+  if (vo.colors === 'solid') {
+    s += '<span><i style="background:' + color + '"></i>' + t('proxDashLegendProd', 'Production') + '</span>';
+  } else {
+    s += '<span><i style="background:#16a34a"></i>' + t('proxDashLegendGoodHi', 'Good \u2265 target') + '</span>';
+    s += '<span><i style="background:#f59e0b"></i>' + t('proxDashLegendGoodLo', 'Good < target') + '</span>';
+  }
+  if (vo.bars !== 'prod') {
+    s += '<span><i style="background:#dc2626"></i>' + t('proxDashLegendScrap', 'Scrap') + '</span>';
+  }
+  return s + '</div>';
+}
+
+// T22: timeline legend under each chart (same donut colors as the strip).
+// T23: notes the 10-min blocks and the 5-min half.
+function timelineLegendHTML() {
+  return '<div class="pd-tl">'
+    + '<span><i style="background:#16a34a"></i>' + t('proxDashTlProd', 'Production') + '</span>'
+    + '<span><i style="background:#f59e0b"></i>' + t('proxDashTlPlan', 'Planned stop') + '</span>'
+    + '<span><i style="background:#dc2626"></i>' + t('proxDashTlUnplan', 'Unplanned stop') + '</span>'
+    + '<span style="opacity:.7">(' + t('proxDashTlBin', 'block = 10 min (half = 5 min)') + ')</span>'
+    + '</div>';
+}
+function loadSysName() {
+  fetch('/api/config?section=system', {cache:'no-store'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d && d.system_name) { sysName = d.system_name; redrawCharts(); }
+    })
+    .catch(function() { setTimeout(loadSysName, 30000); });
+}
+
+function redrawCharts() {
+  if (_lastLive) { renderRows(_lastLive, _lastCfg); updateHourly(_lastLive); }
+}
+
+// Display-options sidebar (same pattern as sensor-charts): preferences persist
+// in localStorage['prox_dash_opts'] and re-render all charts on change.
+var PD_OPTS_KEY = 'prox_dash_opts';
+function dashOptsDefaults() {
+  return { chart: 'bars', title: 'sys', bars: 'dual', colors: 'target', labels: 'on', target: 'on', hour: 'on', window: 24, y: 'target', ticks: 'auto' };
+}
+function dashOpts() {
+  var d = dashOptsDefaults();
+  try {
+    var raw = localStorage.getItem(PD_OPTS_KEY);
+    if (raw) {
+      var p = JSON.parse(raw);
+      if (p) {
+        if (p.chart === 'bars' || p.chart === 'line') d.chart = p.chart;
+        if (p.title === 'sys' || p.title === 'ch') d.title = p.title;
+        if (p.bars === 'dual' || p.bars === 'prod') d.bars = p.bars;
+        if (p.colors === 'target' || p.colors === 'solid') d.colors = p.colors;
+        if (p.labels === 'on' || p.labels === 'off') d.labels = p.labels;
+        if (p.target === 'on' || p.target === 'off') d.target = p.target;
+        if (p.hour === 'on' || p.hour === 'off') d.hour = p.hour;
+        var w = parseInt(p.window, 10);
+        if (w === 12 || w === 8) d.window = w;
+        if (p.y === 'target' || p.y === 'fit' || p.y === 'wide') d.y = p.y;
+        if (p.ticks === 'auto' || p.ticks === 'all' || p.ticks === 'sparse') d.ticks = p.ticks;
+      }
+    }
+  } catch (e) {}
+  return d;
+}
+function saveDashOpts(o) {
+  try { localStorage.setItem(PD_OPTS_KEY, JSON.stringify(o)); } catch (e) {}
+}
+function syncDashOptsUI() {
+  var o = dashOpts();
+  var map = { pdChart: o.chart, pdTitle: o.title, pdBarMode: o.bars, pdColors: o.colors, pdLabels: o.labels, pdTargetLine: o.target, pdHourMark: o.hour, pdWindow: String(o.window), pdYMode: o.y, pdTicks: o.ticks };
+  for (var id in map) {
+    if (!map.hasOwnProperty(id)) continue;
+    var el = document.getElementById(id);
+    if (el) el.value = map[id];
+  }
+}
+function onDashOptChange() {
+  function val(id, fb) { var el = document.getElementById(id); return el ? el.value : fb; }
+  var o = dashOptsDefaults();
+  o.chart = val('pdChart', 'bars') === 'line' ? 'line' : 'bars';
+  o.title = val('pdTitle', 'sys') === 'ch' ? 'ch' : 'sys';
+  o.bars = val('pdBarMode', 'dual');
+  o.colors = val('pdColors', 'target');
+  o.labels = val('pdLabels', 'on');
+  o.target = val('pdTargetLine', 'on');
+  o.hour = val('pdHourMark', 'on');
+  var w = parseInt(val('pdWindow', '24'), 10);
+  o.window = (w === 12 || w === 8) ? w : 24;
+  o.y = val('pdYMode', 'target');
+  o.ticks = val('pdTicks', 'auto');
+  saveDashOpts(o);
+  redrawCharts();
+}
+function closePdPanel() {
+  var p = document.getElementById('pdPanel');
+  if (p) p.classList.remove('open');
+}
+function computePrimary(live, cfg) {
+  var chs = live.channels || [];
+  var active = [];
+  for (var i = 0; i < chs.length; i++) {
+    if (isActive(chs[i], cfg, i)) active.push(i);
+  }
+  // "Mostrar N canais" = channels 1..N (same selector as the /proximity page).
+  // Capped BEFORE the aux filter: with visCh=3 and DI2=scrap + DI3=gate of DI1,
+  // slicing [0..7] to [0,1,2] first leaves DI1 alone after aux removal — never
+  // DI4/DI5 pulled into view.
+  try {
+    var visN = parseInt(localStorage.getItem('prox_visCh'), 10);
+    if (visN > 0 && visN < active.length) active = active.slice(0, visN);
+  } catch (e) {}
+  // Hide channels that exist only as gate/scrap for other active channels.
+  var activeSet = {};
+  for (var ai = 0; ai < active.length; ai++) activeSet[active[ai]] = true;
+  var primary = [];
+  for (var pi = 0; pi < active.length; pi++) {
+    var idx = active[pi];
+    var c = cfg && cfg.channels ? cfg.channels[idx] : {};
+    var isAux = false;
+    for (var ci = 0; ci < chs.length; ci++) {
+      if (ci === idx || !activeSet[ci]) continue;
+      var oc = cfg && cfg.channels ? cfg.channels[ci] : {};
+      if ((oc.gc === idx && c.m === 1) ||
+          (oc.sc === idx && c.m === 0)) {
+        isAux = true;
+        break;
+      }
+    }
+    if (!isAux) primary.push(idx);
+  }
+  return primary;
+}
+
+function renderRows(live, cfg) {
+  var container = document.getElementById('rows');
+  var chs = live.channels || [];
+  var active = computePrimary(live, cfg);
+  if (!active.length) {
+    container.innerHTML = '<div class="pd-empty">' + t('proxDashNoActive','No active channels') + '</div>';
+    return;
+  }
+
+  // Scrap source + hourly target + OEE target per charted channel (cfg keys).
+  scrapMap = {};
+  targetMap = {};
+  oeeTgtMap = {};
+  active.forEach(function(i) {
+    var cc = cfg && cfg.channels ? cfg.channels[i] : null;
+    if (!cc) return;
+    if (cc.sc != null && cc.sc !== 255 && cc.sc !== i && chs[cc.sc]) scrapMap[String(i)] = cc.sc;
+    if (cc.tp > 0) targetMap[String(i)] = cc.tp;
+    var om = parseFloat(cc.om);
+    oeeTgtMap[String(i)] = (!isNaN(om) && om >= 60 && om <= 100) ? om : 85;
+  });
+
+  // Charts only (no cards): one 24h chart per active channel. Big centered
+  // title = chart label (system name or channel name) + production-day date
+  // (the aligned date the day ends into, e.g. 22-09 for the 21st 22:00→22nd
+  // 22:00 day with 6/14/22 shifts).
+  var h = '';
+  var titleDateStr = _fmtDate(prodDayDates(new Date(), currentBoundary()).aligned);
+  var voLegend = dashOpts();
+  active.forEach(function(i) {
+    var ch = chs[i];
+    var chName = chartLabel(i, ch);
+    var dateStr = titleDateStr;
+    h += '<div class="pd-row">';
+    h += '<div class="pd-row-right" style="flex:1 1 100%"><div class="pd-chart-title">' + chName + ' \u2014 ' + dateStr + '</div>' + chartLegendHTML(PALETTE[i % PALETTE.length], voLegend) + '<canvas id="chart' + i + '"></canvas>' + timelineLegendHTML() + '</div>';
+    h += '</div>';
+  });
+  container.innerHTML = h;
+
+  var kept = {};
+  active.forEach(function(i) {
+    var key = String(i);
+    kept[key] = true;
+    if (!hourlyData[key]) {
+      chartLines[key] = PALETTE[i % PALETTE.length];
+      hourlyData[key] = { counts: [], scrapCounts: [], baseline: 0, scrapBaseline: 0, lastCol: -1, lastCount: 0, loaded: false, dayKey: '', stopBins: null, stopPrev: null, stopPrevTs: null };
+      for (var j = 0; j < 24; j++) { hourlyData[key].counts.push(0); hourlyData[key].scrapCounts.push(0); }
+    }
+  });
+  Object.keys(hourlyData).forEach(function(k) {
+    if (!kept[k]) { delete hourlyData[k]; delete chartLines[k]; }
+  });
+}
+
+function updateHourly(live) {
+  var chs = live.channels || [];
+  var now = new Date();
+  var dayStart = currentDayStart();
+  var curCol = colForHour(now.getHours(), dayStart);
+  // Production-day key (boundary + aligned date): a new day started — or the
+  // shift layout changed with the page open — → drop the stale columns so the
+  // chart follows the shift layout, then re-baseline live.
+  var dayKey = currentBoundary() + '|' + _fmtDate(prodDayDates(now, currentBoundary()).aligned);
+  var vo = dashOpts();
+  vo.dayStart = dayStart;
+  Object.keys(hourlyData).forEach(function(key) {
+    var i = parseInt(key);
+    var ch = chs[i];
+    if (!ch) return;
+    var hd = hourlyData[key];
+    var countIn = ch.count_in || 0;
+    // Dual-bar scrap: configured scrap channel's IN; fallback = own OUT sensor.
+    var scIdx = scrapMap[key];
+    var scrapCh = (scIdx != null && chs[scIdx]) ? chs[scIdx] : null;
+    var countOut = scrapCh ? (scrapCh.count_in || 0) : (ch.count_out || 0);
+
+    if (hd.lastCol < 0 || hd.dayKey !== dayKey) {
+      hd.dayKey = dayKey;
+      hd.lastCol = curCol;
+      hd.baseline = countIn;
+      hd.scrapBaseline = countOut;
+      hd.lastCount = countIn;
+      for (var j = 0; j < 24; j++) { hd.counts[j] = 0; hd.scrapCounts[j] = 0; }
+      hd.counts[curCol] = Math.max(0, countIn - hd.baseline);
+      hd.scrapCounts[curCol] = Math.max(0, countOut - hd.scrapBaseline);
+      hd.stopBins = null;
+      hd.stopPrev = null;
+      hd.stopPrevTs = null;
+    } else if (curCol !== hd.lastCol) {
+      hd.counts[hd.lastCol] = Math.max(0, hd.lastCount - hd.baseline);
+      hd.baseline = countIn;
+      hd.scrapBaseline = countOut;
+      hd.lastCol = curCol;
+      hd.lastCount = countIn;
+    } else {
+      hd.lastCount = countIn;
+      hd.counts[curCol] = Math.max(0, countIn - hd.baseline);
+      hd.scrapCounts[curCol] = Math.max(0, countOut - hd.scrapBaseline);
+    }
+
+    hd.loaded = true;
+    // T23 live tail: credit the seconds since the previous poll to the current
+    // 5-min cell when the live counter did not advance (covers the minutes past
+    // the last SD flush; older cells come from loadHistoricalData).
+    if (!hd.stopBins) hd.stopBins = [];
+    var liveTs = Math.floor(now.getTime() / 1000);
+    hd.stopPrev = markStopSec(hd.stopBins, hd.stopPrev, countIn, liveTs, hd.stopPrevTs, dayStart);
+    hd.stopPrevTs = liveTs;
+    drawChart24(document.getElementById('chart' + key), hd.counts, hd.scrapCounts, ch.name || ('DI' + (i+1)), dayKey, curCol, chartLines[key], targetMap[key] || 0, oeeTgtMap[key] || 85, vo, hd.stopBins);
+  });
+}
+
+// Sequential fetch with 429/network retry + backoff. /api/proximity-chart-data
+// is rate-limited server-side (HeavyApiRequestGuard, ~1 request/s per route on
+// the WiFi path), so the two production-day segments must be fetched one at a
+// time; on 429 we wait past the guard window and try again instead of letting
+// the segment be silently dropped (which left some hourly columns empty).
+function fetchChartSegments(urls, maxRetries) {
+  var retries = (typeof maxRetries === 'number') ? maxRetries : 3;
+  var parts = [];
+  var chain = Promise.resolve();
+  urls.forEach(function(u) {
+    chain = chain.then(function() {
+      return fetchChartSegmentOnce(u, retries);
+    }).then(function(d) {
+      parts.push(d);
+    });
+  });
+  return chain.then(function() { return parts; });
+}
+
+function fetchChartSegmentOnce(url, retries) {
+  var attempt = 0;
+  return new Promise(function(resolve) {
+    function tryOnce() {
+      fetch(url, {cache:'no-store'}).then(function(r) {
+        if (r.status === 429 || r.status === 503) {
+          if (attempt < retries) { attempt++; setTimeout(tryOnce, 1100); }
+          else resolve(null);
+          return;
+        }
+        return r.json();
+      }).then(function(d) {
+        if (d !== undefined) resolve(d || null);
+      }).catch(function() {
+        if (attempt < retries) { attempt++; setTimeout(tryOnce, 1100); }
+        else resolve(null);
+      });
+    }
+    tryOnce();
+  });
+}
+
+// Merge production-day history (SD buckets) into a channel's hourly chart.
+// Past columns replace any live-only value. The CURRENT column is backfilled
+// from SD too AND the live baselines are re-anchored so the next live poll
+// adds only the delta past the last SD bucket. That makes the current-hour
+// bar show the FULL count since the hour started, regardless of when the page
+// was opened — before, a page loaded mid-hour undercounted the hour until the
+// page reloaded after it ended.
+// `reanchor` must be true only while the live session is still on the same
+// column (lastCol === curCol); after an hour rollover the rollover code
+// already holds the correct baseline, so only past columns are touched.
+// Pure (testable): mutates `hd`; returns {baseline, scrapBaseline} when at
+// least one live baseline was re-anchored (fields are null when untouched),
+// else null.
+function mergeHistoryBackfill(hd, bucketCounts, bucketScrap, liveIn, liveOut, curCol, reanchor) {
+  for (var bk = 0; bk <= curCol; bk++) {
+    if (bucketCounts[bk] > 0) hd.counts[bk] = bucketCounts[bk];
+    if (bucketScrap[bk] > 0) hd.scrapCounts[bk] = bucketScrap[bk];
+  }
+  if (!reanchor) return null;
+  var newBase = null, newScrapBase = null;
+  var bc = bucketCounts[curCol] || 0;
+  if (bc > 0 && liveIn != null) {
+    newBase = liveIn - bc;
+    if (newBase < 0) newBase = 0;   // counter auto-reset under the fetch → keep live
+  }
+  var bs = bucketScrap[curCol] || 0;
+  if (bs > 0 && liveOut != null) {
+    newScrapBase = liveOut - bs;
+    if (newScrapBase < 0) newScrapBase = 0;
+  }
+  if (newBase === null && newScrapBase === null) return null;
+  return { baseline: newBase, scrapBaseline: newScrapBase };
+}
+
+function loadHistoricalData() {
+  var now = new Date();
+  var B = currentBoundary();
+  var dayStart = prodDayStart(B);
+  var dates = prodDayDates(now, B);
+  var alignedStr = _fmtDate(dates.aligned);
+  var curCol = colForHour(now.getHours(), dayStart);
+  var nowTs = Math.floor(now.getTime() / 1000);
+  // Production day spans two calendar files: the previous date from the
+  // boundary hour on, plus the aligned date. Boundary 0 = single calendar
+  // file (legacy request, unchanged).
+  var urls = [];
+  if (B > 0) {
+    urls.push('/api/proximity-chart-data?date=' + _fmtDate(dates.prev) + '&mode=day&from=' + dayBoundaryTs(dates.prev, B));
+  }
+  urls.push('/api/proximity-chart-data?date=' + alignedStr + '&mode=day');
+  var bTs = (B > 0) ? dayBoundaryTs(dates.prev, B) : 0;
+  return fetchChartSegments(urls)
+    .then(function(parts) {
+      var segs = [];
+      for (var pi = 0; pi < parts.length; pi++) {
+        var d = parts[pi];
+        if (d && d.timestamps && d.timestamps.length) segs.push(d);
+      }
+      if (!segs.length) return;
+      var colKeys = [];
+      for (var si = 0; si < segs.length; si++) {
+        var keys = Object.keys(segs[si]);
+        for (var k = 0; k < keys.length; k++) {
+          if (keys[k] !== 'count' && keys[k] !== 'stride' && keys[k] !== 'labels' && keys[k] !== 'timestamps') {
+            if (colKeys.indexOf(keys[k]) < 0) colKeys.push(keys[k]);
+          }
+        }
+      }
+      var prevVals = {};
+      var prevTsVals = {};
+      for (var ci = 0; ci < colKeys.length; ci++) { prevVals[colKeys[ci]] = null; prevTsVals[colKeys[ci]] = null; }
+      var bucketCounts = {};
+      var bucketScrap = {};
+      var stopBins = {};
+      Object.keys(hourlyData).forEach(function(key) { bucketCounts[key] = []; bucketScrap[key] = []; stopBins[key] = []; for (var j=0;j<24;j++) { bucketCounts[key].push(0); bucketScrap[key].push(0); } });
+      // Segments run oldest-first (prev tail, then aligned head); prevVals
+      // carries across the midnight file boundary so cross-midnight deltas
+      // land in the right production-day column.
+      for (var s2 = 0; s2 < segs.length; s2++) {
+        var seg = segs[s2];
+        var stamps = seg.timestamps || [];
+        for (var r2 = 0; r2 < stamps.length; r2++) {
+          var ts = stamps[r2];
+          var keep = (ts >= bTs && ts <= nowTs);
+          var dt = new Date(ts * 1000);
+          var kk = colForHour(dt.getHours(), dayStart);
+          Object.keys(hourlyData).forEach(function(key) {
+            var chIdx = parseInt(key);
+            var inKey = 'prox_ch' + chIdx + '_in';
+            // Historical scrap: mapped scrap channel's IN series, else own OUT.
+            var scIdxH = scrapMap[key];
+            var outKey = (scIdxH != null) ? ('prox_ch' + scIdxH + '_in') : ('prox_ch' + chIdx + '_out');
+            var arr = seg[inKey];
+            var oarr = seg[outKey];
+            if (!arr || arr[r2] == null) return;
+            var v = arr[r2];
+            if (prevVals[inKey] === null) { prevVals[inKey] = v; prevTsVals[inKey] = ts; }
+            else if (keep) {
+              var delta = Math.max(0, Math.round(v - prevVals[inKey]));
+              bucketCounts[key][kk] += delta;
+              // T23: the same sample pair feeds the 5-min stop cells (markStopSec
+              // credits the elapsed seconds that had no production).
+              prevVals[inKey] = markStopSec(stopBins[key], prevVals[inKey], v, ts, prevTsVals[inKey], dayStart);
+              prevTsVals[inKey] = ts;
+            } else {
+              // Skipped (pre-boundary/future) rows still advance the counter
+              // so the first kept row deltas from the right baseline.
+              prevVals[inKey] = v;
+              prevTsVals[inKey] = ts;
+            }
+            if (oarr && oarr[r2] != null) {
+              if (prevVals[outKey] === null) { prevVals[outKey] = oarr[r2]; }
+              else if (keep) {
+                var sdelta = Math.max(0, Math.round(oarr[r2] - prevVals[outKey]));
+                bucketScrap[key][kk] += sdelta;
+                prevVals[outKey] = oarr[r2];
+              } else {
+                prevVals[outKey] = oarr[r2];
+              }
+            }
+          });
+        }
+      }
+      var vo = dashOpts();
+      vo.dayStart = dayStart;
+      Object.keys(hourlyData).forEach(function(key) {
+        var hd = hourlyData[key];
+        // Backfill past columns from SD. The CURRENT column is backfilled too
+        // and the live baselines re-anchored so the current-hour bar shows the
+        // full count since the hour started (not just since the page opened).
+        var chIdx = parseInt(key);
+        var liveIn = null, liveOut = null;
+        if (_lastLive && _lastLive.channels) {
+          var chL = _lastLive.channels[chIdx];
+          if (chL) {
+            liveIn = chL.count_in || 0;
+            var scIdx = scrapMap[key];
+            if (scIdx != null && _lastLive.channels[scIdx]) liveOut = _lastLive.channels[scIdx].count_in || 0;
+            else liveOut = chL.count_out || 0;
+          }
+        }
+        var reanchor = (hd.lastCol === curCol);
+        var nb = mergeHistoryBackfill(hd, bucketCounts[key], bucketScrap[key], liveIn, liveOut, curCol, reanchor);
+        if (nb && liveIn != null) {
+          if (nb.baseline != null) hd.baseline = nb.baseline;
+          if (nb.scrapBaseline != null) hd.scrapBaseline = nb.scrapBaseline;
+        }
+        // T23: historical micro-stop bins replace the live-only tail (the next
+        // live poll re-marks the current bin from stopPrev, which still tracks
+        // the same absolute counter).
+        hd.stopBins = stopBins[key];
+        drawChart24(document.getElementById('chart' + key), hd.counts, hd.scrapCounts, '', alignedStr, curCol, chartLines[key], targetMap[key] || 0, oeeTgtMap[key] || 85, vo, hd.stopBins);
+      });
+    })
+    .catch(function() {});
+}
+
+// Current-shift detection mirrors the firmware _detectCurrentShift(): the slot
+// with the largest start time <= now; before the first slot = the last shift.
+function detectShiftIndex(slots, now) {
+  if (!slots || !slots.length || !now) return -1;
+  var cur = now.getHours() * 60 + now.getMinutes();
+  var best = -1, bestMin = -1;
+  for (var i = 0; i < slots.length; i++) {
+    var sm = (slots[i].h || 0) * 60 + (slots[i].m || 0);
+    if (sm <= cur && sm > bestMin) { bestMin = sm; best = i; }
+  }
+  if (best === -1) best = slots.length - 1;   // before the first slot -> night shift
+  return best;
+}
+
+function _p2n(n) { return (n < 10 ? '0' : '') + n; }
+// "08:00–16:00" for a shift slot (next slot start, wrapping across midnight).
+function shiftWindowText(slots, idx) {
+  var s = slots && slots[idx];
+  if (!s) return '';
+  var nxt = slots[(idx + 1) % slots.length];
+  var endMin = (nxt.h || 0) * 60 + (nxt.m || 0);
+  var startMin = (s.h || 0) * 60 + (s.m || 0);
+  if (nxt === slots[0] && endMin <= startMin) endMin += 1440;
+  var eh = Math.floor(endMin / 60) % 24;
+  return _p2n(s.h) + ':' + _p2n(s.m) + '\u2013' + _p2n(eh) + ':' + _p2n(endMin % 60);
+}
+
+// Day donut fractions (production / planned / unplanned) of the day window.
+// Pure (testable): clamps so the three always sum to 1; null when empty.
+// (donutFractions body stays untouched below)
+
+// T22 (Nuno): OEE timeline strip — per-hour state in donut colors.
+// hourInShift: clock hour h covered by a shift window (slot start -> next
+// slot start, tiling the day); no slots configured = whole day counts as
+// shift (matches the day donut, whose planned share is 0 without stops).
+function hourInShift(h, slots) {
+  if (!slots || !slots.length) return true;
+  var hm = (h || 0) * 60;
+  for (var i = 0; i < slots.length; i++) {
+    var s = (slots[i].h || 0) * 60 + (slots[i].m || 0);
+    var nx = slots[(i + 1) % slots.length] || {};
+    var e = (nx.h || 0) * 60 + (nx.m || 0);
+    if (e <= s) { if (hm >= s || hm < e) return true; }
+    else if (hm >= s && hm < e) return true;
+  }
+  return false;
+}
+// hourInPlannedStop: hour [h:00,h+1) overlaps a configured planned stop
+// ({sh,sm,eh,em}, may wrap midnight). Pure (testable).
+function hourInPlannedStop(h, stops) {
+  if (!stops || !stops.length) return false;
+  var hs = (h || 0) * 60, he = hs + 60;
+  for (var j = 0; j < stops.length; j++) {
+    var st = stops[j] || {};
+    var s = (st.sh || 0) * 60 + (st.sm || 0);
+    var e = (st.eh || 0) * 60 + (st.em || 0);
+    if (e <= s) e += 1440;
+    var a = hs, b = he;
+    if (a < s) { a += 1440; b += 1440; }
+    if (a < e && s < b) return true;
+  }
+  return false;
+}
+// Donut colors: production #16a34a, planned #f59e0b, unplanned #dc2626,
+// future (not elapsed) #e2e8f0. Pure (testable).
+function timelineSlotColor(count, inShift, inStop, isFuture) {
+  if (isFuture) return '#e2e8f0';
+  if ((count || 0) > 0) return '#16a34a';
+  if (inStop || !inShift) return '#f59e0b';
+  return '#dc2626';
+}
+// T23 (Nuno): micro-stop cells — 12 cells of 5 min per hour column holding the
+// SECONDS with no production inside each cell (cells[col] = [-1 unknown |
+// seconds]). The timeline paints a cell as stopped from half of it (2.5 min)
+// on, so a stop keeps its real length: 10 min = 1 block, 15 min = 1.5 blocks,
+// 20 min = 2 blocks (1 block = 2 cells = 10 min). Counter resets (or a value
+// going backwards) only re-baseline. Data holes longer than STOP_GAP_MAX_SEC
+// (board off, stale file) credit at most that window, so a hole never paints
+// the whole day red. Pure (testable): returns the new prev for the next sample.
+function markStopSec(cells, prevV, v, tsSec, prevTsSec, dayStart) {
+  if (v == null || tsSec == null) return prevV;
+  if (prevV == null || v < prevV) return v;
+  var dt = new Date(tsSec * 1000);
+  var col = colForHour(dt.getHours(), dayStart);
+  var k = Math.floor(dt.getMinutes() / STOP_CELL_MIN);
+  if (k < 0) k = 0; else if (k >= STOP_CELLS_PER_HOUR) k = STOP_CELLS_PER_HOUR - 1;
+  var row = cells[col];
+  if (!row) {
+    row = [];
+    for (var z = 0; z < STOP_CELLS_PER_HOUR; z++) row.push(-1);
+    cells[col] = row;
+  }
+  if (Math.max(0, Math.round(v - prevV)) > 0) {
+    if (row[k] < 0) row[k] = 0;   // production seen in this cell
+    return v;
+  }
+  if (prevTsSec == null || !(tsSec > prevTsSec)) return v;
+  var a = prevTsSec, b = tsSec;
+  if (b - a > STOP_GAP_MAX_SEC) a = b - STOP_GAP_MAX_SEC;
+  var g = Math.floor(a / STOP_CELL_SEC);
+  while (g * STOP_CELL_SEC < b) {
+    var cs = g * STOP_CELL_SEC, ce = cs + STOP_CELL_SEC;
+    var from = Math.max(a, cs), to = Math.min(b, ce);
+    if (to > from) {
+      var cdt = new Date(cs * 1000);
+      var ccol = colForHour(cdt.getHours(), dayStart);
+      var ck = Math.floor(cdt.getMinutes() / STOP_CELL_MIN);
+      if (ck < 0) ck = 0; else if (ck >= STOP_CELLS_PER_HOUR) ck = STOP_CELLS_PER_HOUR - 1;
+      var crow = cells[ccol];
+      if (!crow) {
+        crow = [];
+        for (var z2 = 0; z2 < STOP_CELLS_PER_HOUR; z2++) crow.push(-1);
+        cells[ccol] = crow;
+      }
+      if (crow[ck] < 0) crow[ck] = 0;
+      crow[ck] += (to - from);
+    }
+    g++;
+  }
+  return v;
+}
+// True when a (col, cell) block lies ahead of the current time. Columns are
+// production-day ordered, so a later column is always future. Pure (testable).
+function stopBinIsFuture(col, bin, curCol, curBin) {
+  if (col !== curCol) return col > curCol;
+  return bin > curBin;
+}
+function donutFractions(runSec, plannedSec, elapsedSec) {
+  if (!elapsedSec || elapsedSec <= 0) return null;
+  var prod = Math.max(0, Math.min(1, (runSec || 0) / elapsedSec));
+  var plan = Math.max(0, Math.min(1 - prod, (plannedSec || 0) / elapsedSec));
+  var unplan = Math.max(0, 1 - prod - plan);
+  return { prod: prod, plan: plan, unplan: unplan };
+}
+
+// Day donut: production (green) + planned stops (amber) + unplanned (red),
+// starting at the top, clockwise; center shows the day availability.
+function drawDayDonut(canvas, runSec, plannedSec, elapsedSec, centerText) {
+  if (!canvas) return false;
+  var fr = donutFractions(runSec, plannedSec, elapsedSec);
+  var css = 96;
+  var dpr = window.devicePixelRatio || 1;
+  canvas.width = css * dpr;
+  canvas.height = css * dpr;
+  var ctx = canvas.getContext('2d');
+  if (!ctx) return false;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, css, css);
+  var cx = css / 2, cy = css / 2, r = css / 2 - 10;
+  function arcSeg(a0, a1, color) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 16;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, a0, a1);
+    ctx.stroke();
+  }
+  arcSeg(0, Math.PI * 2, '#bfdbfe');
+  if (fr) {
+    var a = -Math.PI / 2;
+    if (fr.prod > 0) { arcSeg(a, a + fr.prod * Math.PI * 2, '#16a34a'); a += fr.prod * Math.PI * 2; }
+    if (fr.plan > 0) { arcSeg(a, a + fr.plan * Math.PI * 2, '#f59e0b'); a += fr.plan * Math.PI * 2; }
+    if (fr.unplan > 0) { arcSeg(a, a + fr.unplan * Math.PI * 2, '#dc2626'); }
+  }
+  ctx.font = '700 14px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#0c4a6e';
+  ctx.fillText(centerText || '', cx, cy);
+  return !!fr;
+}
+
+// Real-time OEE/A/Q/P for the primary channel + current shift chip.
+function updateOeeKpi(oeeArr, shiftCfg) {
+  var bar = document.getElementById('oeeBar');
+  if (!bar) return;
+  if (!oeeArr || !_lastLive) { bar.style.display = 'none'; return; }
+  var prim = computePrimary(_lastLive, _lastCfg);
+  if (!prim.length) { bar.style.display = 'none'; return; }
+  var idx = prim[0];
+  var hit = null;
+  for (var i = 0; i < oeeArr.length; i++) {
+    if (oeeArr[i] && oeeArr[i].ch === idx) { hit = oeeArr[i]; break; }
+  }
+  if (!hit) { bar.style.display = 'none'; return; }
+  function set(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; }
+  function pct(v) { return (v == null || isNaN(v)) ? '\u2014' : (Math.round(v * 10) / 10) + '%'; }
+  set('oeeVal', pct(hit.oee));
+  set('dayOeeVal', pct(hit.day_oee));
+  set('availVal', pct(hit.availability));
+  set('perfVal', pct(hit.performance));
+  set('qualVal', pct(hit.quality));
+  // Day donut (day window): legend % forced to sum 100.
+  var dRun = hit.day_run || 0, dPlan = hit.day_planned || 0, dEl = hit.day_elapsed || 0;
+  var fr = (typeof donutFractions === 'function') ? donutFractions(dRun, dPlan, dEl) : null;
+  function setDonut(id, f) { var el = document.getElementById(id); if (el) el.textContent = (f == null) ? '\u2014' : (Math.round(f * 100) + '%'); }
+  if (fr) {
+    var pp = Math.round(fr.prod * 100), pl = Math.round(fr.plan * 100);
+    setDonut('donutProd', pp / 100); setDonut('donutPlan', pl / 100); setDonut('donutUnplan', (100 - pp - pl) / 100);
+  } else {
+    setDonut('donutProd', null); setDonut('donutPlan', null); setDonut('donutUnplan', null);
+  }
+  drawDayDonut(document.getElementById('dayDonut'), dRun, dPlan, dEl, '');
+  var sn = document.getElementById('shiftName');
+  if (sn) {
+    var label = '\u2014';
+    if (shiftCfg && shiftCfg.en && shiftCfg.slots && shiftCfg.slots.length) {
+      var si = detectShiftIndex(shiftCfg.slots, new Date());
+      if (si >= 0) {
+        label = String(shiftTurnNumber(shiftCfg.slots, si));
+        var range = shiftWindowText(shiftCfg.slots, si);
+        if (range) label += ' (' + range + ')';
+      }
+    }
+    sn.textContent = label;
+  }
+  bar.style.display = 'flex';
+}
+
+function shiftTurnNumber(slots, si) {
+  if (!slots || !slots.length || si < 0 || si >= slots.length) return si + 1;
+  var b = 0, bidx = -1, i;
+  for (i = 0; i < slots.length; i++) {
+    var h = (slots[i].h || 0);
+    if (h === 0) { b = 0; break; }
+    if (h > b) b = h;
+  }
+  if (b === 0) return si + 1;
+  for (i = 0; i < slots.length; i++) if ((slots[i].h || 0) === b) { bidx = i; break; }
+  if (bidx < 0) return si + 1;
+  return ((si - bidx + slots.length) % slots.length) + 1;
+}
+
+function poll() {
+  Promise.all([
+    fetch('/api/proximity',{cache:'no-store'}).then(function(r){return r.json();}),
+    fetch('/api/proximity/config',{cache:'no-store'}).then(function(r){return r.json();}),
+    fetch('/api/proximity/oee',{cache:'no-store'}).then(function(r){return r.json();}),
+    fetch('/api/proximity/shift-config',{cache:'no-store'}).then(function(r){return r.json();})
+  ])
+  .then(function(results) {
+    var live = results[0];
+    var cfg  = results[1];
+    var oeeArr = results[2];
+    var shiftCfg = results[3];
+    _lastLive = live; _lastCfg = cfg; _lastShiftCfg = shiftCfg;
+    renderRows(live, cfg);
+    updateHourly(live);
+    try { updateOeeKpi(oeeArr, shiftCfg); } catch (e) {}
+    try {
+      var prim = computePrimary(live, cfg);
+      var bar = document.getElementById('liveBar');
+      if (bar && prim.length) {
+        var hd0 = hourlyData[String(prim[0])];
+        var st = dayStats(hd0, new Date(), currentBoundary());
+        bar.style.display = 'flex';
+        var dt = document.getElementById('liveDayTotal');
+        var dp = document.getElementById('liveDayPpm');
+        var lt = document.getElementById('liveLastTotal');
+        var lp = document.getElementById('liveLastPpm');
+        if (dt) dt.textContent = st.dayTotal;
+        if (dp) dp.textContent = st.dayPpm + '/min';
+        if (lt) lt.textContent = st.lastH;
+        if (lp) lp.textContent = st.lastPpm + '/min';
+      }
+    } catch (e) {}
+  })
+  .catch(function() {
+  })
+  .finally(function() { setTimeout(poll, 2000); });
+}
+
+poll();
+setTimeout(loadHistoricalData, 3000);
+loadSysName();
+syncDashOptsUI();
+document.getElementById('pdTrigger').addEventListener('mouseenter', function() {
+  document.getElementById('pdPanel').classList.add('open');
+});
+document.getElementById('pdPanel').addEventListener('mouseleave', function(e) {
+  try { if (e.clientX > 12) document.getElementById('pdPanel').classList.remove('open'); } catch (err) {}
+});
+</script>
+)rawliteral";
+
+#endif // ENABLE_PROXIMITY==1
+#endif // PAGE_PROXIMITY_DASHBOARD_ASSET_H

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width,initial-scale=1'>
+  <title>do (Test)</title>
+</head>
+<body>
+<div class='wrap'>
+  <div class='actions nav-inicio'><a href='/' class='btn' title='Go to home page' data-i18n-title='btnHome'>&#127968; Home</a></div>
+  <h1>&#128268; Digital Outputs (DO)</h1>
+  <div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'>
+    <h2>Output Control</h2>
+    <div class='all-bar'>
+      <button class='btn-all btn-all-on' onclick='setAllDO(true)' title='Set all outputs ON' data-i18n-title='doTipSetAllOn'>&#9654; All ON</button>
+      <button class='btn-all btn-all-off' onclick='setAllDO(false)' title='Set all outputs OFF' data-i18n-title='doTipSetAllOff'>&#9632; All OFF</button>
+    </div>
+    <div class='do-grid'>
+      <div class='do-card'><div class='do-label'><strong>DO 1</strong><span id='doName0'>Relay 1</span></div><button id='do0' class='btn-off' data-state='false' onclick='toggleDO(0,this)' title='Toggle this output' data-i18n-title='doTipToggle'>OFF</button></div>
+      <div class='do-card'><div class='do-label'><strong>DO 2</strong><span id='doName1'>Relay 2</span></div><button id='do1' class='btn-off' data-state='false' onclick='toggleDO(1,this)' title='Toggle this output' data-i18n-title='doTipToggle'>OFF</button></div>
+      <div class='do-card'><div class='do-label'><strong>DO 3</strong><span id='doName2'>Relay 3</span></div><button id='do2' class='btn-off' data-state='false' onclick='toggleDO(2,this)' title='Toggle this output' data-i18n-title='doTipToggle'>OFF</button></div>
+      <div class='do-card'><div class='do-label'><strong>DO 4</strong><span id='doName3'>Relay 4</span></div><button id='do3' class='btn-off' data-state='false' onclick='toggleDO(3,this)' title='Toggle this output' data-i18n-title='doTipToggle'>OFF</button></div>
+      <div class='do-card'><div class='do-label'><strong>DO 5</strong><span id='doName4'>Relay 5</span></div><button id='do4' class='btn-off' data-state='false' onclick='toggleDO(4,this)' title='Toggle this output' data-i18n-title='doTipToggle'>OFF</button></div>
+      <div class='do-card'><div class='do-label'><strong>DO 6</strong><span id='doName5'>Relay 6</span></div><button id='do5' class='btn-off' data-state='false' onclick='toggleDO(5,this)' title='Toggle this output' data-i18n-title='doTipToggle'>OFF</button></div>
+      <div class='do-card'><div class='do-label'><strong>DO 7</strong><span id='doName6'>Relay 7</span></div><button id='do6' class='btn-off' data-state='false' onclick='toggleDO(6,this)' title='Toggle this output' data-i18n-title='doTipToggle'>OFF</button></div>
+      <div class='do-card'><div class='do-label'><strong>DO 8</strong><span id='doName7'>Relay 8</span></div><button id='do7' class='btn-off' data-state='false' onclick='toggleDO(7,this)' title='Toggle this output' data-i18n-title='doTipToggle'>OFF</button></div>
+    </div>
+    <p class='note'>&#128161; State saved automatically after each change and restored on boot.</p>
+  </div>
+  <div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'>
+    <h2 data-i18n='doCfgTitle'>Output Configuration</h2>
+    <table class='do-cfg'>
+      <thead><tr><th>DO</th><th data-i18n='doCfgName'>Name</th><th data-i18n='doCfgInvert'>Invert</th></tr></thead>
+      <tbody>
+        <tr><td><strong>DO 1</strong></td><td><input type='text' id='doNameInput0' maxlength='16' title='Custom name (max 16 chars)' data-i18n-title='doCfgTipName'></td><td class='do-inv'><input type='checkbox' id='doInv0' title='Invert logical state (active-low load)' data-i18n-title='doCfgInvertTip'></td></tr>
+        <tr><td><strong>DO 2</strong></td><td><input type='text' id='doNameInput1' maxlength='16' title='Custom name (max 16 chars)' data-i18n-title='doCfgTipName'></td><td class='do-inv'><input type='checkbox' id='doInv1' title='Invert logical state (active-low load)' data-i18n-title='doCfgInvertTip'></td></tr>
+        <tr><td><strong>DO 3</strong></td><td><input type='text' id='doNameInput2' maxlength='16' title='Custom name (max 16 chars)' data-i18n-title='doCfgTipName'></td><td class='do-inv'><input type='checkbox' id='doInv2' title='Invert logical state (active-low load)' data-i18n-title='doCfgInvertTip'></td></tr>
+        <tr><td><strong>DO 4</strong></td><td><input type='text' id='doNameInput3' maxlength='16' title='Custom name (max 16 chars)' data-i18n-title='doCfgTipName'></td><td class='do-inv'><input type='checkbox' id='doInv3' title='Invert logical state (active-low load)' data-i18n-title='doCfgInvertTip'></td></tr>
+        <tr><td><strong>DO 5</strong></td><td><input type='text' id='doNameInput4' maxlength='16' title='Custom name (max 16 chars)' data-i18n-title='doCfgTipName'></td><td class='do-inv'><input type='checkbox' id='doInv4' title='Invert logical state (active-low load)' data-i18n-title='doCfgInvertTip'></td></tr>
+        <tr><td><strong>DO 6</strong></td><td><input type='text' id='doNameInput5' maxlength='16' title='Custom name (max 16 chars)' data-i18n-title='doCfgTipName'></td><td class='do-inv'><input type='checkbox' id='doInv5' title='Invert logical state (active-low load)' data-i18n-title='doCfgInvertTip'></td></tr>
+        <tr><td><strong>DO 7</strong></td><td><input type='text' id='doNameInput6' maxlength='16' title='Custom name (max 16 chars)' data-i18n-title='doCfgTipName'></td><td class='do-inv'><input type='checkbox' id='doInv6' title='Invert logical state (active-low load)' data-i18n-title='doCfgInvertTip'></td></tr>
+        <tr><td><strong>DO 8</strong></td><td><input type='text' id='doNameInput7' maxlength='16' title='Custom name (max 16 chars)' data-i18n-title='doCfgTipName'></td><td class='do-inv'><input type='checkbox' id='doInv7' title='Invert logical state (active-low load)' data-i18n-title='doCfgInvertTip'></td></tr>
+      </tbody>
+    </table>
+    <div class='all-bar'>
+      <button class='btn-all btn-all-on' onclick='saveDoConfig()' data-i18n='doCfgSave'>Save Config</button>
+    </div>
+    <p class='note'>&#128161; Names and inversion are saved to /config/do.json and applied immediately.</p>
+  </div>
+</div>
+
+<script>
+// ===== MOCK API LAYER =====
+(function() {
+  window.fetch = function(url, opts) {
+    var u = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+    var MOCKS = typeof window.__MOCK_API__ !== 'undefined' ? window.__MOCK_API__ : {};
+    if (opts && opts.method && opts.method !== 'GET') {
+      window.__postBodies = window.__postBodies || [];
+      window.__postBodies.push({ url: u, method: opts.method, body: opts.body || '' });
+    }
+    var mock = MOCKS[u];
+    if (!mock) {
+      for (var k in MOCKS) {
+        if (u.indexOf(k) >= 0) { mock = MOCKS[k]; break; }
+      }
+    }
+    if (typeof mock === 'function') mock = mock();
+    return Promise.resolve({
+      ok: true, status: 200,
+      json: function() { return Promise.resolve(mock || {}); },
+      text: function() { return Promise.resolve(JSON.stringify(mock || {})); }
+    });
+  };
+  window.customAlert = function(m) { console.log('[mock] customAlert:', m); };
+  window.customConfirm = function(m, cb) { if (cb) cb(true); };
+  window.showLoading = function() {};
+  window.hideLoading = function() {};
+  window.disableBtn = function(b) { if (b) { b.disabled = true; } };
+  window.enableBtn = function(b) { if (b) { b.disabled = false; } };
+  window.showSavedCard = function() {};
+  // Feature flags used by some pages (default: off)
+  window._rs232Enabled = false;
+  window._modbusEnabled = false;
+  window.__test__ = {};  // ensure window.__test__ exists even on non-IIFE pages
+})();
+</script>
+
+<script>
+function t(k,fb){try{if(typeof window._t==='function')return window._t(k,fb);var raw=localStorage.getItem('ui_lang_cache');if(raw){var p=JSON.parse(raw);if(p&&p[k]!==undefined)return p[k];}}catch(e){}return fb!==undefined?fb:k;}
+function _updBtn(btn,st){btn.dataset.state=st?'true':'false';btn.className=st?'btn-on':'btn-off';btn.textContent=st?'ON':'OFF';}
+function toggleDO(ch,btn){
+  var st=btn.dataset.state!=='true';
+  fetch('/api/do/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ch:ch,state:st})})
+    .then(function(r){return r.json();})
+    .then(function(d){if(d.success)_updBtn(btn,st);else customAlert(t('doErrPrefix','\u274c Error: ')+(d.message||t('doFailed','failed')));})
+    .catch(function(){customAlert(t('doConnErr','\u274c Connection error'));});
+}
+function setAllDO(st){
+  fetch('/api/do/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mask:st?255:0})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d.success){for(var i=0;i<8;i++){var b=document.getElementById('do'+i);if(b)_updBtn(b,st);}}
+      else customAlert(t('doErrPrefix','\u274c Error: ')+(d.message||t('doFailed','failed')));
+    }).catch(function(){customAlert(t('doConnErr','\u274c Connection error'));});
+}
+function loadStatus(){
+  fetch('/api/do/status',{cache:'no-store'})
+    .then(function(r){return r.json();})
+    .then(function(d){for(var i=0;i<d.ch_count;i++){var b=document.getElementById('do'+i);if(b)_updBtn(b,d.outputs[i]);}})
+    .catch(function(){});
+}
+function applyDoNames(names){
+  for(var i=0;i<8;i++){
+    var n=document.getElementById('doName'+i);
+    if(n){var nm=(names&&names[i]&&names[i].length)?names[i]:('Relay '+(i+1));n.textContent=nm;}
+  }
+}
+function loadDoConfig(){
+  fetch('/api/do/config',{cache:'no-store'})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(!d)return;
+      for(var i=0;i<8;i++){
+        var nm=(d.names&&d.names[i])?d.names[i]:'';
+        var n=document.getElementById('doName'+i);
+        if(n)n.textContent=nm.length?nm:('Relay '+(i+1));
+        var inp=document.getElementById('doNameInput'+i);
+        if(inp)inp.value=nm;
+        var chk=document.getElementById('doInv'+i);
+        if(chk)chk.checked=!!((d.invert>>i)&1);
+      }
+    })
+    .catch(function(){});
+}
+function saveDoConfig(){
+  var names=[],invert=0;
+  for(var i=0;i<8;i++){
+    var inp=document.getElementById('doNameInput'+i);
+    names.push(inp?inp.value.trim().substring(0,16):'');
+    var chk=document.getElementById('doInv'+i);
+    if(chk&&chk.checked)invert|=(1<<i);
+  }
+  fetch('/api/do/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({names:names,invert:invert})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(d&&d.success){applyDoNames(names);customAlert(t('doCfgSaved','\u2705 Config saved'));}
+      else customAlert(t('doErrPrefix','\u274c Error: ')+((d&&d.message)||t('doFailed','failed')));
+    })
+    .catch(function(){customAlert(t('doConnErr','\u274c Connection error'));});
+}
+window.onload=function(){loadStatus();loadDoConfig();};
+</script>
+<script>
+
+// ===== TEST HOOKS (standalone — no IIFE found) =====
+window.__test__ = {};
+// Spy mechanism
+window.__spy__ = {};
+window.__spy__.calls = {};
+window.__spy__.reset = function() { window.__spy__.calls = {}; };
+window.__spy__.wrap = function(name, fn) {
+  return function() {
+    window.__spy__.calls[name] = window.__spy__.calls[name] || [];
+    window.__spy__.calls[name].push(Array.prototype.slice.call(arguments));
+    return fn.apply(this, arguments);
+  };
+};
+// Wrap key functions for spying
+if (typeof postSend !== 'undefined') postSend = window.__spy__.wrap('postSend', postSend);
+if (typeof showAlert !== 'undefined') showAlert = window.__spy__.wrap('showAlert', showAlert);
+// Helper: reset IIFE-local state vars (P, C, SH, RP used by radio page)
+window.__test__._reset = function(p, c, sh, rp) {
+  try { if (p !== undefined) { var _a=p; P.length=0; for(var _i=0;_i<_a.length;_i++)P.push(_a[_i]); } } catch(e) {}
+  try { if (c !== undefined) C = c; } catch(e) {}
+  try { if (sh !== undefined) SH = sh; } catch(e) {}
+  try { if (rp !== undefined) RP = rp; } catch(e) {}
+};
+// Expose functions via eval (runs in outer IIFE scope)
+var _testNames = [
+  // Recipients page
+  'rt','rowHTML','addRow','updateNameHint','saveSlot','saveDontCopy','preload',
+  'switchTab',
+  // Proximity page (status + config + shifts)
+  'render','renderCfg','fetchData','resetCh','resetAll','_lockOutFields',
+  'renderShiftSlots','loadShiftCfg','loadShiftdayEmails','saveAll','loadCfg',
+  '_applyVisFilter','onVisChChange','applyTemplate',
+  // Commands page
+  'esc','readLangCache','t','templateOptions','unitSelect','daysSelect',
+  'tplSelect','addRow','attachRow','saveSlot','attachSaveAll','rowHTML',
+  // DateTime Commands page
+  'e','t','to','r','addRow','attachRow','init','lt','ls','la','tt','ss','attachSaveAll',
+  // Sidebar / dock
+  'renderWidgetSidebar','moveWidgetUp','moveWidgetDown','moveWidgetToSide',
+  'toggleWidgetVis','applyTheme','readUiPrefs','saveUiPrefs','saveDockLayout',
+  'restoreDockLayout','saveWidgetPrefs','restoreWidgetPrefs','initLeftPanel',
+  'byId','qsa','localStorage','state',
+  // Utility
+  'fmtEta','fmtLagMs','fmtGcodeNum','normalizeZStepValue',
+  'setXyStepFromPreset','syncMainStepFromSelectors','updateXyStepButtons',
+  'sanitizeFileName','formatFileSize','ensureAllowedUploadPath',
+  'recentErrorMeta','clamp',
+  // Jog
+  'runJog','runJogXY','runJogXYCenter','quickUnlock','quickHome','quickZeroWcs','quickReset','quickStatus',
+  // Job
+  'startFileStream','pauseStream','resumeStream','cancelStream',
+  'sendManualCommand','applyPollInterval','applyUsbLineCoding',
+  'postActionOnce','postAction','refreshStatus','saveMacros',
+  // Frame
+  'runFrameFromPreview','updateFrameInfo',
+  'getPreviewFrameBounds','setCommandMode',
+  // Override (scoped inside bindEvents)
+  // 'sendOverrideFeed','sendOverrideSpin','applyOverrides','stepOverride',
+  // Probe
+  'runAutoProbeZZero',
+  // Macros
+  'defaultMacros','getMacroEntry','runMacro','loadMacrosToForm','saveMacrosFromForm',
+  // Console
+  'ingestConsoleEvents','logLine','clearConsole','toggleConsoleFullscreen',
+  // Workspace / DRO
+  'extractDroFromStatus','renderDro','fmtDro','hasValidDroValue',
+  'parseNumber3','parsePosTriplet','firstNumber3',
+  // USB / Connection
+  'selectedSlot','normalizeUsbSlots','renderSlots',
+  'syncSelectedUsbBaud','ensureUsbBaudOption','usbBaudPrefId',
+  'getPreferredUsbBaud','savePreferredUsbBaud',
+  // SD Card
+  'sdFileNameFromPath','sdParentDir','formatSdSize','normalizeSdEntry',
+  'isPreviewSizeBlocked','isPreviewAutoRenderHeavy',
+  // PSRAM
+  'refreshPsramFileStatus',
+  // Preview utilities (pure functions)
+  'extractAxisValue','extractAxisInMm','appendLinear',
+  'quickWireframe','applyWireframePreview',
+  'parseToolpath3dAsync',
+  // Critical confirm
+  'runWithCriticalConfirm','requireAxesAtZero',
+  // Render
+  'renderStatus','applyRuntimeControls','applyStatusSnapshot',
+  // Job helpers
+  'getSegmentExecNo','getActiveExecNo',
+  // Light preview (inner functions may not resolve)
+  'simplifyPolylineLight',
+  // Contour selection (GRBL light preview)
+  'filterContoursPreserveCoords',
+  'buildLightPreview','buildLightPieceContoursFromGcode',
+  'buildPieceContoursFromSegments','_syncContoursFromSegments',
+  '_toggleContourSelect','_undoContourToggle','_updateContourSelectInfo',
+  '_navContourHighlight','_spaceToggleHighlighted',
+  '_handleCanvasContourClick','_screenToMachine','_minDistToContour','_computeTopTransformPx',
+  '_distToSegment','_pointInPolygon','_lightPreviewScalePx',
+  'renderPreviewFromText','_computeBounds','_drawTopView','_drawIsoView',
+  'applyLightPreviewFromText','applyLightPreviewFromBounds','_keepDerivedContours',
+  '_drawPreviewNow','_drawContourOverlay','_drawCrosshair',
+  'bindPreviewInteractions',
+  // MQ135 sensor page
+  't','uiLocale','trendArrow','aqiInfo','pickReadableTextColor',
+  'applySensorValueTheme','mqTone','showStatus',
+  // Sensor config page
+  'updateStatistics',
+  // HX711 page
+  'UNIT_LABELS','t','uiLocale','updateDisplay','showStatus','performTare',
+  // INA226 page
+  't','uiLocale','updateDisplay','showStatus',
+  // Sound page
+  't','uiLocale','updateDisplay','showStatus',
+  // MAX31865 page
+  't','uiLocale','updateDisplay','showStatus',
+  // Sensor charts page
+  'numericSeries','hasSeriesData','calcTrend','metricColor',
+  'calcDew','calcHeat','calcAlt','fmtVal',
+  'isRS232Metric','isModbusMetric','isProximityMetric',
+  'getMetricMeta','getData','seriesValues','pickData',
+  'updateMaxVisibleOptions','setPointStrideAutoValue',
+  'mkOpts','fmtTs','trim','mkGradient','registerChartPlugins',
+  'mkChart','updChart','saveAllCharts',
+  'getY2Key','yPad','yPadNeg','hasNeg',
+  'setChartCenterBadge','updStats','setStatRow','calcSt','calcAdv',
+  'getMetricAdapter','metricPointCount','showSts','setTheme',
+  'fetchChartJson','waitChartRetry','isRetryableChartStatus',
+  'TH','currentTheme',
+  // Radio UI (IIFE-scoped)
+  'T','AP','APJ','BN','sw','onSearch','addPlay','playToggle',
+  'radioStop','radioNext','radioPrev','playUrl','updUI','setVol',
+  'togSh','togRp','loadFav','addFav','favPlay','favDel',
+  'touchActivity','IDLE_T','NAV_DEF','NAV_N','NAV_OFF','NAV_ICON','NAV_LABEL','PNL_ALL',
+  'syncQ','rQ','rmQ','savePl','loadPls','loadPl','delPl','loadQ','loadSt','fh',
+  'isSup','chkSup','loadResume','renderResume','saveResume','resumeToggle','resumeTargetToggle','RESUME_A','RESUME_F',
+];
+_testNames.forEach(function(n) {
+  try { window.__test__[n] = eval(n); } catch(e) { window.__test__[n] = null; }
+});
+
+</script>
+
+<script>
+(function() {
+  for (var k in window.__test__) {
+    if (window.__test__[k] === null || typeof window.__test__[k] === 'undefined') {
+      try { window.__test__[k] = eval(k); } catch(e) {}
+    }
+  }
+})();
+</script>
+
+</body>
+</html>

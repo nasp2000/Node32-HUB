@@ -1,0 +1,22 @@
+{
+    "name": "dr_flac",
+    "description": "Single-file FLAC audio decoder (public domain / Unlicense / MIT-0). Used for FLAC SD playback.",
+    "keywords": "FLAC, decoder, audio",
+    "authors": [
+        {
+            "name": "David Reid",
+            "url": "https://github.com/mackron"
+        }
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mackron/dr_libs"
+    },
+    "version": "0.13.4",
+    "homepage": "https://github.com/mackron/dr_libs/tree/master/dr_flac",
+    "license": "Unlicense",
+    "frameworks": "Arduino",
+    "build": {
+        "libLDFMode": "chain+"
+    }
+}

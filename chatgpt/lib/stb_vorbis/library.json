@@ -1,0 +1,22 @@
+{
+    "name": "stb_vorbis",
+    "description": "Single-header OGG Vorbis audio decoder (public domain / Unlicense). Used for OGG Vorbis SD playback and streaming.",
+    "keywords": "Vorbis, OGG, decoder, audio",
+    "authors": [
+        {
+            "name": "Sean Barrett",
+            "url": "https://github.com/nothings"
+        }
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/nothings/stb"
+    },
+    "version": "1.22",
+    "homepage": "https://github.com/nothings/stb/blob/master/stb_vorbis.c",
+    "license": "Unlicense",
+    "frameworks": "Arduino",
+    "build": {
+        "libLDFMode": "chain+"
+    }
+}

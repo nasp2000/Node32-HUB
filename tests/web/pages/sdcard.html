@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width,initial-scale=1'>
+  <title>SDCard (Test)</title>
+</head>
+<body>
+
+        <!-- 📦 Section 3: EMAILDAY Commands -->
+        <div style='margin-top:20px;border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a'>
+          <h2 style='margin-top:0;font-size:18px;color:#60a5fa' data-i18n='sdCommandsTitle'>⌨️ Commands:</h2>
+          <div style='margin-bottom:12px;padding:8px 12px;background:#064e3b;border-left:4px solid #10b981;border-radius:4px;font-size:12px;color:#d1fae5' data-i18n='sdCommandsHint'>
+            💡 These commands are for use on the command sending pages, sending the command to the system.
+          </div>
+          <div style='background:#1e3a8a;border-left:4px solid #3b82f6;padding:12px;margin:12px 0;font-size:13px;color:#e0e7ff;border-radius:4px'>
+            <div style='display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap'>
+              <div style='flex:1;min-width:180px'>
+                <strong style='color:#60a5fa'>📧 EMAILDAY</strong> — <span data-i18n='sdCmdEmaildayDesc'>Sends current day files by email</span>
+                <div style='margin-top:4px;color:#cbd5e1;font-size:12px'>Example: <code style='background:#0f172a;padding:2px 6px;border-radius:3px;color:#38bdf8'>emailday</code></div>
+              </div>
+              <div style='flex:1;min-width:180px'>
+                <strong style='color:#60a5fa'>📅 EMAILDAY [date]</strong> — <span data-i18n='sdCmdEmaildayDateDesc'>Sends files from specific date</span>
+                <div style='margin-top:4px;color:#cbd5e1;font-size:12px'>Example: <code style='background:#0f172a;padding:2px 6px;border-radius:3px;color:#38bdf8'>emailday 29-12-2025</code></div>
+              </div>
+            </div>
+            <div style='display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid #2d4a8a'>
+              <div style='flex:1;min-width:180px'>
+                <strong style='color:#a78bfa'>📋 LOGDAY</strong> — <span data-i18n='sdCmdLogdayDesc'>Sends current day log by email</span>
+                <div style='margin-top:4px;color:#cbd5e1;font-size:12px'>Example: <code style='background:#0f172a;padding:2px 6px;border-radius:3px;color:#38bdf8'>logday</code></div>
+              </div>
+              <div style='flex:1;min-width:180px'>
+                <strong style='color:#a78bfa'>📋 LOGDAY [date]</strong> — <span data-i18n='sdCmdLogdayDateDesc'>Sends log from specific date</span>
+                <div style='margin-top:4px;color:#cbd5e1;font-size:12px'>Example: <code style='background:#0f172a;padding:2px 6px;border-radius:3px;color:#38bdf8'>logday 28-02-2026</code></div>
+              </div>
+            </div>
+            <div style='display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid #2d4a8a'>
+              <div style='flex:1;min-width:180px'>
+                <strong style='color:#34d399'>🌡️ SENSORDAY</strong> — <span data-i18n='sdCmdSensordayDesc'>Sends today's sensor history by email</span>
+                <div style='margin-top:4px;color:#cbd5e1;font-size:12px'>Example: <code style='background:#0f172a;padding:2px 6px;border-radius:3px;color:#38bdf8'>sensorday</code></div>
+              </div>
+              <div style='flex:1;min-width:180px'>
+                <strong style='color:#34d399'>🌡️ SENSORDAY [date]</strong> — <span data-i18n='sdCmdSensordayDateDesc'>Sends sensor history from specific date</span>
+                <div style='margin-top:4px;color:#cbd5e1;font-size:12px'>Example: <code style='background:#0f172a;padding:2px 6px;border-radius:3px;color:#38bdf8'>sensorday 01-03-2026</code></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+<div class='page sdcard'>
+ <div class='wrap'>
+        <div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome'>&#127968; Home</a></div>
+        <h1 data-i18n='sdPageTitle'>&#128190; microSD / PSRAM</h1>
+        
+        <div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:16px'>
+          <div id='sd_info' class='info-item mono'>Getting status...</div>
+          <div style='margin-top:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;max-width:400px;margin-left:auto;margin-right:auto'>
+                <button type='button' class='btn' id='sd_mount' style='background:#2563eb;color:white;padding:10px 16px;font-size:13px;border:1px solid #2563eb;white-space:nowrap' data-i18n='sdMountBtn'>&#128194; Mount</button>
+                <button type='button' class='btn' id='sd_unmount' style='background:#1e40af;color:white;padding:10px 16px;font-size:13px;border:1px solid #1e40af;white-space:nowrap' data-i18n='sdUnmountBtn'>&#128228; Unmount</button>
+                <button type='button' class='btn' id='sd_refresh' style='background:#3b82f6;color:white;padding:10px 16px;font-size:13px;border:1px solid #3b82f6;white-space:nowrap' data-i18n='sdRefreshBtn'>&#128260; Refresh</button>
+          </div>
+          </div>
+        
+        <div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'>
+          <h2 style='margin-top:0;font-size:18px;color:#60a5fa' data-i18n='sdSavingTitle'>&#9881;&#65039; Save received data (microSD/PSRAM):</h2>
+          
+          <div style='background:#1e3a8a;border-left:4px solid #3b82f6;padding:12px;margin:12px 0;font-size:13px;line-height:1.8;color:#e0e7ff;border-radius:4px'>
+            <div data-i18n-html='sdInfoBuf'>&#9203; <strong style='color:#60a5fa'>Buffer write:</strong> Waits for an idle period and writes in bulk (saves SD card writes). Writes earlier if the buffer reaches the limit.</div>
+            <div data-i18n-html='sdInfoActive'>&#10004;&#65039; <strong style='color:#60a5fa'>Active:</strong> <strong style='color:#10b981'>Yes</strong> = Saves data to storage (SD or PSRAM, as available). <strong style='color:#ef4444'>No</strong> = Discards data after use (emails/alerts/recipients).</div>
+            <div data-i18n-html='sdInfoFormat'>&#128196; <strong style='color:#60a5fa'>Format:</strong> File type (.txt with timestamps, .csv comma-separated, .bin pure binary).</div>
+            <div data-i18n-html='sdInfoEmail'>&#128231; <strong style='color:#60a5fa'>Email:</strong> If active, sends data line by email according to recipients/alerts (in addition to saving if Active=Yes).</div>
+            <div style='margin-top:8px;padding-top:8px;border-top:1px solid #3b82f6' data-i18n-html='sdInfoPsram'><strong style='color:#fbbf24'>&#9888;&#65039; PSRAM Mode:</strong> Data stored in PSRAM is <strong>volatile</strong> (lost on reboot/power-off). Use only as temporary fallback when SD is not available.</div>
+            <div style='margin-top:8px;padding-top:8px;border-top:1px solid #3b82f6' data-i18n-html='sdInfoFolder'><strong style='color:#10b981'>&#2139;&#65039; Folder name:</strong> The folder name where data is saved is based on the <strong>System Name</strong> configured in the System Settings page (format: "SystemName_DD-MM-YYYY").</div>
+          </div>
+          
+          <div class='table-wrapper'>
+          <table class='table' style='width:100%;margin-top:12px;border-collapse:collapse'>
+           <thead>
+            <tr style='background:#f0f0f0;border-bottom:2px solid #666'>
+             <th style='padding:8px;text-align:center;font-weight:bold' data-i18n='sdThBuffer'>Buffer write:</th>
+             <th style='padding:8px;text-align:center;font-weight:bold' data-i18n='sdThActive'>Active:</th>
+             <th style='padding:8px;text-align:center;font-weight:bold' data-i18n='sdThFormat'>Format:</th>
+             <th style='padding:8px;text-align:center;font-weight:bold' data-i18n='sdThEmail'>Email:</th>
+            </tr>
+           </thead>
+           <tbody>
+            <tr style='border-bottom:1px solid #ddd;background:#fafafa;height:20px'></tr>
+            <tr style='border-bottom:1px solid #ddd'>
+             <td style='padding:8px;text-align:center'><select id='sd_write_pause_ms' style='width:80px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:13px'><option value='2000'>2s</option><option value='10000'>10s</option><option value='15000'>15s</option><option value='30000'>30s</option><option value='60000'>1m</option><option value='300000'>5m</option><option value='600000'>10m</option><option value='1800000' selected>30m</option><option value='3600000'>60m</option></select></td>
+             <td style='padding:8px;text-align:center'><select id='sd_active' style='width:80px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:13px'><option value='1' selected>Yes</option><option value='0'>No</option></select></td>
+             <td style='padding:8px;text-align:center'><select id='sd_format' style='width:80px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:13px'><option value='txt'>.txt</option><option value='csv' selected>.csv</option><option value='bin'>.bin</option></select></td>
+             <td style='padding:8px;text-align:center'><select id='sd_email' style='width:80px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:13px'><option value='1' selected>Yes</option><option value='0'>No</option></select></td>
+            </tr>
+           </tbody>
+          </table>
+          </div>
+        </div>
+
+        <div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'>
+          <h2 style='margin-top:0;font-size:18px;color:#60a5fa' data-i18n='sdAutoCleanupTitle'>&#128465;&#65039; Auto Cleanup:</h2>
+          <div class='table-wrapper'>
+          <table class='table' style='width:100%;margin-top:12px;border-collapse:collapse'>
+           <thead>
+            <tr style='background:#f0f0f0;border-bottom:2px solid #666'>
+              <th style='padding:8px;text-align:center;font-weight:bold' data-i18n='sdThAutoCleanup'>Active:</th>
+              <th style='padding:8px;text-align:center;font-weight:bold' data-i18n='sdThCleanupThreshold'>Clean when &gt;:</th>
+              <th style='padding:8px;text-align:center;font-weight:bold' data-i18n='sdThKeepDays'>Keep (days):</th>
+            </tr>
+           </thead>
+           <tbody>
+            <tr style='border-bottom:1px solid #ddd;background:#fafafa;height:20px'></tr>
+            <tr style='border-bottom:1px solid #ddd'>
+             <td style='padding:8px;text-align:center'><select id='sd_auto_cleanup' style='width:80px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:13px'><option value='1' selected>Yes</option><option value='0'>No</option></select></td>
+             <td style='padding:8px;text-align:center'><select id='sd_cleanup_threshold' style='width:80px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:13px'><option value='50'>50%</option><option value='60'>60%</option><option value='70'>70%</option><option value='80' selected>80%</option><option value='85'>85%</option><option value='90'>90%</option><option value='95'>95%</option></select></td>
+             <td style='padding:8px;text-align:center'><select id='sd_keep_days' style='width:80px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:13px'><option value='0' selected>&#8734;</option><option value='30'>30</option><option value='90'>90</option><option value='180'>180</option><option value='360'>360</option></select></td>
+            </tr>
+           </tbody>
+          </table>
+          </div>
+          <div style='margin-top:10px;padding:8px 12px;background:#1e3a8a;border-left:4px solid #60a5fa;border-radius:4px;font-size:12px;color:#cbd5e1' data-i18n='sdAutoCleanupNote'>
+            &#128161; Automatically deletes the oldest data folders when storage exceeds the limit. <strong>Keep (days)</strong>: does not delete data newer than N days (&#8734; = no limit).
+          </div>
+        </div>
+
+     
+        <!--&#128190; Save Button -->
+        <div class='actions' style='margin-top:16px;display:flex;gap:8px;justify-content:center'>
+         <button type='button' class='btn' id='sd_save' style='background:#20a3b9;padding:10px 24px;font-size:14px;border:1px solid #20a3b9' data-i18n='btnSave'>&#128190; Save</button>
+        </div>
+        <div id='sd_config_msg' class='desc' style='margin-top:12px;text-align:center'></div>
+ </div>
+</div>
+
+<script>
+// ===== MOCK API LAYER =====
+(function() {
+  window.fetch = function(url, opts) {
+    var u = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+    var MOCKS = typeof window.__MOCK_API__ !== 'undefined' ? window.__MOCK_API__ : {};
+    var mock = MOCKS[u];
+    if (!mock) {
+      for (var k in MOCKS) {
+        if (u.indexOf(k) >= 0) { mock = MOCKS[k]; break; }
+      }
+    }
+    if (typeof mock === 'function') mock = mock();
+    return Promise.resolve({
+      ok: true, status: 200,
+      json: function() { return Promise.resolve(mock || {}); },
+      text: function() { return Promise.resolve(JSON.stringify(mock || {})); }
+    });
+  };
+  window.customAlert = function(m) { console.log('[mock] customAlert:', m); };
+  window.customConfirm = function(m, cb) { if (cb) cb(true); };
+  window.showLoading = function() {};
+  window.hideLoading = function() {};
+  window.disableBtn = function(b) { if (b) { b.disabled = true; } };
+  window.enableBtn = function(b) { if (b) { b.disabled = false; } };
+  window.showSavedCard = function() {};
+  // Feature flags used by some pages (default: off)
+  window._rs232Enabled = false;
+  window._modbusEnabled = false;
+
+// ===== TEST HOOKS (inside page IIFE scope) =====
+window.__test__ = {};
+// Spy mechanism
+window.__spy__ = {};
+window.__spy__.calls = {};
+window.__spy__.reset = function() { window.__spy__.calls = {}; };
+window.__spy__.wrap = function(name, fn) {
+  return function() {
+    window.__spy__.calls[name] = window.__spy__.calls[name] || [];
+    window.__spy__.calls[name].push(Array.prototype.slice.call(arguments));
+    return fn.apply(this, arguments);
+  };
+};
+// Wrap key functions for spying
+if (typeof postSend !== 'undefined') postSend = window.__spy__.wrap('postSend', postSend);
+if (typeof showAlert !== 'undefined') showAlert = window.__spy__.wrap('showAlert', showAlert);
+// Helper: reset IIFE-local state vars (P, C, SH, RP used by radio page)
+window.__test__._reset = function(p, c, sh, rp) {
+  try { if (p !== undefined) { var _a=p; P.length=0; for(var _i=0;_i<_a.length;_i++)P.push(_a[_i]); } } catch(e) {}
+  try { if (c !== undefined) C = c; } catch(e) {}
+  try { if (sh !== undefined) SH = sh; } catch(e) {}
+  try { if (rp !== undefined) RP = rp; } catch(e) {}
+};
+// Expose functions via eval (runs in outer IIFE scope)
+var _testNames = [
+  // Recipients page
+  'rt','rowHTML','addRow','updateNameHint','saveSlot','saveDontCopy','preload',
+  'switchTab',
+  // Commands page
+  'esc','readLangCache','t','templateOptions','unitSelect','daysSelect',
+  'tplSelect','addRow','attachRow','saveSlot','attachSaveAll','rowHTML',
+  // DateTime Commands page
+  'e','t','to','r','addRow','attachRow','init','lt','ls','la','tt','ss','attachSaveAll',
+  // Sidebar / dock
+  'renderWidgetSidebar','moveWidgetUp','moveWidgetDown','moveWidgetToSide',
+  'toggleWidgetVis','applyTheme','readUiPrefs','saveUiPrefs','saveDockLayout',
+  'restoreDockLayout','saveWidgetPrefs','restoreWidgetPrefs','initLeftPanel',
+  'byId','qsa','localStorage','state',
+  // Utility
+  'fmtEta','fmtLagMs','fmtGcodeNum','normalizeZStepValue',
+  'setXyStepFromPreset','syncMainStepFromSelectors','updateXyStepButtons',
+  'sanitizeFileName','formatFileSize','ensureAllowedUploadPath',
+  'recentErrorMeta','clamp',
+  // Jog
+  'runJog','runJogXY','quickUnlock','quickHome','quickZeroWcs','quickReset','quickStatus',
+  // Job
+  'startFileStream','pauseStream','resumeStream','cancelStream',
+  'sendManualCommand','applyPollInterval','applyUsbLineCoding',
+  // Frame
+  'runFrameFromPreview','updateFrameInfo',
+  'getPreviewFrameBounds','setCommandMode',
+  // Override (scoped inside bindEvents)
+  // 'sendOverrideFeed','sendOverrideSpin','applyOverrides','stepOverride',
+  // Probe
+  'runAutoProbeZZero',
+  // Macros
+  'defaultMacros','getMacroEntry','runMacro','loadMacrosToForm','saveMacrosFromForm',
+  // Console
+  'ingestConsoleEvents','logLine','clearConsole','toggleConsoleFullscreen',
+  // Workspace / DRO
+  'extractDroFromStatus','renderDro','fmtDro','hasValidDroValue',
+  'parseNumber3','parsePosTriplet','firstNumber3',
+  // USB / Connection
+  'selectedSlot','normalizeUsbSlots','renderSlots',
+  'syncSelectedUsbBaud','ensureUsbBaudOption','usbBaudPrefId',
+  'getPreferredUsbBaud','savePreferredUsbBaud',
+  // SD Card
+  'sdFileNameFromPath','sdParentDir','formatSdSize','normalizeSdEntry',
+  'isPreviewSizeBlocked','isPreviewAutoRenderHeavy',
+  // PSRAM
+  'refreshPsramFileStatus',
+  // 3D / Preview utilities (pure functions)
+  'project3dPoint','computeProjectedBounds','computeToolpathBounds',
+  'formatMmLabel','classifyStartPlacement',
+  'extractAxisValue','extractAxisInMm','appendLinear',
+  'formatScaleHudMm','get3dPreviewMode','resolve3dPreviewMode',
+  // Critical confirm
+  'runWithCriticalConfirm','requireAxesAtZero',
+  // Render
+  'renderStatus','applyRuntimeControls','applyStatusSnapshot',
+  // 3D helpers
+  'getEffectiveCurrentLine','get3dMaxLineFromSegments','getSegmentExecNo',
+  'getActiveExecNo','update3dScrubUi',
+  // Light preview (inner functions may not resolve)
+  'simplifyPolylineLight',
+  // Radio UI (IIFE-scoped)
+  'T','AP','APJ','BN','sw','onSearch','addPlay','playToggle',
+  'radioStop','radioNext','radioPrev','playUrl','updUI','setVol',
+  'togSh','togRp','loadFav','addFav','favPlay','favDel',
+  'syncQ','rQ','rmQ','savePl','loadPls','loadPl','delPl','loadQ','loadSt','fh',
+];
+_testNames.forEach(function(n) {
+  try { window.__test__[n] = eval(n); } catch(e) { window.__test__[n] = null; }
+});
+
+})();</script>
+
+<script>
+function initSdcardPage() {
+  function byId(id) { return document.getElementById(id); }
+  function refreshStatus() {
+    return apiGet('/api/sdcard-config')
+      .then(function(data) {
+        if (!data || data.success !== true) return;
+        var info = byId('sd_info');
+        if (info) {
+          var parts = [];
+          if (data.mounted !== undefined) parts.push('Mounted: ' + (data.mounted ? 'Yes' : 'No'));
+          if (data.total_mb !== undefined) parts.push('Total: ' + data.total_mb + ' MB');
+          if (data.free_mb !== undefined) parts.push('Free: ' + data.free_mb + ' MB');
+          info.textContent = parts.join(' | ');
+        }
+        function setVal(id, val) {
+          var el = byId(id);
+          if (el && val !== undefined) el.value = String(val);
+        }
+        setVal('sd_write_pause_ms', data.write_pause_ms);
+        setVal('sd_active', data.active);
+        setVal('sd_format', data.format);
+        setVal('sd_email', data.email);
+        setVal('sd_auto_cleanup', data.auto_cleanup);
+        setVal('sd_cleanup_threshold', data.cleanup_threshold);
+        setVal('sd_keep_days', data.keep_days);
+      })
+      .catch(function() {});
+  }
+  bindClick('sd_refresh', function() { refreshStatus(); });
+  bindClick('sd_mount', function() {
+    apiPost('/api/sdcard-config-save', { mount: 1 })
+      .then(function(data) {
+        if (data && data.success) customAlert('✅ ' + (data.message || 'Mounted'));
+        else customAlert('❌ ' + (data && data.message ? data.message : 'Error'));
+        refreshStatus();
+      })
+      .catch(function() { customAlert('❌ Error mounting'); });
+  });
+  bindClick('sd_unmount', function() {
+    customConfirm('Unmount the SD card?').then(function(ok) {
+      if (!ok) return;
+      apiPost('/api/sdcard-config-save', { unmount: 1 })
+        .then(function(data) {
+          if (data && data.success) customAlert('✅ ' + (data.message || 'Unmounted'));
+          else customAlert('❌ ' + (data && data.message ? data.message : 'Error'));
+          refreshStatus();
+        })
+        .catch(function() { customAlert('❌ Error unmounting'); });
+    });
+  });
+  bindClick('sd_save', function() {
+    var btn=this;disableBtn(btn);showLoading();
+    var payload = {
+      write_pause_ms: byId('sd_write_pause_ms') ? byId('sd_write_pause_ms').value : '1800000',
+      active: byId('sd_active') ? byId('sd_active').value : '1',
+      format: byId('sd_format') ? byId('sd_format').value : 'csv',
+      email: byId('sd_email') ? byId('sd_email').value : '1',
+      auto_cleanup: byId('sd_auto_cleanup') ? byId('sd_auto_cleanup').value : '1',
+      cleanup_threshold: byId('sd_cleanup_threshold') ? byId('sd_cleanup_threshold').value : '80',
+      keep_days: byId('sd_keep_days') ? byId('sd_keep_days').value : '0'
+    };
+    apiPost('/api/sdcard-config-save', payload)
+      .then(function(data) {
+        if (data && data.success) customAlert('✅ Configuration saved!');
+        else customAlert('❌ ' + (data && data.message ? data.message : 'Error'));
+        if (typeof showSavedCard === 'function') showSavedCard();
+      })
+      .catch(function() { customAlert('❌ Error saving'); })
+      .finally(function(){hideLoading();enableBtn(btn);});
+  });
+  refreshStatus();
+}
+</script>
+
+<script>
+(function() {
+  for (var k in window.__test__) {
+    if (window.__test__[k] === null || typeof window.__test__[k] === 'undefined') {
+      try { window.__test__[k] = eval(k); } catch(e) {}
+    }
+  }
+})();
+</script>
+
+</body>
+</html>

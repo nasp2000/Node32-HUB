@@ -1,0 +1,296 @@
+#ifndef PAGE_MAX31865_ASSET_H
+#define PAGE_MAX31865_ASSET_H
+
+#include "../../feature_flags.h"
+
+#if ENABLE_MAX31865==1
+
+#include <Arduino.h>
+
+// Page served at /max31865 — MAX31865 RTD temperature sensor (PT100/PT1000) configuration.
+static const char MAX31865_CONFIG_PAGE[] PROGMEM = R"rawliteral(
+    <style>
+        .section-box {
+            margin: 20px 0;
+            padding: 18px;
+            background: #0f172a;
+            border-radius: 8px;
+            border: 2px solid #3b82f6;
+        }
+        .section-title { margin: 0 0 15px 0; font-size: 20px; color: #60a5fa; font-weight: bold; }
+        .checkbox-label {
+            display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+            padding: 6px 12px; background: #1e293b; border-radius: 6px; font-size: 13px;
+        }
+        .checkbox-label input[type="checkbox"] { width: auto; min-height: auto; }
+        .cfg-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            align-items: start;
+        }
+        .field-label { font-size: 13px; color: #94a3b8; display: block; margin-bottom: 4px; }
+        .field-hint  { font-size: 11px; color: #64748b; margin-top: 3px; }
+        .temp-display {
+            font-size: 52px; font-weight: 700; color: #4ade80; text-align: center;
+            padding: 10px; transition: color 0.3s ease;
+        }
+        .temp-unit-lbl { font-size: 20px; color: #94a3b8; text-align: center; margin-top: 2px; }
+        .fault-badge {
+            display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 13px;
+            font-weight: 700; background: #064e3b; color: #4ade80; transition: all 0.3s;
+        }
+        .fault-badge.fault { background: #7f1d1d; color: #f87171; }
+        @media (max-width: 480px) {
+            .cfg-grid { grid-template-columns: 1fr; }
+            .temp-display { font-size: 38px; }
+        }
+    </style>
+    <main class='page'>
+        <div class='wrap'>
+            <div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome' title='Go to home page' data-i18n-title='otaTipHome'>&#127968; Home</a></div>
+            <h1 data-i18n='max31865PageTitle'>&#127777;&#65039; MAX31865 RTD Sensor (PT100/PT1000)</h1>
+
+            <!-- Section 1: Current reading -->
+            <div class='section-box'>
+                <h3 class='section-title' data-i18n='ina226LiveTitle'>&#128202; Current Reading</h3>
+                <div style='background:#1e293b;border-radius:8px;border:1px solid #334155;padding:16px;margin-bottom:14px;text-align:center'>
+                    <div class='temp-display' id='tempDisplay'>--</div>
+                    <div class='temp-unit-lbl' id='tempUnitLbl'>&#176;C</div>
+                    <div style='margin-top:10px'>
+                        <span class='fault-badge' id='faultStatus' data-i18n='max31865FaultOk'>&#10003; OK</span>
+                    </div>
+                    <div style='font-size:12px;color:#64748b;margin-top:8px' id='lastReadTime' data-i18n='hx711NoReading'>No reading</div>
+                </div>
+                <div style='text-align:center'>
+                    <button id='btnMeasure' class='btn' style='background:#10b981;border-color:#10b981;padding:10px 20px' data-i18n='sensorMeasureNow' title='Read temperature now' data-i18n-title='max31865TipMeasure'>&#128300; Measure Now</button>
+                </div>
+            </div>
+
+            <!-- Section 2: Main control -->
+            <div class='section-box'>
+                <h3 class='section-title' data-i18n='hx711MainTitle'>&#9881;&#65039; Main Control</h3>
+                <div style='display:flex;gap:15px;align-items:center;flex-wrap:wrap'>
+                    <label class='checkbox-label' style='margin:0'>
+                        <input type='checkbox' id='sensorEnabled' title='Enable this sensor' data-i18n-title='sensorTipEnable'>
+                        <span data-i18n='max31865Enable'>Enable MAX31865 Sensor</span>
+                    </label>
+                    <div style='display:flex;align-items:center;gap:8px;flex:1;justify-content:flex-end'>
+                        <label style='font-size:13px;color:#94a3b8;white-space:nowrap' data-i18n='mq135IntervalLbl'>&#9203;&#65039; Interval:</label>
+                        <select id='readInterval' style='max-width:160px' title='Reading interval (seconds)' data-i18n-title='sensorTipInterval'>
+                            <option value='2' data-i18n='hx711Int2s'>2 seconds</option>
+                            <option value='5' data-i18n='hx711Int5s'>5 seconds</option>
+                            <option value='10' selected data-i18n='mq135Int10s'>10 seconds</option>
+                            <option value='30' data-i18n='mq135Int30s'>30 seconds</option>
+                            <option value='60' data-i18n='sensorInt1m'>1 minute</option>
+                            <option value='300' data-i18n='sensorInt5m'>5 minutes</option>
+                            <option value='600' data-i18n='sensorInt10m'>10 minutes</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: RTD configuration -->
+            <div class='section-box'>
+                <h3 class='section-title' data-i18n='max31865RtdTitle'>&#128295; RTD Configuration</h3>
+                <div class='cfg-grid'>
+                    <div>
+                        <label class='field-label' data-i18n='max31865RtdType'>Probe Type</label>
+                        <select id='rtdType' title='RTD probe type' data-i18n-title='max31865TipProbeType'>
+                            <option value='0' data-i18n='max31865Pt100'>PT100</option>
+                            <option value='1' data-i18n='max31865Pt1000'>PT1000</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class='field-label' data-i18n='max31865Wiring'>RTD Wiring</label>
+                        <select id='wiring' title='RTD wiring configuration' data-i18n-title='max31865TipWiring'>
+                            <option value='0' data-i18n='max31865Wire2'>2-wire</option>
+                            <option value='1' data-i18n='max31865Wire3'>3-wire</option>
+                            <option value='2' data-i18n='max31865Wire4'>4-wire</option>
+                        </select>
+                        <div class='field-hint' data-i18n='max31865WiringHint'>3-wire has cable resistance compensation.</div>
+                    </div>
+                    <div>
+                        <label class='field-label' data-i18n='max31865TempUnit'>Temperature Unit</label>
+                        <select id='tempUnitSel' title='Temperature unit' data-i18n-title='max31865TipTempUnit'>
+                            <option value='0' data-i18n='max31865Celsius'>Celsius (&#176;C)</option>
+                            <option value='1' data-i18n='max31865Fahrenheit'>Fahrenheit (&#176;F)</option>
+                            <option value='2' data-i18n='max31865Kelvin'>Kelvin (K)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class='field-label' data-i18n='max31865CalibOffset'>Calibration Offset (&#176;C)</label>
+                        <input type='number' id='calibrationOffset' step='0.01' value='0' style='max-width:110px' title='Reference resistor (ohms)' data-i18n-title='max31865TipRefResistor'>
+                        <div class='field-hint' data-i18n='max31865CalibHint'>Applied before unit conversion. E.g.: -0.5 to correct drift.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 5: Output options -->
+            <div class='section-box'>
+                <h3 class='section-title' style='font-size:18px' data-i18n='sensorOutputTitle'>&#128228; Output Options</h3>
+                <div style='display:flex;gap:20px;flex-wrap:wrap;align-items:center'>
+                    <label class='checkbox-label' style='background:#1e3a8a;padding:8px 12px;border-radius:6px'>
+                        <input type='checkbox' id='injectBuffer' title='Send data to monitor' data-i18n-title='sensorTipMonitor'>
+                        <span style='font-weight:bold' data-i18n='sensorInjectBuffer'>&#128202; Data in Monitor</span>
+                    </label>
+                    <label class='checkbox-label'>
+                        <input type='checkbox' id='outputCsv' title='Use CSV output' data-i18n-title='sensorTipCsv'>
+                        <span data-i18n='mq135DataImportCsv'>Data for Import (CSV)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Save button -->
+            <div style='text-align:center'>
+                <button id='btnSave' class='btn' style='padding:10px 24px;margin-top:20px' data-i18n='sensorSaveConfig' title='Save MAX31865 config' data-i18n-title='max31865TipSave'>&#128190; Save Configuration</button>
+            </div>
+            <div id='status' style='margin-top:15px;padding:12px;border-radius:6px;display:none'></div>
+        </div>
+    </main>
+
+    <script>
+        function t(key, fallback) {
+            if (typeof window._t === 'function') return window._t(key, fallback);
+            return fallback;
+        }
+
+        function uiLocale() {
+            var code = (localStorage.getItem('ui_lang_code') || document.documentElement.lang || 'en').toLowerCase();
+            return code.indexOf('en') === 0 ? 'en-GB' : 'pt-PT';
+        }
+
+        function updateDisplay(d) {
+            var tempEl    = document.getElementById('tempDisplay');
+            var unitEl    = document.getElementById('tempUnitLbl');
+            var faultEl   = document.getElementById('faultStatus');
+            var timeEl    = document.getElementById('lastReadTime');
+
+            // Temperature value
+            if (d.last_temp !== undefined && d.last_temp !== null) {
+                var temp  = Number(d.last_temp);
+                tempEl.textContent = temp.toFixed(2);
+                tempEl.style.color = d.last_fault ? '#fbbf24' : '#4ade80';
+            } else {
+                tempEl.textContent = '--';
+            }
+
+            // Unit label: server provides last_unit as string ("°C", "°F", "K")
+            if (d.last_unit) {
+                unitEl.textContent = d.last_unit;
+            }
+
+            // Fault status badge
+            if (d.last_fault !== undefined) {
+                if (d.last_fault) {
+                    faultEl.textContent = t('max31865FaultErr', '&#9888; FAULT: 0x') + Number(d.last_fault).toString(16).toUpperCase();
+                    faultEl.classList.add('fault');
+                } else {
+                    faultEl.textContent = t('max31865FaultOk', '&#10003; OK');
+                    faultEl.classList.remove('fault');
+                }
+            }
+
+            // Timestamp
+            if (d.last_reading_time && d.last_reading_time > 0) {
+                var dt = new Date(d.last_reading_time * 1000);
+                timeEl.textContent = t('sensorLastReadingPrefix', '&#128197; Last reading: ') +
+                    dt.toLocaleTimeString(uiLocale()) + ' (' + dt.toLocaleDateString(uiLocale()) + ')';
+            } else {
+                timeEl.textContent = t('hx711NoReading', 'No reading');
+            }
+        }
+
+        async function loadConfig() {
+            try {
+                var res = await fetch('/api/max31865-config', {cache:'no-store'});
+                if (!res.ok) throw new Error(t('mq135LoadConfigFailed', 'Failed to load config'));
+                var d = await res.json();
+
+                document.getElementById('sensorEnabled').checked       = d.sensor_enabled;
+                document.getElementById('readInterval').value          = String(d.read_interval_sec || 10);
+                document.getElementById('rtdType').value               = String(d.rtd_type || 0);
+                document.getElementById('wiring').value                = String(d.wiring || 0);
+                document.getElementById('tempUnitSel').value           = String(d.temp_unit || 0);
+                document.getElementById('calibrationOffset').value     = d.calibration_offset || 0;
+                document.getElementById('injectBuffer').checked        = d.inject_to_buffer;
+                document.getElementById('outputCsv').checked           = d.output_csv;
+
+                updateDisplay(d);
+
+                if (!d.last_reading_time || d.last_reading_time === 0) {
+                    setTimeout(measureNow, 600);
+                }
+            } catch (e) {
+                showStatus(t('sensorLoadErrorPrefix', 'Error loading: ') + e.message, 'error');
+            }
+        }
+
+        async function saveConfig() {
+            disableBtn(btnSave);showLoading();
+            try {
+                var body = {
+                    sensor_enabled:      document.getElementById('sensorEnabled').checked,
+                    read_interval_sec:   parseInt(document.getElementById('readInterval').value),
+                    rtd_type:            parseInt(document.getElementById('rtdType').value),
+                    wiring:              parseInt(document.getElementById('wiring').value),
+                    temp_unit:           parseInt(document.getElementById('tempUnitSel').value),
+                    calibration_offset:  parseFloat(document.getElementById('calibrationOffset').value),
+                    inject_to_buffer:    document.getElementById('injectBuffer').checked,
+                    output_csv:          document.getElementById('outputCsv').checked
+                };
+                try {
+                    var res = await fetch('/api/max31865-config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    if (!res.ok) throw new Error(t('mq135SaveFailed', 'Failed to save'));
+                    var d = await res.json();
+                    if (d.ok) {
+                        if (typeof customAlert   === 'function') customAlert(t('sensorAlertSaved', '&#10003;&#65039; Configuration saved!'));
+                        if (typeof showSavedCard === 'function') showSavedCard();
+                    } else {
+                        if (typeof customAlert === 'function') customAlert(t('sensorAlertError', '&#10060; Error: ') + (d.msg || 'unknown'));
+                    }
+                } catch (e) {
+                    if (typeof customAlert === 'function') customAlert(t('sensorAlertError', '&#10060; Error: ') + e.message);
+                }
+            } finally { hideLoading();enableBtn(btnSave); }
+        }
+
+        async function measureNow() {
+            showStatus(t('sensorMeasuring', '&#128300; Measuring...'), 'info');
+            try {
+                var res = await fetch('/api/max31865-measure', { method: 'POST' });
+                if (!res.ok) throw new Error(t('mq135MeasureFailed', 'Failed'));
+                var d = await res.json();
+                updateDisplay(d);
+                showStatus(t('sensorMeasureDone', '&#10003;&#65039; Reading complete!'), 'success');
+            } catch (e) {
+                showStatus(t('sensorAlertError', '&#10060; Error: ') + e.message, 'error');
+            }
+        }
+
+        function showStatus(msg, type) {
+            if (typeof customAlert === 'function') { customAlert(msg); return; }
+            var el = document.getElementById('status');
+            if (!el) return;
+            el.textContent = msg;
+            el.style.display = 'block';
+            el.style.border     = type === 'error' ? '2px solid #ef4444' : type === 'success' ? '2px solid #10b981' : '2px solid #3b82f6';
+            el.style.background = type === 'error' ? '#7f1d1d' : type === 'success' ? '#064e3b' : '#1e3a8a';
+            el.style.color = '#e6f1ff';
+            setTimeout(function() { el.style.display = 'none'; }, 3000);
+        }
+
+        document.getElementById('btnSave').addEventListener('click', saveConfig);
+        document.getElementById('btnMeasure').addEventListener('click', measureNow);
+
+        setTimeout(loadConfig, 150);
+    </script>
+)rawliteral";
+
+#endif // ENABLE_MAX31865==1
+#endif // PAGE_MAX31865_ASSET_H
+

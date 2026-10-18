@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width,initial-scale=1'>
+  <title>audio_dac_uda1334a_asset (Test)</title>
+</head>
+<body>
+
+<div class='page audio-dac-uda1334a'>
+  <div class='wrap'>
+    <div class='actions nav-inicio'>
+      <a href='/' class='btn' data-i18n='btnHome'>&#127968; In&iacute;cio</a>
+    </div>
+
+    <h1 data-i18n='uda1334aPageTitle'>&#128266; Placa de Som UDA1334A</h1>
+
+    <div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'>
+      <h2 style='margin-top:0;font-size:18px;color:#60a5fa' data-i18n='rs232StatusTitle'>&#128202; Estado</h2>
+      <div style='background:#1e3a8a;border-left:4px solid #3b82f6;padding:12px;margin:0;font-size:13px;line-height:1.8;color:#e0e7ff;border-radius:4px'>
+        <div><strong data-i18n='uda1334aInitialized'>Inicializado:</strong> <span id='initialized-status'>-</span></div>
+        <div><strong data-i18n='uda1334aSampleRate'>Taxa de Amostragem:</strong> <span id='current-sr'>-</span> Hz</div>
+        <div><strong data-i18n='uda1334aBitDepth'>Profundidade de Bits:</strong> <span id='current-bd'>-</span> bits</div>
+        <div><strong data-i18n='uda1334aEnabled'>Ativado:</strong> <span id='enabled-status'>-</span></div>
+      </div>
+    </div>
+
+    <div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'>
+      <h2 style='margin-top:0;font-size:18px;color:#60a5fa' data-i18n='ethernetConfigTitle'>&#9881;&#65039; Configura&ccedil;&atilde;o</h2>
+      <div style='background:#1e3a8a;border-left:4px solid #3b82f6;padding:12px;margin:0 0 16px 0;font-size:13px;line-height:1.8;color:#e0e7ff;border-radius:4px' data-i18n-html='uda1334aInfo'>
+        <div>&#128266; <strong style='color:#60a5fa'>UDA1334A:</strong> Conversor digital-anal&oacute;gico para reprodu&ccedil;&atilde;o de &aacute;udio I2S.</div>
+        <div>&#127911; <strong style='color:#60a5fa'>Taxa/bit depth:</strong> Ajuste a qualidade do fluxo conforme a origem do &aacute;udio.</div>
+        <div>&#128257; <strong style='color:#60a5fa'>Roteamento autom&aacute;tico:</strong> Inicia reprodu&ccedil;&atilde;o quando houver dados eleg&iacute;veis.</div>
+      </div>
+      <form id='uda-config-form'>
+        <div style='margin-top:12px'>
+          <label for='uda-enabled' style='display:block;margin-bottom:8px;color:#60a5fa;font-weight:bold' data-i18n='uda1334aEnableDac'>Ativar DAC</label>
+          <input type='checkbox' id='uda-enabled' name='enabled' />
+        </div>
+
+        <div style='margin-top:16px'>
+          <label for='uda-sr' style='display:block;margin-bottom:8px;color:#60a5fa;font-weight:bold' data-i18n='uda1334aSampleRateHz'>Taxa de Amostragem (Hz)</label>
+          <select id='uda-sr' name='sampleRate' required style='width:100%;max-width:420px;padding:10px;border-radius:6px;border:1px solid #3b82f6;background:#020617;color:#e0e7ff;font-size:14px'>
+            <option value='44100' data-i18n='uda1334aSr44100'>44,100 Hz (Qualidade CD)</option>
+            <option value='48000' data-i18n='uda1334aSr48000'>48,000 Hz (Audio profissional)</option>
+            <option value='96000' data-i18n='uda1334aSr96000'>96,000 Hz (Alta resolucao)</option>
+            <option value='192000' data-i18n='uda1334aSr192000'>192,000 Hz (Ultra alta resolucao)</option>
+          </select>
+        </div>
+
+        <div style='margin-top:16px'>
+          <label for='uda-bd' style='display:block;margin-bottom:8px;color:#60a5fa;font-weight:bold' data-i18n='uda1334aBitDepth'>Profundidade de Bits</label>
+          <select id='uda-bd' name='bitDepth' required style='width:100%;max-width:420px;padding:10px;border-radius:6px;border:1px solid #3b82f6;background:#020617;color:#e0e7ff;font-size:14px'>
+            <option value='16' data-i18n='uda1334aBd16'>16 bits (Padrao)</option>
+            <option value='24' data-i18n='uda1334aBd24'>24 bits (Qualidade studio)</option>
+            <option value='32' data-i18n='uda1334aBd32'>32 bits (Precisao maxima)</option>
+          </select>
+        </div>
+
+        <div style='margin-top:16px'>
+          <label for='uda-auto-routing' style='display:block;margin-bottom:8px;color:#60a5fa;font-weight:bold' data-i18n='uda1334aAutoRouting'>Roteamento Autom&aacute;tico</label>
+          <input type='checkbox' id='uda-auto-routing' name='autoRoutingEnabled' />
+          <div style='margin-top:6px;font-size:12px;color:#94a3b8' data-i18n='uda1334aAutoRoutingDesc'>Reproduzir &aacute;udio automaticamente quando dados s&atilde;o recebidos</div>
+        </div>
+
+        <div class='actions' style='margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap'>
+          <button type='button' class='btn' id='uda-save-btn' style='padding:10px 24px' data-i18n='btnSave'>&#128190; Guardar</button>
+          <button type='button' class='btn' id='uda-test-btn' style='padding:10px 24px' data-i18n='uda1334aTestBtn'>&#128265; Teste de Som</button>
+        </div>
+      </form>
+    </div>
+
+    <div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px;margin-bottom:80px'>
+      <h2 style='margin-top:0;font-size:18px;color:#60a5fa' data-i18n='infoTitle'>&#8505;&#65039; Information</h2>
+      <div style='font-size:13px;line-height:1.8;color:#e0e7ff' data-i18n='uda1334aInfo'>
+        O UDA1334A &eacute; um conversor digital-anal&oacute;gico (DAC) passivo para reprodu&ccedil;&atilde;o de &aacute;udio de alta qualidade
+        em computadores e sistemas embarcados. Suporta taxas de amostragem at&eacute; 192 kHz.
+      </div>
+    </div>
+
+    <div style='border:2px solid #f59e0b;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px;margin-bottom:80px'>
+      <h2 style='margin-top:0;font-size:18px;color:#fbbf24'>&#128268; Liga&ccedil;&otilde;es (N16R8 Devkit)</h2>
+      <div style='font-size:13px;line-height:2;color:#e0e7ff'>
+        <table style='width:100%;border-collapse:collapse;font-size:13px'>
+          <tr style='border-bottom:1px solid #334155'><td style='padding:6px 8px;font-weight:bold;color:#94a3b8'>UDA1334A</td><td style='padding:6px 8px;font-weight:bold;color:#94a3b8'>GPIO ESP32-S3</td><td style='padding:6px 8px;font-weight:bold;color:#94a3b8'>Notas</td></tr>
+          <tr style='border-bottom:1px solid #1e293b'><td style='padding:6px 8px'>BCLK / SCK</td><td style='padding:6px 8px;color:#60a5fa'>GPIO26</td><td style='padding:6px 8px;color:#94a3b8'>Bit clock I2S</td></tr>
+          <tr style='border-bottom:1px solid #1e293b'><td style='padding:6px 8px'>LRCK / WS</td><td style='padding:6px 8px;color:#60a5fa'>GPIO25</td><td style='padding:6px 8px;color:#94a3b8'>&#9888;&#65039; Partilhado com W5500 INT</td></tr>
+          <tr style='border-bottom:1px solid #1e293b'><td style='padding:6px 8px'>DIN</td><td style='padding:6px 8px;color:#60a5fa'>GPIO27</td><td style='padding:6px 8px;color:#94a3b8'>Dados I2S (ESP32 → DAC)</td></tr>
+          <tr style='border-bottom:1px solid #1e293b'><td style='padding:6px 8px'>VCC</td><td style='padding:6px 8px;color:#60a5fa'>3V3</td><td style='padding:6px 8px;color:#94a3b8'>Alimenta&ccedil;&atilde;o 3.3V</td></tr>
+          <tr><td style='padding:6px 8px'>GND</td><td style='padding:6px 8px;color:#60a5fa'>GND</td><td style='padding:6px 8px;color:#94a3b8'>Terra comum</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ===== MOCK API LAYER =====
+(function() {
+  window.fetch = function(url, opts) {
+    var u = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+    var MOCKS = typeof window.__MOCK_API__ !== 'undefined' ? window.__MOCK_API__ : {};
+    var mock = MOCKS[u];
+    if (!mock) {
+      for (var k in MOCKS) {
+        if (u.indexOf(k) >= 0) { mock = MOCKS[k]; break; }
+      }
+    }
+    if (typeof mock === 'function') mock = mock();
+    return Promise.resolve({
+      ok: true, status: 200,
+      json: function() { return Promise.resolve(mock || {}); },
+      text: function() { return Promise.resolve(JSON.stringify(mock || {})); }
+    });
+  };
+  window.customAlert = function(m) { console.log('[mock] customAlert:', m); };
+  window.customConfirm = function(m, cb) { if (cb) cb(true); };
+  window.showLoading = function() {};
+  window.hideLoading = function() {};
+  window.disableBtn = function(b) { if (b) { b.disabled = true; } };
+  window.enableBtn = function(b) { if (b) { b.disabled = false; } };
+  window.showSavedCard = function() {};
+  // Feature flags used by some pages (default: off)
+  window._rs232Enabled = false;
+  window._modbusEnabled = false;
+
+// ===== TEST HOOKS (inside page IIFE scope) =====
+window.__test__ = {};
+// Spy mechanism
+window.__spy__ = {};
+window.__spy__.calls = {};
+window.__spy__.reset = function() { window.__spy__.calls = {}; };
+window.__spy__.wrap = function(name, fn) {
+  return function() {
+    window.__spy__.calls[name] = window.__spy__.calls[name] || [];
+    window.__spy__.calls[name].push(Array.prototype.slice.call(arguments));
+    return fn.apply(this, arguments);
+  };
+};
+// Wrap key functions for spying
+if (typeof postSend !== 'undefined') postSend = window.__spy__.wrap('postSend', postSend);
+if (typeof showAlert !== 'undefined') showAlert = window.__spy__.wrap('showAlert', showAlert);
+// Helper: reset IIFE-local state vars (P, C, SH, RP used by radio page)
+window.__test__._reset = function(p, c, sh, rp) {
+  try { if (p !== undefined) { var _a=p; P.length=0; for(var _i=0;_i<_a.length;_i++)P.push(_a[_i]); } } catch(e) {}
+  try { if (c !== undefined) C = c; } catch(e) {}
+  try { if (sh !== undefined) SH = sh; } catch(e) {}
+  try { if (rp !== undefined) RP = rp; } catch(e) {}
+};
+// Expose functions via eval (runs in outer IIFE scope)
+var _testNames = [
+  // Recipients page
+  'rt','rowHTML','addRow','updateNameHint','saveSlot','saveDontCopy','preload',
+  'switchTab',
+  // Commands page
+  'esc','readLangCache','t','templateOptions','unitSelect','daysSelect',
+  'tplSelect','addRow','attachRow','saveSlot','attachSaveAll','rowHTML',
+  // DateTime Commands page
+  'e','t','to','r','addRow','attachRow','init','lt','ls','la','tt','ss','attachSaveAll',
+  // Sidebar / dock
+  'renderWidgetSidebar','moveWidgetUp','moveWidgetDown','moveWidgetToSide',
+  'toggleWidgetVis','applyTheme','readUiPrefs','saveUiPrefs','saveDockLayout',
+  'restoreDockLayout','saveWidgetPrefs','restoreWidgetPrefs','initLeftPanel',
+  'byId','qsa','localStorage','state',
+  // Utility
+  'fmtEta','fmtLagMs','fmtGcodeNum','normalizeZStepValue',
+  'setXyStepFromPreset','syncMainStepFromSelectors','updateXyStepButtons',
+  'sanitizeFileName','formatFileSize','ensureAllowedUploadPath',
+  'recentErrorMeta','clamp',
+  // Jog
+  'runJog','runJogXY','quickUnlock','quickHome','quickZeroWcs','quickReset','quickStatus',
+  // Job
+  'startFileStream','pauseStream','resumeStream','cancelStream',
+  'sendManualCommand','applyPollInterval','applyUsbLineCoding',
+  // Frame
+  'runFrameFromPreview','updateFrameInfo',
+  'getPreviewFrameBounds','setCommandMode',
+  // Override (scoped inside bindEvents)
+  // 'sendOverrideFeed','sendOverrideSpin','applyOverrides','stepOverride',
+  // Probe
+  'runAutoProbeZZero',
+  // Macros
+  'defaultMacros','getMacroEntry','runMacro','loadMacrosToForm','saveMacrosFromForm',
+  // Console
+  'ingestConsoleEvents','logLine','clearConsole','toggleConsoleFullscreen',
+  // Workspace / DRO
+  'extractDroFromStatus','renderDro','fmtDro','hasValidDroValue',
+  'parseNumber3','parsePosTriplet','firstNumber3',
+  // USB / Connection
+  'selectedSlot','normalizeUsbSlots','renderSlots',
+  'syncSelectedUsbBaud','ensureUsbBaudOption','usbBaudPrefId',
+  'getPreferredUsbBaud','savePreferredUsbBaud',
+  // SD Card
+  'sdFileNameFromPath','sdParentDir','formatSdSize','normalizeSdEntry',
+  'isPreviewSizeBlocked','isPreviewAutoRenderHeavy',
+  // PSRAM
+  'refreshPsramFileStatus',
+  // 3D / Preview utilities (pure functions)
+  'project3dPoint','computeProjectedBounds','computeToolpathBounds',
+  'formatMmLabel','classifyStartPlacement',
+  'extractAxisValue','extractAxisInMm','appendLinear',
+  'formatScaleHudMm','get3dPreviewMode','resolve3dPreviewMode',
+  // Critical confirm
+  'runWithCriticalConfirm','requireAxesAtZero',
+  // Render
+  'renderStatus','applyRuntimeControls','applyStatusSnapshot',
+  // 3D helpers
+  'getEffectiveCurrentLine','get3dMaxLineFromSegments','getSegmentExecNo',
+  'getActiveExecNo','update3dScrubUi',
+  // Light preview (inner functions may not resolve)
+  'simplifyPolylineLight',
+  // Radio UI (IIFE-scoped)
+  'T','AP','APJ','BN','sw','onSearch','addPlay','playToggle',
+  'radioStop','radioNext','radioPrev','playUrl','updUI','setVol',
+  'togSh','togRp','loadFav','addFav','favPlay','favDel',
+  'syncQ','rQ','rmQ','savePl','loadPls','loadPl','delPl','loadQ','loadSt','fh',
+];
+_testNames.forEach(function(n) {
+  try { window.__test__[n] = eval(n); } catch(e) { window.__test__[n] = null; }
+});
+
+})();</script>
+
+<script>
+function wt(k, fb) {
+  try {
+    if (typeof window._t === 'function') return window._t(k, fb);
+    var raw = localStorage.getItem('ui_lang_cache');
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (parsed && parsed[k] !== undefined) return parsed[k];
+    }
+  } catch (e) {}
+  return fb !== undefined ? fb : k;
+}
+
+function loadUDAConfig() {
+  return fetch('/api/uda1334a-config', { cache:'no-store' })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+      document.getElementById('uda-enabled').checked = !!data.enabled;
+      document.getElementById('uda-sr').value = String(data.sampleRate || 44100);
+      document.getElementById('uda-bd').value = String(data.bitDepth || 16);
+      document.getElementById('uda-auto-routing').checked = !!data.autoRoutingEnabled;
+
+      document.getElementById('initialized-status').textContent = data.initialized ? wt('opYes', 'Sim') : wt('opNo', 'Nao');
+      document.getElementById('current-sr').textContent = data.sampleRate || 44100;
+      document.getElementById('current-bd').textContent = data.bitDepth || 16;
+      document.getElementById('enabled-status').textContent = data.enabled ? wt('opYes', 'Sim') : wt('opNo', 'Nao');
+    })
+    .catch(function() {
+      customAlert('❌ ' + wt('uda1334aLoadError', 'Erro ao carregar configuracao'));
+    });
+}
+
+document.getElementById('uda-save-btn').addEventListener('click', function() {
+  var btn=this;disableBtn(btn);showLoading();
+  const form = document.getElementById('uda-config-form');
+  const formData = new FormData(form);
+
+  const payload = {
+    enabled: formData.get('enabled') === 'on',
+    sampleRate: parseInt(formData.get('sampleRate')),
+    bitDepth: parseInt(formData.get('bitDepth')),
+    autoRoutingEnabled: formData.get('autoRoutingEnabled') === 'on'
+  };
+
+  fetch('/api/uda1334a-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(result) {
+      if (result.success) {
+        customAlert(wt('alertSaved', '✅ Configuracao guardada!'));
+        showSavedCard();
+        loadUDAConfig();
+      } else {
+        customAlert('❌ ' + wt('emailErrorPrefix', 'Erro: ') + (result.message || wt('uda1334aSaveFailDefault', 'Falha ao guardar')));
+      }
+    })
+    .catch(function() {
+      customAlert('❌ ' + wt('uda1334aSaveError', 'Erro ao guardar configuracao'));
+    })
+    .finally(function(){hideLoading();enableBtn(btn);});
+});
+
+document.getElementById('uda-test-btn').addEventListener('click', function() {
+  var btn=this;disableBtn(btn);showLoading();
+  fetch('/api/uda1334a-test', { method: 'POST' })
+    .then(function(resp) { return resp.json(); })
+    .then(function(result) {
+      if (result.success) {
+        customAlert(wt('uda1334aTestRunning', '✅ Teste de som em execucao...'));
+      } else {
+        customAlert('❌ ' + wt('emailErrorPrefix', 'Erro: ') + (result.message || wt('uda1334aTestFailDefault', 'Falha no teste')));
+      }
+    })
+    .catch(function() {
+      customAlert('❌ ' + wt('uda1334aTestError', 'Erro ao executar teste'));
+    })
+    .finally(function(){hideLoading();enableBtn(btn);});
+});
+
+window.addEventListener('load', loadUDAConfig);
+</script>
+
+<script>
+(function() {
+  for (var k in window.__test__) {
+    if (window.__test__[k] === null || typeof window.__test__[k] === 'undefined') {
+      try { window.__test__[k] = eval(k); } catch(e) {}
+    }
+  }
+})();
+</script>
+
+</body>
+</html>

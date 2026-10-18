@@ -1,0 +1,15 @@
+var fs=require('fs'),path=require('path');
+var {JSDOM}=require('jsdom');
+var html=fs.readFileSync(path.join(__dirname,'pages','radio.html'),'utf8');
+var dom=new JSDOM(html,{runScripts:'dangerously',url:'http://localhost'});
+var doc=dom.window.document;
+var ct=doc.querySelector('.ct button');
+var pl=doc.querySelector('.ct .pl');
+var cs=dom.window.getComputedStyle(ct);
+var cs2=dom.window.getComputedStyle(pl);
+console.log('ct borderRadius:', cs.borderRadius, '| aspectRatio:', cs.aspectRatio, '| minHeight:', cs.minHeight);
+console.log('pl borderRadius:', cs2.borderRadius, '| aspectRatio:', cs2.aspectRatio);
+var play=doc.getElementById('pnPlay');
+console.log('pnPlay overflow:', dom.window.getComputedStyle(play).overflow);
+var topBar=doc.querySelector('.top');
+console.log('top background:', dom.window.getComputedStyle(topBar).backgroundColor, '| padding:', dom.window.getComputedStyle(topBar).padding);

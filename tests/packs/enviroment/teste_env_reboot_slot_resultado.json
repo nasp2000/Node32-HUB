@@ -1,0 +1,99 @@
+[
+ {
+  "fase": "baseline_s1",
+  "resp": {
+   "status": "ok",
+   "i": 1,
+   "time": "00:00",
+   "stored_time": "00:00",
+   "enabled": true,
+   "cfg_mem": 11570,
+   "has_dr": true,
+   "dr_isobj": false,
+   "has_s1": false,
+   "s1_ok": false,
+   "dr_dump": "{\"s1\":{\"time\":\"00:00\",\"enabled\":true,\"last_run_day\":0},\"s2\":{\"time\":\"\",\"enabled\":false,\"last_run_day\":0}}",
+   "nvs_len": 105,
+   "nvs_dump": "{\"s1\":{\"time\":\"10:01\",\"enabled\":true,\"last_run_day\":0},\"s2\":{\"time\":\"\",\"enabled\":false,\"last_run_day\":0}}"
+  }
+ },
+ {
+  "fase": "baseline_s2",
+  "resp": {
+   "status": "ok",
+   "i": 2,
+   "time": "",
+   "stored_time": "",
+   "enabled": false,
+   "cfg_mem": 11570,
+   "has_dr": true,
+   "dr_isobj": false,
+   "has_s1": false,
+   "s1_ok": false,
+   "dr_dump": "{\"s1\":{\"time\":\"00:00\",\"enabled\":true,\"last_run_day\":0},\"s2\":{\"time\":\"\",\"enabled\":false,\"last_run_day\":0}}",
+   "nvs_len": 105,
+   "nvs_dump": "{\"s1\":{\"time\":\"10:01\",\"enabled\":true,\"last_run_day\":0},\"s2\":{\"time\":\"\",\"enabled\":false,\"last_run_day\":0}}"
+  }
+ },
+ {
+  "fase": "post_test",
+  "http": 200,
+  "resp": "{\"status\":\"ok\",\"i\":2,\"time\":\"04:44\",\"enabled\":true}"
+ },
+ {
+  "fase": "get_apos_post",
+  "resp": {
+   "status": "ok",
+   "i": 2,
+   "time": "04:44",
+   "stored_time": "04:44",
+   "enabled": true,
+   "cfg_mem": 11576,
+   "has_dr": true,
+   "dr_isobj": false,
+   "has_s1": false,
+   "s1_ok": false,
+   "dr_dump": "{\"s1\":{\"time\":\"00:00\",\"enabled\":true,\"last_run_day\":0},\"s2\":{\"time\":\"04:44\",\"enabled\":true,\"last_run_day\":0}}",
+   "nvs_len": 109,
+   "nvs_dump": "{\"s1\":{\"time\":\"00:00\",\"enabled\":true,\"last_run_day\":0},\"s2\":{\"time\":\"04:44\",\"enabled\":true,\"last_run_day\":0}}"
+  }
+ },
+ {
+  "fase": "get_apos_5s",
+  "resp": {
+   "status": "ok",
+   "i": 2,
+   "time": "04:44",
+   "stored_time": "04:44",
+   "enabled": true,
+   "cfg_mem": 11576,
+   "has_dr": true,
+   "dr_isobj": false,
+   "has_s1": false,
+   "s1_ok": false,
+   "dr_dump": "{\"s1\":{\"time\":\"00:00\",\"enabled\":true,\"last_run_day\":0},\"s2\":{\"time\":\"04:44\",\"enabled\":true,\"last_run_day\":0}}",
+   "nvs_len": 109,
+   "nvs_dump": "{\"s1\":{\"time\":\"00:00\",\"enabled\":true,\"last_run_day\":0},\"s2\":{\"time\":\"04:44\",\"enabled\":true,\"last_run_day\":0}}"
+  }
+ },
+ {
+  "fase": "restore",
+  "http": 200,
+  "resp": "{\"status\":\"ok\",\"i\":2,\"time\":\"\",\"enabled\":false}",
+  "get_final": {
+   "status": "ok",
+   "i": 2,
+   "time": "",
+   "stored_time": "",
+   "enabled": false,
+   "cfg_mem": 11576,
+   "has_dr": true,
+   "dr_isobj": false,
+   "has_s1": false,
+   "s1_ok": false,
+   "dr_dump": "{\"s1\":{\"time\":\"00:00\",\"enabled\":true,\"last_run_day\":0},\"s2\":{\"time\":\"\",\"enabled\":false,\"last_run_day\":0}}",
+   "nvs_len": 105,
+   "nvs_dump": "{\"s1\":{\"time\":\"00:00\",\"enabled\":true,\"last_run_day\":0},\"s2\":{\"time\":\"\",\"enabled\":false,\"last_run_day\":0}}"
+  }
+ }
+]

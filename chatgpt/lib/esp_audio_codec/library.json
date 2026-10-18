@@ -1,0 +1,25 @@
+{
+    "name": "esp_audio_codec",
+    "description": "Espressif Audio Codec — AAC decoder (Espressif Modified MIT, ESP32-only). Vendored at 2.6.2: headers + prebuilt esp32s3 lib. Only the AAC decoder is referenced by AacDecoder; the rest of the archive is dropped by --gc-sections.",
+    "keywords": "audio, codec, aac, decoder",
+    "authors": [
+        {
+            "name": "Espressif Systems",
+            "url": "https://github.com/espressif/esp-adf-libs"
+        }
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/espressif/esp-adf-libs.git"
+    },
+    "version": "2.6.2",
+    "homepage": "https://components.espressif.com/components/espressif/esp_audio_codec",
+    "license": "LicenseRef-Espressif-Modified-MIT",
+    "frameworks": "Arduino",
+    "platforms": [
+        "espressif32"
+    ],
+    "build": {
+        "libLDFMode": "chain+"
+    }
+}

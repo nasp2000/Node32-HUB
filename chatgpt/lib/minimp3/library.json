@@ -1,0 +1,22 @@
+{
+    "name": "minimp3",
+    "description": "Minimalistic, single-header library for decoding MP3 (ISO conformant). Used as the MP3 decoder for the audio stack migration.",
+    "keywords": "MP3, decoder, audio",
+    "authors": [
+        {
+            "name": "lieff",
+            "url": "https://github.com/lieff"
+        }
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/lieff/minimp3"
+    },
+    "version": "ea99364f61c14656440e8d77e9c233ccf3124633",
+    "homepage": "https://github.com/lieff/minimp3",
+    "license": "CC0-1.0",
+    "frameworks": "Arduino",
+    "build": {
+        "libLDFMode": "chain+"
+    }
+}

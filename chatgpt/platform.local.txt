@@ -1,0 +1,86 @@
+# platform.local.txt — Node32-HUB source template
+#
+# Installation: copy this file to the ESP32 Arduino core folder:
+#   Windows: %LOCALAPPDATA%\Arduino15\packages\esp32\hardware\esp32\<version>\
+#   Linux:   ~/.arduino15/packages/esp32/hardware/esp32/<version>/
+#   macOS:   ~/Library/Arduino15/packages/esp32/hardware/esp32/<version>/
+#
+# This file must be installed there to take effect; the copy in the sketch
+# folder is the source template — keep both in sync.
+# Run Docs/install-arduino-flags.ps1 to copy it automatically.
+
+# =============================================================================
+# CCACHE — transparent compiler cache for Arduino IDE
+# =============================================================================
+# ccache intercepts every gcc/g++ call and returns a cached object file
+# when the source and all flags are identical to a previous run.
+# Result: unchanged TUs compile in <1 ms instead of ~30 s each.
+#
+# Install ccache once (run as admin or normal user):
+#   winget install ccache
+#   scoop install ccache      (alternative)
+#   brew install ccache       (macOS)
+#   sudo apt install ccache   (Linux/WSL)
+#
+# After installing ccache and copying this file, Arduino IDE builds will be
+# dramatically faster on the second and subsequent builds.
+# Verify: after building, run  ccache -s  in a terminal.
+#
+# How this works:
+#   compiler.c.cmd   is overridden to  ccache xtensa-...-gcc
+#   compiler.cpp.cmd is overridden to  ccache xtensa-...-g++
+#
+# !! WINDOWS NOTE !!  The pattern below (compiler.cpp.cmd=ccache ...) works on
+# Linux/macOS but NOT on Windows.  Arduino IDE prepends {compiler.path} to
+# {compiler.cpp.cmd}, producing a single string like:
+#   C:\...\bin\ccache xtensa-esp32s3-elf-g++
+# Windows treats that as ONE filename with a space in it — the process fails.
+#
+# Windows-compatible ccache approach (manual setup, one time):
+#   1. Run:  copy "%LOCALAPPDATA%\Microsoft\WinGet\Packages\Ccache.Ccache_Microsoft.WinGet.Source_8wekyb3d8bbwe\ccache-4.13.6-windows-x86_64\ccache.exe" \
+#              "%LOCALAPPDATA%\Arduino15\packages\esp32\tools\esp-x32\2511\bin\ccache.exe"
+#   2. Create a file  ccache.bat  in that same bin dir with content:
+#        @echo off
+#        "%~dp0ccache.exe" %*
+#   3. Do NOT uncomment the compiler.cpp.cmd lines below (still broken on Windows).
+#   4. Instead, use Arduino IDE Preferences > Compiler cache core libraries (checkbox).
+#
+# These lines are LEFT COMMENTED because they break Arduino IDE on Windows:
+#compiler.c.cmd=ccache {compiler.prefix}gcc
+#compiler.cpp.cmd=ccache {compiler.prefix}g++
+
+# =============================================================================
+# ARCHITECTURE-CONDITIONAL COMPILER FLAGS
+# =============================================================================
+# Xtensa (ESP32, ESP32-S2, ESP32-S3): add -mtext-section-literals
+#   Prevents "l32r: literal target out of range" linker errors caused by large
+#   .cpp files whose EthernetServer / WiFiServer destructors are placed in
+#   .literal.* sections that exceed Xtensa L32R's ~128 KB reach at link time.
+# RISC-V (ESP32-P4, C3, C6, H2): -mtext-section-literals is Xtensa-only —
+#   the riscv32-elf toolchain does not know this flag. Leave empty.
+build.flags.arch.xtensa=-mtext-section-literals
+build.flags.arch.riscv32=
+
+compiler.cpp.extra_flags={build.flags.arch.{build.tarch}}
+compiler.c.extra_flags={build.flags.arch.{build.tarch}}
+
+# =============================================================================
+# POST-BUILD HOOKS — automatic versioned binary naming
+# =============================================================================
+
+# Hook that runs after successful .bin creation.
+# Automatically copies output to node32-hub-vX.X-YYYY-MM-DD.bin.
+#
+# Windows: use PowerShell — avoids cmd /c quoting issues with for /f tokens=*
+# All work is done in a single hook (no cross-hook variable passing needed).
+recipe.objcopy.bin.1.pattern.windows=powershell -NoProfile -Command "$src='{build.path}\\{build.project_name}.ino.bin'; $date=Get-Date -Format 'yyyy-MM-dd'; $dst='{build.path}\\node32-hub-v2.12-'+$date+'.bin'; if(Test-Path $src){Copy-Item $src $dst -Force; Write-Host '[Post-Build] Created: node32-hub-v2.12-'+$date+'.bin'} else{Write-Host '[Post-Build] .bin not found, skip rename'}"
+
+# Linux/Mac version (using shell commands)
+recipe.objcopy.bin.1.pattern.linux=bash -c 'echo "[Post-Build] Creating versioned binary..."; BUILD_DATE=$(date +%Y-%m-%d); echo "Date: $BUILD_DATE"; cp "{build.path}/{build.project_name}.ino.bin" "{build.path}/node32-hub-v2.12-$BUILD_DATE.bin" && echo "[Post-Build] Created: node32-hub-v2.12-$BUILD_DATE.bin"'
+recipe.objcopy.bin.1.pattern.macosx=bash -c 'echo "[Post-Build] Creating versioned binary..."; BUILD_DATE=$(date +%Y-%m-%d); echo "Date: $BUILD_DATE"; cp "{build.path}/{build.project_name}.ino.bin" "{build.path}/node32-hub-v2.12-$BUILD_DATE.bin" && echo "[Post-Build] Created: node32-hub-v2.12-$BUILD_DATE.bin"'
+
+# Alternative: If you want to REPLACE the output name completely (not just copy),
+# uncomment the following lines and comment out the ones above:
+#
+# compiler.c.elf.extra_flags=-Wl,--defsym=__BUILD_DATE__=$(shell date +%Y%m%d)
+# recipe.objcopy.bin.pattern="{compiler.path}{compiler.elf2hex.cmd}" {compiler.elf2hex.flags} {compiler.elf2hex.extra_flags} "{build.path}/{build.project_name}.ino.elf" "{build.path}/node32-hub-v2.12-{__BUILD_DATE__}.bin"

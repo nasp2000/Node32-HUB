@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width,initial-scale=1'>
+  <title>Camera (Test)</title>
+</head>
+<body>
+
+<style>
+:root{
+  --bg-0:#1a3a6e;
+  --bg-1:#22488a;
+  --bg-2:#2f5da8;
+  --p:#0a0c11;
+  --bdr:rgba(180,215,255,.20);
+  --bdr2:rgba(180,215,255,.34);
+  --bdr3:rgba(200,228,255,.55);
+  --tx:#f2f7ff;
+  --tx2:#c3d6f5;
+  --tx3:#8ba7d4;
+  --acc:#2f7bff;
+  --acc2:#5aa0ff;
+  --acc-dim:rgba(47,123,255,.16);
+  --acc-glow:rgba(47,123,255,.45);
+  --red:#ef4444;
+  --red2:#f87171;
+  --red-dim:rgba(239,68,68,.12);
+  --red-glow:rgba(239,68,68,.45);
+  --green:#22c55e;
+  --green-glow:rgba(34,197,94,.45);
+  --orange:#f59e0b;
+  --r:8px;
+  --fs:10px;
+  --shadow:0 8px 32px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;width:100%}
+body{
+  background:linear-gradient(180deg, var(--bg-0) 0%, var(--bg-1) 100%);
+  color:var(--tx);
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  overflow:hidden;
+  height:100dvh;
+  font-size:var(--fs);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+/* ===== Main wrapper (column: toolbar + main + statusbar) ===== */
+.wrap{
+  display:flex;
+  flex-direction:column;
+  height:100dvh;
+  max-width:none!important;
+  width:100%!important;
+  padding:0!important;
+  margin:0!important;
+  position:relative;
+}
+
+/* ===== Slim toolbar (single row of equal buttons, centered) ===== */
+.top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:6px;
+  padding:2px 6px;
+  min-height:26px;
+  background:linear-gradient(180deg, rgba(47,93,168,.95) 0%, rgba(34,72,138,.93) 100%);
+  border-bottom:1px solid rgba(4,10,24,.8);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28), 0 3px 6px rgba(0,0,0,.5);
+  flex-shrink:0;
+  z-index:5;
+}
+.tgroup{display:flex;align-items:center;gap:6px;}
+.dd-w{position:relative;}
+.dd-m{display:none;position:absolute;top:100%;right:0;margin-top:4px;background:rgba(4,10,24,.92);border:1px solid var(--bdr2);border-radius:6px;min-width:150px;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.6);overflow:hidden;}
+.dd-m.show{display:block;}
+.dd-i{padding:6px 12px;font-size:11px;color:var(--tx);cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;}
+.dd-i:hover{background:rgba(59,130,246,.2);}
+.st.mini{font-size:10px;padding:2px 8px;min-height:20px;}
+.top .b{flex:0 0 auto}
+.b{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  background:linear-gradient(180deg, rgba(140,190,255,.30) 0%, rgba(90,160,255,.14) 100%);
+  color:var(--tx);
+  border:1px outset var(--bdr3);
+  border-radius:3px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.30), 0 2px 3px rgba(0,0,0,.45);
+  padding:2px 8px;
+  font-size:11px;
+  font-weight:600;
+  cursor:pointer;
+  text-decoration:none;
+  white-space:nowrap;
+  line-height:1;
+  transition:all .15s;
+  height:22px;
+  width:84px;
+  max-width:84px;
+  overflow:hidden;
+  font-family:inherit;
+  margin:0;
+}
+.b:hover{background:linear-gradient(180deg, rgba(140,190,255,.42) 0%, rgba(90,160,255,.22) 100%);border-color:var(--bdr3)}
+.b:active{transform:translateY(1px);box-shadow:inset 0 2px 3px rgba(0,0,0,.4)}
+.b-rec{background:linear-gradient(180deg, #f87171 0%, var(--red) 100%);color:#fff;border:1px outset #fca5a5;box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 2px 3px rgba(0,0,0,.45)}
+.b-green{background:linear-gradient(180deg, #4ade80 0%, #16a34a 100%);color:#fff;border:1px outset #86efac;box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 2px 3px rgba(0,0,0,.45)}
+.b-icon{padding:1px;width:14px;border-radius:2px;font-size:8px}
+.st{
+  font-size:11px;
+  color:var(--tx2);
+  display:flex;
+  align-items:center;
+  gap:5px;
+  padding:3px 10px;
+  min-height:22px;
+  background:rgba(8,18,38,.35);
+  border:1px solid var(--bdr2);
+  border-radius:3px;
+  font-variant-numeric:tabular-nums;
+  font-weight:500;
+  white-space:nowrap;
+}
+.st .dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot-g{background:var(--green);box-shadow:0 0 8px var(--green-glow);animation:pulse 2s ease-in-out infinite}
+.dot-r{background:var(--red);box-shadow:0 0 6px rgba(239,68,68,.4)}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.85)}}
+
+/* ===== Main split: sidebar LEFT + stream CENTER ===== */
+.main{
+  flex:1;
+  display:flex;
+  flex-direction:row;
+  min-height:0;
+  overflow:hidden;
+}
+.side{
+  width:320px;
+  flex-shrink:0;
+  order:-1;
+  display:flex;
+  flex-direction:row;
+  min-height:0;
+  background:linear-gradient(0deg, rgba(26,58,110,.98) 0%, rgba(34,72,138,.96) 100%);
+  border-right:1px solid rgba(4,10,24,.8);
+  box-shadow:inset -1px 0 0 rgba(200,228,255,.22), inset 0 1px 0 rgba(255,255,255,.14);
+  overflow:hidden;
+}
+
+/* ===== Icon rail (panel switcher, centered, no horizontal scroll) ===== */
+.rail{
+  width:52px;
+  flex-shrink:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:4px;
+  padding:6px 0;
+  background:rgba(8,18,38,.35);
+  border-right:1px solid rgba(4,10,24,.7);
+  box-shadow:inset -1px 0 0 rgba(200,228,255,.18);
+  overflow-x:hidden;
+  overflow-y:auto;
+}
+.rail button{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:1px;
+  padding:3px 0;
+  margin:0 auto;
+  width:42px;
+  border-radius:3px;
+  border:1px outset var(--bdr3);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 2px 3px rgba(0,0,0,.45);
+  background:linear-gradient(180deg, rgba(140,190,255,.22) 0%, rgba(90,160,255,.08) 100%);
+  color:var(--tx2);
+  font-size:11px;
+  cursor:pointer;
+  font-family:inherit;
+  transition:all .15s;
+  min-height:30px;
+}
+.rail button span{font-size:7px;font-weight:700;letter-spacing:.2px;text-transform:uppercase}
+.rail button:hover{color:var(--tx)}
+.rail button:active{transform:translateY(1px)}
+.rail button.on{
+  background:linear-gradient(180deg, var(--acc2) 0%, var(--acc) 100%);
+  color:#fff;
+  border:1px outset #93c5fd;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 2px 6px var(--acc-glow);
+}
+.panelwrap{
+  flex:1;
+  min-width:0;
+  overflow-y:auto;
+  padding:8px 10px 12px;
+  scrollbar-width:thin;
+  scrollbar-color:var(--bdr2) transparent;
+}
+.panelwrap::-webkit-scrollbar{width:4px}
+.panelwrap::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px}
+
+/* ===== Panel header (full section name, always visible) ===== */
+.phead{
+  position:sticky;
+  top:-8px;
+  z-index:2;
+  display:flex;
+  align-items:center;
+  gap:5px;
+  padding:5px 2px 4px;
+  margin-bottom:4px;
+  background:linear-gradient(0deg, rgba(26,58,110,0) 0%, rgba(26,58,110,.96) 30%);
+  background-color:rgba(26,58,110,.92);
+  border-bottom:1px solid var(--bdr);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.3px;
+  color:var(--tx);
+  white-space:nowrap;
+  overflow:hidden;
+}
+.psec{display:none;animation:fadeIn .2s ease}
+.psec.on{
+  display:block;
+  background:rgba(8,18,38,.28);
+  border:1px solid var(--bdr);
+  border-radius:4px;
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.45), inset 0 -1px 0 rgba(200,228,255,.12);
+  padding:4px 5px 6px;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* ===== Stream area (hero, center) ===== */
+.str{
+  flex:1;
+  min-width:0;
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(47,123,255,.10) 0%, transparent 60%),
+    linear-gradient(180deg, #060d1d 0%, #04070f 100%);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  overflow:hidden;
+  border-left:1px solid rgba(4,10,24,.8);
+  box-shadow:inset 2px 0 6px rgba(0,0,0,.55), inset 0 0 40px rgba(0,0,0,.5);
+}
+.str::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(147,197,253,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(147,197,253,.03) 1px, transparent 1px);
+  background-size:24px 24px;
+  pointer-events:none;
+  opacity:.5;
+}
+.str img{
+  max-width:100%;
+  max-height:100%;
+  object-fit:contain;
+  display:block;
+  position:relative;
+  z-index:1;
+  border-radius:4px;
+  box-shadow:0 12px 48px rgba(0,0,0,.6);
+  border:1px solid var(--bdr);
+}
+.str .ph{
+  color:var(--tx3);
+  font-size:14px;
+  text-align:center;
+  padding:24px;
+  position:relative;
+  z-index:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:14px;
+}
+.str .ph .ph-icon{font-size:36px;opacity:.4;animation:pulse 2.5s ease-in-out infinite}
+.str .ph .ph-sub{font-size:11px;color:var(--tx3);opacity:.9;max-width:420px}
+
+/* ===== Floating REC / LIVE badges ===== */
+.str .rec-badge{
+  position:absolute;
+  top:12px;left:12px;
+  display:none;
+  align-items:center;
+  gap:6px;
+  padding:4px 10px;
+  background:rgba(239,68,68,.95);
+  border-radius:12px;
+  color:#fff;
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:.5px;
+  text-transform:uppercase;
+  z-index:2;
+  box-shadow:0 4px 16px var(--red-glow);
+}
+.str .rec-badge.on{display:inline-flex}
+.str .rec-badge .rec-dot{width:6px;height:6px;background:#fff;border-radius:50%;animation:pulse 1s ease-in-out infinite}
+
+/* ===== Preset buttons (3+2 grid, full text, 3D relief) ===== */
+.btns{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-bottom:6px}
+.bp{
+  padding:3px 2px;
+  border-radius:3px;
+  border:1px outset var(--bdr3);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 2px 3px rgba(0,0,0,.45);
+  background:linear-gradient(180deg, rgba(140,190,255,.22) 0%, rgba(90,160,255,.08) 100%);
+  color:var(--tx2);
+  font-size:8px;
+  font-weight:700;
+  cursor:pointer;
+  font-family:inherit;
+  letter-spacing:.2px;
+  transition:all .15s;
+  min-width:0;
+  overflow:visible;
+  white-space:nowrap;
+}
+.bp:hover{background:linear-gradient(180deg, rgba(140,190,255,.34) 0%, rgba(90,160,255,.16) 100%);color:var(--tx)}
+.bp.on{background:linear-gradient(180deg, var(--acc2) 0%, var(--acc) 100%);color:#fff;border:1px outset #93c5fd;box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 2px 6px var(--acc-glow)}
+.bp:active{transform:translateY(1px)}
+
+/* ===== Control rows: label left (40%), control right ===== */
+.rw{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  margin-bottom:3px;
+  padding:2px 4px;
+  background:rgba(8,18,38,.22);
+  border:1px outset var(--bdr2);
+  border-radius:4px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12), 0 1px 2px rgba(0,0,0,.4);
+  transition:border-color .15s;
+}
+.rw:hover{border-color:var(--bdr2)}
+.rw label{font-size:8px;color:var(--tx2);min-width:40%;flex-shrink:0;letter-spacing:.2px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rw select{
+  flex:1;
+  background:var(--bg-2);
+  color:var(--tx);
+  border:1px solid var(--bdr2);
+  border-radius:4px;
+  padding:1px 3px;
+  font-size:9px;
+  height:18px;
+  cursor:pointer;
+  font-family:inherit;
+  outline:none;
+  min-width:0;
+}
+.rw select:focus{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc-dim)}
+.rw input[type=range]{
+  flex:1;
+  min-width:24px;
+  height:4px;
+  -webkit-appearance:none;
+  appearance:none;
+  outline:none;
+  background:linear-gradient(90deg, var(--acc) 0%, var(--acc) var(--p,50%), var(--bdr2) var(--p,50%), var(--bdr2) 100%);
+  border-radius:3px;
+  cursor:pointer;
+  margin:0;
+}
+.rw input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:10px;height:10px;
+  border-radius:50%;
+  background:linear-gradient(135deg, #fff 0%, #cfe2ff 100%);
+  cursor:pointer;
+  border:2px solid var(--acc);
+  box-shadow:0 2px 8px rgba(0,0,0,.3), 0 0 8px var(--acc-glow);
+}
+.rw input[type=range]::-moz-range-thumb{width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer;border:2px solid var(--acc)}
+.rw .v{
+  font-size:9px;
+  color:var(--tx);
+  min-width:24px;
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+  font-weight:600;
+  background:var(--bg-2);
+  padding:1px 5px;
+  border-radius:4px;
+  border:1px solid var(--bdr);
+  flex-shrink:0;
+}
+
+/* ===== Checkboxes ===== */
+.ck{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  margin-bottom:3px;
+  padding:2px 4px;
+  background:rgba(8,18,38,.22);
+  border:1px outset var(--bdr2);
+  border-radius:4px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12), 0 1px 2px rgba(0,0,0,.4);
+  cursor:pointer;
+  transition:all .15s;
+}
+.ck:hover{background:rgba(90,160,255,.10);border-color:var(--bdr2)}
+.ck input{
+  appearance:none;
+  -webkit-appearance:none;
+  width:11px;height:11px;
+  border:1px outset var(--bdr3);
+  border-radius:2px;
+  background:linear-gradient(180deg, rgba(140,190,255,.25) 0%, rgba(90,160,255,.08) 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 1px 2px rgba(0,0,0,.4);
+  cursor:pointer;
+  position:relative;
+  margin:0;
+  flex-shrink:0;
+  transition:all .15s;
+}
+.ck input:checked{background:linear-gradient(135deg, var(--acc) 0%, var(--acc2) 100%);border-color:var(--acc)}
+.ck input:checked::after{
+  content:'';
+  position:absolute;
+  left:50%;top:50%;
+  width:3px;height:6px;
+  margin-left:-2px;margin-top:-4px;
+  border:solid #fff;
+  border-width:0 2px 2px 0;
+  transform:rotate(45deg) translate(0,-1px);
+}
+.ck label{font-size:9px;color:var(--tx);cursor:pointer;flex:1;user-select:none;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ===== Section labels ===== */
+.sec-lbl{
+  font-size:7px;
+  font-weight:700;
+  color:var(--tx3);
+  margin:5px 0 3px;
+  padding:3px 0 2px;
+  border-top:1px solid var(--bdr);
+  text-transform:uppercase;
+  letter-spacing:1px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.sec-lbl::before{content:'';width:3px;height:10px;background:linear-gradient(180deg, var(--acc) 0%, var(--acc2) 100%);border-radius:1px}
+.ri{
+  font-size:9px;
+  color:var(--tx);
+  font-family:'SF Mono',Menlo,Consolas,monospace;
+  margin:3px 0;
+  padding:3px 6px;
+  background:rgba(8,18,38,.35);
+  border:1px inset var(--bdr2);
+  border-radius:4px;
+  box-shadow:inset 0 2px 4px rgba(0,0,0,.45);
+  text-align:center;
+  font-weight:600;
+  letter-spacing:.3px;
+  font-variant-numeric:tabular-nums;
+  overflow-wrap:anywhere;
+}
+
+/* ===== 2-column grid / action row ===== */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.act-row{display:flex;gap:4px;margin-bottom:5px}
+.act-row .b{flex:1;justify-content:center;max-width:none}
+.rw .score-pill{
+  font-size:9px;
+  color:var(--orange);
+  font-weight:700;
+  background:var(--bg-2);
+  border:1px solid var(--bdr2);
+  padding:3px 10px;
+  border-radius:10px;
+  font-variant-numeric:tabular-nums;
+  min-width:48px;
+  text-align:center;
+}
+
+/* ===== Bottom status bar (model · SD · REC · motion) ===== */
+.statusbar{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  padding:2px 8px;
+  min-height:20px;
+  background:linear-gradient(0deg, rgba(47,93,168,.95) 0%, rgba(34,72,138,.93) 100%);
+  border-top:1px solid rgba(4,10,24,.8);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22), 0 -3px 6px rgba(0,0,0,.45);
+  font-size:8px;
+  color:var(--tx2);
+  font-variant-numeric:tabular-nums;
+  flex-shrink:0;
+  overflow:hidden;
+  white-space:nowrap;
+}
+.statusbar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.statusbar .fmodel{color:var(--tx);font-weight:700}
+.statusbar .frec{color:var(--red2);font-weight:700}
+.statusbar .fsep{color:var(--tx3)}
+
+/* ===== Mobile: stack stream on top, controls below, rail horizontal ===== */
+@media(max-width:1023px){
+  .main{flex-direction:column}
+  .str{min-height:32vh;flex-shrink:0;border-left:none;border-top:1px solid var(--bdr)}
+  .side{
+    width:100%;
+    order:0;
+    border-right:none;
+    border-top:1px solid var(--bdr2);
+    flex:1;
+    min-height:0;
+    flex-direction:column;
+  }
+  .rail{
+    width:100%;
+    flex-direction:row;
+    border-right:none;
+    border-bottom:1px solid var(--bdr);
+    padding:5px 6px;
+  }
+  .rail button{flex:1;min-height:38px}
+  .g2{grid-template-columns:1fr}
+  .statusbar{font-size:8px}
+}
+@media(max-width:480px){
+  .top{padding:1px 3px;gap:4px}
+  .b{padding:1px 5px;font-size:10px;height:20px;width:72px;max-width:72px}
+  .b-icon{width:12px;font-size:7px}
+  .st{font-size:10px;padding:2px 6px}
+  .statusbar{gap:4px;padding:2px 5px;font-size:8px}
+}
+
+/* ===== core.css guard: the shell stylesheet ships
+   ".btn,button,a.btn{...border-radius:9999px!important;padding:8px 24px!important;
+   font-size:16px;min-height:40px;width:100%;max-width:420px;display:block;margin:6px auto...}"
+   plus "input,select{...font-size:13px!important;min-height:28px}" — without
+   these scoped overrides every camera button renders giant (the huge Stop in
+   the screenshot) and every control 28px tall. Scoped !important wins here. */
+.top .b{border-radius:3px!important;padding:2px 8px!important;font-size:11px!important;min-height:0!important;height:22px!important;width:84px!important;max-width:84px!important;display:inline-flex!important;margin:0!important;line-height:1!important;text-align:center!important;}
+.act-row .b{border-radius:3px!important;padding:2px 8px!important;font-size:11px!important;min-height:0!important;height:22px!important;display:inline-flex!important;margin:0!important;line-height:1!important;}
+.statusbar .b{border-radius:3px!important;padding:1px 4px!important;min-height:0!important;margin:0!important;}
+.rail button{border-radius:3px!important;padding:3px 0!important;font-size:11px!important;min-height:0!important;margin:0 auto!important;line-height:1.2!important;}
+.btns .bp{border-radius:3px!important;padding:4px 2px!important;font-size:9px!important;min-height:0!important;height:22px!important;margin:0!important;line-height:1!important;}
+.wrap select{font-size:9px!important;min-height:0!important;}
+.wrap input[type=range]{min-height:0!important;}
+.wrap .ck input{min-width:0!important;min-height:0!important;width:11px!important;}
+
+/* ===== Instant tooltips: styled, no delay, fed by the native title attr.
+   Covers toolbar / action-row / preset buttons (rail excluded: horizontal
+   overflow would clip; full names already live in .phead there). */
+.top .b,.act-row .b,.btns .bp{position:relative;}
+.top .b:hover::after,.act-row .b:hover::after,.btns .bp:hover::after{
+  content:attr(title);
+  position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  max-width:190px;white-space:normal;text-align:center;
+  background:rgba(4,10,24,.97);color:var(--tx);
+  border:1px solid var(--bdr3);border-radius:4px;
+  padding:4px 8px;font-size:9px;font-weight:500;line-height:1.4;
+  z-index:60;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.5);
+}
+.hint{
+  font-size:9px;color:var(--tx2);line-height:1.5;
+  padding:4px 6px;margin:2px 0 6px;
+  background:rgba(90,160,255,.06);border:1px solid var(--bdr);border-radius:4px;
+}
+</style>
+
+<div class='wrap'>
+
+<div class='top'>
+  <div class='tgroup'>
+    <span class='st mini' id='heapPill' title='Free heap' data-i18n-title='camTipHeap'>&#129504; --</span>
+    <span class='st mini' id='tempPill' title='Board temperature' data-i18n-title='camTipTemp'>&#127777;&#65039; --</span>
+  </div>
+  <div class='tgroup'>
+  <button class='b b-green' id='bToggle' onclick='camToggle()' title='Start/stop camera' data-i18n-title='camTipStart'>&#9654; <span data-i18n='camStart'>Start</span></button>
+  <button class='b' id='bSnap' onclick='snapPhoto()' title='Capture photo' data-i18n-title='camTipCapture'>&#128247; <span data-i18n='camPhoto'>Photo</span></button>
+  <button class='b b-rec' id='bRecS' style='display:none' onclick='recStart()' title='Start recording' data-i18n-title='camTipRecord'>&#9679; <span data-i18n='camRec'>Rec</span></button>
+  <a href='/hub' class='b' title='Camera hub' data-i18n-title='camTipHub'>&#128246; <span data-i18n='camHub'>Hub</span></a>
+  <a href='/cam/raw' target='_blank' class='b' title='Raw fullscreen stream (no UI)' data-i18n-title='camTipRaw'>&#128250; <span data-i18n='camRaw'>Raw</span></a>
+  <div class='dd-w' id='linkDd'>
+    <button class='b' onclick='toggleLinkDd()' title='Copy stream URL for external players' data-i18n-title='camTipLink'>&#128279; <span data-i18n='camLink'>Link</span></button>
+    <div class='dd-m' id='linkMenu'>
+      <div class='dd-i' onclick="copyLink('stream')">&#127909; <span data-i18n='camLinkStream'>MJPEG Stream</span></div>
+      <div class='dd-i' onclick="copyLink('snapshot')">&#128247; <span data-i18n='camLinkSnap'>Snapshot</span></div>
+      <div class='dd-i' onclick="copyLink('raw')">&#128250; <span data-i18n='camLinkRaw'>Raw (no UI)</span></div>
+    </div>
+  </div>
+  </div>
+  <div class='st'>
+    <span class='dot dot-r' id='stDot'></span>
+    <span id='stInfo'></span>
+  </div>
+</div>
+
+<div class='main'>
+  <div class='side'>
+    <div class='rail'>
+      <button class='on' onclick='showPsec(this,"cam")' title='Camera control' data-i18n-title='camTipTabCam'>&#127916;<span>Cam</span></button>
+      <button onclick='showPsec(this,"pic")' title='Picture settings' data-i18n-title='camTipTabPic'>&#127912;<span>Pic</span></button>
+      <button onclick='showPsec(this,"rec")' title='Record and files' data-i18n-title='camTipTabRec'>&#128249;<span>Rec</span></button>
+      <button onclick='showPsec(this,"mot")' title='Motion detect' data-i18n-title='camTipTabMot'>&#128200;<span>Mot</span></button>
+    </div>
+    <div class='panelwrap'>
+
+    <div class='psec on' id='psecCam'>
+      <div class='phead'><span>&#127916;</span><span data-i18n='camPanelCam'>Camera Control</span></div>
+      <div class='btns'>
+        <button class='bp' onclick='preset("hd",this)' title='HD preset (1280x720)' data-i18n-title='camTipPresetHd'>HD</button>
+        <button class='bp' onclick='preset("vga",this)' title='VGA preset (640x480)' data-i18n-title='camTipPresetVga'>VGA</button>
+        <button class='bp' onclick='preset("fast",this)' title='Fast preset (low latency)' data-i18n-title='camTipPresetFast'>Fast</button>
+        <button class='bp' onclick='preset("night",this)' title='Night preset (enhanced)' data-i18n-title='camTipPresetNight'>Night</button>
+        <button class='bp' onclick='preset("safe",this)' title='Safe preset (tested stable on this hardware)' data-i18n-title='camTipPresetSafe'>Safe</button>
+        <button class='bp' onclick='preset("eco",this)' title='Economy preset (QVGA, 8 fps, high compression — lowest CPU/bandwidth)' data-i18n-title='camTipPresetEco'>&#127811; Eco</button>
+      </div>
+      <div class='rw'><label>Resolution</label><select id='selFr' onchange='cfg()' title='Camera resolution' data-i18n-title='camTipResolution'><option value='6'>320x240</option><option value='10'>640x480</option><option value='11'>800x600</option><option value='12'>1024x768</option><option value='13'>1280x720</option><option value='14'>1280x1024</option><option value='15'>1600x1200</option><option value='16'>1920x1080</option><option value='19'>2048x1536</option><option value='24'>2592x1944</option></select></div>
+      <div class='rw'><label>Quality</label><input type='range' id='slQ' min='4' max='63' value='20' oninput='cfg()' title='Image quality (lower=better)' data-i18n-title='camTipQuality'><span class='v' id='vQ'>20</span></div>
+      <div class='rw'><label>FPS</label><input type='range' id='selFps' min='1' max='30' value='12' oninput='cfg()' title='Frames per second' data-i18n-title='camTipFps'><span class='v' id='vFps'>12</span></div>
+      <div class='rw'><label>Gain ceiling</label><select id='slGc' onchange='cfg()' title='AGC gain ceiling' data-i18n-title='camTipGainCeil'><option value='0'>2x</option><option value='1'>4x</option><option value='2'>8x</option><option value='3'>16x</option><option value='4'>32x</option><option value='5'>64x</option><option value='6'>128x</option></select></div>
+      <div class='rw'><label>Special FX</label><select id='selSfx' onchange='cfg()' title='Special effect filter' data-i18n-title='camTipFx'><option value='0'>None</option><option value='1'>Neg</option><option value='2'>Gray</option><option value='3'>Red</option><option value='4'>Green</option><option value='5'>Blue</option><option value='6'>Sepia</option></select></div>
+      <div class='rw'><label>White balance</label><select id='selWb' onchange='cfg()' title='White balance mode' data-i18n-title='camTipWb'><option value='0'>Auto</option><option value='1'>Sun</option><option value='2'>Cloud</option><option value='3'>Off</option><option value='4'>Home</option></select></div>
+      <div class='rw' id='rwSrc' style='display:none'><label>Source</label><select id='selSrc' onchange='srcCfg()' title='Capture source (P4: CSI or USB camera)' data-i18n-title='camTipSource'><option value='0'>Native</option><option value='1'>USB camera</option></select></div>
+      <div class='rw' id='rwLamp'><label>Lamp</label><input type='range' id='slLamp' min='0' max='15' value='0' oninput='lampCfg()' title='Onboard lamp brightness' data-i18n-title='camTipLamp'><span class='v' id='vLamp'>0</span></div>
+    </div>
+
+    <div class='psec' id='psecPic'>
+      <div class='phead'><span>&#127912;</span><span data-i18n='camPanelPic'>Picture Settings</span></div>
+      <div class='rw'><label>Brightness</label><input type='range' id='slBr' min='-2' max='2' value='0' step='1' oninput='cfg()' title='Brightness adjustment' data-i18n-title='camTipBright'><span class='v' id='vBr'>0</span></div>
+      <div class='rw'><label>Contrast</label><input type='range' id='slCt' min='-2' max='2' value='0' step='1' oninput='cfg()' title='Contrast adjustment' data-i18n-title='camTipContrast'><span class='v' id='vCt'>0</span></div>
+      <div class='rw'><label>Saturation</label><input type='range' id='slSa' min='-2' max='2' value='0' step='1' oninput='cfg()' title='Saturation adjustment' data-i18n-title='camTipSaturation'><span class='v' id='vSa'>0</span></div>
+      <div class='rw'><label>Exposure level</label><input type='range' id='slAeL' min='-2' max='2' value='0' step='1' oninput='cfg()' title='AE level adjustment' data-i18n-title='camTipAeLevel'><span class='v' id='vAeL'>0</span></div>
+      <div class='rw'><label>AGC gain</label><input type='range' id='slAgcG' min='0' max='30' value='5' oninput='cfg()' title='AGC gain value (manual mode)' data-i18n-title='camTipAgcGain'><span class='v' id='vAgcG'>6x</span></div>
+      <div class='rw'><label>Manual exposure</label><input type='range' id='slAecV' min='0' max='1200' value='204' oninput='cfg()' title='AEC value, manual exposure only' data-i18n-title='camTipAecValue'><span class='v' id='vAecV'>204</span></div>
+      <div class='g2'>
+        <div>
+          <div class='ck'><input type='checkbox' id='chkHM' onchange='cfg()' title='Horizontal mirror' data-i18n-title='camTipMirror'><label>H-Mirror</label></div>
+          <div class='ck'><input type='checkbox' id='chkVF' onchange='cfg()' title='Vertical flip' data-i18n-title='camTipFlip'><label>V-Flip</label></div>
+          <div class='ck'><input type='checkbox' id='chkAWB' onchange='cfg()' title='Auto white balance' data-i18n-title='camTipAwb'><label>AWB</label></div>
+          <div class='ck'><input type='checkbox' id='chkLenc' onchange='cfg()' title='Lens correction' data-i18n-title='camTipLenc'><label>LENC</label></div>
+        </div>
+        <div>
+          <div class='ck'><input type='checkbox' id='chkAEC' onchange='cfg()' title='Auto exposure control' data-i18n-title='camTipAec'><label>AEC</label></div>
+          <div class='ck'><input type='checkbox' id='chkAec2' onchange='cfg()' title='AEC DSP control' data-i18n-title='camTipAec2'><label>AEC DSP</label></div>
+          <div class='ck'><input type='checkbox' id='chkAGC' onchange='cfg()' title='Auto gain control' data-i18n-title='camTipAgc'><label>AGC</label></div>
+        </div>
+      </div>
+    </div>
+
+    <div class='psec' id='psecRec'>
+      <div class='phead'><span>&#128249;</span><span data-i18n='camPanelRec'>Record and Files</span></div>
+      <div class='act-row'>
+        <button class='b b-rec' onclick='recStart()' title='Start video recording' data-i18n-title='camTipRecStart'>&#9679; Rec</button>
+        <button class='b' onclick='recStop()' title='Stop video recording' data-i18n-title='camTipRecStop'>&#9632; Stop</button>
+        <button class='b b-green' onclick='snapPhoto()' title='Capture photo' data-i18n-title='camTipCapture'>&#128247;</button>
+      </div>
+      <div class='ri' id='recInfo' title='Recording timer and frame count' data-i18n-title='camTipRecInfo'>&#9201; 00:00 | 0 fr</div>
+      <div class='ri' id='photoInfo' style='display:none' title='Last photo path' data-i18n-title='camTipPhotoInfo'></div>
+      <div class='ri' id='sdInfo' title='SD card free space' data-i18n-title='camTipSdInfo'>SD n/a</div>
+      <div class='sec-lbl'>DashCam</div>
+      <div class='ck'><input type='checkbox' id='chkDash' onchange='autoCfg()' title='Enable dashcam mode' data-i18n-title='camTipDashcam'><label>Enable</label></div>
+      <div class='rw'><label>Rotation (min)</label><input type='range' id='slDash' min='1' max='30' value='5' oninput='autoCfg()' title='Dashcam rotation interval (min)' data-i18n-title='camTipDashRot'><span class='v' id='vDash'>5</span></div>
+      <div class='sec-lbl'>Timelapse</div>
+      <div class='rw'><label>Every (sec)</label><input type='range' id='slTl' min='0' max='600' value='0' oninput='tlCfg()' title='Timelapse interval seconds (0=off)' data-i18n-title='camTipTimelapse'><span class='v' id='vTl'>0</span></div>
+      <div class='act-row'><button class='b' onclick='tlStop()' title='Stop timelapse capture' data-i18n-title='camTipTlStop'>&#9632; Stop</button></div>
+      <div class='ri' id='tlInfo' style='display:none' title='Timelapse info' data-i18n-title='camTipTlInfo'></div>
+      <div class='sec-lbl'>Auto Mode</div>
+      <div class='rw'><label>Boot mode</label><select id='selAuto' onchange='autoCfg2()' title='Camera mode to start automatically at boot' data-i18n-title='camTipAutoMode'><option value='0'>Off</option><option value='1'>Photo</option><option value='2'>Video</option><option value='3'>Motion</option><option value='4'>Timelapse</option></select></div>
+      <div class='sec-lbl'><span data-i18n='camFiles'>Files</span></div>
+      <div class='rw'><label>AVI file</label><select id='selFile' title='Recorded AVI file' data-i18n-title='camTipFiles'><option value=''>--</option></select></div>
+      <div class='act-row'>
+        <button class='b' onclick='loadFiles()' title='Refresh file list' data-i18n-title='camTipRefresh'>&#8635; <span data-i18n='camRefresh'>Refresh</span></button>
+        <button class='b b-green' onclick='playFile()' title='Play selected AVI' data-i18n-title='camTipPlay'>&#9654; <span data-i18n='camPlay'>Play</span></button>
+      </div>
+      <div class='act-row'>
+        <button class='b' onclick='stopPlay()' title='Stop playback' data-i18n-title='camTipStopPlay'>&#9632; <span data-i18n='camStopPlay'>Stop</span></button>
+        <button class='b b-rec' onclick='delFile()' title='Delete selected AVI' data-i18n-title='camTipDelete'>&#10005; <span data-i18n='camDelete'>Delete</span></button>
+      </div>
+      <div class='ri' id='playInfo' style='display:none' title='Playback status' data-i18n-title='camTipPlayInfo'></div>
+    </div>
+
+    <div class='psec' id='psecMot'>
+      <div class='phead'><span>&#128200;</span><span data-i18n='camPanelMot'>Motion Detect</span></div>
+      <div class='ri' id='motP4note' style='display:none' data-i18n='camMotP4Note'>Motion detect needs the S3 sensor API — unavailable on P4 v1.</div>
+      <div class='ck'><input type='checkbox' id='chkMot' onchange='mot()' title='Enable motion detection' data-i18n-title='camTipMotion'><label>Enabled</label></div>
+      <div class='hint' data-i18n='camMotHint'>Motion needs the camera ON (Start). Detection pauses while streaming.</div>
+      <div class='rw'><label>Sensitivity</label><input type='range' id='slMot' min='1' max='100' value='20' oninput='mot()' title='Motion sensitivity' data-i18n-title='camTipMotSens'><span class='v' id='vMot'>20</span></div>
+      <div class='rw'><label>Confirm frames</label><input type='range' id='slMotCf' min='1' max='20' value='3' oninput='mot()' title='Min frames to confirm motion' data-i18n-title='camTipMotConfirm'><span class='v' id='vMotCf'>3</span></div>
+      <div class='rw'><label>Stop frames</label><input type='range' id='slMotSf' min='2' max='30' value='10' oninput='mot()' title='Frames to stop recording' data-i18n-title='camTipMotStop'><span class='v' id='vMotSf'>10</span></div>
+      <div class='rw'><label>Post seconds</label><input type='range' id='slMotPs' min='0' max='30' value='5' oninput='mot()' title='Post-record seconds' data-i18n-title='camTipMotPost'><span class='v' id='vMotPs'>5</span></div>
+      <div class='rw'><label>Action</label><select id='selMotAct' onchange='mot()' title='Action on motion detection' data-i18n-title='camTipMotAction'><option value='0'>Record video</option><option value='1'>Snap photo</option><option value='2'>Email alert</option></select></div>
+      <div class='rw'><label>Score</label><span class='score-pill' id='motSc' title='Motion score percentage' data-i18n-title='camTipMotScore'>0%</span></div>
+      <div class='rw'><label>Events</label><span class='score-pill' id='motEv' style='color:var(--tx)' title='Motion event count' data-i18n-title='camTipMotEvents'>0</span></div>
+      <div class='rw'><label>Cooldown</label><input type='range' id='slMotCd' min='0' max='120' value='5' oninput='mot()' title='Seconds between counted events' data-i18n-title='camTipMotCooldown'><span class='v' id='vMotCd'>5</span></div>
+      <div class='ck'><input type='checkbox' id='chkMotLamp' onchange='mot()' title='Full lamp during motion event' data-i18n-title='camTipMotLamp'><label>Lamp on event</label></div>
+      <div class='sec-lbl'>ROI (0-39 / 0-29, 0 = full)</div>
+      <div class='g2'>
+        <div class='rw'><label>X</label><input type='range' id='slRoiX' min='0' max='39' value='0' oninput='mot()' title='ROI left' data-i18n-title='camTipMotRoi'><span class='v' id='vRoiX'>0</span></div>
+        <div class='rw'><label>Y</label><input type='range' id='slRoiY' min='0' max='29' value='0' oninput='mot()' title='ROI top' data-i18n-title='camTipMotRoi'><span class='v' id='vRoiY'>0</span></div>
+        <div class='rw'><label>W</label><input type='range' id='slRoiW' min='0' max='40' value='0' oninput='mot()' title='ROI width (0=full)' data-i18n-title='camTipMotRoi'><span class='v' id='vRoiW'>0</span></div>
+        <div class='rw'><label>H</label><input type='range' id='slRoiH' min='0' max='30' value='0' oninput='mot()' title='ROI height (0=full)' data-i18n-title='camTipMotRoi'><span class='v' id='vRoiH'>0</span></div>
+      </div>
+      <div class='act-row'>
+        <button class='b' onclick='motReset()' title='Reset event counter' data-i18n-title='camTipMotReset'>&#8635; <span data-i18n='camMotReset'>Reset count</span></button>
+        <a class='b' href='/cam/motion/diff' target='_blank' title='Motion diff visualisation' data-i18n-title='camTipMotDiff'>&#128200; Diff view</a>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <div class='str'>
+    <div class='rec-badge' id='recBadge' title='Recording in progress' data-i18n-title='camTipRecBadge'><span class='rec-dot'></span><span>REC</span></div>
+    <div class='ph' id='camPh' title='Waiting for camera...' data-i18n-title='camTipWaiting'>
+      <div class='ph-icon'>&#128247;</div>
+      <div data-i18n='camWaiting'>Waiting for camera...</div>
+      <div class='ph-sub' id='phSub'>Press Start to begin streaming</div>
+    </div>
+    <img id='camImg' style='display:none' alt='Live' title='Live camera stream' data-i18n-title='camTipStream'>
+  </div>
+</div>
+
+<div class='statusbar'>
+  <a href='/' class='b b-icon' data-i18n='btnHome' title='Go to home page' data-i18n-title='camTipHome' style='height:16px;width:16px;font-size:8px'>&#127968;</a>
+  <span class='fmodel' id='ftModel' title='Camera model' data-i18n-title='camTipModel'>Camera off</span>
+  <span class='fsep'>|</span>
+  <span id='ftHeap' title='Free heap / max alloc block' data-i18n-title='camTipHeap'>--</span>
+  <span class='fsep'>|</span>
+  <span id='ftSd' title='SD card free space' data-i18n-title='camTipSdInfo'>SD n/a</span>
+  <span class='fsep'>|</span>
+  <span class='frec' id='ftRec' title='Recording status' data-i18n-title='camTipRecStatus'></span>
+  <span id='ftMot' title='Motion status' data-i18n-title='camTipMotStatus'></span>
+</div>
+</div>
+
+
+<script>
+// ===== MOCK API LAYER =====
+(function() {
+  window.fetch = function(url, opts) {
+    var u = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+    var MOCKS = typeof window.__MOCK_API__ !== 'undefined' ? window.__MOCK_API__ : {};
+    if (opts && opts.method && opts.method !== 'GET') {
+      window.__postBodies = window.__postBodies || [];
+      window.__postBodies.push({ url: u, method: opts.method, body: opts.body || '' });
+    }
+    var mock = MOCKS[u];
+    if (!mock) {
+      for (var k in MOCKS) {
+        if (u.indexOf(k) >= 0) { mock = MOCKS[k]; break; }
+      }
+    }
+    if (typeof mock === 'function') mock = mock();
+    return Promise.resolve({
+      ok: true, status: 200,
+      json: function() { return Promise.resolve(mock || {}); },
+      text: function() { return Promise.resolve(JSON.stringify(mock || {})); }
+    });
+  };
+  window.customAlert = function(m) { console.log('[mock] customAlert:', m); };
+  window.customConfirm = function(m, cb) { if (cb) cb(true); };
+  window.showLoading = function() {};
+  window.hideLoading = function() {};
+  window.disableBtn = function(b) { if (b) { b.disabled = true; } };
+  window.enableBtn = function(b) { if (b) { b.disabled = false; } };
+  window.showSavedCard = function() {};
+  // Feature flags used by some pages (default: off)
+  window._rs232Enabled = false;
+  window._modbusEnabled = false;
+  window.__test__ = {};  // ensure window.__test__ exists even on non-IIFE pages
+})();
+</script>
+
+<script>
+var R=false,T=null,PollMs=5000;
+function $(i){return document.getElementById(i)}
+
+function showPsec(btn,id){
+  document.querySelectorAll('.psec').forEach(function(p){p.classList.remove('on')});
+  document.querySelectorAll('.rail button').forEach(function(b){b.classList.remove('on')});
+  var el=$('psec'+id.charAt(0).toUpperCase()+id.slice(1));if(el)el.classList.add('on');
+  btn.classList.add('on')
+}
+
+function toggleLinkDd(){
+  var m=$('linkMenu');
+  m.classList.toggle('show');
+}
+function copyLink(type){
+  var h=location.hostname||location.host;
+  var p=location.port?':'+location.port:'';
+  var base='http://'+h+p;
+  var url=type==='snapshot'?base+'/cam/snapshot':type==='raw'?base+'/cam/raw':base+'/cam/stream';
+  if(navigator.clipboard){navigator.clipboard.writeText(url).then(function(){linkToast(url)}).catch(function(){linkToast(url)})}
+  else{var ta=document.createElement('textarea');ta.value=url;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);linkToast(url)}
+  $('linkMenu').classList.remove('show');
+}
+function linkToast(url){
+  var t=document.createElement('div');
+  t.textContent='Copied: '+url;
+  t.style.cssText='position:fixed;bottom:40px;left:50%;transform:translateX(-50%);background:rgba(4,10,24,.9);color:#4ade80;padding:6px 14px;border-radius:6px;font-size:11px;z-index:99;border:1px solid rgba(74,222,128,.3);pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.5)';
+  document.body.appendChild(t);
+  setTimeout(function(){t.remove()},2000);
+}
+document.addEventListener('click',function(e){var dd=$('linkDd');if(dd&&!dd.contains(e.target))$('linkMenu').classList.remove('show')});
+
+function camToggle(){
+  if(!R){
+    fetch('/api/camera/start',{method:'POST'}).then(function(r){return r.json()}).then(function(d){
+      if(d.success){R=true;upd({ready:true});strStart()}
+      else customAlert(d.message||'Failed')
+    }).catch(function(){customAlert('Failed')})
+  } else {
+    fetch('/api/camera/stop',{method:'POST'}).then(function(){R=false;upd({});strStop()}).catch(function(){R=false;strStop()})
+  }
+}
+
+function strStart(){
+  if(!R)return;
+  var i=$('camImg'),p=$('camPh'),sub=$('phSub');
+  i.style.display='none';p.style.display='block';
+  if(sub)sub.textContent='Connecting to /cam/stream...';
+  i.onerror=function(){p.style.display='none';i.style.display='none';p.style.display='block';if(sub)sub.textContent='Stream unreachable or busy (1 viewer max) — retrying...';if(R)setTimeout(strStart,2000)};
+  i.onload=function(){p.style.display='none';i.style.display='block';if(sub)sub.textContent='Press Start to begin streaming'};
+  i.src='/cam/stream?_='+Date.now()
+}
+function strStop(){
+  var i=$('camImg'),p=$('camPh');
+  if(i){i.onerror=null;try{i.removeAttribute('src')}catch(e){}i.src='';i.style.display='none'}
+  if(p)p.style.display='block'
+}
+
+var LastMaxFs=-1;
+function applyMaxFrameSize(maxFs){
+  if(maxFs===LastMaxFs)return;   // only touch the list once per detected sensor
+  LastMaxFs=maxFs;
+  var fr=$('selFr');if(!fr)return;
+  var opts=fr.options,i,maxOpt=-1;
+  for(i=0;i<opts.length;i++){
+    var v=parseInt(opts[i].value,10);
+    opts[i].disabled=(v>maxFs);
+    if(v<=maxFs&&v>maxOpt)maxOpt=v;
+  }
+  // If the current selection is now unavailable, clamp it to the highest allowed.
+  var cur=parseInt(fr.value,10);
+  if(cur>maxFs&&maxOpt>=0){fr.value=maxOpt;cfg()}
+}
+function upd(d){
+  var on=d&&d.ready;
+  if(d&&d.maxFrameSize!==undefined)applyMaxFrameSize(d.maxFrameSize);
+  var starting=d&&d.initInProgress&&!on;
+  $('bToggle').className='b '+(on?'b-rec':(starting?'':'b-green'));
+  $('bToggle').innerHTML=on?'&#9632; <span data-i18n="camStop">Stop</span>':(starting?'&#9632; <span data-i18n="camInit">Starting…</span>':'&#9654; <span data-i18n="camStart">Start</span>');
+  var rs=$('bRecS');if(rs)rs.style.display=on?'inline-flex':'none';
+  $('stDot').className='dot '+(on?'dot-g':'dot-r');
+  var pill=on?((d.model||'Cam')+' '+(d.streamFps||0)+'fps'):'Off';
+  if(d&&d.initInProgress&&!on){$('stDot').className='dot dot-g';pill='Starting...'}
+  if(d&&d.recording)pill+=' [REC]';
+  $('stInfo').textContent=pill;
+  var p4model=(d&&(d.model==='OV5647'||d.model==='USB-UVC'));
+  var rws=$('rwSrc');if(rws)rws.style.display=p4model?'flex':'none';
+  var mpn=$('motP4note');if(mpn)mpn.style.display=p4model?'block':'none';  var rb=$('recBadge');if(rb)rb.classList.toggle('on',!!(d&&d.recording));
+  var hp=$('heapPill');if(hp)hp.textContent='🧠 '+((d&&d.freeHeap!==undefined)?Math.round(d.freeHeap/1024)+'K':'--');
+  var tp=$('tempPill');if(tp)tp.textContent='🌡️ '+((d&&d.boardTemp!==undefined)?d.boardTemp.toFixed(1)+'°C':'--');
+  if(d&&d.motion!==undefined){var sc=d.motionScore||0;var ms=$('motSc');if(ms)ms.textContent=sc+'%'}
+  if(d&&d.motionEvents!==undefined){var me=$('motEv');if(me)me.textContent=d.motionEvents}
+  var tl=$('tlInfo');
+  if(tl){
+    if(d&&d.timelapseActive){
+      tl.style.display='block';
+      var s='Next capture in '+d.timelapseNextInSecs+'s';
+      if(d.timelapseLast&&d.timelapseLast.length)s+=' · '+d.timelapseLast;
+      tl.textContent=s
+    } else tl.style.display='none'
+  }
+  var sdTxt='SD n/a';
+  var sd=$('sdInfo');
+  if(d&&(d.sdTotal!==undefined&&d.sdTotal>0)){sdTxt='SD '+d.sdFree+'/'+d.sdTotal+' MB free';if(sd)sd.textContent=sdTxt}
+  else if(sd)sd.textContent=sdTxt;
+  var ftd=$('ftSd');if(ftd)ftd.textContent=sdTxt;
+  var ftm=$('ftModel');if(ftm)ftm.textContent=on?((d.model||'Cam')+' '+(d.streamFps||0)+' fps'):'Camera off';
+  var fth=$('ftHeap');if(fth&&d)fth.textContent=(d.freeHeap/1024).toFixed(0)+'K/'+(d.maxAlloc/1024).toFixed(0)+'K';
+  var recOn=!!(d&&d.recording);
+  var ftr=$('ftRec');
+  if(!recOn){
+    if(rs&&rs.innerHTML.indexOf(':')>=0)rs.innerHTML='&#9679; Rec';  // restore REC button when a stale timer was shown
+    if(ftr)ftr.textContent=(d&&d.timelapseActive)?('TL next '+d.timelapseNextInSecs+'s'):'';
+    var ftmo=$('ftMot');
+    if(ftmo)ftmo.textContent=(d&&d.motion)?('Motion '+(d.motionScore||0)+'%'):'';
+    return
+  }
+  var m=Math.floor(d.recElapsed/60),s=d.recElapsed%60;
+  var tstr=(m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+  if(rs)rs.innerHTML='&#9679; Rec';
+  var ri=$('recInfo');
+  if(ri)ri.innerHTML='&#9201; '+tstr+' | '+d.recFrames+' fr';
+  if(ftr)ftr.textContent='REC '+tstr+' | '+d.recFrames+' fr';
+  var ftmo2=$('ftMot');
+  if(ftmo2)ftmo2.textContent=(d&&d.motion)?('Motion '+(d.motionScore||0)+'%'):'';
+}
+
+function snapPhoto(){
+  if(!R)return;
+  fetch('/api/camera/photo',{method:'POST'}).then(function(r){return r.json()}).then(function(d){
+    if(d.success){
+      var p=$('photoInfo');
+      if(p){p.style.display='block';p.textContent='Saved: '+(d.filename||'photo.jpg')}
+      customAlert('Photo saved')
+    } else customAlert(d.message||'Failed')
+  })
+}
+function recStart(){
+  if(!R)return;
+  fetch('/api/camera/recording/start',{method:'POST'}).then(function(r){return r.json()}).then(function(d){
+    if(!d.success)customAlert(d.message||'Failed')
+  })
+}
+function recStop(){
+  if(!R)return;
+  fetch('/api/camera/recording/stop',{method:'POST'}).then(function(r){return r.json()}).then(function(d){
+    if(d.success){
+      var ri=$('recInfo');
+      if(ri)ri.textContent='Saved '+(d.frames||0)+' fr → '+(d.path||'');
+    } else customAlert(d.message||'Failed')
+  })
+}
+
+function pCfg(b){
+  if(T)clearTimeout(T);
+  T=setTimeout(function(){fetch('/api/camera/config',{method:'POST',body:b,headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(function(r){return r.json()}).then(function(d){if(!d.success)customAlert('Config failed')})},400)
+}
+function cfg(){
+  var q=$('slQ').value,br=$('slBr').value,ct=$('slCt').value,sa=$('slSa').value;
+  if($('vQ'))$('vQ').textContent=q;if($('vBr'))$('vBr').textContent=br;if($('vCt'))$('vCt').textContent=ct;if($('vSa'))$('vSa').textContent=sa;
+  if($('vFps'))$('vFps').textContent=$('selFps').value;if($('vAeL'))$('vAeL').textContent=$('slAeL').value;
+  var ag=$('slAgcG').value;if($('vAgcG'))$('vAgcG').textContent=(parseInt(ag)+1)+'x';
+  if($('vAecV'))$('vAecV').textContent=$('slAecV').value;
+  var aec2El=$('chkAec2');
+  pCfg('framesize='+$('selFr').value+'&quality='+q+'&fps='+$('selFps').value+'&brightness='+br+'&contrast='+ct+'&saturation='+sa+'&hmirror='+($('chkHM').checked?1:0)+'&vflip='+($('chkVF').checked?1:0)+'&awb='+($('chkAWB').checked?1:0)+'&aec='+($('chkAEC').checked?1:0)+'&agc='+($('chkAGC').checked?1:0)+'&lenc='+($('chkLenc').checked?1:0)+'&gainceiling='+$('slGc').value+'&special_effect='+$('selSfx').value+'&wb_mode='+$('selWb').value+'&aec_value='+$('slAecV').value+'&aec2='+((aec2El&&aec2El.checked)?1:0)+'&agc_gain='+$('slAgcG').value+'&ae_level='+$('slAeL').value)
+}
+function mot(){
+  var s=$('slMot').value,cf=$('slMotCf').value,sf=$('slMotSf').value,ps=$('slMotPs').value,ma=$('selMotAct').value;
+  if($('vMot'))$('vMot').textContent=s;if($('vMotCf'))$('vMotCf').textContent=cf;if($('vMotSf'))$('vMotSf').textContent=sf;if($('vMotPs'))$('vMotPs').textContent=ps;
+  var cd=$('slMotCd').value;if($('vMotCd'))$('vMotCd').textContent=cd;
+  var rx=$('slRoiX').value,ry=$('slRoiY').value,rw=$('slRoiW').value,rh=$('slRoiH').value;
+  if($('vRoiX'))$('vRoiX').textContent=rx;if($('vRoiY'))$('vRoiY').textContent=ry;if($('vRoiW'))$('vRoiW').textContent=rw;if($('vRoiH'))$('vRoiH').textContent=rh;
+  pCfg('motion_enabled='+($('chkMot').checked?1:0)+'&motion_sensitivity='+s+'&motion_confirm_frames='+cf+'&motion_stop_frames='+sf+'&motion_post_record_secs='+ps+'&motion_action='+ma+'&motion_cooldown_secs='+cd+'&motion_lamp_auto='+($('chkMotLamp').checked?1:0)+'&motion_roi_x='+rx+'&motion_roi_y='+ry+'&motion_roi_w='+rw+'&motion_roi_h='+rh)
+}
+function motReset(){
+  fetch('/api/camera/motion/reset',{method:'POST'}).then(function(r){return r.json()}).then(function(d){
+    if(d.success){var e=$('motEv');if(e)e.textContent='0'}else customAlert('Failed')
+  })
+}
+function autoCfg2(){
+  pCfg('auto_mode='+$('selAuto').value)
+}
+function autoCfg(){
+  var dm=$('chkDash').checked?$('slDash').value:0;
+  if($('vDash'))$('vDash').textContent=$('slDash').value;
+  pCfg('dashcam_mins='+dm)
+}
+function tlCfg(){
+  var t=$('slTl').value;
+  if($('vTl'))$('vTl').textContent=t;
+  pCfg('timelapse_secs='+t)
+}
+function tlStop(){
+  if($('slTl'))$('slTl').value=0;
+  if($('vTl'))$('vTl').textContent='0';
+  pCfg('timelapse_secs=0')
+}
+function srcCfg(){
+  pCfg('source='+$('selSrc').value)
+}
+function lampCfg(){
+  var t=$('slLamp').value;
+  if($('vLamp'))$('vLamp').textContent=t;
+  pCfg('lamp='+t)
+}
+var PM='';
+function loadFiles(){
+  fetch('/api/camera/files',{cache:'no-store'}).then(function(r){return r.json()}).then(function(d){
+    var s=$('selFile');if(!s)return;
+    s.options.length=0;
+    var files=(d&&d.files)||[];
+    if(!files.length){var o=document.createElement('option');o.value='';o.text='--';s.appendChild(o);return}
+    files.forEach(function(f){
+      var o=document.createElement('option');
+      o.value=f.n;o.text=f.n.split('/').pop()+' ('+Math.round(f.s/1024)+'KB)';
+      s.appendChild(o)
+    })
+  }).catch(function(){})
+}
+function playFile(){
+  var s=$('selFile');
+  if(!s||!s.value){customAlert('Select a file');return}
+  PM=s.value;
+  var i=$('camImg'),p=$('camPh');
+  i.style.display='none';if(p)p.style.display='block';
+  i.onerror=function(){if(p)p.style.display='block';i.style.display='none';var pi=$('playInfo');if(pi){pi.style.display='block';pi.textContent='Playback failed'};PM=''};
+  i.onload=function(){if(p)p.style.display='none';i.style.display='block'};
+  i.src='/cam/playback?file='+encodeURIComponent(PM)+'&_='+Date.now();
+  var pi2=$('playInfo');if(pi2){pi2.style.display='block';pi2.textContent='Playing: '+PM}
+}
+function stopPlay(){
+  if(!PM)return;
+  PM='';
+  var i=$('camImg');
+  if(i){i.onerror=null;try{i.removeAttribute('src')}catch(e){}i.src='';i.style.display='none'}
+  var p=$('camPh');if(p)p.style.display='block';
+  var pi=$('playInfo');if(pi)pi.style.display='none';
+  if(R)strStart()
+}
+function delFile(){
+  var s=$('selFile');
+  if(!s||!s.value){customAlert('Select a file');return}
+  if(!customConfirm('Delete '+s.value+'?'))return;
+  fetch('/api/camera/delete',{method:'POST',body:'file='+encodeURIComponent(s.value),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(function(r){return r.json()}).then(function(d){
+    if(d.success){stopPlay();loadFiles()}else customAlert(d.message||'Failed')
+  })
+}
+function preset(n,el){
+  var p={hd:{fr:13,q:10,fs:10,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},vga:{fr:10,q:20,fs:12,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},fast:{fr:6,q:35,fs:25,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},night:{fr:6,q:15,fs:5,br:1,ct:-1,sa:-1,awb:0,aec:1,agc:1,gc:0},safe:{fr:13,q:12,fs:10,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},eco:{fr:6,q:24,fs:8,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0}};
+  var c=p[n]||p.vga;
+  if($('selFr'))$('selFr').value=c.fr;if($('slQ'))$('slQ').value=c.q;if($('selFps'))$('selFps').value=c.fs;
+  if($('slBr'))$('slBr').value=c.br;if($('slCt'))$('slCt').value=c.ct;if($('slSa'))$('slSa').value=c.sa;
+  if($('vQ'))$('vQ').textContent=c.q;if($('vBr'))$('vBr').textContent=c.br;if($('vCt'))$('vCt').textContent=c.ct;if($('vSa'))$('vSa').textContent=c.sa;if($('vFps'))$('vFps').textContent=c.fs;
+  if($('slGc'))$('slGc').value=c.gc;
+  if($('chkAWB'))$('chkAWB').checked=c.awb;if($('chkAEC'))$('chkAEC').checked=c.aec;if($('chkAGC'))$('chkAGC').checked=c.agc;
+  document.querySelectorAll('.btns .bp').forEach(function(e){e.classList.remove('on')});
+  if(el)el.classList.add('on');
+  pCfg('framesize='+c.fr+'&quality='+c.q+'&fps='+c.fs+'&brightness='+c.br+'&contrast='+c.ct+'&saturation='+c.sa+'&awb='+c.awb+'&aec='+c.aec+'&agc='+c.agc+'&gainceiling='+c.gc)
+}
+function loadCfg(){
+  fetch('/api/camera/config',{cache:'no-store'}).then(function(r){return r.json()}).then(function(c){
+    if(!c)return;
+    if($('selFr'))$('selFr').value=c.framesize;if($('slQ'))$('slQ').value=c.quality;if($('vQ'))$('vQ').textContent=c.quality;
+    if($('selFps'))$('selFps').value=c.fps;if($('vFps'))$('vFps').textContent=c.fps;
+    if($('slBr'))$('slBr').value=c.brightness;if($('vBr'))$('vBr').textContent=c.brightness;
+    if($('slCt'))$('slCt').value=c.contrast;if($('vCt'))$('vCt').textContent=c.contrast;
+    if($('slSa'))$('slSa').value=c.saturation;if($('vSa'))$('vSa').textContent=c.saturation;
+    if($('slGc'))$('slGc').value=c.gainceiling;
+    if($('chkHM'))$('chkHM').checked=c.hmirror;if($('chkVF'))$('chkVF').checked=c.vflip;
+    if($('chkAWB'))$('chkAWB').checked=c.awb;if($('chkAEC'))$('chkAEC').checked=c.aec;if($('chkAec2'))$('chkAec2').checked=c.aec2;if($('chkAGC'))$('chkAGC').checked=c.agc;if($('chkLenc'))$('chkLenc').checked=c.lenc;
+    if($('slAgcG'))$('slAgcG').value=c.agc_gain;if($('vAgcG'))$('vAgcG').textContent=(parseInt(c.agc_gain)+1)+'x';
+    if($('slAecV'))$('slAecV').value=c.aec_value;if($('vAecV'))$('vAecV').textContent=c.aec_value;
+    if($('slAeL'))$('slAeL').value=c.ae_level;if($('vAeL'))$('vAeL').textContent=c.ae_level;
+    if($('selSfx'))$('selSfx').value=c.special_effect;if($('selWb'))$('selWb').value=c.wb_mode;
+    if(c.motion){
+      if($('chkMot'))$('chkMot').checked=c.motion.enabled;
+      if($('slMot'))$('slMot').value=c.motion.sensitivity;if($('vMot'))$('vMot').textContent=c.motion.sensitivity;
+      if($('slMotCf'))$('slMotCf').value=c.motion.confirm_frames;if($('vMotCf'))$('vMotCf').textContent=c.motion.confirm_frames;
+      if($('slMotSf'))$('slMotSf').value=c.motion.stop_frames;if($('vMotSf'))$('vMotSf').textContent=c.motion.stop_frames;
+      if($('slMotPs'))$('slMotPs').value=c.motion.post_record_secs;if($('vMotPs'))$('vMotPs').textContent=c.motion.post_record_secs;
+      if($('selMotAct')&&c.motion.action!==undefined)$('selMotAct').value=c.motion.action;
+      // No email in this build (motionEmailAvail false): drop the "Email alert"
+      // option entirely and fold a legacy stored 2 into Snap photo (1).
+      if(c.motionEmailAvail===false){
+        var ma=$('selMotAct');
+        if(ma){
+          for(var oi=ma.options.length-1;oi>=0;oi--){if(ma.options[oi].value==='2')ma.remove(oi)}
+          if(ma.value==='2'||ma.value===''||ma.selectedIndex<0)ma.value='1';
+        }
+      }
+      if($('slMotCd')){$('slMotCd').value=c.motion.cooldown_secs||0;if($('vMotCd'))$('vMotCd').textContent=c.motion.cooldown_secs||0}
+      if($('chkMotLamp')&&c.motion.lamp_auto!==undefined)$('chkMotLamp').checked=c.motion.lamp_auto;
+      if($('slRoiX')){$('slRoiX').value=c.motion.roi_x||0;if($('vRoiX'))$('vRoiX').textContent=c.motion.roi_x||0}
+      if($('slRoiY')){$('slRoiY').value=c.motion.roi_y||0;if($('vRoiY'))$('vRoiY').textContent=c.motion.roi_y||0}
+      if($('slRoiW')){$('slRoiW').value=c.motion.roi_w||0;if($('vRoiW'))$('vRoiW').textContent=c.motion.roi_w||0}
+      if($('slRoiH')){$('slRoiH').value=c.motion.roi_h||0;if($('vRoiH'))$('vRoiH').textContent=c.motion.roi_h||0}
+    }
+    if($('selAuto')&&c.auto_mode!==undefined)$('selAuto').value=c.auto_mode;
+    if($('selSrc')&&c.source!==undefined)$('selSrc').value=c.source;
+    if($('chkDash'))$('chkDash').checked=c.dashcam_mins>0;if(c.dashcam_mins>0&&$('slDash')){$('slDash').value=c.dashcam_mins;if($('vDash'))$('vDash').textContent=c.dashcam_mins}
+    if($('slTl')){$('slTl').value=c.timelapse_secs||0;if($('vTl'))$('vTl').textContent=c.timelapse_secs||0}
+    if($('slLamp')){$('slLamp').value=c.lamp||0;if($('vLamp'))$('vLamp').textContent=c.lamp||0}
+    var rl=$('rwLamp');if(rl)rl.style.display=(c.lampAvail===false)?'none':'flex';
+  })
+}
+
+function poll(){
+  fetch('/api/camera/status',{cache:'no-store'}).then(function(r){return r.json()}).then(function(d){
+    if(R!==d.ready){R=d.ready;if(R){upd(d);strStart()}else{upd({});strStop()}}
+    else if(R){upd(d)}
+  }).catch(function(){});
+  setTimeout(poll,PollMs)
+}
+if(window.addEventListener)window.addEventListener('pagehide',function(){strStop()});
+loadCfg();poll();
+</script>
+
+<script>
+
+// ===== TEST HOOKS (standalone — no IIFE found) =====
+// Preserve hooks the page already installed (e.g. page_ecra_asset sets
+// window.__test__.* at the end of its script); only fill missing ones below.
+window.__test__ = window.__test__ || {};
+// Spy mechanism
+window.__spy__ = {};
+window.__spy__.calls = {};
+window.__spy__.reset = function() { window.__spy__.calls = {}; };
+window.__spy__.wrap = function(name, fn) {
+  return function() {
+    window.__spy__.calls[name] = window.__spy__.calls[name] || [];
+    window.__spy__.calls[name].push(Array.prototype.slice.call(arguments));
+    return fn.apply(this, arguments);
+  };
+};
+// Wrap key functions for spying
+if (typeof postSend !== 'undefined') postSend = window.__spy__.wrap('postSend', postSend);
+if (typeof showAlert !== 'undefined') showAlert = window.__spy__.wrap('showAlert', showAlert);
+// Helper: reset IIFE-local state vars (P, C, SH, RP used by radio page)
+window.__test__._reset = function(p, c, sh, rp) {
+  try { if (p !== undefined) { var _a=p; P.length=0; for(var _i=0;_i<_a.length;_i++)P.push(_a[_i]); } } catch(e) {}
+  try { if (c !== undefined) C = c; } catch(e) {}
+  try { if (sh !== undefined) SH = sh; } catch(e) {}
+  try { if (rp !== undefined) RP = rp; } catch(e) {}
+};
+// Expose functions via eval (runs in outer IIFE scope)
+var _testNames = [
+  // Recipients page
+  'rt','rowHTML','addRow','updateNameHint','saveSlot','saveDontCopy','preload',
+  'removeRow',
+  'switchTab',
+  // Proximity page (status + config + shifts)
+  'render','renderCfg','fetchData','resetCh','resetAll','_lockOutFields',
+  'renderShiftSlots','loadShiftCfg','loadShiftdayEmails','saveAll','loadCfg',
+  '_applyVisFilter','onVisChChange','applyTemplate',
+  // Commands page
+  'esc','readLangCache','t','templateOptions','unitSelect','daysSelect',
+  'tplSelect','addRow','attachRow','saveSlot','attachSaveAll','rowHTML','removeRow',
+  // DateTime Commands page
+  'e','t','to','r','addRow','attachRow','init','lt','ls','la','tt','ss','attachSaveAll','rm',
+  // Sidebar / dock
+  'renderWidgetSidebar','moveWidgetUp','moveWidgetDown','moveWidgetToSide',
+  'toggleWidgetVis','applyTheme','readUiPrefs','saveUiPrefs','saveDockLayout',
+  'restoreDockLayout','saveWidgetPrefs','restoreWidgetPrefs','initLeftPanel',
+  'byId','qsa','localStorage','state',
+  // Utility
+  'fmtEta','fmtLagMs','fmtGcodeNum','normalizeZStepValue',
+  'setXyStepFromPreset','syncMainStepFromSelectors','updateXyStepButtons',
+  'sanitizeFileName','formatFileSize','ensureAllowedUploadPath',
+  'recentErrorMeta','clamp',
+  // Jog
+  'runJog','runJogXY','runJogXYCenter','quickUnlock','quickHome','quickZeroWcs','quickReset','quickStatus',
+  // Job
+  'startFileStream','pauseStream','resumeStream','cancelStream',
+  'sendManualCommand','applyPollInterval','applyUsbLineCoding',
+  'postActionOnce','postAction','refreshStatus','saveMacros',
+  // Frame
+  'runFrameFromPreview','updateFrameInfo',
+  'getPreviewFrameBounds','setCommandMode',
+  // Override (scoped inside bindEvents)
+  // 'sendOverrideFeed','sendOverrideSpin','applyOverrides','stepOverride',
+  // Probe
+  'runAutoProbeZZero',
+  // Macros
+  'defaultMacros','getMacroEntry','runMacro','loadMacrosToForm','saveMacrosFromForm',
+  // Console
+  'ingestConsoleEvents','logLine','clearConsole','toggleConsoleFullscreen',
+  // Workspace / DRO
+  'extractDroFromStatus','renderDro','fmtDro','hasValidDroValue',
+  'parseNumber3','parsePosTriplet','firstNumber3',
+  // USB / Connection
+  'selectedSlot','normalizeUsbSlots','renderSlots',
+  'syncSelectedUsbBaud','ensureUsbBaudOption','usbBaudPrefId',
+  'getPreferredUsbBaud','savePreferredUsbBaud',
+  // SD Card
+  'sdFileNameFromPath','sdParentDir','formatSdSize','normalizeSdEntry',
+  'isPreviewSizeBlocked','isPreviewAutoRenderHeavy',
+  // PSRAM
+  'refreshPsramFileStatus',
+  // Preview utilities (pure functions)
+  'extractAxisValue','extractAxisInMm','appendLinear',
+  'quickWireframe','applyWireframePreview',
+  'parseToolpath3dAsync',
+  // Critical confirm
+  'runWithCriticalConfirm','requireAxesAtZero',
+  // Render
+  'renderStatus','applyRuntimeControls','applyStatusSnapshot',
+  // Job helpers
+  'getSegmentExecNo','getActiveExecNo',
+  // Light preview (inner functions may not resolve)
+  'simplifyPolylineLight',
+  // Contour selection (GRBL light preview)
+  'filterContoursPreserveCoords',
+  'buildLightPreview','buildLightPieceContoursFromGcode',
+  'buildPieceContoursFromSegments','_syncContoursFromSegments',
+  '_toggleContourSelect','_undoContourToggle','_updateContourSelectInfo',
+  '_navContourHighlight','_spaceToggleHighlighted',
+  '_handleCanvasContourClick','_screenToMachine','_minDistToContour','_computeTopTransformPx',
+  '_distToSegment','_pointInPolygon','_lightPreviewScalePx',
+  'renderPreviewFromText','_computeBounds','_drawTopView','_drawIsoView',
+  'applyLightPreviewFromText','applyLightPreviewFromBounds','_keepDerivedContours',
+  '_drawPreviewNow','_drawContourOverlay','_drawCrosshair',
+  'bindPreviewInteractions',
+  // MQ135 sensor page
+  't','uiLocale','trendArrow','aqiInfo','pickReadableTextColor',
+  'applySensorValueTheme','mqTone','showStatus',
+  // Sensor config page
+  'updateStatistics',
+  // HX711 page
+  'UNIT_LABELS','t','uiLocale','updateDisplay','showStatus','performTare',
+  // INA226 page
+  't','uiLocale','updateDisplay','showStatus',
+  // Sound page
+  't','uiLocale','updateDisplay','showStatus',
+  // MAX31865 page
+  't','uiLocale','updateDisplay','showStatus',
+  // Sensor charts page
+  'numericSeries','hasSeriesData','calcTrend','metricColor',
+  'calcDew','calcHeat','calcAlt','fmtVal',
+  'isRS232Metric','isModbusMetric','isProximityMetric',
+  'getMetricMeta','getData','seriesValues','pickData',
+  'updateMaxVisibleOptions','setPointStrideAutoValue',
+  'mkOpts','fmtTs','trim','mkGradient','registerChartPlugins',
+  'mkChart','updChart','saveAllCharts',
+  'getY2Key','yPad','yPadNeg','hasNeg',
+  'setChartCenterBadge','updStats','setStatRow','calcSt','calcAdv',
+  'getMetricAdapter','metricPointCount','showSts','setTheme',
+  'fetchChartJson','waitChartRetry','isRetryableChartStatus',
+  'TH','currentTheme',
+  // Radio UI (IIFE-scoped)
+  'T','AP','APJ','BN','sw','onSearch','addPlay','playToggle',
+  'radioStop','radioNext','radioPrev','playUrl','updUI','setVol',
+  'togSh','togRp','loadFav','addFav','favPlay','favDel',
+  'touchActivity','IDLE_T','NAV_DEF','NAV_N','NAV_OFF','NAV_ICON','NAV_LABEL','PNL_ALL',
+  'syncQ','rQ','rmQ','savePl','loadPls','loadPl','delPl','loadQ','loadSt','fh',
+  'isSup','chkSup','loadResume','renderResume','saveResume','resumeToggle','resumeTargetToggle','RESUME_A','RESUME_F',
+];
+_testNames.forEach(function(n) {
+  try { window.__test__[n] = eval(n); } catch(e) { window.__test__[n] = null; }
+});
+
+</script>
+
+<script>
+(function() {
+  for (var k in window.__test__) {
+    if (window.__test__[k] === null || typeof window.__test__[k] === 'undefined') {
+      try { window.__test__[k] = eval(k); } catch(e) {}
+    }
+  }
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,19 @@
+=== esperar reboot + testar com AUTH (confirmar se 302 e so gate) ===
+AUTH GET /api/sensor-measure -> 302 | 
+AUTH GET /api/sensor-reset-stats -> 302 | 
+AUTH GET /api/sensor-flush -> 302 | 
+AUTH GET /api/mq135-measure -> 302 | 
+AUTH GET /api/mq135-calibrate-r0 -> 302 | 
+AUTH GET /api/rs232-status -> 302 | 
+AUTH GET /api/rs232/persist-current-template -> 302 | 
+AUTH GET /api/scheduler -> 302 | 
+AUTH GET /api/commands -> 302 | 
+AUTH GET /api/files -> 302 | 
+AUTH GET /api/monitor-open -> 302 | 
+AUTH GET /api/monitor-close -> 302 | 
+=== recipient-slot com slot=0 ===
+code=400
+{"status":"err","msg":"indice invalido"}
+=== persistencia: sensor-config apos reboot (espera-se interval_ms=5000 se persistiu) ===
+code=200
+{"sensor_enabled":true,"read_interval":60,"output_pretty":false,"output_csv":true,"inject_to_buffer":true,"csv_separator":",","csv_include_timestamp":true,"csv_include_headers":true,"sea_level_pressur

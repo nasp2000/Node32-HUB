@@ -4,10 +4,15 @@ This firmware statically links third-party libraries under open-source
 licenses. Those libraries remain under their own licenses; the MIT notice in
 `LICENSE` applies only to first-party code.
 
-Compliance materials (sources + relinkable objects for the LGPL libraries)
-are generated on demand by `scripts/package_third_party.py` into the
-`third-party/` folder of this repository and, when published, accompany the
-corresponding GitHub release.
+Compliance materials (sources + relinkable objects for the LGPL libraries and
+all license texts) are generated on demand by
+`chatgpt/scripts/package_third_party.py` into `chatgpt/build/third-party/` (staging area).
+`chatgpt/rename_firmware.py` refreshes it per board and packs it as
+`third-party.zip` inside every per-build output folder, so each build
+folder can be shared or sold as-is. `chatgpt/rename_firmware.py` copies that bundle — together with
+`LICENSE`, `THIRD_PARTY_NOTICES` and `SBOM.md` — into every per-build output
+folder (`chatgpt/build/<board>/<pack>/<version>/<timestamp>/`), so each build
+folder can be shared or sold as-is.
 
 ---
 
@@ -21,29 +26,34 @@ relink them.
 
 | Library | Version | Upstream | Compliance materials |
 |---|---|---|---|
-| ESP32Async/AsyncTCP | 3.4.10 | https://github.com/ESP32Async/AsyncTCP | `third-party/lgpl-sources/AsyncTCP/`, `third-party/lgpl-objects/libAsyncTCP.a` |
-| ESP32Async/ESPAsyncWebServer | 3.11.1 | https://github.com/ESP32Async/ESPAsyncWebServer | `third-party/lgpl-sources/ESPAsyncWebServer/`, `third-party/lgpl-objects/libESPAsyncWebServer.a` |
-| rlogiacco/CircularBuffer | 1.4.0 | https://github.com/rlogiacco/CircularBuffer | `third-party/lgpl-sources/CircularBuffer/`, `third-party/lgpl-objects/libCircularBuffer.a` |
+| ESP32Async/AsyncTCP | 3.5.0 | https://github.com/ESP32Async/AsyncTCP | `chatgpt/build/third-party/lgpl-sources/AsyncTCP/`, `chatgpt/build/third-party/lgpl-objects/<env>/AsyncTCP/` |
+| ESP32Async/ESPAsyncWebServer | 3.12.1 | https://github.com/ESP32Async/ESPAsyncWebServer | `chatgpt/build/third-party/lgpl-sources/ESPAsyncWebServer/`, `chatgpt/build/third-party/lgpl-objects/<env>/ESPAsyncWebServer/` |
+| rlogiacco/CircularBuffer | 1.4.0 | https://github.com/rlogiacco/CircularBuffer | `chatgpt/build/third-party/lgpl-sources/CircularBuffer/`, `chatgpt/build/third-party/lgpl-objects/<env>/CircularBuffer/` |
+
+`<env>` is the PlatformIO environment the objects were compiled for
+(`n16r8`, `waveshare_8di8do`, `esp32p4`, …). Ship the objects for every board
+you distribute, since architectures differ (S3 xtensa vs P4 RISC-V).
 
 ### LGPL-2.1-only
 
 | Library | Version | Upstream | Compliance materials |
 |---|---|---|---|
-| arduino-esp32 core (framework) | 3.3.5 | https://github.com/espressif/arduino-esp32 | `third-party/lgpl-sources/arduino-esp32/` |
+| arduino-esp32 core (framework) | 3.3.5 | https://github.com/espressif/arduino-esp32 | `chatgpt/build/third-party/lgpl-sources/arduino-esp32/` |
 
 > The arduino-esp32 core is provided by the PlatformIO toolchain
 > (`~/.platformio/packages/framework-arduinoespressif32`). Its source is
-> bundled unchanged in `third-party/lgpl-sources/arduino-esp32/` by the
+> bundled unchanged in `chatgpt/build/third-party/lgpl-sources/arduino-esp32/` by the
 > packaging script.
 
-License texts are included in `third-party/licences/`.
+License texts: `chatgpt/build/third-party/licences/LGPL-2.1.txt`, `chatgpt/build/third-party/licences/LGPL-3.0.txt`.
 
 ---
 
 ## 2. Permissive libraries (MIT / BSD / Apache-2.0)
 
-Copyright and license texts retained in their original headers; reproduced
-in `third-party/` by the packaging script where required by the license.
+Copyright and license texts are reproduced by the packaging script under
+`chatgpt/build/third-party/licences/permissive/` (and, where required, in the library
+headers).
 
 | Library | Version | SPDX | Copyright |
 |---|---|---|---|
@@ -54,19 +64,34 @@ in `third-party/` by the packaging script where required by the license.
 | adafruit/Adafruit BusIO | 1.17.4 | MIT | Adafruit |
 | arduino-libraries/Ethernet | 2.0.2 | MIT | Paul Stoffregen |
 | greiman/SdFat | 2.3.1 | MIT | William Greiman |
-| adafruit/Adafruit SSD1306 | 2.5.16 | BSD-3-Clause | Adafruit |
-| adafruit/Adafruit SH110X | 2.1.14 | BSD-3-Clause | Adafruit |
+| adafruit/Adafruit SSD1306 | 2.5.17 | BSD-3-Clause | Adafruit |
+| adafruit/Adafruit SH110X | 2.1.15 | BSD-3-Clause | Adafruit |
 | adafruit/Adafruit GFX Library | 1.12.6 | BSD-3-Clause | Adafruit |
 | adafruit/Adafruit AHTX0 | 2.0.6 | BSD-3-Clause | Adafruit |
 | adafruit/Adafruit Unified Sensor | 1.1.15 | Apache-2.0 | Adafruit |
+| lvgl/lvgl (s3_touch7 env only) | 9.6.0 | MIT | LVGL Kft |
+| ESP32_Display_Panel (s3_touch7 env only) | 1.0.4 | Apache-2.0 | Espressif |
+| ESP32_IO_Expander (s3_touch7 env only) | 1.1.1 | Apache-2.0 | Espressif |
+| esp-lib-utils (s3_touch7 env only) | 0.2.0 | Apache-2.0 | Espressif |
+| Bodmer/JPEGDecoder (s3_touch7 env only) | 2.0.0 | ChaN permissive | Bodmer / ChaN |
+| espressif/esp_video (esp32p4cam env only) | 3.3.11 | Apache-2.0 | Espressif |
+| espressif/esp_h264 (esp32p4cam env only, HW encoder + tinyh264/openh264 link) | 3.3.12-core | Apache-2.0 | Espressif |
+| espressif/esp-dl (esp32p4cam env only, Fase 5 T5 vision hook only) | 3.3.12-core | Apache-2.0 | Espressif |
+
+Apache-2.0 full text: `chatgpt/build/third-party/licences/Apache-2.0.txt`.
+
+---
 
 ## 3. Vendored / public-domain decoders
 
 | Package | License | Notes |
 |---|---|---|
-| lieff/minimp3 | CC0-1.0 | MP3 decoder, single header |
-| mackron/dr_flac | Unlicense / MIT-0 | FLAC decoder, single header |
-| espressif/esp_audio_codec | Espressif Modified MIT | AAC decoder (Espressif products only) |
+| lieff/minimp3 | CC0-1.0 | MP3 decoder, single header (`lib/minimp3/`) |
+| mackron/dr_flac | Unlicense / MIT-0 | FLAC decoder, single header (`lib/dr_flac/`) |
+| nothings/stb_vorbis | Unlicense | OGG Vorbis decoder, single header (`lib/stb_vorbis/`) |
+| espressif/esp_audio_codec | Espressif Modified MIT | AAC decoder + Opus decoder (libopus core) (`lib/esp_audio_codec/`) |
+
+---
 
 ## 4. Framework, platform, toolchain (build-time / runtime)
 

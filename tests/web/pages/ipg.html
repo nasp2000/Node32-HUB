@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width,initial-scale=1'>
+  <title>IPG (Test)</title>
+</head>
+<body>
+
+<div class='page ipg-laser'>
+  <div class='wrap'>
+    <style>
+      .section-box {
+        margin: 20px 0;
+        padding: 18px;
+        background: #0f172a;
+        border-radius: 8px;
+        border: 2px solid #3b82f6;
+      }
+      .section-title {
+        margin: 0 0 15px 0;
+        font-size: 20px;
+        color: #60a5fa;
+        font-weight: bold;
+      }
+      .ipg-mobile-scroll-hint {
+        display: none;
+      }
+      @media (max-width: 767px) {
+        .ipg-mobile-scroll-hint {
+          display: block;
+        }
+      }
+      @media (max-width: 480px) {
+        .section-box { padding: 14px; }
+      }
+    </style>
+
+    <div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome'>&#127968; In&iacute;cio</a></div>
+    <h1>&#128293; IPG Laser RS232</h1>
+
+    <div class='section-box'>
+      <h3 class='section-title'>&#129517; Navega&ccedil;&atilde;o r&aacute;pida</h3>
+      <div style='display:flex;gap:8px;flex-wrap:wrap'>
+        <a href='#sec-ipg-link' class='btn' style='padding:8px 14px'>&#128268; Liga&ccedil;&atilde;o</a>
+        <a href='#sec-ipg-console' class='btn' style='padding:8px 14px'>&#9000; Console</a>
+        <a href='#sec-ipg-log' class='btn' style='padding:8px 14px'>&#128221; Respostas</a>
+        <a href='#sec-ipg-catalog' class='btn' style='padding:8px 14px'>&#128218; Cat&aacute;logo</a>
+      </div>
+    </div>
+
+    <div id='sec-ipg-link' class='section-box'>
+      <h3 class='section-title'>1) Liga&ccedil;&atilde;o RS232</h3>
+      <div id='ipgStatus' style='font-size:14px;color:#cbd5e1;line-height:1.6'>A carregar estado do módulo...</div>
+      
+      <div style='background:#1e293b;border-radius:6px;padding:8px 14px;margin-top:14px;margin-bottom:14px;font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:8px;flex-wrap:wrap'>
+        <span style='color:#60a5fa'>&#128268; RS232 ativo:</span>
+        <span id='ipg-rs232-text'>a carregar...</span>
+        <a href='/rs232' style='margin-left:auto;font-size:11px;color:#60a5fa'>&#9999;&#65039; configurar</a>
+      </div>
+      
+      <div style='background:#1e3a8a;border:2px solid #0ea5e9;border-radius:8px;padding:14px;margin-bottom:14px'>
+        <div style='font-size:13px;font-weight:600;color:#0ea5e9;margin-bottom:8px'>&#9432; Recomenda&ccedil;&atilde;o de Liga&ccedil;&atilde;o</div>
+        <div style='font-size:12px;color:#cbd5e1;line-height:1.6'>
+          <div style='margin-bottom:8px'><strong>Cabo:</strong> RS232 null-modem 3-wire (RXD, TXD, GND)</div>
+          <div style='margin-bottom:8px'><strong>Conector Laser:</strong> DB9 fêmea (ou conector proprietário conforme manual)</div>
+          <div style='margin-bottom:8px'><strong>Conector Hub:</strong> DB9 macho (entrada RS232)</div>
+          <div style='margin-bottom:8px'><strong>Velocidade obrigat&oacute;ria:</strong> 57600 baud, 8N1, sem flow control</div>
+          <div style='margin-bottom:8px'><strong>Modo laser:</strong> Deve estar em REMOTE com interlocks válidos antes de EMON</div>
+          <div style='color:#cbd5e1'><strong>⚠️ Dica:</strong> Se nenhum comando responde (recebe BCMD), verifique se o laser está em modo REMOTE e os interlocks satisfeitos.</div>
+        </div>
+      </div>
+      
+      <div style='margin-top:12px;font-size:13px;color:#94a3b8'>
+        Perfil exigido pelo manual: 57600 baud, 8N1, sem flow control, null-modem 3-wire. Antes de usar <strong>EMON</strong>, o laser tem de estar em <strong>REMOTE</strong> e com os interlocks válidos. Comando inválido responde <strong>BCMD</strong>.
+      </div>
+    </div>
+
+    <div id='sec-ipg-console' class='section-box'>
+      <h3 class='section-title'>2) Console de Comandos</h3>
+      <label for='ipgCommand' style='display:block;margin-bottom:8px;font-size:14px;color:#e2e8f0'>Comando a enviar</label>
+      <input id='ipgCommand' type='text' placeholder='Ex.: STA, ROP, EMON, SDC 35.0' style='width:100%;padding:10px;border-radius:6px;border:1px solid #3b82f6;background:#020617;color:#e0e7ff;font-size:14px'>
+      <div style='display:flex;gap:8px;flex-wrap:wrap;margin-top:12px'>
+        <button type='button' class='btn' onclick='sendIpgCommand()' style='min-width:160px'>&#10148; Enviar comando</button>
+        <button type='button' class='btn' onclick='clearIpgLog()' style='min-width:160px;background:#334155;border-color:#475569'>&#128465; Limpar respostas</button>
+      </div>
+      <div style='margin-top:16px;padding:14px;border:1px solid #1e40af;border-radius:8px;background:#020617'>
+        <div style='font-size:14px;font-weight:700;color:#93c5fd;margin-bottom:10px'>2.1 &#9881; Presets Operacionais</div>
+        <div style='font-size:12px;color:#94a3b8;margin-bottom:10px'>Modo rápido para diagnóstico e operação diária sem memorizar todos os comandos.</div>
+        <div style='display:flex;gap:8px;flex-wrap:wrap'>
+          <button type='button' class='btn' onclick='sendPreset("STA")'>Diagnóstico rápido (STA)</button>
+          <button type='button' class='btn' onclick='sendPreset("ROP")'>Potência média (ROP)</button>
+          <button type='button' class='btn' onclick='sendPreset("RPP")'>Potência pico (RPP)</button>
+          <button type='button' class='btn' onclick='sendPreset("RCS")'>Corrente setpoint (RCS)</button>
+          <button type='button' class='btn' onclick='sendPreset("RPRR")'>Pulse repetition (RPRR)</button>
+          <button type='button' class='btn' onclick='sendPreset("RPW")'>Pulse width (RPW)</button>
+          <button type='button' class='btn' onclick='sendPreset("RFV")'>Versão firmware (RFV)</button>
+          <button type='button' class='btn' onclick='sendPreset("EMON")' style='background:#14532d;border-color:#166534'>Ligar emissão (EMON)</button>
+          <button type='button' class='btn' onclick='sendPreset("EMOFF")' style='background:#7f1d1d;border-color:#991b1b'>Parar emissão (EMOFF)</button>
+          <button type='button' class='btn' onclick='sendPreset("HELP")'>Help interface (HELP)</button>
+        </div>
+        <div style='margin-top:12px;padding:12px;border:1px dashed #334155;border-radius:8px;background:#0b1220'>
+          <div style='font-size:13px;font-weight:700;color:#cbd5e1;margin-bottom:8px'>2.2 &#9203; Sequ&ecirc;ncias autom&aacute;ticas</div>
+          <div style='font-size:12px;color:#94a3b8;margin-bottom:10px'>Envia vários comandos por ordem, com atraso curto entre etapas.</div>
+          <div style='display:flex;gap:8px;flex-wrap:wrap'>
+            <button type='button' class='btn' onclick='runPresetSequence("Snapshot potência", ["STA","ROP","RPP","RCS","RPRR","RPW"], 400)'>Snapshot potência</button>
+            <button type='button' class='btn' onclick='runPresetSequence("Estado completo", ["STA","RFV","ROP","RPP","RCS","RPRR","RPW","HELP"], 450)'>Estado completo</button>
+            <button type='button' class='btn' onclick='runPresetSequence("Arranque emissão", ["STA","EMON","STA"], 500)' style='background:#14532d;border-color:#166534'>Arranque emissão</button>
+            <button type='button' class='btn' onclick='runPresetSequence("Paragem segura", ["EMOFF","STA"], 450)' style='background:#7f1d1d;border-color:#991b1b'>Paragem segura</button>
+            <button type='button' class='btn' onclick='cancelPresetSequence()' style='background:#334155;border-color:#475569'>Cancelar sequência</button>
+          </div>
+          <div id='ipgSequenceStatus' style='font-size:12px;color:#94a3b8;margin-top:10px'>Nenhuma sequência em execução.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id='sec-ipg-log' class='section-box'>
+      <h3 class='section-title'>3) Respostas do Laser</h3>
+      <div style='font-size:13px;color:#94a3b8;margin-bottom:10px'>A janela abaixo mostra TX e RX capturados a partir desta página.</div>
+      <pre id='ipgLog' style='margin:0;height:200px;overflow-y:auto;background:#020617;color:#e2e8f0;border:1px solid #1d4ed8;border-radius:8px;padding:14px;font-size:13px;line-height:1.5'>Sem respostas ainda.</pre>
+    </div>
+
+    <div id='sec-ipg-catalog' class='section-box'>
+      <h3 class='section-title'>4) Comandos Dispon&iacute;veis</h3>
+      <div style='font-size:13px;color:#94a3b8;margin-bottom:12px'>Catálogo consolidado a partir de <strong>xLR-Y14 Interface Specification rev.2</strong> e <strong>YLR-Series Users Guide</strong>.</div>
+      <div style='display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px'>
+        <div style='flex:1;min-width:220px'>
+          <label for='ipgSearch' style='display:block;margin-bottom:6px;font-size:13px;color:#cbd5e1'>Pesquisa rápida</label>
+          <input id='ipgSearch' type='text' placeholder='Pesquisar por comando, uso, resposta, notas...' style='width:100%;padding:10px;border-radius:6px;border:1px solid #3b82f6;background:#020617;color:#e0e7ff;font-size:14px'>
+        </div>
+        <div style='min-width:220px'>
+          <label for='ipgCategory' style='display:block;margin-bottom:6px;font-size:13px;color:#cbd5e1'>Categoria</label>
+          <select id='ipgCategory' style='width:100%;padding:10px;border-radius:6px;border:1px solid #3b82f6;background:#020617;color:#e0e7ff;font-size:14px'>
+            <option value=''>A carregar...</option>
+          </select>
+        </div>
+        <div style='display:flex;align-items:center;gap:8px'>
+          <button type='button' class='btn' onclick='clearCommandFilters()' style='background:#334155;border-color:#475569'>Limpar filtros</button>
+        </div>
+      </div>
+      <div id='ipgFilterCount' style='font-size:12px;color:#94a3b8;margin-bottom:8px'>A carregar comandos...</div>
+      <div class='ipg-mobile-scroll-hint' style='font-size:12px;color:#94a3b8;margin-bottom:6px'>&#128073; Deslize horizontalmente para ver todas as colunas no telemóvel.</div>
+      <div class='table-wrapper'>
+        <table style='width:100%;border-collapse:collapse;font-size:13px'>
+          <thead>
+            <tr>
+              <th style='text-align:left;padding:8px;border-bottom:1px solid #1e40af;color:#60a5fa'>Cmd</th>
+              <th style='text-align:left;padding:8px;border-bottom:1px solid #1e40af;color:#60a5fa'>Categoria</th>
+              <th style='text-align:left;padding:8px;border-bottom:1px solid #1e40af;color:#60a5fa'>Uso</th>
+              <th style='text-align:left;padding:8px;border-bottom:1px solid #1e40af;color:#60a5fa'>Função</th>
+              <th style='text-align:left;padding:8px;border-bottom:1px solid #1e40af;color:#60a5fa'>Resposta típica</th>
+              <th style='text-align:left;padding:8px;border-bottom:1px solid #1e40af;color:#60a5fa'>Notas</th>
+              <th style='text-align:left;padding:8px;border-bottom:1px solid #1e40af;color:#60a5fa'>Ação</th>
+            </tr>
+          </thead>
+          <tbody id='ipgCommandsBody'>
+            <tr><td colspan='7' style='padding:12px;color:#94a3b8;text-align:center'>A carregar comandos...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ===== MOCK API LAYER =====
+(function() {
+  window.fetch = function(url, opts) {
+    var u = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+    var MOCKS = typeof window.__MOCK_API__ !== 'undefined' ? window.__MOCK_API__ : {};
+    var mock = MOCKS[u];
+    if (!mock) {
+      for (var k in MOCKS) {
+        if (u.indexOf(k) >= 0) { mock = MOCKS[k]; break; }
+      }
+    }
+    if (typeof mock === 'function') mock = mock();
+    return Promise.resolve({
+      ok: true, status: 200,
+      json: function() { return Promise.resolve(mock || {}); },
+      text: function() { return Promise.resolve(JSON.stringify(mock || {})); }
+    });
+  };
+  window.customAlert = function(m) { console.log('[mock] customAlert:', m); };
+  window.customConfirm = function(m, cb) { if (cb) cb(true); };
+  window.showLoading = function() {};
+  window.hideLoading = function() {};
+  window.disableBtn = function(b) { if (b) { b.disabled = true; } };
+  window.enableBtn = function(b) { if (b) { b.disabled = false; } };
+  window.showSavedCard = function() {};
+  // Feature flags used by some pages (default: off)
+  window._rs232Enabled = false;
+  window._modbusEnabled = false;
+
+// ===== TEST HOOKS (inside page IIFE scope) =====
+window.__test__ = {};
+// Spy mechanism
+window.__spy__ = {};
+window.__spy__.calls = {};
+window.__spy__.reset = function() { window.__spy__.calls = {}; };
+window.__spy__.wrap = function(name, fn) {
+  return function() {
+    window.__spy__.calls[name] = window.__spy__.calls[name] || [];
+    window.__spy__.calls[name].push(Array.prototype.slice.call(arguments));
+    return fn.apply(this, arguments);
+  };
+};
+// Wrap key functions for spying
+if (typeof postSend !== 'undefined') postSend = window.__spy__.wrap('postSend', postSend);
+if (typeof showAlert !== 'undefined') showAlert = window.__spy__.wrap('showAlert', showAlert);
+// Helper: reset IIFE-local state vars (P, C, SH, RP used by radio page)
+window.__test__._reset = function(p, c, sh, rp) {
+  try { if (p !== undefined) { var _a=p; P.length=0; for(var _i=0;_i<_a.length;_i++)P.push(_a[_i]); } } catch(e) {}
+  try { if (c !== undefined) C = c; } catch(e) {}
+  try { if (sh !== undefined) SH = sh; } catch(e) {}
+  try { if (rp !== undefined) RP = rp; } catch(e) {}
+};
+// Expose functions via eval (runs in outer IIFE scope)
+var _testNames = [
+  // Recipients page
+  'rt','rowHTML','addRow','updateNameHint','saveSlot','saveDontCopy','preload',
+  'switchTab',
+  // Commands page
+  'esc','readLangCache','t','templateOptions','unitSelect','daysSelect',
+  'tplSelect','addRow','attachRow','saveSlot','attachSaveAll','rowHTML',
+  // DateTime Commands page
+  'e','t','to','r','addRow','attachRow','init','lt','ls','la','tt','ss','attachSaveAll',
+  // Sidebar / dock
+  'renderWidgetSidebar','moveWidgetUp','moveWidgetDown','moveWidgetToSide',
+  'toggleWidgetVis','applyTheme','readUiPrefs','saveUiPrefs','saveDockLayout',
+  'restoreDockLayout','saveWidgetPrefs','restoreWidgetPrefs','initLeftPanel',
+  'byId','qsa','localStorage','state',
+  // Utility
+  'fmtEta','fmtLagMs','fmtGcodeNum','normalizeZStepValue',
+  'setXyStepFromPreset','syncMainStepFromSelectors','updateXyStepButtons',
+  'sanitizeFileName','formatFileSize','ensureAllowedUploadPath',
+  'recentErrorMeta','clamp',
+  // Jog
+  'runJog','runJogXY','quickUnlock','quickHome','quickZeroWcs','quickReset','quickStatus',
+  // Job
+  'startFileStream','pauseStream','resumeStream','cancelStream',
+  'sendManualCommand','applyPollInterval','applyUsbLineCoding',
+  // Frame
+  'runFrameFromPreview','updateFrameInfo',
+  'getPreviewFrameBounds','setCommandMode',
+  // Override (scoped inside bindEvents)
+  // 'sendOverrideFeed','sendOverrideSpin','applyOverrides','stepOverride',
+  // Probe
+  'runAutoProbeZZero',
+  // Macros
+  'defaultMacros','getMacroEntry','runMacro','loadMacrosToForm','saveMacrosFromForm',
+  // Console
+  'ingestConsoleEvents','logLine','clearConsole','toggleConsoleFullscreen',
+  // Workspace / DRO
+  'extractDroFromStatus','renderDro','fmtDro','hasValidDroValue',
+  'parseNumber3','parsePosTriplet','firstNumber3',
+  // USB / Connection
+  'selectedSlot','normalizeUsbSlots','renderSlots',
+  'syncSelectedUsbBaud','ensureUsbBaudOption','usbBaudPrefId',
+  'getPreferredUsbBaud','savePreferredUsbBaud',
+  // SD Card
+  'sdFileNameFromPath','sdParentDir','formatSdSize','normalizeSdEntry',
+  'isPreviewSizeBlocked','isPreviewAutoRenderHeavy',
+  // PSRAM
+  'refreshPsramFileStatus',
+  // 3D / Preview utilities (pure functions)
+  'project3dPoint','computeProjectedBounds','computeToolpathBounds',
+  'formatMmLabel','classifyStartPlacement',
+  'extractAxisValue','extractAxisInMm','appendLinear',
+  'formatScaleHudMm','get3dPreviewMode','resolve3dPreviewMode',
+  // Critical confirm
+  'runWithCriticalConfirm','requireAxesAtZero',
+  // Render
+  'renderStatus','applyRuntimeControls','applyStatusSnapshot',
+  // 3D helpers
+  'getEffectiveCurrentLine','get3dMaxLineFromSegments','getSegmentExecNo',
+  'getActiveExecNo','update3dScrubUi',
+  // Light preview (inner functions may not resolve)
+  'simplifyPolylineLight',
+  // Radio UI (IIFE-scoped)
+  'T','AP','APJ','BN','sw','onSearch','addPlay','playToggle',
+  'radioStop','radioNext','radioPrev','playUrl','updUI','setVol',
+  'togSh','togRp','loadFav','addFav','favPlay','favDel',
+  'syncQ','rQ','rmQ','savePl','loadPls','loadPl','delPl','loadQ','loadSt','fh',
+];
+_testNames.forEach(function(n) {
+  try { window.__test__[n] = eval(n); } catch(e) { window.__test__[n] = null; }
+});
+
+})();</script>
+
+<script>
+var gIpgCommands = [];
+var gSequenceActive = false;
+var gSequenceTimer = 0;
+var gSequenceName = '';
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function useCommand(command) {
+  document.getElementById('ipgCommand').value = command;
+}
+
+function sendPreset(command) {
+  useCommand(command);
+  sendIpgCommand();
+}
+
+function setSequenceStatus(text, color) {
+  var el = document.getElementById('ipgSequenceStatus');
+  if (!el) {
+    return;
+  }
+  el.textContent = text;
+  el.style.color = color || '#94a3b8';
+}
+
+function cancelPresetSequence() {
+  if (gSequenceTimer) {
+    clearTimeout(gSequenceTimer);
+    gSequenceTimer = 0;
+  }
+  if (gSequenceActive) {
+    customAlert('ℹ️ Sequência cancelada.');
+  }
+  gSequenceActive = false;
+  gSequenceName = '';
+  setSequenceStatus('Nenhuma sequência em execução.', '#94a3b8');
+}
+
+function runPresetSequence(name, commands, delayMs) {
+  var delay = Number(delayMs || 400);
+  var list = [];
+  var index = 0;
+  if (gSequenceActive) {
+    customAlert('❌ Já existe uma sequência em execução. Cancela primeiro.');
+    return;
+  }
+  if (!commands || !commands.length) {
+    customAlert('❌ Sequência inválida.');
+    return;
+  }
+  for (index = 0; index < commands.length; index++) {
+    list.push(String(commands[index] || '').replace(/^\s+|\s+$/g, ''));
+  }
+  gSequenceActive = true;
+  gSequenceName = String(name || 'Sequência');
+  setSequenceStatus('A iniciar: ' + gSequenceName + ' (' + String(list.length) + ' comandos).', '#93c5fd');
+  customAlert('▶️ Sequência iniciada: ' + gSequenceName);
+  runPresetSequenceStep(list, 0, delay);
+}
+
+function runPresetSequenceStep(commands, position, delay) {
+  var current = '';
+  if (!gSequenceActive) {
+    return;
+  }
+  if (position >= commands.length) {
+    gSequenceActive = false;
+    gSequenceName = '';
+    setSequenceStatus('Sequência concluída com sucesso.', '#4ade80');
+    customAlert('✅ Sequência concluída.');
+    loadStatus();
+    setTimeout(loadLog, 250);
+    setTimeout(loadLog, 1200);
+    return;
+  }
+  current = commands[position];
+  if (!current) {
+    runPresetSequenceStep(commands, position + 1, delay);
+    return;
+  }
+  useCommand(current);
+  setSequenceStatus('[' + String(position + 1) + '/' + String(commands.length) + '] ' + gSequenceName + ': a enviar ' + current, '#fbbf24');
+  sendIpgCommandWithOptions(current, false, function(success, message) {
+    if (!gSequenceActive) {
+      return;
+    }
+    if (!success) {
+      gSequenceActive = false;
+      setSequenceStatus('Sequência interrompida em ' + current + ': ' + (message || 'erro desconhecido'), '#f87171');
+      customAlert('❌ Erro na sequência (' + current + '): ' + (message || 'falha no envio'));
+      return;
+    }
+    gSequenceTimer = setTimeout(function() {
+      gSequenceTimer = 0;
+      runPresetSequenceStep(commands, position + 1, delay);
+    }, delay);
+  });
+}
+
+function renderStatus(data) {
+  var rs232Ok = data.currentBaudrate === data.requiredBaudrate &&
+    data.currentDataBits === data.requiredDataBits &&
+    String(data.currentParity || '').toLowerCase() === data.requiredParity &&
+    data.currentStopBits === data.requiredStopBits &&
+    !data.currentFlowControl;
+  var badge = rs232Ok
+    ? '<span style="color:#4ade80;font-weight:700">&#9679; Perfil compatível</span>'
+    : '<span style="color:#f59e0b;font-weight:700">&#9679; Ajustar perfil RS232</span>';
+  var html = '';
+  html += '<div style="margin-bottom:8px">' + badge + '</div>';
+  html += '<div><strong>Atual:</strong> ' + escapeHtml(data.currentBaudrate) + ' baud, ' + escapeHtml(data.currentDataBits) + escapeHtml(String(data.currentParity || '').charAt(0).toUpperCase()) + escapeHtml(data.currentStopBits) + ', flow control ' + (data.currentFlowControl ? 'ON' : 'OFF') + '</div>';
+  html += '<div><strong>Exigido:</strong> ' + escapeHtml(data.requiredBaudrate) + ' baud, ' + escapeHtml(data.requiredDataBits) + 'N' + escapeHtml(data.requiredStopBits) + ', flow control none</div>';
+  html += '<div><strong>Template ativo:</strong> ' + escapeHtml(data.currentTemplate || 'nenhum') + '</div>';
+  html += '<div><strong>Último comando:</strong> ' + escapeHtml(data.lastCommand || '-') + '</div>';
+  html += '<div><strong>Captura ativa:</strong> ' + (data.captureActive ? 'sim (' + escapeHtml(data.captureEndsInMs) + ' ms)' : 'não') + '</div>';
+  html += '<div><strong>Modo requerido:</strong> ' + escapeHtml(data.remoteModeNote) + '</div>';
+  document.getElementById('ipgStatus').innerHTML = html;
+}
+
+function loadStatus() {
+  fetch('/api/ipg-laser-status')
+    .then(function(response) { return response.json(); })
+    .then(function(data) { renderStatus(data); })
+    .catch(function() {
+      document.getElementById('ipgStatus').innerHTML = '<span style="color:#f87171">Erro a carregar estado do módulo IPG.</span>';
+    });
+}
+
+function loadCommands() {
+  fetch('/api/ipg-laser-commands')
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
+      if (!data.commands || !data.commands.length) {
+        gIpgCommands = [];
+        renderFilteredCommands();
+        return;
+      }
+      gIpgCommands = data.commands;
+      updateCategoryFilter();
+      renderFilteredCommands();
+    })
+    .catch(function() {
+      document.getElementById('ipgFilterCount').textContent = 'Erro a carregar catálogo de comandos.';
+      document.getElementById('ipgCommandsBody').innerHTML = '<tr><td colspan="7" style="padding:12px;color:#f87171;text-align:center">Erro a carregar catálogo de comandos.</td></tr>';
+    });
+}
+
+function updateCategoryFilter() {
+  var select = document.getElementById('ipgCategory');
+  var current = select.value || '';
+  var categories = {};
+  var index = 0;
+  select.innerHTML = '';
+  for (index = 0; index < gIpgCommands.length; index++) {
+    var category = String(gIpgCommands[index].category || 'Outros');
+    categories[category] = true;
+  }
+  var keys = Object.keys(categories).sort(function(a, b) {
+    return a.localeCompare(b);
+  });
+  for (index = 0; index < keys.length; index++) {
+    var option = document.createElement('option');
+    option.value = keys[index];
+    option.textContent = keys[index];
+    select.appendChild(option);
+  }
+  if (current && categories[current]) {
+    select.value = current;
+  } else if (keys.length > 0) {
+    select.value = keys[0];
+  }
+}
+
+function renderFilteredCommands() {
+  var body = document.getElementById('ipgCommandsBody');
+  var count = document.getElementById('ipgFilterCount');
+  var selectedCategory = (document.getElementById('ipgCategory').value || '').toLowerCase();
+  var query = (document.getElementById('ipgSearch').value || '').toLowerCase();
+  var filtered = [];
+  var index = 0;
+  for (index = 0; index < gIpgCommands.length; index++) {
+    var command = gIpgCommands[index];
+    var category = String(command.category || '').toLowerCase();
+    if (selectedCategory && category !== selectedCategory) {
+      continue;
+    }
+    if (query) {
+      var text = [
+        command.code,
+        command.category,
+        command.usage,
+        command.description,
+        command.response,
+        command.notes
+      ].join(' ').toLowerCase();
+      if (text.indexOf(query) === -1) {
+        continue;
+      }
+    }
+    filtered.push(command);
+  }
+
+  if (!filtered.length) {
+    if (!gIpgCommands.length) {
+      count.textContent = 'Sem comandos disponíveis.';
+      body.innerHTML = '<tr><td colspan="7" style="padding:12px;color:#94a3b8;text-align:center">Sem comandos disponíveis.</td></tr>';
+      return;
+    }
+    count.textContent = '0 comandos encontrados para os filtros atuais.';
+    body.innerHTML = '<tr><td colspan="7" style="padding:12px;color:#94a3b8;text-align:center">Nenhum comando corresponde aos filtros.</td></tr>';
+    return;
+  }
+
+  count.textContent = String(filtered.length) + ' de ' + String(gIpgCommands.length) + ' comandos visíveis.';
+  var html = '';
+  for (index = 0; index < filtered.length; index++) {
+    var row = filtered[index];
+    html += '<tr>';
+    html += '<td style="padding:8px;border-bottom:1px solid #1e293b;font-weight:700;color:#e2e8f0">' + escapeHtml(row.code) + '</td>';
+    html += '<td style="padding:8px;border-bottom:1px solid #1e293b">' + escapeHtml(row.category) + '</td>';
+    html += '<td style="padding:8px;border-bottom:1px solid #1e293b">' + escapeHtml(row.usage) + '</td>';
+    html += '<td style="padding:8px;border-bottom:1px solid #1e293b">' + escapeHtml(row.description) + '</td>';
+    html += '<td style="padding:8px;border-bottom:1px solid #1e293b">' + escapeHtml(row.response) + '</td>';
+    html += '<td style="padding:8px;border-bottom:1px solid #1e293b">' + escapeHtml(row.notes) + '</td>';
+    html += '<td style="padding:8px;border-bottom:1px solid #1e293b"><button type="button" class="btn" onclick="useCommand(\'' + escapeHtml(row.code) + '\')">Usar</button></td>';
+    html += '</tr>';
+  }
+  body.innerHTML = html;
+}
+
+function clearCommandFilters() {
+  document.getElementById('ipgSearch').value = '';
+  var category = document.getElementById('ipgCategory');
+  if (category && category.options && category.options.length > 0) {
+    category.selectedIndex = 0;
+  }
+  renderFilteredCommands();
+}
+
+function loadLog() {
+  fetch('/api/ipg-laser-log')
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
+      var output = [];
+      var index = 0;
+      if (data.entries && data.entries.length) {
+        for (index = 0; index < data.entries.length; index++) {
+          output.push('[' + data.entries[index].direction + '] ' + data.entries[index].text);
+        }
+      } else {
+        output.push('Sem respostas ainda.');
+      }
+      document.getElementById('ipgLog').textContent = output.join('\n');
+    })
+    .catch(function() {
+      document.getElementById('ipgLog').textContent = 'Erro a carregar respostas do laser.';
+    });
+}
+
+function sendIpgCommand() {
+  var command = document.getElementById('ipgCommand').value || '';
+  command = command.replace(/^\s+|\s+$/g, '');
+  if (!command) {
+    customAlert('❌ Introduz um comando IPG primeiro.');
+    return;
+  }
+  sendIpgCommandWithOptions(command, true);
+}
+
+function sendIpgCommandWithOptions(command, showSuccessAlert, doneCallback) {
+  fetch('/api/ipg-laser-send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command: command })
+  })
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
+      if (data.success) {
+        if (showSuccessAlert) {
+          customAlert('✅ ' + data.message);
+        }
+        loadStatus();
+        setTimeout(loadLog, 250);
+        setTimeout(loadLog, 1200);
+        if (doneCallback) {
+          doneCallback(true, data.message || 'ok');
+        }
+      } else {
+        if (showSuccessAlert) {
+          customAlert('❌ Erro: ' + data.message);
+        }
+        if (doneCallback) {
+          doneCallback(false, data.message || 'erro');
+        }
+      }
+    })
+    .catch(function() {
+      if (showSuccessAlert) {
+        customAlert('❌ Erro: falha a enviar comando IPG.');
+      }
+      if (doneCallback) {
+        doneCallback(false, 'falha de comunicação');
+      }
+    });
+}
+
+function clearIpgLog() {
+  fetch('/api/ipg-laser-clear', { method: 'POST' })
+    .then(function(response) { return response.json(); })
+    .then(function(data) {
+      if (data.success) {
+        customAlert('✅ ' + data.message);
+        loadLog();
+      } else {
+        customAlert('❌ Erro: ' + data.message);
+      }
+    })
+    .catch(function() {
+      customAlert('❌ Erro: falha a limpar respostas.');
+    });
+}
+
+function loadRs232Status() {
+fetch('/api/config?section=rs232&t=' + Date.now(), { cache: 'no-cache' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var textEl = document.getElementById('ipg-rs232-text');
+      if (!textEl) {
+        return;
+      }
+      var baud = d.rs232_baudrate || 19200;
+      var dataBits = d.rs232_data_bits || 8;
+      var parity = String(d.rs232_parity || 'none').charAt(0).toUpperCase();
+      var stopBits = d.rs232_stop_bits || 1;
+      var enabled = d.rs232_enabled ? '● ativo' : '○ desabilitado';
+      textEl.textContent = baud + ' baud · ' + dataBits + parity + stopBits + ' · ' + enabled;
+    })
+    .catch(function() {
+      var textEl = document.getElementById('ipg-rs232-text');
+      if (textEl) {
+        textEl.textContent = 'erro ao carregar';
+      }
+    });
+}
+
+function checkIpgModuleAvailable() {
+  fetch('/api/ipg-laser-available', { cache: 'no-cache' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d.available) {
+        showIpgModuleDisabledMessage();
+      } else {
+        hideIpgModuleDisabledMessage();
+      }
+    })
+    .catch(function() {
+      showIpgModuleDisabledMessage();
+    });
+}
+
+function showIpgModuleDisabledMessage() {
+  var consoleSection = document.getElementById('sec-ipg-console');
+  var catalogSection = document.getElementById('sec-ipg-catalog');
+  var logSection = document.getElementById('sec-ipg-log');
+  
+  if (consoleSection) consoleSection.style.display = 'none';
+  if (catalogSection) catalogSection.style.display = 'none';
+  if (logSection) logSection.style.display = 'none';
+  
+  var statusEl = document.getElementById('ipgStatus');
+  if (statusEl) {
+    statusEl.innerHTML = '<div style="background:#7f1d1d;border:2px solid #f87171;border-radius:8px;padding:16px;color:#fca5a5"><strong>⚠️ Módulo IPG Laser não detectado</strong><div style="margin-top:8px;font-size:13px">O módulo IPG Laser não está habilitado neste dispositivo. Para ativar:</div><div style="margin-top:8px;font-size:12px;color:#f5d2d2">1. Edite <code>user_config.h</code><br>2. Procure por <code>ENABLE_IPG_LASER</code><br>3. Defina como <code>1</code> (descomente ou altere)<br>4. Recompile e envie para o ESP32<br>5. Recarregue esta página</div></div>';
+  }
+}
+
+function hideIpgModuleDisabledMessage() {
+  var consoleSection = document.getElementById('sec-ipg-console');
+  var catalogSection = document.getElementById('sec-ipg-catalog');
+  var logSection = document.getElementById('sec-ipg-log');
+  
+  if (consoleSection) consoleSection.style.display = 'block';
+  if (catalogSection) catalogSection.style.display = 'block';
+  if (logSection) logSection.style.display = 'block';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  checkIpgModuleAvailable();
+  loadStatus();
+  loadCommands();
+  loadLog();
+  loadRs232Status();
+  document.getElementById('ipgSearch').addEventListener('input', renderFilteredCommands);
+  document.getElementById('ipgCategory').addEventListener('change', renderFilteredCommands);
+  setInterval(loadStatus, 1500);
+  setInterval(loadLog, 1500);
+  setInterval(loadRs232Status, 3000);
+  document.getElementById('ipgCommand').addEventListener('keydown', function(event) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      sendIpgCommand();
+    }
+  });
+});
+</script>
+
+<script>
+(function() {
+  for (var k in window.__test__) {
+    if (window.__test__[k] === null || typeof window.__test__[k] === 'undefined') {
+      try { window.__test__[k] = eval(k); } catch(e) {}
+    }
+  }
+})();
+</script>
+
+</body>
+</html>

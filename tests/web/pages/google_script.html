@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width,initial-scale=1'>
+  <title>GoogleScript (Test)</title>
+</head>
+<body>
+
+<div class='page google-script'>
+<div class='wrap'>
+<div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome'>&#127968; In&iacute;cio</a></div>
+<h1 data-i18n='gasPageTitle'>&#127760; Google App Script</h1>
+
+<form id='gas-config-form' action='/api/config' method='POST'>
+<input type='hidden' name='_html' value='1'>
+<div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'>
+<h2 style='margin-top:0;color:#60a5fa' data-i18n='emailGeneralTitle'>&#9881;&#65039; Configura&ccedil;&otilde;es Gerais</h2>
+<div class='section'>
+<h3 data-i18n='emailMethodLbl'>M&eacute;todo de Envio</h3>
+<div class='section-desc' data-i18n='emailMethodDesc'>&#128260; Escolha o m&eacute;todo de envio de email</div>
+<select name='email_method' id='email_method' style='width:100%;padding:10px;border-radius:6px;border:1px solid #3b82f6;background:#020617;color:#e0e7ff;font-size:14px'>
+<option value='smtp' data-i18n='emailMethodSmtp'>&#128231; SMTP Direto</option>
+<option value='google' data-i18n='emailMethodGoogle'>&#129514; Google Apps Script</option>
+</select>
+</div>
+<div class='section'>
+<h3 data-i18n='emailDestLbl'>Email Destino</h3>
+<div class='section-desc' data-i18n='emailDestDesc'>&#128238; Email que receber&aacute; os dados enviados pelo dispositivo</div>
+<input name='email_dest' id='email_dest' placeholder='destino@email.com' style='width:100%;padding:10px;border-radius:6px;border:1px solid #3b82f6;background:#020617;color:#e0e7ff;font-size:14px'>
+</div>
+</div>
+
+<div style='border:2px solid #f59e0b;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'>
+<h2 style='margin-top:0;color:#f59e0b' data-i18n='emailGoogleTitle'>&#129514; Google Apps Script</h2>
+<div style='font-size:13px;color:#94a3b8;margin-bottom:12px;padding:10px;background:#0a1628;border-left:3px solid #f59e0b;border-radius:4px' data-i18n-html='emailGoogleAdvInfo'><strong>Vantagens:</strong> Consome menos RAM do que SMTP.<br><strong>Como usar:</strong> 1) Cole o script abaixo em script.google.com, 2) Deploy como Web App, 3) Cole a URL no campo abaixo.</div>
+<div class='section'>
+<h3 data-i18n='emailGasUrlLbl'>Google Apps Script URL</h3>
+<div class='section-desc' data-i18n='emailGasUrlDesc'>&#127760; URL do seu Google Apps Script Web App</div>
+<input name='google_script_url' id='google_script_url' placeholder='https://script.google.com/macros/s/...' style='width:100%;padding:10px;border-radius:6px;border:1px solid #3b82f6;background:#020617;color:#e0e7ff;font-size:14px'>
+</div>
+<div class='section' style='margin-top:20px'>
+<div style='display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px'>
+<h3 style='color:#f59e0b;margin:0;font-size:16px' data-i18n='emailGasCodeTitle'>&#128220; C&oacute;digo Google Apps Script</h3>
+<a href='/GoogleAppsScript_EmailHandler.js' target='_blank' download class='btn' data-i18n='emailGoogleCodeDownload'>&#128229; Baixar C&oacute;digo</a>
+</div>
+<div style='font-size:13px;color:#94a3b8;line-height:1.6;padding:12px;background:#0a1628;border:1px solid #374151;border-radius:6px' data-i18n-html='emailGoogleInstructions'>&#128229; Baixe o ficheiro e cole em script.google.com. Fa&ccedil;a deploy como Web App e cole a URL no campo acima.</div>
+</div>
+</div>
+
+<div style='text-align:center;margin-top:18px'>
+<button type='submit' form='gas-config-form' class='btn' data-i18n='btnSave'>&#128190; Guardar</button>
+</div>
+</form>
+
+<div style='border:2px solid #8b5cf6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'>
+<h2 style='margin-top:0;color:#8b5cf6' data-i18n='emailTestTitle'>&#129514; Teste de Email</h2>
+<div style='font-size:13px;color:#94a3b8;margin-bottom:12px;padding:10px;background:#0a1628;border-left:3px solid #8b5cf6;border-radius:4px' data-i18n='emailTestDesc'>Teste o envio de email com as configura&ccedil;&otilde;es acima.</div>
+<button id='btn-test-email-gas' type='button' class='btn' style='width:100%;background:#7c3aed;border:1px solid #7c3aed' data-i18n='emailTestBtn'>&#9993;&#65039; Enviar Email de Teste</button>
+</div>
+</div>
+</div>
+
+
+<script>
+// ===== MOCK API LAYER =====
+(function() {
+  window.fetch = function(url, opts) {
+    var u = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+    var MOCKS = typeof window.__MOCK_API__ !== 'undefined' ? window.__MOCK_API__ : {};
+    var mock = MOCKS[u];
+    if (!mock) {
+      for (var k in MOCKS) {
+        if (u.indexOf(k) >= 0) { mock = MOCKS[k]; break; }
+      }
+    }
+    if (typeof mock === 'function') mock = mock();
+    return Promise.resolve({
+      ok: true, status: 200,
+      json: function() { return Promise.resolve(mock || {}); },
+      text: function() { return Promise.resolve(JSON.stringify(mock || {})); }
+    });
+  };
+  window.customAlert = function(m) { console.log('[mock] customAlert:', m); };
+  window.customConfirm = function(m, cb) { if (cb) cb(true); };
+  window.showLoading = function() {};
+  window.hideLoading = function() {};
+  window.disableBtn = function(b) { if (b) { b.disabled = true; } };
+  window.enableBtn = function(b) { if (b) { b.disabled = false; } };
+  window.showSavedCard = function() {};
+  // Feature flags used by some pages (default: off)
+  window._rs232Enabled = false;
+  window._modbusEnabled = false;
+
+// ===== TEST HOOKS (inside page IIFE scope) =====
+window.__test__ = {};
+// Spy mechanism
+window.__spy__ = {};
+window.__spy__.calls = {};
+window.__spy__.reset = function() { window.__spy__.calls = {}; };
+window.__spy__.wrap = function(name, fn) {
+  return function() {
+    window.__spy__.calls[name] = window.__spy__.calls[name] || [];
+    window.__spy__.calls[name].push(Array.prototype.slice.call(arguments));
+    return fn.apply(this, arguments);
+  };
+};
+// Wrap key functions for spying
+if (typeof postSend !== 'undefined') postSend = window.__spy__.wrap('postSend', postSend);
+if (typeof showAlert !== 'undefined') showAlert = window.__spy__.wrap('showAlert', showAlert);
+// Helper: reset IIFE-local state vars (P, C, SH, RP used by radio page)
+window.__test__._reset = function(p, c, sh, rp) {
+  try { if (p !== undefined) { var _a=p; P.length=0; for(var _i=0;_i<_a.length;_i++)P.push(_a[_i]); } } catch(e) {}
+  try { if (c !== undefined) C = c; } catch(e) {}
+  try { if (sh !== undefined) SH = sh; } catch(e) {}
+  try { if (rp !== undefined) RP = rp; } catch(e) {}
+};
+// Expose functions via eval (runs in outer IIFE scope)
+var _testNames = [
+  // Recipients page
+  'rt','rowHTML','addRow','updateNameHint','saveSlot','saveDontCopy','preload',
+  'switchTab',
+  // Commands page
+  'esc','readLangCache','t','templateOptions','unitSelect','daysSelect',
+  'tplSelect','addRow','attachRow','saveSlot','attachSaveAll','rowHTML',
+  // DateTime Commands page
+  'e','t','to','r','addRow','attachRow','init','lt','ls','la','tt','ss','attachSaveAll',
+  // Sidebar / dock
+  'renderWidgetSidebar','moveWidgetUp','moveWidgetDown','moveWidgetToSide',
+  'toggleWidgetVis','applyTheme','readUiPrefs','saveUiPrefs','saveDockLayout',
+  'restoreDockLayout','saveWidgetPrefs','restoreWidgetPrefs','initLeftPanel',
+  'byId','qsa','localStorage','state',
+  // Utility
+  'fmtEta','fmtLagMs','fmtGcodeNum','normalizeZStepValue',
+  'setXyStepFromPreset','syncMainStepFromSelectors','updateXyStepButtons',
+  'sanitizeFileName','formatFileSize','ensureAllowedUploadPath',
+  'recentErrorMeta','clamp',
+  // Jog
+  'runJog','runJogXY','quickUnlock','quickHome','quickZeroWcs','quickReset','quickStatus',
+  // Job
+  'startFileStream','pauseStream','resumeStream','cancelStream',
+  'sendManualCommand','applyPollInterval','applyUsbLineCoding',
+  // Frame
+  'runFrameFromPreview','updateFrameInfo',
+  'getPreviewFrameBounds','setCommandMode',
+  // Override (scoped inside bindEvents)
+  // 'sendOverrideFeed','sendOverrideSpin','applyOverrides','stepOverride',
+  // Probe
+  'runAutoProbeZZero',
+  // Macros
+  'defaultMacros','getMacroEntry','runMacro','loadMacrosToForm','saveMacrosFromForm',
+  // Console
+  'ingestConsoleEvents','logLine','clearConsole','toggleConsoleFullscreen',
+  // Workspace / DRO
+  'extractDroFromStatus','renderDro','fmtDro','hasValidDroValue',
+  'parseNumber3','parsePosTriplet','firstNumber3',
+  // USB / Connection
+  'selectedSlot','normalizeUsbSlots','renderSlots',
+  'syncSelectedUsbBaud','ensureUsbBaudOption','usbBaudPrefId',
+  'getPreferredUsbBaud','savePreferredUsbBaud',
+  // SD Card
+  'sdFileNameFromPath','sdParentDir','formatSdSize','normalizeSdEntry',
+  'isPreviewSizeBlocked','isPreviewAutoRenderHeavy',
+  // PSRAM
+  'refreshPsramFileStatus',
+  // 3D / Preview utilities (pure functions)
+  'project3dPoint','computeProjectedBounds','computeToolpathBounds',
+  'formatMmLabel','classifyStartPlacement',
+  'extractAxisValue','extractAxisInMm','appendLinear',
+  'formatScaleHudMm','get3dPreviewMode','resolve3dPreviewMode',
+  // Critical confirm
+  'runWithCriticalConfirm','requireAxesAtZero',
+  // Render
+  'renderStatus','applyRuntimeControls','applyStatusSnapshot',
+  // 3D helpers
+  'getEffectiveCurrentLine','get3dMaxLineFromSegments','getSegmentExecNo',
+  'getActiveExecNo','update3dScrubUi',
+  // Light preview (inner functions may not resolve)
+  'simplifyPolylineLight',
+  // Radio UI (IIFE-scoped)
+  'T','AP','APJ','BN','sw','onSearch','addPlay','playToggle',
+  'radioStop','radioNext','radioPrev','playUrl','updUI','setVol',
+  'togSh','togRp','loadFav','addFav','favPlay','favDel',
+  'syncQ','rQ','rmQ','savePl','loadPls','loadPl','delPl','loadQ','loadSt','fh',
+];
+_testNames.forEach(function(n) {
+  try { window.__test__[n] = eval(n); } catch(e) { window.__test__[n] = null; }
+});
+
+})();</script>
+
+<script>
+function gasText(k, fb) {
+  try {
+    if (typeof window._t === 'function') return window._t(k, fb);
+    var raw = localStorage.getItem('ui_lang_cache');
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (parsed && parsed[k] !== undefined) return parsed[k];
+    }
+  } catch (err) {}
+  return fb !== undefined ? fb : k;
+}
+
+function testEmailFromGas() {
+  var btn=document.getElementById('btn-test-email-gas');disableBtn(btn);showLoading();
+  fetch('/api/email-test', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.success) {
+        customAlert(d.message || gasText('emailTestStarted', 'Teste iniciado com sucesso!'));
+      } else {
+        customAlert(d.message || gasText('emailTestStartError', 'Erro ao iniciar teste'));
+      }
+    })
+    .catch(function(e) {
+      customAlert(gasText('emailConnectionErrorPrefix', 'Erro na ligacao: ') + (e && e.message ? e.message : e));
+    })
+    .finally(function(){hideLoading();enableBtn(btn);});
+}
+
+document.getElementById('btn-test-email-gas').addEventListener('click', testEmailFromGas);
+
+fetch('/api/config?section=email')
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    var email = d.email || {};
+    var gs = d.google_email || {};
+    document.getElementById('email_method').value = email.method || 'google';
+    document.getElementById('email_dest').value = email.destination || '';
+    document.getElementById('google_script_url').value = gs.google_script_url || '';
+  });
+
+document.getElementById('gas-config-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var btn=this.querySelector('button[type="submit"]');disableBtn(btn);showLoading();
+  var fd = new FormData(this);
+  fd.set('section', 'email');
+  fetch(this.action, {
+    method: 'POST',
+    body: new URLSearchParams(fd),
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.success) {
+        customAlert('✅ Configuração guardada!');
+        if (typeof showSavedCard === 'function') showSavedCard();
+      } else {
+        customAlert('❌ Erro: ' + (d.message || 'desconhecido'));
+      }
+    })
+    .catch(function(err) {
+      customAlert('❌ Erro: ' + (err && err.message ? err.message : err));
+    })
+    .finally(function(){hideLoading();enableBtn(btn);});
+});
+</script>
+
+<script>
+(function() {
+  for (var k in window.__test__) {
+    if (window.__test__[k] === null || typeof window.__test__[k] === 'undefined') {
+      try { window.__test__[k] = eval(k); } catch(e) {}
+    }
+  }
+})();
+</script>
+
+</body>
+</html>

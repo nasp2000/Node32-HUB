@@ -1,0 +1,100 @@
+{
+  "fw": "v1.105",
+  "results": [
+    [
+      "confirm",
+      "ip==192.168.1.29",
+      true,
+      "fw=v1.105 ip=192.168.1.29"
+    ],
+    [
+      "GET",
+      "/api/status",
+      true,
+      "status=200 {\"wifi_connected\": true, \"network_connected\": true, \"ip_address\": \"192.168.1.29\", \"wifi_ip\": \"192.168.1.29\", \"wifi_ssid\""
+    ],
+    [
+      "GET",
+      "/api/self-test",
+      true,
+      "status=200 {\"device\": {\"firmware\": \"v1.105\", \"build\": \"v1.105 - Aug 28 2026 07:46:59 WET\", \"pack\": \"Waveshare-POE-ETH-8DI-8DO\", \"pa"
+    ],
+    [
+      "GET",
+      "/api/proximity",
+      true,
+      "status=200 {\"channels\": [{\"name\": \"DI1\", \"mode\": 0, \"count_in\": 31, \"count_out\": 0, \"total_in\": 31, \"total_out\": 0, \"cycle_ms\": 204"
+    ],
+    [
+      "GET",
+      "/api/proximity/oee",
+      true,
+      "status=200 [{\"ch\": 0, \"name\": \"DI1\", \"gate_ch\": 0, \"scrap_ch\": 0, \"scrap_count\": 0, \"running_sec\": 31, \"downtime_sec\": 32, \"good_pa"
+    ],
+    [
+      "GET",
+      "/api/sd-status",
+      true,
+      "status=200 {\"status\": \"ok\", \"mounted\": true, \"sd_status\": 0, \"storage_mode\": \"SD Card\", \"is_psram\": false, \"total_bytes\": 312722063"
+    ],
+    [
+      "GET",
+      "/api/access-config",
+      true,
+      "status=200 {\"web\": {\"max_sessions\": 3, \"idle_timeout_min\": 10, \"abs_timeout_min\": 20, \"username\": \"\", \"auth_enabled\": false, \"viewe"
+    ],
+    [
+      "GET",
+      "/alerts-config",
+      true,
+      "status=200 <!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-sca"
+    ],
+    [
+      "GET",
+      "/",
+      true,
+      "status=200 <!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-sca"
+    ],
+    [
+      "GET",
+      "/api/config?section=email",
+      true,
+      "status=200 {\"smtp\": {\"server\": \"smtp.gmail.com\", \"port\": 465, \"username\": \"\", \"password\": \"\", \"tls_insecure\": true, \"google_script_"
+    ],
+    [
+      "GET",
+      "/api/config?section=ethernet",
+      true,
+      "status=200 {\"ethernet\": {\"mode\": \"dhcp\", \"ip\": \"\", \"gw\": \"\", \"dns\": \"\", \"mac_override\": \"\"}}"
+    ],
+    [
+      "GET",
+      "/api/inactivity-alert-config",
+      true,
+      "status=200 <!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-sca"
+    ],
+    [
+      "GET",
+      "/api/proximity-chart-data?file=test",
+      true,
+      "status=200 {\"count\": 170, \"stride\": 2, \"labels\": [\"09:16\", \"09:19\", \"09:23\", \"09:26\", \"09:29\", \"09:33\", \"09:36\", \"09:39\", \"09:43\", "
+    ],
+    [
+      "PERSIST",
+      "/api/inactivity-alert-config",
+      false,
+      "POST=200 stable=False"
+    ],
+    [
+      "REBOOT",
+      "/api/restart",
+      false,
+      "back=True before=82s after=9s"
+    ]
+  ],
+  "totals": {
+    "pass": 13,
+    "fail": 2,
+    "skip": 0
+  }
+}

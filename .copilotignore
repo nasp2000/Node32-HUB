@@ -1,0 +1,25 @@
+# Copilot ignore patterns
+# Files and directories matching these patterns are excluded from Copilot context.
+
+# Build artifacts
+chatgpt/build/
+chatgpt/.pio/
+
+# Large log / data files (never needed for coding context)
+Docs/Capturas/*.log
+
+# External hardware projects (separate codebases)
+Others/Uno_Emissor/
+Others/Simulator/
+Others/Unikon/
+
+# USB configurator tool (standalone utility)
+Docs/usb-configurator-portable/
+
+# Utility PowerShell scripts (not part of firmware)
+util/
+
+# Old reference docs (preserved for history, not needed by agent)
+Docs/install-arduino-flags.*
+Docs/My_Instructions.txt
+Docs/GoogleAppsScript_EmailHandler.js
