@@ -20,6 +20,7 @@
 #include "commands.h"  // sendVirtualMessage, LogLevel
 #include "psram_helpers.h"
 #include "email_message_builder.h"  // buildEmailSignature
+#include "rambox_email.h"        // shared Rambox email header
 #include "runtime_email.h"          // startUnikonEmailAsync (shared arrival-email slot)
 #include "ConfigManager.h"
 extern ConfigManager configManager;
@@ -351,9 +352,10 @@ static void bkAppendCell(String& out, const char* s, uint8_t width) {
 // Email table for the arrival sections. The column widths are COMPUTED from the
 // widest text in each column (header vs values), and the separator, the header and
 // every row use the same widths — so the table is always aligned, whoever reads it.
-static void appendBriconArrivalSection(String& body, const __FlashStringHelper* title,
+static void appendBriconArrivalSection(String& body, const char* title,
                                        bool trainingOnly, uint16_t fromIdx, uint16_t toIdx) {
-    static const char* HDR[8] = { "No", "Anilha", "Chip", "Hora", "Data", "Prova", "Pos", "Eval" };
+    const char* HDR[8] = { "No", rmbT("Anilha", "Ring"), "Chip", rmbT("Hora", "Time"),
+                           rmbT("Data", "Date"), rmbT("Prova", "Race"), "Pos", "Eval" };
     uint8_t w[8];
     for (uint8_t c = 0; c < 8; c++) w[c] = (uint8_t)strlen(HDR[c]);
 
@@ -467,19 +469,26 @@ static void briconEmailTick() {
         return;
     }
 
-    String subject = String(F("Bricon Rambox \u2014 ")) + String(pendingRace + pendingTraining)
-                   + String(F(" chegadas"));
-    String body = String(F("Registos captados pelo modulo Bricon:\n\n"));
+    // Shared Rambox layout: the newest contest gives the "Prova" line, so the email
+    // looks the same as the Unikon one (Clube / Concorrente / Prova / Solta).
+    const BriconContest* rc = (s_contestCount > 0) ? &s_contests[s_contestCount - 1] : nullptr;
+    String raceNm = rc ? String(rc->name) : String(F(""));
+    String clubStr = String(s_cfg.clubId);
+    if (s_cfg.flightId[0]) clubStr += String(F(" / voo ")) + String(s_cfg.flightId);
+    String subject = ramboxEmailSubject("Bricon", raceNm.c_str(), pendingRace + pendingTraining);
+    String body;
+    ramboxEmailHeader(body, "Bricon", clubStr.c_str(), "",
+                      rc ? rc->club : "", raceNm.c_str(), rc ? rc->date : "", "");
 
     String secRaceNew, secTrainNew, secRaceOld;
-    appendBriconArrivalSection(secRaceNew, F("Novos Registos - Pombos"), false, s_pendingEmailStart, s_arrivalCount);
+    appendBriconArrivalSection(secRaceNew, ramboxEmailSecNew(), false, s_pendingEmailStart, s_arrivalCount);
     if (secRaceNew.length() > 0) body += secRaceNew + String(F("\n"));
-    appendBriconArrivalSection(secTrainNew, F("Treino"), true, s_pendingEmailStart, s_arrivalCount);
+    appendBriconArrivalSection(secTrainNew, ramboxEmailSecTrain(), true, s_pendingEmailStart, s_arrivalCount);
     if (secTrainNew.length() > 0) body += secTrainNew + String(F("\n"));
 
     if (s_pendingEmailStart > 0) {
-        body += String(F("\n--- Hist\u00f3rico anterior ---\n\n"));
-        appendBriconArrivalSection(secRaceOld, F("Provas anteriores"), false, 0, s_pendingEmailStart);
+        body += String(F("\n")) + String(ramboxEmailSecHistory()) + String(F("\n\n"));
+        appendBriconArrivalSection(secRaceOld, ramboxEmailSecOld(), false, 0, s_pendingEmailStart);
         if (secRaceOld.length() > 0) body += secRaceOld + String(F("\n"));
     }
 
@@ -489,11 +498,7 @@ static void briconEmailTick() {
         if (s_arrivals[i].isTraining) totalTraining++;
         else totalRace++;
     }
-    body += String(F("\nTotais: "));
-    body += String(totalRace) + String(F(" pombo(s)"));
-    if (totalTraining > 0) {
-        body += String(F(" + ")) + String(totalTraining) + String(F(" treino"));
-    }
+    ramboxEmailTotals(body, totalRace, totalTraining);
     body += buildEmailSignature();
     s_lastEmailAttemptMs = now;
 #if ENABLE_SMTP == 1

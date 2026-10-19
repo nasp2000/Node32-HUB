@@ -13,7 +13,7 @@
 #include <pgmspace.h>
 
 static const char PAGE_RAMBOX[] PROGMEM = R"rawliteral(
-<main class='page'>
+<main class='page'><div class='wrap'>
 <style>
     .rm-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 0}
     .rm-tab{padding:8px 14px;border-radius:8px 8px 0 0;background:#1e293b;color:#cbd5e1;
@@ -35,7 +35,9 @@ static const char PAGE_RAMBOX[] PROGMEM = R"rawliteral(
     .rm-scroll{max-height:52vh;overflow:auto}
 </style>
 
-<h2>&#128193; Rambox</h2>
+<div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome' title='Go to home page' data-i18n-title='btnHome'>&#127968; Home</a></div>
+<h1>&#128038; RAMBOX</h1>
+
 <div class='rm-row'>
     <label><b>Aparelho:</b></label>
     <select id='rmDev' onchange='rmSelect()'>
@@ -88,11 +90,6 @@ static const char PAGE_RAMBOX[] PROGMEM = R"rawliteral(
             <label>Voo <input id='cfg_flight' maxlength='4' style='width:70px'></label>
         </div>
         <p class='rm-muted'>Bricon usa 9600 8N2 (a página aplica o perfil automaticamente).</p>
-    </div>
-
-    <div class='rm-row'>
-        <button onclick='rmSaveCfg()'>&#128190; Guardar configuração</button>
-        <span id='cfgmsg' class='rm-muted'></span>
     </div>
   </div>
 </section>
@@ -508,5 +505,10 @@ function rmSendTraining() {
     setInterval(function(){ if (rmCurTab === 'arrivals' || rmCurTab === 'status') rmRefresh(); }, 5000);
 })();
 </script>
-</main>
+
+<div class='actions' style='margin:14px 0 24px'>
+    <button onclick='rmSaveCfg()'>&#128190; Guardar configuração</button>
+    <span id='cfgmsg' class='rm-muted'></span>
+</div>
+</div></main>
 )rawliteral";

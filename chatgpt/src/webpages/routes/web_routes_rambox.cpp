@@ -20,7 +20,7 @@ void registerRamboxRoutes(AsyncWebServer& server, const WebRouteContext& context
         static size_t _aLen = 0;
         if (!_init) {
             // \xF0\x9F\x97\x82 = U+1F5C2 (card index dividers)
-            buildPageFrame(_pre, _suf, "\xF0\x9F\x97\x82 Rambox", true,
+            buildPageFrame(_pre, _suf, "RAMBOX \xF0\x9F\x90\xA6", true,
                 "<script src='/config-manager.js'></script>");
             _aLen = strlen_P(PAGE_RAMBOX);
             _init = true;

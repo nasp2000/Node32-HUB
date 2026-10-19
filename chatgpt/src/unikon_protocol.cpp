@@ -55,6 +55,7 @@
 #include "littlefs_manager.h"
 #include "direct_log.h"
 #include "email_message_builder.h"
+#include "rambox_email.h"        // shared Rambox email header
 #include "ConfigManager.h"
 #include "psram_helpers.h"
 #include "commands.h"  // LogLevel + sendVirtualMessage for debug output
@@ -1042,11 +1043,12 @@ static void ukAppendCell(String& out, const char* s, uint8_t width) {
     out += '|';
 }
 
-static void appendArrivalSectionEmail(String& body, const __FlashStringHelper* title, bool trainingOnly,
+static void appendArrivalSectionEmail(String& body, const char* title, bool trainingOnly,
                                       uint16_t fromIdx, uint16_t toIdx) {
-    static const char* HDR[6] = { "No", "Anilha", "Chip", "Hora", "Data", "Prova" };
-    uint8_t w[6];
-    for (uint8_t c = 0; c < 6; c++) w[c] = (uint8_t)strlen(HDR[c]);
+    const char* HDR[8] = { "No", rmbT("Anilha", "Ring"), "Chip", rmbT("Hora", "Time"),
+                           rmbT("Data", "Date"), rmbT("Prova", "Race"), "Pos", "Eval" };
+    uint8_t w[8];
+    for (uint8_t c = 0; c < 8; c++) w[c] = (uint8_t)strlen(HDR[c]);
     if (w[1] < 11) w[1] = 11;                    // 11 digits is the normal ring
     if (w[3] < 8)  w[3] = 8;                     // HH:MM:SS
     if (w[4] < 5)  w[4] = 5;                     // DD/MM
@@ -1082,16 +1084,16 @@ static void appendArrivalSectionEmail(String& body, const __FlashStringHelper* t
     String sep;
     sep.reserve(80);
     sep += '+';
-    for (uint8_t c = 0; c < 6; c++) {
+    for (uint8_t c = 0; c < 8; c++) {
         for (uint8_t k = 0; k < (uint8_t)(w[c] + 2); k++) sep += '-';
         sep += '+';
     }
     sep += '\n';
 
     String hdr;
-    hdr.reserve(80);
+    hdr.reserve(100);
     hdr += '|';
-    for (uint8_t c = 0; c < 6; c++) ukAppendCell(hdr, HDR[c], w[c]);
+    for (uint8_t c = 0; c < 8; c++) ukAppendCell(hdr, HDR[c], w[c]);
     hdr += '\n';
 
     String section;
@@ -1145,6 +1147,8 @@ static void appendArrivalSectionEmail(String& body, const __FlashStringHelper* t
         ukAppendCell(section, timeStr, w[3]);
         ukAppendCell(section, dateStr, w[4]);
         ukAppendCell(section, raceStr, w[5]);
+        ukAppendCell(section, "", w[6]);   // Pos  (Unikon does not report it)
+        ukAppendCell(section, "", w[7]);   // Eval (Unikon does not report it)
         section += '\n';
     }
 
@@ -1158,15 +1162,16 @@ static void appendRegistrationsSectionEmail(String& body) {
     uint16_t regCount = s_registrationCount;
     if (regCount == 0) return;
     
-    body += String(F("Pombal da \u00e9poca (ZP registados) \u2014 ")) + String(regCount)
-          + String(regCount == 1 ? F(" pombo\n") : F(" pombos\n"));
+    body += String(rmbT("Pombal da \u00e9poca (ZP registados) \u2014 ", "Season loft (ZP registered) \u2014 "))
+          + String(regCount)
+          + String((regCount == 1) ? rmbT(" pombo\n", " pigeon\n") : rmbT(" pombos\n", " pigeons\n"));
     for (uint16_t i = 0; i < regCount; i++) {
         char numBuf[6];
         char ringDisplay[16];
         buildDisplayRing(s_registrations[i].ring, ringDisplay, sizeof(ringDisplay));
         snprintf(numBuf, sizeof(numBuf), "%3u. ", (unsigned)(i + 1));
         body += String(numBuf);
-        body += String(F("Anilha: ")) + String(ringDisplay);
+        body += String(rmbT("Anilha: ", "Ring: ")) + String(ringDisplay);
         if (s_registrations[i].hasChip) {
             char chipDisplay[16];
             buildDisplayChip(s_registrations[i], chipDisplay, sizeof(chipDisplay));
@@ -2220,39 +2225,23 @@ bool unikonPollNow() {
                         return true;
                     }
 
-                    String raceName1 = (s_status.raceName[0]) ? String(s_status.raceName) : String(F("SEM_PROVA"));
-                    String subject = String(F("Rambox32 - ")) + raceName1
-                                   + String(F(" - ")) + String(pendingRace)
-                                   + String(F(" chegadas"));
-
-                    String body = String(F("Registos captados pelo RAMBOX:\n\n"));
-                    if (s_status.clubName[0]) {
-                        body += String(F("Coletividade: ")) + String(s_status.clubName);
-                        if (s_status.clubCode[0]) body += String(F(" (")) + String(s_status.clubCode) + String(F(")"));
-                        body += String(F("\n"));
-                    } else if (s_status.clubCode[0]) {
-                        body += String(F("Coletividade (c\u00f3digo): ")) + String(s_status.clubCode) + String(F("\n"));
-                    }
-                    if (s_status.raceName[0]) {
-                        body += String(F("Prova: ")) + String(s_status.raceName);
-                        if (s_status.raceDate[0]) body += String(F(" (")) + String(s_status.raceDate) + String(F(")"));
-                        body += String(F("\n"));
-                    } else if (s_status.raceDate[0]) {
-                        body += String(F("Prova (data): ")) + String(s_status.raceDate) + String(F("\n"));
-                    }
-                    if (s_status.fancierName[0]) body += String(F("Columb\u00f3filo: ")) + String(s_status.fancierName) + String(F("\n"));
-                    if (s_status.soltaName[0])   body += String(F("Solta: ")) + String(s_status.soltaName) + String(F("\n"));
-                    body += String(F("\n"));
+                    String raceName1 = (s_status.raceName[0]) ? String(s_status.raceName) : String(F(""));
+                    String subject = ramboxEmailSubject("Unikon", raceName1.c_str(),
+                                                       (uint16_t)(pendingRace + pendingTraining));
+                    String body;
+                    ramboxEmailHeader(body, "Unikon", s_status.clubName, s_status.clubCode,
+                                      s_status.fancierName, s_status.raceName,
+                                      s_status.raceDate, s_status.soltaName);
 
                     String secRaceNew, secRaceOld, secTrainNew;
-                    appendArrivalSectionEmail(secRaceNew, F("Novos Registos - Pombos"), false, s_pendingEmailStart, s_arrivalCount);
+                    appendArrivalSectionEmail(secRaceNew, ramboxEmailSecNew(), false, s_pendingEmailStart, s_arrivalCount);
                     if (secRaceNew.length() > 0) body += secRaceNew + String(F("\n"));
-                    appendArrivalSectionEmail(secTrainNew, F("Treino"), true, s_pendingEmailStart, s_arrivalCount);
+                    appendArrivalSectionEmail(secTrainNew, ramboxEmailSecTrain(), true, s_pendingEmailStart, s_arrivalCount);
                     if (secTrainNew.length() > 0) body += secTrainNew + String(F("\n"));
 
                     if (s_pendingEmailStart > 0) {
-                        body += String(F("\n--- Hist\u00f3rico anterior ---\n\n"));
-                        appendArrivalSectionEmail(secRaceOld, F("Provas anteriores"), false, 0, s_pendingEmailStart);
+                        body += String(F("\n")) + String(ramboxEmailSecHistory()) + String(F("\n\n"));
+                        appendArrivalSectionEmail(secRaceOld, ramboxEmailSecOld(), false, 0, s_pendingEmailStart);
                         if (secRaceOld.length() > 0) body += secRaceOld + String(F("\n"));
                     }
 
@@ -2262,11 +2251,7 @@ bool unikonPollNow() {
                         if (s_arrivals[i].isTraining) totalTraining++;
                         else totalRace++;
                     }
-                    body += String(F("\nTotais: "));
-                    body += String(totalRace) + String(F(" pombo(s)"));
-                    if (totalTraining > 0) {
-                        body += String(F(" + ")) + String(totalTraining) + String(F(" treino"));
-                    }
+                    ramboxEmailTotals(body, totalRace, totalTraining);
                     body += buildEmailSignature();
                     s_lastEmailAttemptMs = now;
 #if ENABLE_SMTP == 1
@@ -2562,29 +2547,27 @@ bool unikonPollNow() {
                     return true;
                 }
 
-String raceName2 = (s_status.raceName[0]) ? String(s_status.raceName) : String(F("Unikon"));
-                String subject = String(F("\xF0\x9F\x95\x8A \u2014 ")) + buildEmailTitlePrefix()
-                               + String(F(" \u2014 ")) + raceName2 + String(F(" \u2014 ")) + String(pendingRace)
-                               + String(pendingRace == 1 ? F(" chegada") : F(" chegadas"));
-
-                String body = String(F("Registos captados pelo RAMBOX:\n\n"));
-                if (s_status.clubName[0])  body += String(F("Clube: "))  + String(s_status.clubName)  + String(F("\n"));
-                if (s_status.soltaName[0]) body += String(F("Solta: ")) + String(s_status.soltaName) + String(F("\n"));
-                body += String(F("\n"));
+String raceName2 = (s_status.raceName[0]) ? String(s_status.raceName) : String(F(""));
+                String subject = ramboxEmailSubject("Unikon", raceName2.c_str(),
+                                                   (uint16_t)(pendingRace + pendingTraining));
+                String body;
+                ramboxEmailHeader(body, "Unikon", s_status.clubName, s_status.clubCode,
+                                  s_status.fancierName, s_status.raceName,
+                                  s_status.raceDate, s_status.soltaName);
                 
                 // Include registered pigeons (pombal/ZP snapshot) for context
                 appendRegistrationsSectionEmail(body);
 
                 String secRaceNew, secRaceOld, secTrainNew;
-                appendArrivalSectionEmail(secRaceNew, F("Novos Registos - Pombos"), false, s_pendingEmailStart, s_arrivalCount);
+                appendArrivalSectionEmail(secRaceNew, ramboxEmailSecNew(), false, s_pendingEmailStart, s_arrivalCount);
                 if (secRaceNew.length() > 0) body += secRaceNew + String(F("\n"));
-                appendArrivalSectionEmail(secTrainNew, F("Treino"), true, s_pendingEmailStart, s_arrivalCount);
+                appendArrivalSectionEmail(secTrainNew, ramboxEmailSecTrain(), true, s_pendingEmailStart, s_arrivalCount);
                 if (secTrainNew.length() > 0) body += secTrainNew + String(F("\n"));
 
                 // Previous arrivals below a separator, so the full history is always visible.
                 if (s_pendingEmailStart > 0) {
-                    body += String(F("\n--- Hist\u00f3rico anterior ---\n\n"));
-                    appendArrivalSectionEmail(secRaceOld, F("Provas anteriores"), false, 0, s_pendingEmailStart);
+                    body += String(F("\n")) + String(ramboxEmailSecHistory()) + String(F("\n\n"));
+                    appendArrivalSectionEmail(secRaceOld, ramboxEmailSecOld(), false, 0, s_pendingEmailStart);
                     if (secRaceOld.length() > 0) body += secRaceOld + String(F("\n"));
                 }
 
@@ -2594,11 +2577,7 @@ String raceName2 = (s_status.raceName[0]) ? String(s_status.raceName) : String(F
                     if (s_arrivals[i].isTraining) totalTraining++;
                     else totalRace++;
                 }
-                body += String(F("\nTotais: "));
-                body += String(totalRace) + String(F(" pombo(s)"));
-                if (totalTraining > 0) {
-                    body += String(F(" + ")) + String(totalTraining) + String(F(" treino"));
-                }
+                ramboxEmailTotals(body, totalRace, totalTraining);
                 body += buildEmailSignature();
                 s_lastEmailAttemptMs = now;
 #if ENABLE_SMTP == 1
@@ -3085,14 +3064,14 @@ bool unikonQueuePombalSeasonEmail(String& messageOut) {
         return false;
     }
 
-    String subject = String(F("Rambox32 - Pombal da Epoca ("))
+    String subject = String(rmbT("Rambox32 - Pombal da Epoca (", "Rambox32 - Season loft ("))
                    + String((unsigned)s_registrationCount)
                    + String(F(")"));
 
     String body;
     body.reserve(640 + (size_t)s_registrationCount * 96u);
-    body += F("Relatorio manual do pombal da epoca\n");
-    body += F("Tabela ASCII de largura fixa\n\n");
+    body += String(rmbT("Relatorio manual do pombal da epoca\n", "Manual season-loft report\n"));
+    body += String(rmbT("Tabela ASCII de largura fixa\n\n", "Fixed-width ASCII table\n\n"));
 
     char moduleId[44];
     char clubName[32];
@@ -3105,11 +3084,11 @@ bool unikonQueuePombalSeasonEmail(String& messageOut) {
     sanitizeAsciiText(s_status.fancierName, fancierName, sizeof(fancierName));
     sanitizeAsciiText(s_status.soltaName, soltaName, sizeof(soltaName));
 
-    if (moduleId[0]) body += String(F("Modulo: ")) + String(moduleId) + String(F("\n"));
-    if (clubName[0]) body += String(F("Clube: ")) + String(clubName) + String(F("\n"));
-    if (clubCode[0]) body += String(F("Codigo Clube: ")) + String(clubCode) + String(F("\n"));
-    if (fancierName[0]) body += String(F("Proprietario: ")) + String(fancierName) + String(F("\n"));
-    if (soltaName[0]) body += String(F("Solta: ")) + String(soltaName) + String(F("\n"));
+    if (moduleId[0]) body += String(rmbT("Modulo: ", "Module: ")) + String(moduleId) + String(F("\n"));
+    if (clubName[0]) body += String(rmbT("Clube: ", "Club: ")) + String(clubName) + String(F("\n"));
+    if (clubCode[0]) body += String(rmbT("Codigo Clube: ", "Club code: ")) + String(clubCode) + String(F("\n"));
+    if (fancierName[0]) body += String(rmbT("Proprietario: ", "Owner: ")) + String(fancierName) + String(F("\n"));
+    if (soltaName[0]) body += String(rmbT("Solta: ", "Release: ")) + String(soltaName) + String(F("\n"));
     body += String(F("\n"));
 
     const uint8_t noColWidth = 4;
@@ -3153,7 +3132,8 @@ bool unikonQueuePombalSeasonEmail(String& messageOut) {
         body += String(row);
     }
     body += sep;
-    body += String(F("Total: ")) + String((unsigned)s_registrationCount) + String(F(" pombo(s)\n"));
+    body += String(rmbT("Total: ", "Total: ")) + String((unsigned)s_registrationCount)
+          + String(rmbT(" pombo(s)\n", " pigeon(s)\n"));
     body += buildEmailSignature();
 
 #if ENABLE_SMTP == 1
