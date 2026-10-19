@@ -189,6 +189,22 @@ Reads urlencoded `enabled`, `interval`, `passive`, `official_format` (only `enab
 
 ---
 
+### Training allocation modes — what the vendor actually does
+
+The vendor DOS program (`UNI.EXE`) sends **two separate operations**:
+
+1. **Menu 3 Plano de vôo → F7 "Transmitir dados"** = the **races** only (flight plan).
+2. **Menu 1 Concorrente → F7 "Transmitir dados"** = the **whole loft** (every pigeon registration).
+
+There is **no "subset" upload** and, in the captured protocol, **no "delete pigeon"**
+command. Therefore:
+
+| Mode in the page | Vendor? | What it does / read-back |
+|---|---|---|
+| **Race only** (`-`) | ✅ yes (flight plan) | IC0 + `I090` + context (`S1/S2/S3`), **no** pigeon records. No pigeon read-back |
+| **Whole loft** (`*`) | ✅ yes (Concorrente F7) | IC0 + `I090` + context + one `M`+`ZP` per registration. Read-back = **hash equality** (the loft must equal what was sent) |
+| **Only the ticked ones** (list) | ⚠️ our convenience | IC0 + `I090` + context + `M`+`ZP` for the ticked rings only. The module **adds/refreshes** them (it keeps its other pigeons), so the read-back checks **presence** (`%u/%u anilhas presentes`), not equality — a hash comparison would always report MISMATCH |
+
 ## 9. Runtime engine (RAMBOX protocol driver)
 
 `unikon_protocol.{h,cpp}` (`#if ENABLE_UNIKON==1`, `:48`–`:2599`).

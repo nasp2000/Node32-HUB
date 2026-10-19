@@ -199,6 +199,8 @@ static bool isTrainingContestCode(const char* raceCode, const char* trainingCode
 //   "-"         -> UNIKON_TRAIN_MODE_NONE (race only, no pigeons)
 //   otherwise   -> UNIKON_TRAIN_MODE_LIST (S4 lines / plain 11-digit rings)
 static char s_trainingFilter[UNIKON_MAX_ARRIVALS][12];
+// Anilhas efectivamente enviadas no treino (para o read-back do modo LIST).
+static char s_sentRings[UNIKON_MAX_ARRIVALS][12];
 static uint16_t s_trainingFilterCount = 0;
 static uint8_t  s_trainingMode = UNIKON_TRAIN_MODE_ALL;
 
@@ -2879,6 +2881,11 @@ static bool sendTrainingSession(const char* name) {
             memcpy(chip, s_registrations[i].chip, chipLen);
         }
         if (sendZPFrame(ring, chip)) okCount++;
+        if (sentCount < UNIKON_MAX_ARRIVALS) {
+            // Guardar a anilha enviada: no modo LIST o read-back verifica presenca
+            // (o modulo nao tem comando "apagar pombo", logo a lista dele e maior).
+            strlcpy(s_sentRings[sentCount], ring, sizeof(s_sentRings[0]));
+        }
         sentCount++;
         if (sentCount % 10 == 0) {
             char pmsg[48];
@@ -2890,7 +2897,25 @@ static bool sendTrainingSession(const char* name) {
     // Read-back (the DOS program's menu 4, "Receber dados ... do Unikon-Modulo"): re-read the
     // pombal and compare it with what we just allocated. The ACK only proves the frame was
     // accepted -- this is the only way to know the module really stored the records.
-    if (sentCount > 0) {
+    if (sentCount > 0 && subset) {
+        // Subconjunto: o protocolo capturado NAO tem "apagar pombo", por isso a RAMBOX
+        // fica com o pombal antigo + os que enviamos. Comparar o hash daria sempre
+        // MISMATCH; o que interessa e confirmar que TODAS as anilhas enviadas existem la.
+        if (runXPhase()) {
+            uint16_t present = 0;
+            for (uint16_t i = 0; i < sentCount && i < UNIKON_MAX_ARRIVALS; i++) {
+                if (isRegistered(s_sentRings[i])) present++;
+            }
+            char vmsg[128];
+            snprintf(vmsg, sizeof(vmsg),
+                     "[UNIKON] training: read-back (subset) — %u/%u anilhas enviadas presentes na RAMBOX — %s",
+                     (unsigned)present, (unsigned)sentCount,
+                     (present == sentCount) ? "OK" : "FALTAM");
+            sendVirtualMessage(String(vmsg), WARN, false, true);
+        } else {
+            sendVirtualMessage(F("[UNIKON] training: read-back failed (no ident/X answer)"), WARN, false, true);
+        }
+    } else if (sentCount > 0) {
         uint32_t sentHash = pombalRingHash();
         uint16_t sentTotal = s_registrationCount;
         if (runXPhase()) {

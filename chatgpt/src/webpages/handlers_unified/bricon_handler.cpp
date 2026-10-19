@@ -24,7 +24,7 @@ void handleBriconStatusGet(HttpRequest& req, HttpResponse& res) {
         "{\"connected\":%s,\"hardwarePending\":%s,\"enabled\":%s,"
         "\"intervalSec\":%u,\"baud\":%d,\"dataBits\":%d,\"parity\":\"%s\",\"stopBits\":%d,"
         "\"country\":\"%s\",\"baAddress\":%d,\"clubId\":\"%s\",\"flightId\":\"%s\","
-        "\"baAddress\":%u,\"lastNewCount\":%u,\"lastPollAgoSec\":%lu,"
+        "\"baActiveAddress\":%u,\"lastNewCount\":%u,\"lastPollAgoSec\":%lu,"
         "\"lastRxAgoSec\":%lu,\"bytesRx\":%lu,\"framesSeen\":%u,"
         "\"activeModule\":\"%s\"}",
         st.connected ? "true" : "false",
