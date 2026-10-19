@@ -222,9 +222,11 @@ static bool parseTrainingEntryLine(const char* line, char* outRing) {
         outRing[11] = '\0';
         return true;
     }
-    // Plain 11-digit ring.
+    // Plain 11-char ring. The module's registrations can be alphanumeric (a custom
+    // ring read from the pombal), so accept any printable non-space char -- requiring
+    // digits only made the filter silently select nothing for such rings.
     int i = 0;
-    while (i < 11 && line[i] >= '0' && line[i] <= '9') {
+    while (i < 11 && line[i] > ' ' && line[i] != '\r' && line[i] != '\n') {
         outRing[i] = line[i];
         i++;
     }
@@ -1028,48 +1030,74 @@ static void formatPombalChipForAscii(const UnikonArrival& reg, char* out, size_t
     sanitizeAsciiText(chipDisplay, out, outSize);
 }
 
+// One cell of the ASCII table: "| text... |" (width is computed from the widest
+// text of the column, so every line has exactly the same length).
+static void ukAppendCell(String& out, const char* s, uint8_t width) {
+    size_t n = s ? strlen(s) : 0;
+    if (n > width) n = width;                    // never let a value widen the row
+    out += ' ';
+    for (size_t i = 0; i < n; i++) out += s[i];
+    for (size_t i = n; i < width; i++) out += ' ';
+    out += ' ';
+    out += '|';
+}
+
 static void appendArrivalSectionEmail(String& body, const __FlashStringHelper* title, bool trainingOnly,
                                       uint16_t fromIdx, uint16_t toIdx) {
-    // Build a strict ASCII table where every line has the same width.
-    const uint8_t ringColWidth = 11;
-    const uint8_t chipColWidth = 11;
-    const uint8_t timeColWidth = 8;
-    const uint8_t dateColWidth = 5;
-    const uint8_t raceColWidth = 9;
+    static const char* HDR[6] = { "No", "Anilha", "Chip", "Hora", "Data", "Prova" };
+    uint8_t w[6];
+    for (uint8_t c = 0; c < 6; c++) w[c] = (uint8_t)strlen(HDR[c]);
+    if (w[1] < 11) w[1] = 11;                    // 11 digits is the normal ring
+    if (w[3] < 8)  w[3] = 8;                     // HH:MM:SS
+    if (w[4] < 5)  w[4] = 5;                     // DD/MM
 
-    uint16_t maxNo = toIdx > 0 ? toIdx : 1;
-    uint8_t noDigits = 1;
-    while (maxNo >= 10) {
-        maxNo /= 10;
-        noDigits++;
+    // ---- pass 1: measure header + every value that will be printed ----
+    for (uint16_t i = fromIdx; i < toIdx; i++) {
+        if ((bool)s_arrivals[i].isTraining != trainingOnly) continue;
+        char b[24];
+        int n = snprintf(b, sizeof(b), "%u.", (unsigned)(i + 1));
+        if (n > (int)w[0]) w[0] = (uint8_t)n;
+
+        char ringDisplay[16];
+        buildDisplayRing(s_arrivals[i].ring, ringDisplay, sizeof(ringDisplay));
+        n = (int)strlen(ringDisplay);
+        if (n > (int)w[1]) w[1] = (uint8_t)n;
+
+        n = 0;
+        if (s_arrivals[i].hasChip) {
+            char chipDisplay[16];
+            buildDisplayChip(s_arrivals[i], chipDisplay, sizeof(chipDisplay));
+            n = (int)strlen(chipDisplay);
+        }
+        if (n > (int)w[2]) w[2] = (uint8_t)n;
+
+        n = (int)strlen(s_arrivals[i].race);
+        if (n > (int)w[5]) w[5] = (uint8_t)n;
     }
-    uint8_t noColWidth = (uint8_t)(noDigits + 1);  // include trailing '.'
-    if (noColWidth < 2) noColWidth = 2;
+    if (w[1] > 15) w[1] = 15;                    // sane caps
+    if (w[2] > 11) w[2] = 11;
+    if (w[5] > 12) w[5] = 12;
 
+    // ---- separator: '+' (width+2) '-' ... '+' ----
     String sep;
-    sep.reserve(96);
+    sep.reserve(80);
     sep += '+';
-    for (uint8_t i = 0; i < (uint8_t)(noColWidth + 2); i++) sep += '-';
-    sep += '+';
-    for (uint8_t i = 0; i < (uint8_t)(ringColWidth + 2); i++) sep += '-';
-    sep += '+';
-    for (uint8_t i = 0; i < (uint8_t)(chipColWidth + 2); i++) sep += '-';
-    sep += '+';
-    for (uint8_t i = 0; i < (uint8_t)(timeColWidth + 2); i++) sep += '-';
-    sep += '+';
-    for (uint8_t i = 0; i < (uint8_t)(dateColWidth + 2); i++) sep += '-';
-    sep += '+';
-    for (uint8_t i = 0; i < (uint8_t)(raceColWidth + 2); i++) sep += '-';
-    sep += "+\n";
+    for (uint8_t c = 0; c < 6; c++) {
+        for (uint8_t k = 0; k < (uint8_t)(w[c] + 2); k++) sep += '-';
+        sep += '+';
+    }
+    sep += '\n';
 
-    char hdr[112];
-    snprintf(hdr, sizeof(hdr), "| %-*s | %-11s | %-11s | %-8s | %-5s | %-9s |\n",
-             (int)noColWidth, "No", "Anilha", "Chip", "Hora", "Data", "Prova");
+    String hdr;
+    hdr.reserve(80);
+    hdr += '|';
+    for (uint8_t c = 0; c < 6; c++) ukAppendCell(hdr, HDR[c], w[c]);
+    hdr += '\n';
 
     String section;
     section.reserve(160 + (uint16_t)(toIdx - fromIdx) * 84u);
     section += sep;
-    section += String(hdr);
+    section += hdr;
     section += sep;
 
     uint16_t rowCount = 0;
@@ -1092,39 +1120,32 @@ static void appendArrivalSectionEmail(String& body, const __FlashStringHelper* t
             snprintf(dateStr, sizeof(dateStr), "%c%c/%c%c", d[0], d[1], d[2], d[3]);
         }
 
-        // Chip: left-justified in 11 chars; blank if not present.
         char ringDisplay[16];
         buildDisplayRing(s_arrivals[i].ring, ringDisplay, sizeof(ringDisplay));
-        char chipStr[12];
+
+        char chipStr[16] = "";
         if (s_arrivals[i].hasChip) {
-            char chipDisplay[16];
-            buildDisplayChip(s_arrivals[i], chipDisplay, sizeof(chipDisplay));
-            snprintf(chipStr, sizeof(chipStr), "%-11s", chipDisplay);
-        } else {
-            memset(chipStr, ' ', 11);
-            chipStr[11] = '\0';
+            buildDisplayChip(s_arrivals[i], chipStr, sizeof(chipStr));
         }
 
         char idxStr[10];
         snprintf(idxStr, sizeof(idxStr), "%u.", (unsigned)(i + 1));
 
-        char raceStr[10] = "         ";
+        char raceStr[13] = "";
         if (s_arrivals[i].race[0] != '\0') {
             size_t rlen = strlen(s_arrivals[i].race);
-            if (rlen > 9) rlen = 9;
+            if (rlen > 12) rlen = 12;
             memcpy(raceStr, s_arrivals[i].race, rlen);
         }
 
-        char row[112];
-        snprintf(row, sizeof(row), "| %-*s | %-11s | %-11s | %-8s | %-5s | %-9s |\n",
-                 (int)noColWidth,
-                 idxStr,
-                 ringDisplay,
-                 chipStr,
-                 timeStr,
-                 dateStr,
-                 raceStr);
-        section += String(row);
+        section += '|';
+        ukAppendCell(section, idxStr, w[0]);
+        ukAppendCell(section, ringDisplay, w[1]);
+        ukAppendCell(section, chipStr, w[2]);
+        ukAppendCell(section, timeStr, w[3]);
+        ukAppendCell(section, dateStr, w[4]);
+        ukAppendCell(section, raceStr, w[5]);
+        section += '\n';
     }
 
     if (rowCount > 0) {
@@ -1133,7 +1154,6 @@ static void appendArrivalSectionEmail(String& body, const __FlashStringHelper* t
     }
 }
 
-// Append registered pigeons (pombal/ZP snapshot) to email body for context.
 static void appendRegistrationsSectionEmail(String& body) {
     uint16_t regCount = s_registrationCount;
     if (regCount == 0) return;
@@ -2854,6 +2874,21 @@ static bool sendTrainingSession(const char* name) {
     const uint8_t sLens[3] = { s_cachedS1Len, s_cachedS2Len, s_cachedS3Len };
     for (uint8_t i = 0; i < 3; i++) {
         if (sLens[i] == 0) continue;
+        // Never replay an EMPTY context: S1/S2/S3 are a WRITE of the club/solta on the
+        // module (the sim proves it -- an empty S1 replaced the club id with spaces).
+        // Replaying a blank frame from a module that had no club would erase it.
+        bool anyContent = false;
+        for (uint8_t k = 3; k < sLens[i]; k++) {
+            if (sFrames[i][k] > ' ') { anyContent = true; break; }
+        }
+        if (!anyContent) {
+            char smsg[64];
+            snprintf(smsg, sizeof(smsg),
+                     "[UNIKON] training: S%u is empty on the module -- not replayed (would erase it)",
+                     (unsigned)(i + 1));
+            sendVirtualMessage(String(smsg), WARN, false, true);
+            continue;
+        }
         char smsg[48];
         snprintf(smsg, sizeof(smsg), "[UNIKON] training: replaying S%u (%u bytes)", (unsigned)(i + 1), (unsigned)sLens[i]);
         sendVirtualMessage(String(smsg), WARN, false, true);
