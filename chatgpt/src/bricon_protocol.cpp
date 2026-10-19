@@ -337,50 +337,71 @@ uint16_t briconGetArrivalCount() { return s_arrivalCount; }
 uint16_t briconGetRegistrationCount() { return s_registrationCount; }
 
 // ----- Email (mirrors Unikon: pending window, race/training sections, totals) -----
+// Append one padded cell: " value<pad> |" (width = column width, no overflow).
+static void bkAppendCell(String& out, const char* s, uint8_t width) {
+    size_t n = s ? strlen(s) : 0;
+    if (n > width) n = width;
+    out += ' ';
+    for (size_t i = 0; i < n; i++) out += s[i];
+    for (size_t i = n; i < width; i++) out += ' ';
+    out += ' ';
+    out += '|';
+}
+
+// Email table for the arrival sections. The column widths are COMPUTED from the
+// widest text in each column (header vs values), and the separator, the header and
+// every row use the same widths — so the table is always aligned, whoever reads it.
 static void appendBriconArrivalSection(String& body, const __FlashStringHelper* title,
                                        bool trainingOnly, uint16_t fromIdx, uint16_t toIdx) {
-    const uint8_t ringColWidth = 13;   // "BE-10-1100002" style rings
-    const uint8_t chipColWidth = 11;
-    const uint8_t timeColWidth = 8;
-    const uint8_t dateColWidth = 8;    // DD/MM/YY
-    const uint8_t raceColWidth = 9;
-    const uint8_t catColWidth = 4;     // OLD/YEA/YOU
-    const uint8_t speedColWidth = 6;   // m/min
+    static const char* HDR[8] = { "No", "Anilha", "Chip", "Hora", "Data", "Prova", "Pos", "Eval" };
+    uint8_t w[8];
+    for (uint8_t c = 0; c < 8; c++) w[c] = (uint8_t)strlen(HDR[c]);
 
-    uint16_t maxNo = toIdx > 0 ? toIdx : 1;
-    uint8_t noDigits = 1;
-    while (maxNo >= 10) { maxNo /= 10; noDigits++; }
-    uint8_t noColWidth = (uint8_t)(noDigits + 1);
-    if (noColWidth < 2) noColWidth = 2;
+    // ---- pass 1: measure (header + every value that will be printed) ----
+    for (uint16_t i = fromIdx; i < toIdx; i++) {
+        if ((bool)s_arrivals[i].isTraining != trainingOnly) continue;
+        if (!hasValidTime(s_arrivals[i])) continue;
+        char b[10];
+        int n = snprintf(b, sizeof(b), "%u.", (unsigned)(i + 1));
+        if (n > (int)w[0]) w[0] = (uint8_t)n;
+        n = (int)strlen(s_arrivals[i].ring);
+        if (n > (int)w[1]) w[1] = (uint8_t)n;
+        n = s_arrivals[i].hasChip ? (int)strlen(s_arrivals[i].chip) : 0;
+        if (n > (int)w[2]) w[2] = (uint8_t)n;
+        if (w[3] < 8) w[3] = 8;                         // HH:MM:SS
+        if (w[4] < 8) w[4] = 8;                         // DD/MM/YY
+        n = (int)strlen(s_arrivals[i].race);
+        if (n > (int)w[5]) w[5] = (uint8_t)n;
+        n = (s_arrivals[i].posArriveClub > 0)
+            ? snprintf(b, sizeof(b), "%u", (unsigned)s_arrivals[i].posArriveClub) : 0;
+        if (n > (int)w[6]) w[6] = (uint8_t)n;
+    }
+    if (w[1] > 15) w[1] = 15;                           // sane caps
+    if (w[2] > 11) w[2] = 11;
+    if (w[5] > 12) w[5] = 12;
+    if (w[6] < 3)  w[6] = 3;
 
+    // ---- separator ----
     String sep;
-    sep.reserve(110);
+    sep.reserve(96);
     sep += '+';
-    for (uint8_t i = 0; i < (uint8_t)(noColWidth + 2); i++) sep += '-';
-    sep += '+';
-    for (uint8_t i = 0; i < (uint8_t)(ringColWidth + 2); i++) sep += '-';
-    sep += '+';
-    for (uint8_t i = 0; i < (uint8_t)(chipColWidth + 2); i++) sep += '-';
-    sep += '+';
-    for (uint8_t i = 0; i < (uint8_t)(timeColWidth + 2); i++) sep += '-';
-    sep += '+';
-    for (uint8_t i = 0; i < (uint8_t)(dateColWidth + 2); i++) sep += '-';
-    sep += '+';
-    for (uint8_t i = 0; i < (uint8_t)(raceColWidth + 2); i++) sep += '-';
-    sep += '+';
-    for (uint8_t i = 0; i < (uint8_t)(catColWidth + 2); i++) sep += '-';
-    sep += '+';
-    for (uint8_t i = 0; i < (uint8_t)(speedColWidth + 2); i++) sep += '-';
-    sep += "+\n";
+    for (uint8_t c = 0; c < 8; c++) {
+        for (uint8_t k = 0; k < (uint8_t)(w[c] + 2); k++) sep += '-';
+        sep += '+';
+    }
+    sep += '\n';
 
-    char hdr[128];
-    snprintf(hdr, sizeof(hdr), "| %-*s | %-13s | %-11s | %-8s | %-8s | %-9s | %-4s | %-6s |\n",
-             (int)noColWidth, "No", "Anilha", "Chip", "Hora", "Data", "Prova", "Cat", "Vel");
+    // ---- header ----
+    String hdr;
+    hdr.reserve(96);
+    hdr += '|';
+    for (uint8_t c = 0; c < 8; c++) bkAppendCell(hdr, HDR[c], w[c]);
+    hdr += '\n';
 
     String section;
-    section.reserve(200 + (uint16_t)(toIdx - fromIdx) * 90u);
+    section.reserve(220 + (uint16_t)(toIdx - fromIdx) * 96u);
     section += sep;
-    section += String(hdr);
+    section += hdr;
     section += sep;
 
     uint16_t rowCount = 0;
@@ -389,46 +410,34 @@ static void appendBriconArrivalSection(String& body, const __FlashStringHelper* 
         if (!hasValidTime(s_arrivals[i])) continue;
         rowCount++;
 
-        char timeStr[10] = "        ";
-        {
-            const char* t = s_arrivals[i].arrivalTime;
-            snprintf(timeStr, sizeof(timeStr), "%c%c:%c%c:%c%c",
-                     t[0], t[1], t[2], t[3], t[4], t[5]);
-        }
-        char dateStr[10] = "        ";
-        {
-            const char* d = s_arrivals[i].arrivalDate;
-            size_t dl = strlen(d);
-            if (dl >= 4) {
-                if (dl >= 6) snprintf(dateStr, sizeof(dateStr), "%c%c/%c%c/%c%c",
-                                      d[0], d[1], d[2], d[3], d[4], d[5]);
-                else snprintf(dateStr, sizeof(dateStr), "%c%c/%c%c", d[0], d[1], d[2], d[3]);
-            }
-        }
-        char ringStr[14];
-        snprintf(ringStr, sizeof(ringStr), "%-13.13s", s_arrivals[i].ring);
-        char chipStr[12];
-        if (s_arrivals[i].hasChip) snprintf(chipStr, sizeof(chipStr), "%-11.11s", s_arrivals[i].chip);
-        else { memset(chipStr, ' ', 11); chipStr[11] = '\0'; }
-        char raceStr[10] = "         ";
-        {
-            size_t rlen = strlen(s_arrivals[i].race);
-            if (rlen > 9) rlen = 9;
-            memcpy(raceStr, s_arrivals[i].race, rlen);
-        }
-        char idxStr[10];
-        snprintf(idxStr, sizeof(idxStr), "%u.", (unsigned)(i + 1));
+        char timeStr[10] = "";
+        const char* t6 = s_arrivals[i].arrivalTime;
+        snprintf(timeStr, sizeof(timeStr), "%c%c:%c%c:%c%c", t6[0], t6[1], t6[2], t6[3], t6[4], t6[5]);
 
-        const char* catStr = (s_arrivals[i].category == 1) ? "OLD"
-                           : (s_arrivals[i].category == 2) ? "YEA"
-                           : (s_arrivals[i].category == 3) ? "YOU" : "";
-        char speedStr[8] = "      ";
-        if (s_arrivals[i].speed > 0) snprintf(speedStr, sizeof(speedStr), "%6u", (unsigned)s_arrivals[i].speed);
+        char dateStr[10] = "";
+        const char* d = s_arrivals[i].arrivalDate;
+        size_t dl = strlen(d);
+        if (dl >= 6)      snprintf(dateStr, sizeof(dateStr), "%c%c/%c%c/%c%c", d[0], d[1], d[2], d[3], d[4], d[5]);
+        else if (dl >= 4) snprintf(dateStr, sizeof(dateStr), "%c%c/%c%c", d[0], d[1], d[2], d[3]);
 
-        char row[176];
-        snprintf(row, sizeof(row), "| %-*s | %-13s | %-11s | %-8s | %-8s | %-9s | %-4s | %-6s |\n",
-                 (int)noColWidth, idxStr, ringStr, chipStr, timeStr, dateStr, raceStr, catStr, speedStr);
-        section += String(row);
+        char noStr[10];
+        snprintf(noStr, sizeof(noStr), "%u.", (unsigned)(i + 1));
+        char posStr[10] = "";
+        if (s_arrivals[i].posArriveClub > 0)
+            snprintf(posStr, sizeof(posStr), "%u", (unsigned)s_arrivals[i].posArriveClub);
+        char evalStr[3] = "";
+        if (s_arrivals[i].evaluation) { evalStr[0] = s_arrivals[i].evaluation; evalStr[1] = '\0'; }
+
+        section += '|';
+        bkAppendCell(section, noStr, w[0]);
+        bkAppendCell(section, s_arrivals[i].ring, w[1]);
+        bkAppendCell(section, s_arrivals[i].hasChip ? s_arrivals[i].chip : "", w[2]);
+        bkAppendCell(section, timeStr, w[3]);
+        bkAppendCell(section, dateStr, w[4]);
+        bkAppendCell(section, s_arrivals[i].race, w[5]);
+        bkAppendCell(section, posStr, w[6]);
+        bkAppendCell(section, evalStr, w[7]);
+        section += '\n';
     }
 
     if (rowCount > 0) {
