@@ -189,21 +189,18 @@ Reads urlencoded `enabled`, `interval`, `passive`, `official_format` (only `enab
 
 ---
 
-### Training allocation modes — what the vendor actually does
+### Training / race allocation — the real club flow
 
-The vendor DOS program (`UNI.EXE`) sends **two separate operations**:
+At the club the fancier brings **the portable module and the pigeons for that race**.
+The club adds **the race with its pigeons** to the module, and the module **accumulates**
+races: there is no "delete pigeon" in the captured protocol.
 
-1. **Menu 3 Plano de vôo → F7 "Transmitir dados"** = the **races** only (flight plan).
-2. **Menu 1 Concorrente → F7 "Transmitir dados"** = the **whole loft** (every pigeon registration).
-
-There is **no "subset" upload** and, in the captured protocol, **no "delete pigeon"**
-command. Therefore:
-
-| Mode in the page | Vendor? | What it does / read-back |
+| Mode in the page | When | What it does / read-back |
 |---|---|---|
-| **Race only** (`-`) | ✅ yes (flight plan) | IC0 + `I090` + context (`S1/S2/S3`), **no** pigeon records. No pigeon read-back |
-| **Whole loft** (`*`) | ✅ yes (Concorrente F7) | IC0 + `I090` + context + one `M`+`ZP` per registration. Read-back = **hash equality** (the loft must equal what was sent) |
-| **Only the ticked ones** (list) | ⚠️ our convenience | IC0 + `I090` + context + `M`+`ZP` for the ticked rings only. The module **adds/refreshes** them (it keeps its other pigeons), so the read-back checks **presence** (`%u/%u anilhas presentes`), not equality — a hash comparison would always report MISMATCH |
+| **Race + its pigeons (club)** — `list` | **the club operation** | `IC0` + `I090` + context (`S1/S2/S3`) + one `M`+`ZP` per ticked pigeon. The module **adds/refreshes** those rings and keeps its others. Read-back = **presence** of every sent ring |
+| **Whole loft (fancier upload)** — `all` | at home, upload the full loft (`Concorrente/F7` in the DOS) | every registration. Read-back = **hash equality** (valid only if the module has no other pigeons) |
+| **Race only (flight plan)** — `none` | program the race without pigeons (`Plano de vôo/F7`) | no pigeon records, no pigeon read-back |
+
 
 ## 9. Runtime engine (RAMBOX protocol driver)
 
