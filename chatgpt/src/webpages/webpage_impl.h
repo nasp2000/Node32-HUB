@@ -48,6 +48,7 @@
 #endif
 #if ENABLE_BRICON == 1
 #include "routes/web_routes_bricon.h"
+#include "routes/web_routes_rambox.h"
 #endif
 #if ENABLE_IPG_LASER == 1
 #include "routes/web_routes_ipg_laser.h"
@@ -117,6 +118,10 @@ inline void setupWebServer(AsyncWebServer& server) {
 #endif
 #if ENABLE_BRICON == 1
     registerBriconRoutes(server, routeContext);
+#endif
+
+#if ENABLE_UNIKON == 1 || ENABLE_BRICON == 1
+    registerRamboxRoutes(server, routeContext);
 #endif
 #if ENABLE_IPG_LASER == 1
     registerIpgLaserRoutes(server, routeContext);

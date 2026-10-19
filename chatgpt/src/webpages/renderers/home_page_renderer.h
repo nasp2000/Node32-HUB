@@ -176,11 +176,8 @@ inline void streamHomePageToPrint(Print& out,
 #if ENABLE_BUZZER==1
                 out.print(F("<a href='/buzzer' class='btn' style='background:#0f5298;border-color:#ffffff'>&#128276; Buzzer</a>"));
 #endif
-#if ENABLE_UNIKON==1
-                out.print(F("<a href='/unikon' class='btn' style='background:#0f5298;border-color:#ffffff'>&#128038; Unikon RAMBOX</a>"));
-#endif
-#if ENABLE_BRICON==1
-                out.print(F("<a href='/bricon' class='btn' style='background:#0f5298;border-color:#ffffff'>&#128330; Bricon Rambox</a>"));
+#if ENABLE_UNIKON==1 || ENABLE_BRICON==1
+                out.print(F("<a href='/rambox' class='btn' style='background:#0f5298;border-color:#ffffff'>&#128193; Rambox (Unikon / Bricon)</a>"));
 #endif
 #if ENABLE_IPG_LASER==1
                 out.print(F("<a href='/ipg-laser' class='btn' style='background:#0f5298;border-color:#ffffff'>&#128293; IPG Laser RS232</a>"));

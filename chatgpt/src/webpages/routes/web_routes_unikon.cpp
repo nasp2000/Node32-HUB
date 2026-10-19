@@ -2,10 +2,8 @@
 // Route registration for the Unikon RAMBOX page (/unikon) and its REST API.
 
 #include "web_routes_unikon.h"
-#include "../assets/page_unikon_asset.h"
 #include "../handlers/unikon_handler.h"
 #include "../handlers_unified/unikon_handler.h"
-#include "../renderers/page_render_common.h"
 #include "../../feature_flags.h"
 #include "route_registry_api.h"
 
@@ -30,37 +28,11 @@ void registerUnikonRoutes(AsyncWebServer& server, const WebRouteContext& context
     registerApiRoute("POST", "/api/unikon-push",           handleUnikonPushPost);
 
     // HTML page.
-    server.on("/unikon", HTTP_GET, [&context](AsyncWebServerRequest* request) {
-        if (!context.ensureBasicAuth(request)) return;
-        if (sendNotModifiedIfCached(request)) return;
-        if (!context.allowHtmlClient(request)) return;
-
-        static bool   _init = false;
-        static String _pre, _suf;
-        static size_t _aLen = 0;
-        if (!_init) {
-            buildPageFrame(_pre, _suf, "\xF0\x9F\x90\xA6 Unikon RAMBOX", true,
-                "<script src='/config-manager.js'></script>");
-            _aLen = strlen_P(PAGE_UNIKON);
-            _init = true;
-        }
-        const size_t pLen = _pre.length(), aLen = _aLen, sLen = _suf.length();
-        const char*  pPtr = _pre.c_str(),  *sPtr = _suf.c_str();
-
-        AsyncWebServerResponse* response = request->beginChunkedResponse(
-            "text/html; charset=utf-8",
-            [pLen, aLen, sLen, pPtr, sPtr](uint8_t* buf, size_t maxLen, size_t index) -> size_t {
-                return serveThreeSegments(buf, maxLen, index,
-                    pPtr, pLen, PAGE_UNIKON, aLen, sPtr, sLen);
-            });
-        if (!response) { context.decrementActiveHtmlSessions(); request->send(500, "text/plain", "Internal Server Error"); return; }
-        response->addHeader("ETag", FIRMWARE_BUILD);
-        response->addHeader("Cache-Control", "private, max-age=15, must-revalidate");
-        request->send(response);
-#ifndef QUIET_HTTP_LOGS
-        context.logServed(request, "/unikon", pLen + aLen + sLen, false);
-#endif
+    // One page only: the unified Rambox page owns this device's UI.
+    server.on("/unikon", HTTP_GET, [](AsyncWebServerRequest* request) {
+        request->redirect("/rambox?dev=unikon");
     });
+
 
     // POST /api/unikon-config stays manual (body params)
     registerUnikonApiRoutes(server, context);

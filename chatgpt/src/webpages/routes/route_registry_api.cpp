@@ -329,6 +329,7 @@ static const LegacyRoute s_legacyRoutes[] = {
     {"GET", "/ota"},
     {"GET", "/printer"},
     {"GET", "/proximity"},
+    {"GET", "/rambox"},
     {"GET", "/radio-ui"},
     {"GET", "/recipients"},
     {"GET", "/rs232"},

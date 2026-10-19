@@ -2,9 +2,7 @@
 // Route registration for the Bricon Rambox page (/bricon) and its REST API.
 
 #include "web_routes_bricon.h"
-#include "../assets/page_bricon_asset.h"
 #include "../handlers_unified/bricon_handler.h"
-#include "../renderers/page_render_common.h"
 #include "../../feature_flags.h"
 #include "route_registry_api.h"
 
@@ -23,37 +21,11 @@ void registerBriconRoutes(AsyncWebServer& server, const WebRouteContext& context
     registerApiRoute("POST", "/api/bricon-clear-training", handleBriconClearTrainingPost);
 
     // HTML page.
-    server.on("/bricon", HTTP_GET, [&context](AsyncWebServerRequest* request) {
-        if (!context.ensureBasicAuth(request)) return;
-        if (sendNotModifiedIfCached(request)) return;
-        if (!context.allowHtmlClient(request)) return;
-
-        static bool   _init = false;
-        static String _pre, _suf;
-        static size_t _aLen = 0;
-        if (!_init) {
-            buildPageFrame(_pre, _suf, "\xF0\x9F\x95\x8A Bricon Rambox", true,
-                "<script src='/config-manager.js'></script>");
-            _aLen = strlen_P(PAGE_BRICON);
-            _init = true;
-        }
-        const size_t pLen = _pre.length(), aLen = _aLen, sLen = _suf.length();
-        const char*  pPtr = _pre.c_str(),  *sPtr = _suf.c_str();
-
-        AsyncWebServerResponse* response = request->beginChunkedResponse(
-            "text/html; charset=utf-8",
-            [pLen, aLen, sLen, pPtr, sPtr](uint8_t* buf, size_t maxLen, size_t index) -> size_t {
-                return serveThreeSegments(buf, maxLen, index,
-                    pPtr, pLen, PAGE_BRICON, aLen, sPtr, sLen);
-            });
-        if (!response) { context.decrementActiveHtmlSessions(); request->send(500, "text/plain", "Internal Server Error"); return; }
-        response->addHeader("ETag", FIRMWARE_BUILD);
-        response->addHeader("Cache-Control", "private, max-age=15, must-revalidate");
-        request->send(response);
-#ifndef QUIET_HTTP_LOGS
-        context.logServed(request, "/bricon", pLen + aLen + sLen, false);
-#endif
+    // One page only: the unified Rambox page owns this device's UI.
+    server.on("/bricon", HTTP_GET, [](AsyncWebServerRequest* request) {
+        request->redirect("/rambox?dev=bricon");
     });
+
 
 #else
     (void)server;
