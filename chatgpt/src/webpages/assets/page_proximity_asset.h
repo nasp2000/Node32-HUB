@@ -359,7 +359,7 @@ function render(data){
       +'<td class="'+sc+'">'+sl+'</td>'
       +'<td>'+su+'</td>'
       +'<td>'+_fmtElapsed(ch.elapsed_sec||0)+'</td>'
-      +'<td style="text-align:center;white-space:nowrap"><button class="btn-reset" onclick="resetCh('+i+')">'+t('proxColReset','Reset')+'</button></td></tr>';
+      +'<td style="text-align:center;white-space:nowrap"><button class="btn-reset" onclick="resetCh('+i+')" title="Reset this channel counter" data-i18n-title="proxTipResetCh">'+t('proxColReset','Reset')+'</button></td></tr>';
   });
   document.getElementById('sb').innerHTML=h;
 }

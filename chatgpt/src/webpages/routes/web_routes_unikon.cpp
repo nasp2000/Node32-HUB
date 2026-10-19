@@ -23,9 +23,11 @@ void registerUnikonRoutes(AsyncWebServer& server, const WebRouteContext& context
     registerApiRoute("POST", "/api/unikon-poll-w",        handleUnikonPollWPost);
     registerApiRoute("POST", "/api/unikon-sync-calendar", handleUnikonSyncCalendarPost);
     registerApiRoute("POST", "/api/unikon-reset",         handleUnikonResetPost);
-    // Training endpoints (fictitious race 990 + pombal ZPs, explicit request only).
+    // Training endpoints (fictitious training race + the ticked pigeon records, explicit request only).
     registerApiRoute("POST", "/api/unikon-send-training",  handleUnikonSendTrainingPost);
     registerApiRoute("POST", "/api/unikon-clear-training", handleUnikonClearTrainingPost);
+    // Push (device-initiated arrivals): P1/P0 probe, per-device state.
+    registerApiRoute("POST", "/api/unikon-push",           handleUnikonPushPost);
 
     // HTML page.
     server.on("/unikon", HTTP_GET, [&context](AsyncWebServerRequest* request) {

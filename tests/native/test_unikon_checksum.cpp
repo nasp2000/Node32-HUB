@@ -135,6 +135,25 @@ TEST_CASE("buildFrame: full byte compare against real capture (escaped CK1)") {
     CHECK(buf[len - 1] == UNIKON_ETX);
 }
 
+TEST_CASE("buildFrame: push frames P1/P0 escape the CK1 control byte") {
+    // Push on/off, the frames the vendor driver's uniActivatePush()/uniDeactivatePush()
+    // send. Both sums land on a control byte, so without the CK1 escape the frame would
+    // contain 0x02/0x01 (STX / SOH) and be unparseable.
+    //   "P1": 0x81+0x50+0x31 = 0x102 -> CK1 0x02 -> escaped 0x82 ; CK2 0x80|0x01 = 0x81
+    const uint8_t p1[] = { 0x81, 0x50, 0x31 };
+    uint8_t buf[16];
+    uint8_t len = buildFrame(p1, sizeof(p1), buf);
+    const uint8_t exp1[] = { 0x02, 0x81, 0x50, 0x31, 0x82, 0x81, 0x03 };
+    CHECK(len == sizeof(exp1));
+    for (uint8_t i = 0; i < len; i++) CHECK(buf[i] == exp1[i]);
+    //   "P0": 0x81+0x50+0x30 = 0x101 -> CK1 0x01 -> escaped 0x81 ; CK2 0x80|0x01 = 0x81
+    const uint8_t p0[] = { 0x81, 0x50, 0x30 };
+    len = buildFrame(p0, sizeof(p0), buf);
+    const uint8_t exp0[] = { 0x02, 0x81, 0x50, 0x30, 0x81, 0x81, 0x03 };
+    CHECK(len == sizeof(exp0));
+    for (uint8_t i = 0; i < len; i++) CHECK(buf[i] == exp0[i]);
+}
+
 // ====== isAsciiDigitsExact tests ======
 TEST_CASE("isAsciiDigitsExact: valid") {
     CHECK(isAsciiDigitsExact("12345", 5));
@@ -383,13 +402,15 @@ static void buildIContent(const char* code, const char* date, const char* name,
 
 static void buildZPContent(const char* ring, const char* chip,
                            uint8_t* content, uint8_t* contentLen) {
+    // Poul upload line: the vendor driver prefixes every line with 'M' (uniUploadPoulData).
     content[0] = 0x81; // ADDR
-    content[1] = 0x5A; // 'Z'
-    content[2] = 0x50; // 'P'
-    memcpy(content + 3, ring, 11);
-    content[14] = 0x20; // space
-    memcpy(content + 15, chip, 11);
-    *contentLen = 26;
+    content[1] = 0x4D; // 'M' (poul upload prefix)
+    content[2] = 0x5A; // 'Z'
+    content[3] = 0x50; // 'P'
+    memcpy(content + 4, ring, 11);
+    content[15] = 0x20; // space
+    memcpy(content + 16, chip, 11);
+    *contentLen = 27;
 }
 
 TEST_CASE("buildIFrame: training entry with date") {
@@ -425,29 +446,30 @@ TEST_CASE("buildIFrame: name truncated to 9 chars") {
 }
 
 TEST_CASE("buildZPFrame: pigeon with chip") {
-    uint8_t content[26];
+    uint8_t content[27];
     uint8_t cLen;
     buildZPContent("25000061136", "C9BCC229001", content, &cLen);
-    CHECK(cLen == 26);
+    CHECK(cLen == 27);
     CHECK(content[0] == 0x81);
-    CHECK(content[1] == 0x5A);
-    CHECK(content[2] == 0x50);
-    CHECK(memcmp(content + 3, "25000061136", 11) == 0);
-    CHECK(content[14] == 0x20);
-    CHECK(memcmp(content + 15, "C9BCC229001", 11) == 0);
+    CHECK(content[1] == 0x4D); // 'M' -- poul upload line prefix
+    CHECK(content[2] == 0x5A);
+    CHECK(content[3] == 0x50);
+    CHECK(memcmp(content + 4, "25000061136", 11) == 0);
+    CHECK(content[15] == 0x20);
+    CHECK(memcmp(content + 16, "C9BCC229001", 11) == 0);
     // Verify checksum
     uint8_t frame[40];
     uint8_t fLen = buildFrame(content, cLen, frame);
-    CHECK(fLen == 26 + 4);
+    CHECK(fLen == 27 + 4);
     CHECK(frame[0] == 0x02);
     CHECK(frame[fLen - 1] == 0x03);
 }
 
 TEST_CASE("buildZPFrame: pigeon without chip (all zeros)") {
-    uint8_t content[26];
+    uint8_t content[27];
     uint8_t cLen;
     buildZPContent("24004342525", "00000000000", content, &cLen);
-    CHECK(memcmp(content + 15, "00000000000", 11) == 0);
+    CHECK(memcmp(content + 16, "00000000000", 11) == 0);
 }
 
 // ====== sanitizeAsciiText tests ======

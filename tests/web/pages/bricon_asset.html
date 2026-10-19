@@ -18,7 +18,14 @@
             </div>
             <div class='uk-tab-panel active' id='bk-tab-0'>
                 <div id='bk-sec-status' class='section'><h3>Status</h3><div id='briconStatus'>loading...</div><div><span id='bkStatTotal'>--</span><span id='bkStatContests'>--</span><span id='bkStatPombal'>--</span><span id='bkStatAgo'>--</span></div></div>
-                <div id='bk-sec-config' class='section'><h3>Config</h3><form id='briconForm'><input type='checkbox' id='briconEnabled'><select id='briconInterval'><option value='0'>Manual</option></select><select id='briconBaud'><option value='9600'>9600</option></select></form></div>
+                <div id='bk-sec-config' class='section'><h3>Config</h3><form id='briconForm'><input type='checkbox' id='briconEnabled'><select id='briconInterval'><option value='0'>Manual</option></select><select id='briconBaud'><option value='9600'>9600</option></select>
+<select id='briconCountry' name='country'><option value='PT' selected>PT</option></select>
+<select id='briconBa' name='ba'><option value='0' selected>auto</option></select>
+<select id='briconData' name='data'><option value='8' selected>8</option></select>
+<select id='briconParity' name='parity'><option value='none' selected>none</option></select>
+<select id='briconStop' name='stop'><option value='2' selected>2</option></select>
+<input id='briconClub' name='club' type='text' maxlength='4' value='0000'>
+<input id='briconFlight' name='flight' type='text' maxlength='4' value='0000'></form></div>
             </div>
             <div class='uk-tab-panel' id='bk-tab-1'>
                 <div id='bk-sec-arrivals' class='section'><h3>Arrivals</h3><table><tbody id='briconArrivalsBody'></tbody></table></div>
@@ -66,11 +73,11 @@
             ? a.time.substring(0,2) + ':' + a.time.substring(2,4) + ':' + a.time.substring(4,6) : '-';
         var dt = (a.date && a.date.length >= 4 && a.date.substring(0,4) !== '0000')
             ? a.date.substring(0,2) + '/' + a.date.substring(2,4) : '-';
-        var vel = (a.speed > 0) ? a.speed : '';
+        var vel = (a.evaluation === '1') ? '1' : '';
         return '<tr><td>' + n + '</td><td>' + besc(a.ring) + '</td>'
             + '<td>' + besc(a.chip) + '</td><td>' + h + '</td>'
             + '<td>' + dt + '</td><td>' + besc(a.race || '') + '</td>'
-            + '<td>' + briconCat(a.category) + '</td><td>' + vel + '</td></tr>';
+            + '<td>' + ((a.posArriveClub>0)?a.posArriveClub:'') + '</td><td>' + vel + '</td></tr>';
     }
     function loadBriconArrivals() {}
     function loadBriconPombal() {}
@@ -80,7 +87,6 @@
     function briconSyncCalendar() { fetch('/api/bricon-sync-calendar', { method: 'POST' }); }
     function briconSyncPombal() { fetch('/api/bricon-sync-pombal', { method: 'POST' }); }
     function briconSendTraining() { fetch('/api/bricon-send-training', { method: 'POST' }); }
-    function briconClearTraining() { fetch('/api/bricon-clear-training', { method: 'POST' }); }
     function saveBriconConfig() {
         var params = 'enabled=' + (document.getElementById('briconEnabled').checked ? '1' : '0');
         fetch('/api/bricon-config', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params });

@@ -36,6 +36,7 @@ Envs: `n16r8` (S3: Rambox/Cam/RS232/HomeE32/Radio/S3-CNC) · `waveshare_8di8do`
 | mobizt/ReadyMail | 0.4.0 | MIT | all |
 | mobizt/ESP_SSLClient | 3.1.3 | MIT | all |
 | adafruit/Adafruit SSD1306 | 2.5.17 | BSD-3-Clause | all |
+| adafruit/Adafruit SH110X | 2.1.15 | BSD-3-Clause | all |
 | adafruit/Adafruit GFX Library | 1.12.6 | BSD-3-Clause | all |
 | adafruit/Adafruit AHTX0 | 2.0.6 | BSD-3-Clause | all |
 | adafruit/Adafruit BMP280 Library | 3.0.0 | MIT | all |

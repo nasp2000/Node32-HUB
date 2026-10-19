@@ -4,6 +4,7 @@
 #include <cstring>
 #include <cstdint>
 #include <cstdio>
+#include <strings.h>
 
 // ====== Standalone reimpls of the Bricon module-selection + RS232 profile logic ======
 // Mirror chatgpt/src/bricon_protocol.cpp (no Arduino/RS232 dependencies).
@@ -38,7 +39,8 @@ static SerialProfile clampSerialProfile(int baud, int data, const char* parity, 
     p.data = (data >= 5 && data <= 8) ? data : 8;
     p.parity = (!parity || parity[0] == '\0') ? "none" : parity;
     if (strcmp(p.parity, "even") != 0 && strcmp(p.parity, "odd") != 0) p.parity = "none";
-    p.stop = (stop == 2) ? 2 : 1;
+    // REA: Bricon builds SerialPort(..., StopBits.Two) => default 2 (Unikon is 1).
+    p.stop = (stop == 1) ? 1 : 2;
     return p;
 }
 
@@ -78,21 +80,43 @@ TEST_CASE("briconExclusion: both requested resolves to bricon") {
 }
 
 TEST_CASE("briconProfile: valid values pass through") {
-    SerialProfile p = clampSerialProfile(38400, 8, "none", 1);
+    SerialProfile p = clampSerialProfile(38400, 8, "none", 2);
     CHECK(p.baud == 38400);
     CHECK(p.data == 8);
     CHECK(std::string(p.parity) == "none");
-    CHECK(p.stop == 1);
+    CHECK(p.stop == 2);
     CHECK(baudIndex(38400) == 5);
 }
 
-TEST_CASE("briconProfile: garbage clamps to 9600 8N1") {
+TEST_CASE("briconProfile: Bricon default is 9600 8N2 (REA: StopBits.Two)") {
     SerialProfile p = clampSerialProfile(-1, 99, "mark", 3);
     CHECK(p.baud == 9600);
     CHECK(p.data == 8);
     CHECK(std::string(p.parity) == "none");
-    CHECK(p.stop == 1);
+    CHECK(p.stop == 2);              // 8N2, not Unikon's 8N1
     CHECK(baudIndex(12345) == 3);
+}
+
+TEST_CASE("briconProfile: explicit 1 stop bit honoured (probe fallback)") {
+    SerialProfile p = clampSerialProfile(9600, 8, "none", 1);
+    CHECK(p.stop == 1);
+}
+
+TEST_CASE("briconLayout: country decides the FedBand (GetPigeonCommand)") {
+    // Mirrors the firmware/simulator rule: PT/ES/NL/UA/PL/FR/KSA => 14 B, else 22 B.
+    auto fed = [](const char* c) {
+        const char* shortFed[] = { "PT", "ES", "NL", "UA", "PL", "FR", "KSA" };
+        for (size_t i = 0; i < sizeof(shortFed) / sizeof(shortFed[0]); i++)
+            if (strcasecmp(c, shortFed[i]) == 0) return 14;
+        return 22;
+    };
+    CHECK(fed("PT") == 14);          // our case: 14 B FedBand => 53-byte arrival
+    CHECK(fed("ES") == 14);
+    CHECK(fed("FR") == 14);
+    CHECK(fed("UK") == 22);
+    CHECK(fed("BE") == 22);
+    CHECK((39 + fed("PT")) == 53);
+    CHECK((39 + fed("BE")) == 61);
 }
 
 // ====== Ingest funnel tests (mirror briconIngestArrival dedup/update/cap) ======

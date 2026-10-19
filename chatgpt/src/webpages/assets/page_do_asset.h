@@ -77,7 +77,7 @@ static const char DO_PAGE[] PROGMEM = R"HTML(
       </tbody>
     </table>
     <div class='all-bar'>
-      <button class='btn-all btn-all-on' onclick='saveDoConfig()' data-i18n='doCfgSave'>Save Config</button>
+      <button class='btn-all btn-all-on' onclick='saveDoConfig()' data-i18n='doCfgSave' title='Save the digital-output configuration' data-i18n-title='doTipCfgSave'>Save Config</button>
     </div>
     <p class='note'>&#128161; Names and inversion are saved to /config/do.json and applied immediately.</p>
   </div>

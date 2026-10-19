@@ -15,3 +15,4 @@ void handleUnikonSyncCalendarPost(HttpRequest& req, HttpResponse& res);
 void handleUnikonResetPost(HttpRequest& req, HttpResponse& res);
 void handleUnikonSendTrainingPost(HttpRequest& req, HttpResponse& res);
 void handleUnikonClearTrainingPost(HttpRequest& req, HttpResponse& res);
+void handleUnikonPushPost(HttpRequest& req, HttpResponse& res);

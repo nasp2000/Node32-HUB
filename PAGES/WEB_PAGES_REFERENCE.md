@@ -50,7 +50,7 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/uda1334a` | Audio DAC/PCM test | static | manual | B | no | `ENABLE_UDA1334A` |
 | `/ipg-laser` | IPG laser control/monitor | local | 3 setInterval | B | **A** | `ENABLE_IPG_LASER` |
 | `/unikon` | Unikon device page | local | 8 s | B | **A** | `ENABLE_UNIKON` |
-| `/bricon` | Bricon module page (driver pending hardware; exclusive with `/unikon`; same 4-tab Unikon look) | local | 8 s | B | **A** | `ENABLE_BRICON` |
+| `/bricon` | Bricon module page (wire driver implemented from REA; exclusive with `/unikon` — the choice sets the RS232 profile: Bricon 9600 8N2, Unikon 9600 8N1; same 4-tab Unikon look) | local | 8 s | B | **A** | `ENABLE_BRICON` |
 | `/ecra` | Touch7 exact LCD framebuffer mirror + weather/location/status | hybrid | conditional RGB565 frame 0.25–2 fps; weather status on load and 1 s while updating | B | **A** | `PACK_S3_TOUCH7` |
 | `/falas` | Voice/audio page | static | manual | B | no | `PACK_S3_TOUCH7` |
 | `/dualfile` | Copy/write LittleFS↔SD | static | 30 s poll | B | **A** (*) | `ENABLE_DUALFILE` |

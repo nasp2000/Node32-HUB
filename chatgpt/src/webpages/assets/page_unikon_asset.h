@@ -26,10 +26,10 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
 
             <!-- Tabs (save bar at the bottom is common to all tabs) -->
             <div class='uk-tabs' id='ukTabs'>
-                <button type='button' class='uk-tab-btn active' onclick='ukSwitchTab(0)' data-i18n='ukTab1'>📊 Status & Race Arrivals</button>
-                <button type='button' class='uk-tab-btn' onclick='ukSwitchTab(1)' data-i18n='ukTab2'>📅 Calendar & Pigeon Loft</button>
-                <button type='button' class='uk-tab-btn' onclick='ukSwitchTab(2)' data-i18n='ukTab3'>🏋️ Training Season</button>
-                <button type='button' class='uk-tab-btn' onclick='ukSwitchTab(3)' data-i18n='ukTab4'>🔌 Connection & Configuration</button>
+                <button type='button' class='uk-tab-btn active' onclick='ukSwitchTab(0)' title='Connection status, RAMBOX identity and race arrivals' data-i18n-title='unikonTipTabStatus' data-i18n='ukTab1'>📊 Status & Race Arrivals</button>
+                <button type='button' class='uk-tab-btn' onclick='ukSwitchTab(1)' title='Race calendar and the pigeon loft read from the RAMBOX (read-only)' data-i18n-title='unikonTipTabCalendar' data-i18n='ukTab2'>📅 Calendar & Pigeon Loft</button>
+                <button type='button' class='uk-tab-btn' onclick='ukSwitchTab(2)' title='Write the training race to the RAMBOX, with the whole loft allocated' data-i18n-title='unikonTipTabTraining' data-i18n='ukTab3'>🏋️ Training Season</button>
+                <button type='button' class='uk-tab-btn' onclick='ukSwitchTab(3)' title='RS-232 link, official format and polling interval' data-i18n-title='unikonTipTabConfig' data-i18n='ukTab4'>🔌 Connection & Configuration</button>
             </div>
 
             <!-- Tab 1: Status + Race Arrivals -->
@@ -49,6 +49,11 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
                     <button onclick='resetState()' class='btn' title='Reset arrival counters' data-i18n-title='unikonTipReset' style='flex:1;min-width:160px;background:#374151;border-color:#374151' data-i18n='ukBtnResetCount'>&#128256; Reset Count</button>
                 </div>
                 <div id='poll-toast' style='display:none;margin-top:10px;padding:10px 14px;background:#1e3a8a;border-left:4px solid #3b82f6;border-radius:6px;font-size:13px;color:#e0e7ff'></div>
+                <div style='margin-top:14px;padding:12px 14px;background:#1e293b;border-left:4px solid #a855f7;border-radius:6px'>
+                    <div style='font-size:13px;color:#c4b5fd;font-weight:600;margin-bottom:6px' data-i18n='ukPushTitle'>Arrival push (faster than polling)</div>
+                    <div style='font-size:12px;color:#94a3b8;margin-bottom:8px' data-i18n='ukPushHint'>Asked automatically per RAMBOX: the auto-poll keeps running as the guarantee, so an arrival can show up before the next poll.</div>
+                    <div id='push-state' style='font-size:12px;color:#a5b4fc' data-i18n='ukPushOff'>Push off</div>
+                </div>
             </div>
 
             <!-- Section 2: Arrivals table -->
@@ -77,7 +82,7 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
             <div id='uk-sec-contests' class='section'>
                 <div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px'>
                     <h3 style='margin:0'>📅 <span data-i18n='ukContests'>Annual Contest Calendar (IC)</span></h3>
-                    <button onclick='syncCalendar()' class='btn' title='Sync contest calendar from RAMBOX' data-i18n-title='unikonTipSyncCal' style='background:#1e3a8a;border-color:#1d4ed8;padding:8px 16px;font-size:12px' data-i18n='ukBtnSyncCalendar'>🗓️ Sync Calendar</button>
+                    <button onclick='syncCalendar()' class='btn' title='Sync contest calendar from RAMBOX' data-i18n-title='unikonTipSyncCal' style='background:#1e3a8a;border-color:#1d4ed8;padding:8px 16px;font-size:12px' data-i18n='ukBtnSyncCalendar'>🗓️ Sync Calendar (IC0)</button>
                 </div>
                 <p style='font-size:13px;color:#94a3b8;margin:0 0 12px 0' data-i18n='ukContestsHint'>Read from session IC0/I of the original RAMBOX (this data only).</p>
                 <div class='table-wrapper'>
@@ -99,7 +104,7 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
                 <div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px'>
                     <h3 style='margin:0' data-i18n='ukPombalTitle'>🐦 Season Pigeon Loft (X-phase)</h3>
                     <div style='display:flex;gap:8px;flex-wrap:wrap'>
-                        <button onclick='syncPombal()' class='btn' title='Sync pigeon loft registrations' data-i18n-title='unikonTipSyncPombal' style='background:linear-gradient(180deg,#22c55e,#16a34a);border-color:#4ade80;color:#fff;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.55);padding:8px 16px;font-size:12px' data-i18n='ukBtnSyncPombal'>🔄 Sync Pigeon Loft</button>
+                        <button onclick='syncPombal()' class='btn' title='Sync pigeon loft registrations' data-i18n-title='unikonTipSyncPombal' style='background:linear-gradient(180deg,#22c55e,#16a34a);border-color:#4ade80;color:#fff;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.55);padding:8px 16px;font-size:12px' data-i18n='ukBtnSyncPombal'>🔄 Sync Pigeon Loft (X)</button>
                         <button id='btnEmailPombal' onclick='emailPombal()' class='btn' title='Email pigeon loft data' data-i18n-title='unikonTipEmailPombal' style='background:linear-gradient(180deg,#38bdf8,#0284c7);border-color:#7dd3fc;color:#fff;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.55);padding:8px 16px;font-size:12px' data-i18n='ukBtnEmailPombal'>✉️ Email Pigeon Loft</button>
                     </div>
                 </div>
@@ -123,20 +128,35 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
 
             <!-- Tab 3: Training Season -->
             <div class='uk-tab-panel' id='uk-tab-2'>
-            <!-- Section 3.6: Training (sends the fictitious training race + the ticked pigeon records) -->
+            <!-- Section 3.6: Training (writes the fictitious training race WITH the whole pombal allocated) -->
             <div id='uk-sec-training' class='section'>
                 <div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px'>
                     <h3 style='margin:0' data-i18n='ukTrainingTitle'>🏋️ Training Session</h3>
                     <div style='display:flex;gap:8px;flex-wrap:wrap'>
                         <button onclick='sendTraining()' class='btn' title='Write training contest to RAMBOX' data-i18n-title='unikonTipSendTraining' style='background:#2563eb;border-color:#1d4ed8;padding:8px 16px;font-size:12px' data-i18n='ukBtnSendTraining'>📡 Send Training</button>
-                        <button onclick='clearTraining()' class='btn' title='Remove training from RAMBOX' data-i18n-title='unikonTipClearTraining' style='background:#991b1b;border-color:#ef4444;padding:8px 16px;font-size:12px' data-i18n='ukBtnClearTraining'>🗑️ Clear Training</button>
                     </div>
                 </div>
-                <p style='font-size:13px;color:#94a3b8;margin:0 0 12px 0' data-i18n='ukTrainingHint'>Writes training contest 090 (IC0 + I-frame + S1/S2/S3 + the ticked pigeon records) to the RAMBOX so it records training arrivals. Tick the pigeons below: none ticked programs the race alone.</p>
-                <div style='font-size:12px;color:#94a3b8;margin-bottom:6px'><span data-i18n='ukTrainingSelect'>Pigeons for the training:</span> <span data-i18n='ukTrainingSelectAll'>None ticked = race only; all ticked = whole loft.</span>
-                <a href='#' onclick='return trainingCheckAll(true)' style='color:#60a5fa;margin-left:8px'>Todos</a> |
-                <a href='#' onclick='return trainingCheckAll(false)' style='color:#60a5fa'>Nenhum</a></div>
-                <div id='trainingPombalSelect' style='max-height:180px;overflow-y:auto;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px;font-family:monospace;font-size:12px'></div>
+                <p style='font-size:13px;color:#94a3b8;margin:0 0 12px 0' data-i18n='ukTrainingHint'>Writes training contest 090 (IC0 + I-frame + S1/S2/S3 + the pigeons allocated) so the RAMBOX opens the race and records its arrivals. A race without its pigeons allocated does not open. The race is deleted on the RAMBOX itself.</p>
+                <div style='font-size:12px;color:#94a3b8;margin:0 0 6px 0' data-i18n='ukTrainingMode'>Pigeons allocated to the training:</div>
+                <div style='display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#cbd5e1;margin-bottom:10px'>
+                    <label style='display:flex;align-items:center;gap:6px;cursor:pointer'>
+                        <input type='radio' name='trainingMode' value='none' onchange='trainingModeChanged()' style='flex:none;width:16px;height:16px;margin:0'>
+                        <span data-i18n='ukTrainingModeNone' title='Race only: writes the contest with no pigeon records' data-i18n-title='ukTipTrainingModeNone'>Race only (no pigeons)</span>
+                    </label>
+                    <label style='display:flex;align-items:center;gap:6px;cursor:pointer'>
+                        <input type='radio' name='trainingMode' value='all' checked onchange='trainingModeChanged()' style='flex:none;width:16px;height:16px;margin:0'>
+                        <span data-i18n='ukTrainingModeAll' title='Whole loft: every pigeon the RAMBOX reported' data-i18n-title='ukTipTrainingModeAll'>Whole loft</span>
+                    </label>
+                    <label style='display:flex;align-items:center;gap:6px;cursor:pointer'>
+                        <input type='radio' name='trainingMode' value='list' onchange='trainingModeChanged()' style='flex:none;width:16px;height:16px;margin:0'>
+                        <span data-i18n='ukTrainingModeList' title='Only the ticked pigeons (the write replaces the device list)' data-i18n-title='ukTipTrainingModeList'>Only the ticked ones</span>
+                    </label>
+                </div>
+                <div id='trainingSelectWrap' style='display:none;font-size:12px;color:#94a3b8;margin-bottom:6px'>
+                    <a href='#' onclick='return trainingCheckAll(true)' style='color:#60a5fa' data-i18n='ukTrainingAll'>All</a> |
+                    <a href='#' onclick='return trainingCheckAll(false)' style='color:#60a5fa' data-i18n='ukTrainingNone'>None</a>
+                </div>
+                <div id='trainingPombalSelect' style='display:none;max-height:180px;overflow-y:auto;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:6px;font-family:monospace;font-size:12px'></div>
                 <div id='training-toast' style='display:none;margin-top:10px;padding:10px 14px;background:#1e3a8a;border-left:4px solid #2563eb;border-radius:6px;font-size:13px;color:#bfdbfe'></div>
             </div>
             </div><!-- /uk-tab-2 -->
@@ -252,6 +272,13 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
                         ? String(d.intervalSec) + ' s'
                         : String(Math.round(d.intervalSec / 60)) + ' min';
                     html += '<div style="color:#93c5fd;margin-top:6px">' + t('ukStatusAutoPolling') + ' ' + escapeHtml(pollLabel) + '</div>';
+                }
+                var pst = document.getElementById('push-state');
+                if (pst) {
+                    var pv = d.pushVersion && d.pushVersion.length > 0 ? ' (' + escapeHtml(d.pushVersion) + ')' : '';
+                    pst.textContent = (d.pushState === 1) ? (t('ukPushActive', 'Push active') + pv)
+                                    : (d.pushState === 2) ? (t('ukPushUnsupported', 'Push rejected by this RAMBOX') + pv)
+                                    : t('ukPushOff', 'Push off');
                 }
                 el.innerHTML = html;
                 document.getElementById('statTotal').textContent = d.totalKnown  !== undefined ? d.totalKnown  : '--';
@@ -416,6 +443,8 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
                     html += '<td style="padding:8px 10px;border-bottom:1px solid #1e293b;font-family:monospace;color:#86efac">' + escapeHtml(r.chip) + '</td></tr>';
                 }
                 if (tbody) tbody.innerHTML = html;
+                // Pigeon checklist for the "only the ticked ones" training mode (selection kept
+                // across refreshes).
                 var sel = document.getElementById('trainingPombalSelect');
                 if (sel) {
                     var kept = {};
@@ -503,8 +532,24 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
         });
     }
 
-    // Training send/clear (fictitious training race + the ticked pigeon records, explicit request only).
+    // Training: writes the fictitious training race 090 and allocates the pigeons to it.
+    // Three modes: none (race only), all (whole loft), list (only the ticked ones).
+    // Deleting the race is done on the RAMBOX itself (no clear button here).
     var trainingPending = false;
+
+    function trainingMode() {
+        var r = document.querySelectorAll("input[name='trainingMode']");
+        for (var i = 0; i < r.length; i++) if (r[i].checked) return r[i].value;
+        return 'all';
+    }
+
+    function trainingModeChanged() {
+        var m = trainingMode();
+        var sel = document.getElementById('trainingPombalSelect');
+        var wrap = document.getElementById('trainingSelectWrap');
+        if (sel) sel.style.display = (m === 'list') ? 'block' : 'none';
+        if (wrap) wrap.style.display = (m === 'list') ? 'block' : 'none';
+    }
 
     function selectedTrainingRings(box) {
         var out = [];
@@ -525,6 +570,17 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
 
     function sendTraining() {
         if (trainingPending) return;
+        var m = trainingMode();
+        var rings = (m === 'list') ? selectedTrainingRings(document.getElementById('trainingPombalSelect')) : [];
+        if (m === 'list' && rings.length === 0) {
+            _alert('&#10060; ' + t('ukTrainingNoRings', 'Tick at least one pigeon, or choose another mode.'));
+            return;
+        }
+        // "-" = race only | "*" = whole loft | the ring list = only those pigeons.
+        var payload = (m === 'none') ? '-' : (m === 'list') ? rings.join('\n') : '*';
+        var label = (m === 'none') ? t('ukTrainingModeNone', 'Race only (no pigeons)')
+                  : (m === 'list') ? t('ukTrainingModeList', 'Only the ticked ones')
+                  : t('ukTrainingModeAll', 'Whole loft');
         var btn = document.querySelector('[data-i18n="ukBtnSendTraining"]');
         var runSend = function() {
             trainingPending = true;
@@ -534,18 +590,7 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
                 el.style.display = 'block';
                 el.textContent = t('ukTrainingSending', 'Sending training to RAMBOX...');
             }
-            var sel = document.getElementById('trainingPombalSelect');
-            var rings = selectedTrainingRings(sel);
-            var boxes = sel ? sel.querySelectorAll('input[type="checkbox"]').length : 0;
-            // Explicit selection sentinels so "none" and "all" are distinguishable:
-            //   none checked -> "-"  (program the race alone, no pigeons)
-            //   all checked  -> "*"  (whole pombal)
-            //   some checked -> the ring list
-            var payload = (rings.length === 0) ? '-'
-                        : (boxes > 0 && rings.length === boxes) ? '*'
-                        : rings.join('\n');
-            var body = 'rings=' + encodeURIComponent(payload);
-            fetch('/api/unikon-send-training', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
+            fetch('/api/unikon-send-training', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'rings=' + encodeURIComponent(payload) })
                 .then(function(r) { return r.json(); })
                 .then(function(d) {
                     var ok = !!(d && d.success);
@@ -565,44 +610,12 @@ static const char PAGE_UNIKON[] PROGMEM = R"rawliteral(
                     if (btn) btn.disabled = false;
                 });
         };
-        customConfirm(t('ukConfirmTraining', 'Send training contest (race 090) to RAMBOX with the ticked pigeons? (none ticked = race only)'), function(ok) { if (ok) runSend(); });
+        customConfirm(t('ukConfirmTraining', 'Send training contest (race 090) to RAMBOX?') + ' — ' + label,
+                      function(ok) { if (ok) runSend(); });
     }
 
-    var clearTrainingPending = false;
-
-    function clearTraining() {
-        if (clearTrainingPending) return;
-        var btn = document.querySelector('[data-i18n="ukBtnClearTraining"]');
-        var runClear = function() {
-            clearTrainingPending = true;
-            if (btn) btn.disabled = true;
-            var el = document.getElementById('training-toast');
-            if (el) {
-                el.style.display = 'block';
-                el.textContent = t('ukTrainingClearing', 'Clearing training from RAMBOX...');
-            }
-            fetch('/api/unikon-clear-training', { method: 'POST' })
-                .then(function(r) { return r.json(); })
-                .then(function(d) {
-                    var ok = !!(d && d.success);
-                    var msg = d && d.message ? d.message : (ok ? t('ukTrainingCleared', 'Training cleared.') : t('ukTrainingClearError', 'Clear failed.'));
-                    if (el) { el.textContent = msg; }
-                    if (!ok) _alert('&#10060; ' + msg);
-                    setTimeout(function() {
-                        if (el) el.style.display = 'none';
-                    }, 3000);
-                })
-                .catch(function(e) {
-                    _alert('&#10060; ' + t('ukAlertError') + ' ' + e.message);
-                    if (el) { el.textContent = t('ukTrainingClearError', 'Clear failed.'); }
-                })
-                .finally(function() {
-                    clearTrainingPending = false;
-                    if (btn) btn.disabled = false;
-                });
-        };
-        customConfirm(t('ukConfirmClearTraining', 'Remove training contest (race 090) from RAMBOX?'), function(ok) { if (ok) runClear(); });
-    }
+    // Push (device-initiated arrivals) is automatic: the firmware asks the RAMBOX once per
+    // device, at the end of the first poll that identifies it. The page only shows the state.
 
     function _alert(msg) {
         customAlert(msg);

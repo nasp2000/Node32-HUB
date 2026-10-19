@@ -26,17 +26,20 @@ static void buildTrainingName(int day, int month, int hour, int minute,
     }
 }
 
-// ZP content: ADDR 'Z' 'P' RING[11] ' ' CHIP[11] (26 bytes, no STX/ETX/checks).
+// Poul upload line: ADDR 'M' 'Z' 'P' RING[11] ' ' CHIP[11] (27 bytes, no STX/ETX/checks).
+// 'M' is the prefix the vendor driver puts on EVERY poul line (uniUploadPoulData) -- it is
+// not a standalone command; without it the RAMBOX does not store the record.
 static uint8_t buildTrainingZP(const char* ring, const char* chip, bool hasChip,
                                uint8_t* content) {
     content[0] = TRAIN_ADDR;
-    content[1] = 0x5A; // 'Z'
-    content[2] = 0x50; // 'P'
-    memcpy(content + 3, ring, 11);
-    content[14] = 0x20; // space
-    if (hasChip) memcpy(content + 15, chip, 11);
-    else memset(content + 15, '0', 11);
-    return 26;
+    content[1] = 0x4D; // 'M' (poul upload prefix)
+    content[2] = 0x5A; // 'Z'
+    content[3] = 0x50; // 'P'
+    memcpy(content + 4, ring, 11);
+    content[15] = 0x20; // space
+    if (hasChip) memcpy(content + 16, chip, 11);
+    else memset(content + 16, '0', 11);
+    return 27;
 }
 
 // S-frame content cache (ADDR+payload, no STX/ETX/checks), one slot per subtype.
@@ -98,23 +101,24 @@ TEST_CASE("trainingName: no clock falls back to TREINO_NO") {
 
 // ====== ZP builder tests ======
 TEST_CASE("trainingZP: pigeon with chip") {
-    uint8_t content[26];
+    uint8_t content[27];
     uint8_t len = buildTrainingZP("25000061136", "C9BCC229001", true, content);
-    CHECK(len == 26);
+    CHECK(len == 27);
     CHECK(content[0] == TRAIN_ADDR);
-    CHECK(content[1] == 0x5A);
-    CHECK(content[2] == 0x50);
-    CHECK(memcmp(content + 3, "25000061136", 11) == 0);
-    CHECK(content[14] == 0x20);
-    CHECK(memcmp(content + 15, "C9BCC229001", 11) == 0);
+    CHECK(content[1] == 0x4D); // 'M' -- poul upload line prefix
+    CHECK(content[2] == 0x5A);
+    CHECK(content[3] == 0x50);
+    CHECK(memcmp(content + 4, "25000061136", 11) == 0);
+    CHECK(content[15] == 0x20);
+    CHECK(memcmp(content + 16, "C9BCC229001", 11) == 0);
 }
 
 TEST_CASE("trainingZP: pigeon without chip gets zeros") {
-    uint8_t content[26];
+    uint8_t content[27];
     uint8_t len = buildTrainingZP("24004342525", "ignored", false, content);
-    CHECK(len == 26);
-    CHECK(memcmp(content + 3, "24004342525", 11) == 0);
-    CHECK(memcmp(content + 15, "00000000000", 11) == 0);
+    CHECK(len == 27);
+    CHECK(memcmp(content + 4, "24004342525", 11) == 0);
+    CHECK(memcmp(content + 16, "00000000000", 11) == 0);
 }
 
 TEST_CASE("trainingPad: short ring is zero-padded to 11") {
@@ -177,11 +181,12 @@ TEST_CASE("trainingPlan: no cached S-frames sends IC0+I+ZP only") {
     CHECK(trainingPlanFrames(2, false, false, false) == 4);
 }
 
-// Training entry filter: which rings to program.
+// Training entry filter: the API still parses `rings=` (S4 lines or plain rings), but the
+// allocation itself always takes the WHOLE pombal -- see trainingAllocates() below.
 //   ""  -> all (legacy meaning, unchanged)
 //   "*" -> all (explicit whole pombal)
-//   "-" -> none (program the race alone)
-//   else -> only the listed rings
+//   "-" -> parsed, but the allocation still takes the whole pombal
+//   else -> parsed, but the allocation still takes the whole pombal
 static const int TRAIN_FILTER_MAX = 500; // mirrors UNIKON_MAX_ARRIVALS
 enum { TRAIN_MODE_LIST = 0, TRAIN_MODE_ALL = 1, TRAIN_MODE_NONE = 2 };
 static char s_filterRings[TRAIN_FILTER_MAX][12];
@@ -293,11 +298,69 @@ TEST_CASE("trainingFilter: \"*\" selects the whole pombal") {
     CHECK(trainingFilterAllowsReimpl("99999999999"));
 }
 
-TEST_CASE("trainingFilter: \"-\" selects no pigeon (race only)") {
-    setTrainingFilterReimpl("*");
-    CHECK(setTrainingFilterReimpl("-") == 0);
-    CHECK(!trainingFilterAllowsReimpl("24004342525"));
-    CHECK(!trainingFilterAllowsReimpl("anything....."));
+// Allocation mirror of sendTrainingSession(): "-" (NONE) -> no pigeon records; a ring list
+// (LIST) -> only the rings that exist in the pombal; "*"/"" (ALL) -> the whole pombal.
+static uint16_t trainingAllocates(const std::vector<std::string>& pombal, const char* filterText) {
+    (void)setTrainingFilterReimpl(filterText);
+    if (s_filterMode == TRAIN_MODE_NONE) return 0;
+    if (s_filterMode == TRAIN_MODE_LIST) {
+        uint16_t n = 0;
+        for (size_t i = 0; i < pombal.size(); i++)
+            if (trainingFilterAllowsReimpl(pombal[i].c_str())) n++;
+        return n;
+    }
+    return (uint16_t)pombal.size();
+}
+
+// Read-back mirror of sendTrainingSession(): after the two uploads (race + pombal) the pombal
+// is re-read -- the DOS program's menu 4, "Receber dados ... do Unikon-Modulo" -- and compared
+// with what was allocated. The ACK only proves the frame was accepted, not that it was stored.
+static uint32_t pombalHash(const std::vector<std::string>& rings) {
+    uint32_t h = 2166136261u;
+    for (size_t i = 0; i < rings.size(); i++) {
+        for (size_t k = 0; k < rings[i].size() && k < 11; k++) {
+            h ^= (uint8_t)rings[i][k];
+            h *= 16777619u;
+        }
+    }
+    return h;
+}
+
+static bool readBackMatches(const std::vector<std::string>& sent, const std::vector<std::string>& back) {
+    return sent.size() == back.size() && pombalHash(sent) == pombalHash(back);
+}
+
+TEST_CASE("trainingReadBack: identical pombal matches") {
+    std::vector<std::string> sent = { "24004342525", "02002830633", "18008230047" };
+    std::vector<std::string> back = { "24004342525", "02002830633", "18008230047" };
+    CHECK(readBackMatches(sent, back));
+}
+
+TEST_CASE("trainingReadBack: a missing pigeon is a mismatch") {
+    std::vector<std::string> sent = { "24004342525", "02002830633", "18008230047" };
+    std::vector<std::string> back = { "24004342525", "02002830633" };
+    CHECK(!readBackMatches(sent, back));
+}
+
+TEST_CASE("trainingReadBack: a different pigeon is a mismatch") {
+    std::vector<std::string> sent = { "24004342525" };
+    std::vector<std::string> back = { "24004342526" };
+    CHECK(!readBackMatches(sent, back));
+}
+
+TEST_CASE("trainingReadBack: an empty module does not match a non-empty send") {
+    std::vector<std::string> sent = { "24004342525" };
+    std::vector<std::string> back;
+    CHECK(!readBackMatches(sent, back));
+}
+TEST_CASE("trainingAllocates: none / all / list modes") {
+    std::vector<std::string> p = { "24004342525", "02002830633", "18008230047" };
+    CHECK(trainingAllocates(p, "-") == 0);                        // race only, no records
+    CHECK(trainingAllocates(p, "*") == 3);                        // whole pombal
+    CHECK(trainingAllocates(p, "") == 3);                         // legacy whole pombal
+    CHECK(trainingAllocates(p, "24004342525") == 1);              // only the ticked one
+    CHECK(trainingAllocates(p, "24004342525\n18008230047") == 2); // two ticked
+    CHECK(trainingAllocates(p, "99999999999") == 0);              // ticked ring not in the pombal
 }
 
 // ====== Frame '3' contest code (unikon_protocol.cpp parseFrame3Code) ======

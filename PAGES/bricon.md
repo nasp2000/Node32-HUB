@@ -4,18 +4,21 @@
 > button/input, client logic, API endpoints, persistence and the firmware-side
 > engine. Twin of `/unikon`, slimmer.
 >
-> **HARDWARE PENDING (2026-10-17):** the wire driver is not implemented — the
-> page, API and poll engine exist as structure. Poll/training actions answer
-> honestly (`a aguardar hardware`); the passive RX sniffer already logs raw
-> bytes to the monitor so the first Little/Speedy bytes on the wire are
-> visible immediately. Do NOT treat poll results as functional before the tap.
+> **WIRE DRIVER IMPLEMENTED (2026-10-19, from the REA capture):** framing + CK,
+> `ActivateMaster`/BA scan, the `FlightsReadOut` sequence
+> (`GetFancier` → `GetPigeon` chain → `GetTimer`), plus `GetFlightNames` and
+> `GetBandTable`. Validated on the host against the captured byte layouts and
+> against the bench simulator; **not yet exercised against a real clock**.
+> The poll runs on the main loop (blocking RS-232 I/O never runs in the web
+> task), so the poll endpoints schedule it and answer immediately.
 
 ---
 
 ## 1. Objective
 
-Configure and monitor a **Bricon loft module** (Little/Speedy over RS232,
-9600 8N1 default) with the same UX as Unikon: connection status, arrivals,
+Configure and monitor a **Bricon loft module** (Little/DUO/Speedy/Bricon+ over
+RS232, **9600 8N2** — `Communication::StartComm` builds `StopBits.Two`) with the
+same UX as Unikon: connection status, arrivals,
 loft registrations, contests, training send/clear, and module config. Only
 **one module is active at a time** (rambox XOR bricon — enabling one disables
 the other and switches the RS232 profile automatically).
@@ -51,14 +54,14 @@ main.page > div.wrap
 │   └ [3] "🏋️ Training"            → #bk-tab-3
 ├ #bk-tab-0.uk-tab-panel.active
 │   ├ #bk-sec-status (H3 Status + #briconStatus + 4 .stat-cards #bkStatTotal/#bkStatContests/#bkStatPombal/#bkStatAgo + [Update] [Reset] + #bricon-poll-toast)
-│   └ #bk-sec-config (H3 Configuration + #bkRs232Info + form#briconForm: checkbox #briconEnabled, select #briconInterval, select #briconBaud)
+│   └ #bk-sec-config (H3 Configuration + #bkRs232Info + form#briconForm: checkbox #briconEnabled, select #briconInterval, #briconBaud, #briconCountry, #briconBa, #briconData, #briconParity, #briconStop)
 ├ #bk-tab-1.uk-tab-panel
-│   ├ #bk-sec-arrivals (H3 Race Arrivals + table > tbody#briconArrivalsBody — TODO: wire when driver lands)
+│   ├ #bk-sec-arrivals (H3 Race Arrivals + table: #, Ring, Chip ETS, Time, Date, Race, **Pos**, **Eval** — the RS-232 record fields; tbody#briconArrivalsBody)
 │   └ #bk-sec-contests (H3 Calendar + [Sync Calendar → briconSyncCalendar] + table > tbody#briconContestsBody + #bricon-calendar-toast)
 ├ #bk-tab-2.uk-tab-panel
 │   └ #bk-sec-pombal (H3 Loft + [Sync Pigeon Loft → briconSyncPombal] + table > tbody#briconPombalBody + #bricon-pombal-toast)
 ├ #bk-tab-3.uk-tab-panel
-│   └ #bk-sec-training (H3 Training + [Send Training] [Clear Training] + #bricon-training-toast)
+│   └ #bk-sec-training (H3 Designations + [Designate (SendDesignated)] + #bricon-training-toast)
 ├ .uk-savebar ([💾 Save Configuration → saveBriconConfig], common to all tabs)
 └ #bricon-config-status
 ```
@@ -73,7 +76,11 @@ Tab switching: `bkSwitchTab(idx)` toggles `.active` on buttons + panels, persist
 |---|---|---|---|
 | Module active | `enabled` | checkbox | master enable; **enabling Bricon disables Unikon** (exclusive rule) |
 | Polling interval | `interval` | select (s): 0 Manual, 60, 180 (default), 300, 600, 900, 1200, 1800, 3600 | 0 = manual only |
-| Baud | `baud` | select: 1200–115200, default 9600 | stored in `/config/bricon.json`; applied via deferred `_pendingRS232Apply` |
+| Baud | `baud` | select: 1200–115200, default 9600 | stored in `/config/bricon.json`; applied via deferred `_pendingRS232Apply`. 38400 only matters for the firmware-update path |
+| Country (layout) | `country` | select PT/ES/FR/BE/NL/UK/HU/RO/PL, default **PT** | decides the record layout: `Utils::IsUKProtocol` / `GetPigeonCommand::HandleResponse`. PT ⇒ FedBand **14 B** (53-byte arrival) and **non-UK** fancier (104 B) |
+| Clock address | `ba` | select auto-scan / 0x82 Bricon·Little·DUO / 0x81 Benzing / 0x83 Tauris / 0x84 Tipes / 0x85 Unikon / 0x10 Master / 0x00 club, default **auto** | `Adresses` enum; auto = the recovered scan list `[0x10, 0x80..0x85, 0x00]` |
+| Data / Parity / Stop | `data`/`parity`/`stop` | 8 / none / **2** | REA: the link is **8N2** (Unikon is 8N1). The stop bit is now selectable so the bench can try both |
+| Club / Flight code | `club`/`flight` | 4 chars each, default **0000** | carried in the `GetPigeon` request (`58\|C8 0A idx clube4 voo4`). `0000` is the wildcard the app tolerates (it substitutes the requested ids when the clock echoes `0000`) |
 
 ---
 
@@ -82,12 +89,11 @@ Tab switching: `bkSwitchTab(idx)` toggles `.active` on buttons + panels, persist
 | Button | Behaviour |
 |---|---|
 | 🏠 Home | link `/` |
-| 🔍 Update | `briconPoll()` → `POST /api/bricon-poll` → toast + status refresh |
-| 🔄 Reset | `briconReset()` → `POST /api/bricon-reset` → status refresh |
-| 🗓️ Sync Calendar | `briconSyncCalendar()` → `POST /api/bricon-sync-calendar` → toast + contests/status refresh (pending message until driver lands) |
-| 🔄 Sync Pigeon Loft | `briconSyncPombal()` → `POST /api/bricon-sync-pombal` → toast + loft/status refresh (pending message until driver lands) |
-| 📡 Send Training | `briconSendTraining()` → `POST /api/bricon-send-training` → toast (pending message until driver lands) |
-| 🗑️ Clear Training | `briconClearTraining()` → `POST /api/bricon-clear-training` → toast (pending message) |
+| 🔍 GetPigeon | `briconPoll()` → `POST /api/bricon-poll` → toast + status refresh. Schedules a **full poll**: activate → `GetFancier` → `GetPigeon` chain (`58\|C8 0A idx clube4 voo4`, `idx+1` until status `0x05`) → `GetTimer` → `GetFlightNames` → `GetBandTable` |
+| 🔄 Reset Count | `briconReset()` → `POST /api/bricon-reset` → status refresh. Local counters only — there is no clock reset here (the ESP32 *is* the PC master, so `ResetMaster 10 67 00` does not apply) |
+| 🗓️ GetFlightNames | `briconSyncCalendar()` → `POST /api/bricon-sync-calendar`. Reads the contests with `GetFlightNames` (`FA 0C idx`, also chained) — the captured calendar read |
+| 🔄 GetFancier | `briconSyncPombal()` → `POST /api/bricon-sync-pombal`. Reads the loft with the `GetFancier` chain (`51\|C1`) — the captured registration read |
+| 📡 Designate (SendDesignated) | `briconSendTraining()` → `POST /api/bricon-send-training`. **Bricon has no Unikon-style training session**: `StartReadout`/`StartBasket`/`StartTempReadout` are unreferenced in BriconLib (proven). The captured way to allocate pigeons is `SendDesignated`. |
 | 💾 Save Configuration (savebar, all tabs) | `saveBriconConfig()` → urlencoded `POST /api/bricon-config` (`enabled`, `interval`, `baud`) → status reload |
 
 ---
@@ -99,7 +105,7 @@ Tab switching: `bkSwitchTab(idx)` toggles `.active` on buttons + panels, persist
 - **`bkTabs` (4 groups) / `bkSwitchTab(idx)` / `bkShowTab(idx)` alias / `bkBuildTabs()`** — 4 tab panels (`#bk-tab-0..3`), persisted in `localStorage['bk_tab']`; same pattern as Unikon `ukSwitchTab` but with Bricon-green active button.
 - **`loadBriconStatus()`** — `GET /api/bricon-status`; renders connected badge/module/pending/RX counters + stat cards (`#bkStatTotal/Contests/Pombal/Ago`); syncs `enabled`/`interval`/`baud` on first load; chains `loadBriconArrivals/Pombal/Contests/loadBkRs232Info`; auto-refresh every 8 s (same as Unikon).
 - **`briconRow(a, n)` / `briconCat(c)`** — same row formatting as Unikon (HHMMSS → HH:MM:SS, DDMMYY → DD/MM) plus Bricon `category`/`speed` columns.
-- **Actions** — `briconPoll/Reset/SyncCalendar/SyncPombal/SendTraining/ClearTraining/saveBriconConfig` as above; no arrow functions; no `customAlert` (toasts only).
+- **Actions** — `briconPoll/Reset/SyncCalendar/SyncPombal/SendTraining/saveBriconConfig` as above (`briconClearTraining` was removed — no captured equivalent); no arrow functions; no `customAlert` (toasts only).
 - **Web tests** (`tests/web/test_bricon.js`) cover `besc`, `bt`, 4-tab bar, panel show/hide, all section + stat-card IDs and function existence against `tests/web/pages/bricon_asset.html`.
 
 ---
@@ -112,7 +118,8 @@ Handlers in `handlers_unified/bricon_handler.cpp` (WiFi, via `registerApiRoute`)
 
 ```json
 {"connected":false,"hardwarePending":true,"enabled":false,"intervalSec":180,
- "baud":9600,"lastRxAgoSec":0,"bytesRx":0,"framesSeen":0,"activeModule":"none"}
+ "baud":9600,"dataBits":8,"parity":"none","stopBits":2,"country":"PT","baAddress":0,
+ "lastRxAgoSec":0,"bytesRx":0,"framesSeen":0,"activeModule":"none"}
 ```
 
 `connected` flips true on the first RX byte; `activeModule` is `rambox`|`bricon`|`none`.
@@ -121,8 +128,9 @@ Handlers in `handlers_unified/bricon_handler.cpp` (WiFi, via `registerApiRoute`)
 
 Live PSRAM data (empty until first ingest):
 `GET /api/bricon-arrivals|registrations|contests|pombal`. Arrivals carry
-`kind`, `race`, `sex`, `color`, `category` (0 unknown/1 old/2 yearling/3 young),
-`speed`, `speed2`, `antenna`, `posArriveClub`, `posEnterClub`; contests carry
+`kind`, `race`, `posArriveClub`, `posEnterClub`, **`evaluation`** (`"1"` = clocked/valid,
+`"0"` = unclassified/poul letter). `sex`/`color`/`category`/`speed` come from the club
+database, **not** from the RS-232 record — the page only shows wire fields; contests carry
 `club`, `distance`, `pigeonCount`, `emailSent`, `webSent` (fields Bricon
 provides natively and Unikon does not). Pombal returns raw ring/chip.
 
@@ -130,10 +138,10 @@ provides natively and Unikon does not). Pombal returns raw ring/chip.
 
 | Endpoint | Effect |
 |---|---|
-| `/api/bricon-config` | `briconSetConfig()` + `briconSetEnabled()` (enabling applies RS232 profile + disables Unikon). Success toast follows `system_language` (`apiBriconCfgActive`/`apiBriconCfgOff`) |
-| `/api/bricon-poll` | `briconRequestWOnlyPoll()` → pending message (driver TBD) |
-| `/api/bricon-sync-pombal` | `briconRequestXOnlyPoll()` → pending message |
-| `/api/bricon-sync-calendar` | `briconRequestIcOnlyPoll()` → pending message |
+| `/api/bricon-config` | urlencoded `enabled`, `interval`, `baud`, **`data`, `parity`, `stop`, `country`, `ba`** → `briconSetConfig()` + `briconSetEnabled()` (enabling applies the RS232 profile + disables Unikon). Success toast follows `system_language` |
+| `/api/bricon-poll` | `briconRequestWOnlyPoll()` → schedules the **arrivals-only** readout (`GetFancier` + `GetPigeon` chain + `GetTimer`) |
+| `/api/bricon-sync-pombal` | `briconRequestXOnlyPoll()` → schedules the **pombal** readout (`GetBandTable`) |
+| `/api/bricon-sync-calendar` | `briconRequestIcOnlyPoll()` → schedules the **calendar** readout (`GetFlightNames` chain) |
 | `/api/bricon-reset` | no-op success (no data yet) |
 | `/api/bricon-send-training` | pending message (driver TBD) |
 | `/api/bricon-clear-training` | pending message (driver TBD) |
@@ -147,7 +155,7 @@ All poll/sync/training POSTs refuse with the localized `apiBriconDisabled` messa
 Dedicated file **`/config/bricon.json`** (`bricon_protocol.cpp`), written atomically (`.tmp` → `bytes>0` check → remove original → rename):
 
 ```json
-{"enabled":false,"interval":0,"baud":9600,"parity":"none","data":8,"stop":1}
+{"enabled":false,"interval":0,"baud":9600,"parity":"none","data":8,"stop":2,"country":"PT","ba":0}
 ```
 
 ---
@@ -157,10 +165,19 @@ Dedicated file **`/config/bricon.json`** (`bricon_protocol.cpp`), written atomic
 `bricon_protocol.{h,cpp}` (`#if ENABLE_BRICON==1`).
 
 - **Lifecycle**: `briconBegin()` (setup) loads config, enforces exclusion, requests RS232 profile; `briconUpdate()` (loop) drives poll flags + passive RX sniffer (non-blocking, throttled 500 ms hex log).
-- **Exclusion**: `briconSetEnabled(true)` disables Unikon (`unikonSetConfig`); enabling Unikon (`handlers/unikon_handler.cpp` config POST) disables Bricon. `briconActiveModuleName()` reports `rambox`|`bricon`|`none`.
-- **RS232 profiles**: `briconApplySerialProfile()` writes `rs232_baudrate[_index]/_data_bits/_parity/_stop_bits` (pins untouched) + `_pendingRS232Apply`. Rambox profile = 9600 8N1 standard.
+- **Exclusion + RS232 profile (automatic)**: enabling Bricon disables Unikon **and** applies the
+  Bricon profile **9600 8N2**; enabling Unikon disables Bricon **and** applies **9600 8N1**.
+  Each module owns its framing, so choosing the module switches the port with no manual setup
+  (`briconApplySerialProfile()` / `unikonApplySerialProfile()`, applied on the main loop).
+  While a module is enabled the RS232 page's saved settings are **not** restored over it. `briconActiveModuleName()` reports `rambox`|`bricon`|`none`.
+- **RS232 profiles**: `briconApplySerialProfile()` writes `rs232_baudrate[_index]/_data_bits/_parity/_stop_bits` (pins untouched) + `_pendingRS232Apply`. **Bricon profile = 9600 8N2** (REA: `StopBits.Two`); Unikon is 8N1. Enabling logs the derived profile: baud/framing, country, FedBand length, arrival record size, fancier flavour and BA mode.
 - **Data model**: `BriconArrival`/`BriconContest` carry the fields Bricon natively exposes (sex, colour, category, speed, antenna, club positions, distance, email/web flags) — not just Unikon's ring/chip/time. Ingestion is a single funnel (`briconIngestArrival`) shared by the future poll parser and spontaneous frames.
-- **Driver gap**: `briconPollNow()` funnels everything through the pending-driver message. Search marker `BriconPending` for the fill-in point.
+- **Wire layer (implemented)**: `bkSendRequest`/`bkReadReply`/`bkCommand` (framing `6C…CK` / `33…CK`, 1 ms pacing,
+  3 retries, echo + CK validation), `briconActivate`/`briconFindDevice` (configured address, else the recovered
+  scan order `[0x10, 0x82, 0x81, 0x83, 0x84, 0x85, 0x80, 0x00]`), `briconReadFancier`,
+  `briconReadArrivals` (chained), `briconReadTimer`, `briconReadCalendar`, `briconReadPombal`,
+  and `briconParsePigeon` (country-driven FedBand 14/22 → 53/61-byte records).
+  `briconPoll(arrivals, calendar, pombal)` is the single entry point used by the loop.
 
 ---
 
@@ -177,7 +194,7 @@ Dedicated file **`/config/bricon.json`** (`bricon_protocol.cpp`), written atomic
 | # | Finding | Severity | Suggested fix |
 |---|---|---|---|
 | BRC-1 | **No Ethernet mirror.** Only WiFi routes registered; no `/bricon` page or `/api/bricon-*` dispatch over W5500. | Medium | Mirror like unikon (page + API dispatch) once the driver lands. |
-| BRC-2 | **Driver is structure-only.** Poll/training POSTs answer but transmit nothing. | High (known) | Fill `BriconPending` point after the Little tap (§9 briconREA.md). |
+| BRC-2 | ~~Driver is structure-only~~ **RESOLVIDO 2026-10-19:** the wire layer is implemented (framing/CK, activation scan, GetFancier→GetPigeon→GetTimer, GetFlightNames, GetBandTable) and host-tested against the captured layouts. Pending: exercise it against a real clock. | Done (needs HW run) | Run the bench: simulator on the 2nd ESP32 / `fake_clock.py` on a USB-RS232 port. |
 | BRC-3 | **No arrivals storage yet.** No PSRAM ring for Bricon arrivals/registrations. | Medium | Mirror unikon storage when the driver lands. |
 | BRC-4 | ~~Server toast messages hardcoded (mostly PT)~~ **RESOLVIDO 2026-10-18:** handler now uses `L(activeLang->apiBriconCfgActive/CfgOff/Disabled/Pending/NothingReset)` (`lang_types.h` + `lang_active.cpp` PT/EN) so toasts follow `system_language`, same pattern as other handlers. | Done | — |
 

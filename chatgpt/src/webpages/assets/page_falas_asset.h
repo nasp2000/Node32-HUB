@@ -12,7 +12,7 @@ static const char FALAS_PAGE[] PROGMEM = R"rawliteral(
 <h1 data-i18n="touch7Falas">🔊 Falas locais</h1>
 <p>Frases WAV em <code>/falas</code> (16-bit PCM mono, 16 kHz). Para enviar ficheiros novos use a pagina <a href="/files">Files</a>.</p>
 <div class="card">
-<button class="btn" id="bFalasRef">Refresh list</button>
+<button class="btn" id="bFalasRef" title="Refresh the list of announcements" data-i18n-title="falasTipRefresh">Refresh list</button>
 <span id="falasStatus">A carregar...</span>
 <table id="falasTable"><thead><tr><th>File</th><th>Tamanho</th><th></th><th></th></tr></thead><tbody id="falasBody"></tbody></table>
 </div>
@@ -20,9 +20,9 @@ static const char FALAS_PAGE[] PROGMEM = R"rawliteral(
 <h2 data-i18n="touch7Peers">Peers (viewer 2+2)</h2>
 <p>Configure os nodes remotos (ex. pack CAM) em JSON e grave. Teste com o botao.</p>
 <textarea id="peersJson" rows="10" cols="60"></textarea><br>
-<button class="btn" id="bPeersLoad">Load config</button>
-<button class="btn" id="bPeersSave">Save</button>
-<button class="btn" id="bPeersTest" data-i18n="touch7Test">Testar agora</button>
+<button class="btn" id="bPeersLoad" title="Load the peer configuration" data-i18n-title="falasTipPeersLoad">Load config</button>
+<button class="btn" id="bPeersSave" title="Save the peer configuration" data-i18n-title="falasTipPeersSave">Save</button>
+<button class="btn" id="bPeersTest" data-i18n="touch7Test" title="Test the announcement now" data-i18n-title="falasTipPeersTest">Testar agora</button>
 </div>
 <script>
 function falasShow(m){ customAlert(m); }

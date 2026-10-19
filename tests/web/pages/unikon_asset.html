@@ -32,6 +32,11 @@
                     <button onclick='resetState()' class='btn' style='flex:1;min-width:160px;background:#374151;border-color:#374151' data-i18n='ukBtnResetCount'>&#128256; Reset Count</button>
                 </div>
                 <div id='poll-toast' style='display:none;margin-top:10px;padding:10px 14px;background:#1e3a8a;border-left:4px solid #3b82f6;border-radius:6px;font-size:13px;color:#e0e7ff'></div>
+                <div style='margin-top:14px;padding:12px 14px;background:#1e293b;border-left:4px solid #a855f7;border-radius:6px'>
+                    <div style='font-size:13px;color:#c4b5fd;font-weight:600;margin-bottom:6px' data-i18n='ukPushTitle'>Arrival push (faster than polling)</div>
+                    <div style='font-size:12px;color:#94a3b8;margin-bottom:8px' data-i18n='ukPushHint'>Asked automatically per RAMBOX: the auto-poll keeps running as the guarantee, so an arrival can show up before the next poll.</div>
+                    <div id='push-state' style='font-size:12px;color:#a5b4fc' data-i18n='ukPushOff'>Push off</div>
+                </div>
             </div>
 
             <!-- Section 2: Arrivals table -->
@@ -98,6 +103,11 @@
                     </div>
                 </details>
                 <div id='pombal-toast' style='display:none;margin-top:10px;padding:10px 14px;background:#16a34a;border-left:4px solid #22c55e;border-radius:6px;font-size:13px;color:#dcfce7'></div>
+                <div>
+                    <label><input type='radio' name='trainingMode' value='none'>none</label>
+                    <label><input type='radio' name='trainingMode' value='all' checked>all</label>
+                    <label><input type='radio' name='trainingMode' value='list'>list</label>
+                </div>
                 <div id='trainingPombalSelect'></div>
             </div>
 
@@ -612,8 +622,14 @@ _testNames.forEach(function(n) {
     loadPombal();
     setInterval(function() { loadPombal(); }, 8000);
 
-    // Training actions (mirror of page_unikon_asset.h sendTraining/clearTraining guards).
+    // Training (mirror of page_unikon_asset.h sendTraining): 3 modes --
+    // none -> "-", all -> "*", list -> the ticked rings. Deleting the race is done on the RAMBOX.
     var trainingPending = false;
+    function trainingMode() {
+        var r = document.querySelectorAll("input[name='trainingMode']");
+        for (var i = 0; i < r.length; i++) if (r[i].checked) return r[i].value;
+        return 'all';
+    }
     function selectedTrainingRings(box) {
         var out = [];
         if (!box || !box.querySelectorAll) return out;
@@ -631,25 +647,15 @@ _testNames.forEach(function(n) {
     }
     function sendTraining() {
         if (trainingPending) return;
+        var m = trainingMode();
+        var rings = (m === 'list') ? selectedTrainingRings(document.getElementById('trainingPombalSelect')) : [];
+        var payload = (m === 'none') ? '-' : (m === 'list') ? rings.join('\n') : '*';
         trainingPending = true;
-        var sel = document.getElementById('trainingPombalSelect');
-        var rings = selectedTrainingRings(sel);
-        var boxes = sel ? sel.querySelectorAll('input[type="checkbox"]').length : 0;
-        // none checked -> "-" (race only) | all checked -> "*" (whole pombal) | else the list
-        var payload = (rings.length === 0) ? '-'
-                    : (boxes > 0 && rings.length === boxes) ? '*'
-                    : rings.join('\n');
-        var body = 'rings=' + encodeURIComponent(payload);
-        fetch('/api/unikon-send-training', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body });
+        fetch('/api/unikon-send-training', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'rings=' + encodeURIComponent(payload) });
         trainingPending = false;
     }
-    var clearTrainingPending = false;
-    function clearTraining() {
-        if (clearTrainingPending) return;
-        clearTrainingPending = true;
-        fetch('/api/unikon-clear-training', { method: 'POST' });
-        clearTrainingPending = false;
-    }
+    // Push (device-initiated arrivals) is automatic: asked once per RAMBOX at the end of the
+    // first poll that identifies it. The page only displays the state (#push-state).
     </script>
 
 <script>

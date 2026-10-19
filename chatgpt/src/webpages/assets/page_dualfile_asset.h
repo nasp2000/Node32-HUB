@@ -160,7 +160,7 @@ body{background:#020617;color:#e2e8f0;font-family:system-ui,-apple-system,'Segoe
 <div id="viewer-modal"></div>
 <div id="help-modal">
   <div class="hm-content">
-    <div class="hm-header"><span>Dual File Manager Help</span><button class="btn" onclick="closeHelp()">Close</button></div>
+    <div class="hm-header" title="Close the help" data-i18n-title="dfTipCloseHelp"><span>Dual File Manager Help</span><button class="btn" onclick="closeHelp()">Close</button></div>
     <div class="hm-body">
       <table>
         <tr><th>Key</th><th>Action</th></tr>
@@ -460,10 +460,10 @@ function openViewer(name,content,totalSize,truncated,path,storage){
   if(!modal)return;
   var html='<div class="vm-header"><span>'+escHtml(name)+' ('+formatSize(totalSize)+')</span>';
   if(truncated)html+='<span style="color:#f59e0b;font-size:12px">Truncated</span>';
-  html+='<button class="btn" onclick="editViewerFile()">Edit</button>';
+  html+='<button class="btn" onclick="editViewerFile()" title="Edit this file" data-i18n-title="dfTipEdit">Edit</button>';
   var dlLink='/api/sd/download?path='+encodeURIComponent(path)+'&storage='+encodeURIComponent(storage);
   html+='<a href="'+dlLink+'" download class="btn" style="text-decoration:none;display:inline-block" target="_blank">Download</a>';
-  html+='<button class="btn" onclick="closeViewer()">Close</button></div>';
+  html+='<button class="btn" onclick="closeViewer()" title="Close the viewer" data-i18n-title="dfTipCloseViewer">Close</button></div>';
   html+='<div class="vm-body"><pre>'+escHtml(content)+'</pre></div>';
   modal.innerHTML=html;
   modal.style.display='flex';
@@ -496,8 +496,8 @@ function showEditorModal(name,path,storage,content,totalSize){
   var modal=document.getElementById('viewer-modal');
   if(!modal)return;
   var html='<div class="vm-header"><span>Editing: '+escHtml(name)+' ('+formatSize(totalSize)+')</span>';
-  html+='<button class="btn" onclick="saveEditorFile(\''+escHtml(path)+'\',\''+storage+'\')">Save (Ctrl+S)</button>';
-  html+='<button class="btn" onclick="closeViewer()">Cancel (Esc)</button></div>';
+  html+='<button class="btn" onclick="saveEditorFile(\''+escHtml(path)+'\',\''+storage+'\')" title="Save this file" data-i18n-title="dfTipSave">Save (Ctrl+S)</button>';
+  html+='<button class="btn" onclick="closeViewer()" title="Cancel and close" data-i18n-title="dfTipCancel">Cancel (Esc)</button></div>';
   html+='<textarea id="editor-textarea">'+escHtml(content)+'</textarea>';
   modal.innerHTML=html;
   modal.style.display='flex';

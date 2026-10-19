@@ -4,17 +4,29 @@
 > button/input, client logic, API endpoints, persistence and the firmware-side
 > RS-232 RAMBOX protocol engine. Written for both humans and AI agents.
 >
-> **TRAINING ATIVO (2026-10-18):** a secção Training Session
-> (`#uk-sec-training`, Send/Clear Training) está visível no tab Pombal e
-> funcional: `Send Training` programa a prova fictícia `UNIKON_TRAINING_CODE`
-> ("090" = literal '0' + prova 90) com IC0 + I-frame + S1/S2/S3 em replay e os
-> registos dos pombos **marcados** na caixa `#trainingPombalSelect`:
-> **nenhum marcado = só a prova** (`rings=-`), **todos = pombal todo** (`rings=*`),
-> **alguns = só esses** (lista). O botão só age por pedido explícito, nunca automático.
+> **TRAINING (2026-10-19):** a secção Training Session (`#uk-sec-training`) tem
+> o botão `Send Training` + **3 modos** de alocação (radio `trainingMode`):
+> **só a prova** (`rings=-`, sem registos de pombos — teste), **pombal todo**
+> (`rings=*`, por omissão) e **só os marcados** (`#trainingPombalSelect`, que só
+> aparece nesse modo). Escreve a prova fictícia `UNIKON_TRAINING_CODE` ("090" =
+> literal '0' + prova 90) — os dois "F7 Transmitir dados" do programa DOS da
+> deister (`UNI.EXE` V1.16: menu 1 = pombos, menu 3 = plano de vôo; ambos
+> perguntam "Módulo de gravação activado?" ⇒ escrevem **no módulo**):
+> `IC0` + I-frame + S1/S2/S3 em replay **+ `M` + linha do pombo por cada pombo
+> alocado**. Uma prova **sem os pombos alocados não abre** ⇒ nada no polling.
+> No fim o firmware faz **leitura de volta** (X) e compara
+> (`read-back … MATCH/MISMATCH`). O botão só age por pedido explícito, nunca
+> automático. **Não há botão de apagar** — a prova apaga-se na RAMBOX.
 
 ---
 
 ## 1. Objective
+
+**Module exclusivity + RS232 profile (automatic):** only one Rambox module can be
+active. Enabling Unikon disables Bricon **and applies the RAMBOX profile 9600 8N1**
+(`unikonApplySerialProfile()`); enabling Bricon disables Unikon and applies **9600 8N2**
+(Bricon uses `StopBits.Two`). While a module is enabled its framing is authoritative —
+the RS232 page's saved settings are not restored over it.
 
 Configure and monitor a **Unikon RAMBOX pigeon-racing terminal** over RS-232
 (9600 8N1): connection status + club/fancier/race identity, race arrivals
@@ -57,11 +69,12 @@ main.page > div.wrap
  │   ├ #unikonStatus (identity/connection block)
  │   ├ stat cards: #statTotal #statRace #statNew #statAgo
  │   ├ [🔍 Update Arrivals (W)] [🔄 Reset Count]
+ │   ├ #push-state  (push automático: pedido uma vez por RAMBOX no fim do 1.º poll)
  │   └ #poll-toast (hidden)
  ├ #uk-sec-arrivals    (TAB Arrivals: table > tbody#raceArrivalsBody, cols #/Ring/Chip ETS/Time/Date/Race)
  ├ #uk-sec-contests    (TAB Contests: [Sync Calendar] + table > tbody#contestsBody + #calendar-toast)
  ├ #uk-sec-pombal      (TAB Loft: [Sync Pigeon Loft] [#btnEmailPombal] + details#pombalListToggle > tbody#pombalBody + #pombal-toast)
- ├ #uk-sec-training    (TAB Loft, grouped with pombal: [Send Training] [Clear Training] + #trainingPombalSelect checkbox list + #training-toast)
+ ├ #uk-sec-training    (TAB Loft, grouped with pombal: [Send Training] + #training-toast — sem lista de pombos e sem botão de apagar)
  ├ #uk-sec-guide       (TAB Configuration, grouped with config: jumper pin 9→5, 9600 8N1)
  └ #uk-sec-config      (TAB Configuration: #rs232Info/#rs232InfoText + form#unikonForm + #status)
      └ form#unikonForm: checkbox #enabled, checkbox #official_format, select #interval, [Save Configuration]
@@ -93,8 +106,8 @@ Configuration→`[sGuide, sConfig]`; default tab index 0.
 | 🗓️ Sync Calendar | `syncCalendar()` → `customConfirm(ukConfirmCalendar)` → `POST /api/unikon-sync-calendar` → toast, reload contests+status after 2 s |
 | 🔄 Sync Pigeon Loft | `syncPombal()` → `customConfirm(ukConfirmPombal)` → `POST /api/unikon-sync-pombal` → toast, reload pombal+status |
 | ✉️ Email Pigeon Loft (`#btnEmailPombal`) | `emailPombal()` → `customConfirm(ukConfirmEmailPombal)` → `POST /api/unikon-email-pombal`; re-entrancy guard `emailPombalPending`, button disabled while sending |
-| 📡 Send Training | `selectedTrainingRings()` reads checked boxes in `#trainingPombalSelect` (populated by `loadPombal`, selection kept across refreshes) + `Todos`/`Nenhum` shortcuts (`trainingCheckAll`) → payload sentinel: **none ticked = `-`** (program the race alone), **all ticked = `*`** (whole pombal), **some ticked = the ring list** → `customConfirm(ukConfirmTraining)` → `POST /api/unikon-send-training` (urlencoded `rings=`) ; guard `trainingPending` |
-| 🗑️ Clear Training | `clearTraining()` → `customConfirm(ukConfirmClearTraining)` → `POST /api/unikon-clear-training`; guard `clearTrainingPending` |
+| 📡 Send Training | `sendTraining()` → `customConfirm(ukConfirmTraining + ' — ' + modo)` → `POST /api/unikon-send-training` com **3 modos** (radio `trainingMode`): **`none`** → `rings=-` (só a prova, sem registos de pombos), **`all`** (por omissão) → `rings=*` (pombal todo), **`list`** → a lista de anilhas marcadas em `#trainingPombalSelect` (a lista e os atalhos Todos/Nenhum só aparecem nesse modo). Guard `trainingPending`. Escreve a prova de treino — os dois "F7 Transmitir dados" do programa DOS: `IC0` + `I…` (a prova) e `M` + linha do pombo (os pombos) — e no fim faz **leitura de volta** e compara (`read-back … MATCH/MISMATCH`). **Não há botão de apagar** (a prova apaga-se na RAMBOX). |
+| 🗑️ ~~Clear Training~~ | **Removido (2026-10-19)** — a prova apaga-se **na RAMBOX**, é mais seguro. A rota `POST /api/unikon-clear-training` mantém-se apenas como **diagnóstico manual** (sem botão na página). |
 | 💾 Save Configuration | `saveUnikonConfig()` → urlencoded `POST /api/unikon-config` (`enabled`, `official_format`, `interval`) → `customAlert` + `showSavedCard()`; sets `configLoaded=false` to re-sync |
 
 ---
@@ -107,7 +120,8 @@ Configuration→`[sGuide, sConfig]`; default tab index 0.
 - **`loadContests()`** (`:283`) / **`loadPombal()`** (`:351`) — fill `#contestsBody` (`{code,date,name}`) and `#pombalBody` (`{ring,chip}`) with empty-state fallbacks.
 - **`loadRs232Info()`** (`:531`) — `GET /api/config?section=rs232`; shows `baud · 8N1` + active/inactive dot in `#rs232InfoText`, with links to `/rs232` and `/email`.
 - **Boot + polling** (`:551-557`) — `loadStatus/loadArrivals/loadContests/loadRs232Info/loadPombal` on load; `setInterval(..., 8000)` refreshes status+arrivals and pombal. No arrow functions; `customConfirm`/`customAlert` used throughout.
-- **Web tests** (`tests/web/test_unikon.js`) cover `escapeHtml`, `buildArrivalsRows` (incl. coluna Prova), `splitArrivals`/`selectedTrainingRings`, the `sendTraining` payload sentinels (**none `-` / all `*` / some = list**) and function existence (incl. `sendTraining`/`clearTraining` + guards) against `tests/web/pages/unikon_asset.html`.
+- **Push (sem botões)** — o push é **automático**: o firmware pede-o uma vez por RAMBOX no fim do primeiro poll que o identifica. A página só mostra `#push-state` (*off* / *activo + ident* / *recusado*), actualizado pelo `loadStatus()`.
+- **Web tests** (`tests/web/test_unikon.js`) cover `escapeHtml`, `buildArrivalsRows` (incl. coluna Prova), `splitArrivals`, the `sendTraining` payload (**sempre `rings=*`** — o pombal todo) e a ausência dos controlos removidos (`clearTraining` e `#trainingPombalSelect` já não existem), contra `tests/web/pages/unikon_asset.html`.
 
 ---
 
@@ -121,9 +135,12 @@ Handlers in `handlers_unified/unikon_handler.cpp` (WiFi, via `registerApiRoute`)
 {"connected":true,"lastPollAgoSec":12,"totalKnown":42,"raceKnownCount":40,
  "trainingKnownCount":2,"lastNewCount":3,"registeredCount":120,"contestCount":8,
  "moduleId":"...","clubName":"...","soltaName":"...","clubCode":"...","fancierName":"...",
- "raceDate":"15.06","raceName":"CANAME","enabled":true,"intervalSec":180,
+ "raceDate":"15.06","raceName":"CANAME","pushState":0,"pushActive":false,"pushAuto":false,
+ "pushCode":0,"pushVersion":"...","enabled":true,"intervalSec":180,
  "polling":true,"passiveListen":false,"officialFormat":true,"emailDest":"..."}
 ```
+
+`pushState`: 0 = off, 1 = active, 2 = rejected/unsupported. `pushCode`: 0 = ACK, 0x3f1 = NAK, 0x3ef = no answer. `pushVersion`: ident the push was negotiated with (empty until probed). Buffer widened to 1200 B for the extra fields.
 
 `emailDest` comes from `configManager.getEmailDestination()` (`:38`); `raceKnownCount`/`trainingKnownCount` recomputed by scanning arrivals with valid time (`:23-36`).
 
@@ -146,8 +163,9 @@ Handlers in `handlers_unified/unikon_handler.cpp` (WiFi, via `registerApiRoute`)
 | `/api/unikon-sync-pombal` | `unikonRequestXOnlyPoll()` (X registrations) |
 | `/api/unikon-email-pombal` | `unikonQueuePombalSeasonEmail(msg)` (no disabled-guard; always attempts queue) |
 | `/api/unikon-reset` | `unikonResetArrivalsOnly()` (keeps contests+registrations; no disabled-guard) |
-| `/api/unikon-send-training` | `unikonSetTrainingFilter(rings)` + `unikonRequestSendTraining()` (writes IC0 + I-frame `UNIKON_TRAINING_CODE` + cached S1/S2/S3 + pigeon records when enabled). Selection sentinels: `rings=-` → `UNIKON_TRAIN_MODE_NONE` (race only), `rings=*` → `UNIKON_TRAIN_MODE_ALL` (whole pombal), list → `UNIKON_TRAIN_MODE_LIST`; **empty `rings=` keeps the legacy whole-pombal meaning**) |
-| `/api/unikon-clear-training` | `unikonRequestClearTraining()` (removes the training contest `UNIKON_TRAINING_CODE` when enabled) |
+| `/api/unikon-send-training` | `unikonSetTrainingFilter(rings)` + `unikonRequestSendTraining()`. **3 modos**: `rings=-` → `UNIKON_TRAIN_MODE_NONE` (só a prova, sem registos), `rings=*` → `UNIKON_TRAIN_MODE_ALL` (pombal todo), lista de anilhas → `UNIKON_TRAIN_MODE_LIST` (só as marcadas). No fim faz **leitura de volta** (X) e compara (`read-back`). |
+| `/api/unikon-clear-training` | `unikonRequestClearTraining()` (remove o concurso de treino `UNIKON_TRAINING_CODE`). **Diagnóstico manual apenas** — a página já não tem botão: a prova apaga-se **na RAMBOX**. |
+| `/api/unikon-push` | **Diagnóstico/manual** (sem botão na página — o push é automático). Body `on=1` → `unikonRequestPush(true)` (envia **`P1`**), `on=0` → `unikonRequestPush(false)` (envia **`P0`**); optional `auto=1|0` → `unikonSetPushAuto()` (por omissão já ligado). O probe faz handshake e guarda o resultado (`unikonGetPushCode()`: 0 = ACK, 0x3f1 = NAK, 0x3ef = sem resposta) e o ident (`unikonGetPushVersion()`). |
 
 ### `POST /api/unikon-config` (`handlers/unikon_handler.cpp:15`)
 
@@ -176,8 +194,9 @@ Reads urlencoded `enabled`, `interval`, `passive`, `official_format` (only `enab
 `unikon_protocol.{h,cpp}` (`#if ENABLE_UNIKON==1`, `:48`–`:2599`).
 
 - **Lifecycle**: `unikonBegin()` (`setup_impl.h:290`) allocates PSRAM storage, loads config, opens UART; `unikonUpdate()` (`loop_impl.h:29`) drives the auto-poll timer and pending-request flags (blocking up to ~10 s only while a poll runs); RS232 loop defers to polls via `unikonIsPolling()`/`unikonIsPostPollBlackout()` (`loop_impl.h:587-621`).
-- **Protocol**: 9600 8N1, `STX(02)+ADDR(81)+payload+CK1+CK2+ETX(03)`, 16-bit sum checksum where **CK1 is escaped with `|0x80` when `< 0x20`** (`unikon_checksum.h`); P-frames (39 B, arrivals), ZP-frames (30 B, registrations, no time), I-frames (contests), v/S1/S2/S3/W-3 identity frames. The I-frame content is `'I' '0' RR[2] DD[2] MM[2] NAME[8] N[1]` (the `0` after `I` is a **literal**; the last byte is a digit) — see `sendIFrame()`. Writing a pigeon uses `"ZP"+ring+chip` (30 B) by default, switchable to the PC-file form `"P"+ring+chip` (29 B) via `UNIKON_ZP_WRITE_PREFIX_Z`.
-- **Request flags** (non-blocking, consumed by `unikonUpdate`): `unikonRequestPoll/WOnlyPoll/IcOnlyPoll/XOnlyPoll/SendTraining/ClearTraining` (`:2270-2290`); `unikonPollNow()` (`:1687`) is the blocking immediate variant.
+- **Protocol**: 9600 8N1, `STX(02)+ADDR(81)+payload+CK1+CK2+ETX(03)`, 16-bit sum checksum where **CK1 is escaped with `|0x80` when `< 0x20`** (`unikon_checksum.h`); P-frames (39 B, arrivals), ZP-frames (30 B, registrations, no time), I-frames (contests), v/S1/S2/S3/W-3 identity frames. The I-frame content is `'I' '0' RR[2] DD[2] MM[2] NAME[8] N[1]` (the `0` after `I` is a **literal**; the last byte is a digit) — see `sendIFrame()`. Writing a pigeon is a **poul-upload line**: `'M'` + `"ZP"+ring+chip` (31 B) by default, switchable to the PC-file form `'M'` + `"P"+ring+chip` (30 B) via `UNIKON_ZP_WRITE_PREFIX_Z`. The leading `M` is mandatory — `uniUploadPoulData()` in `unikonDrv.dll` prefixes **every** poul line with it (it is not a standalone command; `FUN_10005ee0` skips the command frame when `cmd[0]=='M'` and then builds `"M"+line`), and without it the RAMBOX does not store the record. By contrast the contest upload (`uniUploadLiberationPointSets`) sends `IC0` **once** and then the raw `I…` lines — which is what `sendTrainingSession()` already does.
+- **Request flags** (non-blocking, consumed by `unikonUpdate`): `unikonRequestPoll/WOnlyPoll/IcOnlyPoll/XOnlyPoll/SendTraining/ClearTraining/Push` (`:2270-2290`); `unikonPollNow()` (`:1687`) is the blocking immediate variant.
+- **Push (automático, por aparelho, aditivo)**: o driver do fornecedor (`uniActivatePush()`/`uniDeactivatePush()`) envia as tramas **`P1`/`P0`**; `uniSetCallBack()`/`deSendMessageOnChange()` só ligam uma mensagem Windows — no fio é apenas esse par de comandos. **Não há botões**: `unikonPollNow()`, no fim de cada poll que identificou o RAMBOX, chama `pushProbe(true)` quando o estado ainda é `UNIKON_PUSH_OFF` — logo o `P1` sai **no primeiro poll, manual ou automático**. `pushCheckDevice()` (em todos os handshakes `v`) mantém o estado **agarrado ao aparelho** (ident = versão + série): enquanto o ident for o mesmo nada mais é enviado (nem `P1` repetido, nem um `NAK` repetido); ao aparecer **outro RAMBOX** o estado volta a `OFF` e o `P1` é pedido de novo. É **aditivo**: o poll automático configurado continua a correr como garantia e as tramas empurradas são lidas por `tryPassiveListen()` (que também corre com o push activo), por isso uma chegada pode aparecer **antes** do intervalo (ex. 5 min). Resultado em `unikonGetPushCode()` (0 = ACK, 0x3f1 = NAK, 0x3ef = sem resposta) e `unikonGetPushVersion()`. Não foi exercitado pelo software do fornecedor (0 `P1`/`P0` em 35 capturas; o `UNIKON_Manager.exe` nunca chama o push) — a resposta ACK/NAK é a única forma de saber se uma unidade o suporta.
 - **Training tag**: a W-phase frame `3` is classified as training when its **contest code (bytes [9..11])** equals the fixed `UNIKON_TRAINING_CODE` ("090" = literal `'0'` + race 90). The matcher also accepts the bare race number ("90") and a space-padded field (" 90"), so the tag survives whichever form the device echoes. The code is a **compiled constant** — no persistence needed, so a reboot mid-training still classifies correctly, and sending/clearing training writes nothing to flash. `arrival.race` falls back to the code when the frame carries no name, so the Prova column is never blank for short frames.
 - **State accessors**: `unikonGetStatus/Arrivals/Registrations/Contests/Config`, `unikonResetState` (full) vs `unikonResetArrivalsOnly` (keeps calendar+loft), `unikonFormatDisplayRing/Chip` (official format), `unikonQueuePombalSeasonEmail()` (fixed-width ASCII table via email pipeline). Arrival emails include a `Treino` section when `isTraining` arrivals exist (tagged by matching frame-`3` race name against the programmed training contest); totals show `N pombo(s) + M treino`.
 - **Cross-links**: status fields feed `/api/status` (`system_status_payload.h:431-444`) and `feature_unikon` (`:544`); `[UNIKON]` log lines are never suppressed (`logger_impl.h:89`); home-page entry gated by `ENABLE_UNIKON==1` (`home_page_renderer.h:173`).
@@ -188,7 +207,8 @@ Reads urlencoded `enabled`, `interval`, `passive`, `official_format` (only `enab
 
 **Firmware-side i18n (also added):** the API messages above are no longer hardcoded Portuguese in the handler — they now come from the firmware pack (`LangStrings`, `L(activeLang->…)`) and follow `system_language`. Page `<title>` and tab labels follow the same rule.
 
-**Added (full PT/EN coverage, `lang_en_ui.h` + `lang_pt_ui.h`):** 11 key(s) — `ukBtnClearTraining`, `ukBtnSendTraining`, `ukColRace`, `ukTab1`, `ukTab2`, `ukTab3`, `ukTab4`, `ukTrainingHint`, `ukTrainingSelect`, `ukTrainingSelectAll`, `ukTrainingTitle`. HTML fallback text is English; PT is served from the packs.
+**Added (full PT/EN coverage, `lang_en_ui.h` + `lang_pt_ui.h`):** 8 key(s) — `ukBtnSendTraining`, `ukColRace`, `ukTab1`, `ukTab2`, `ukTab3`, `ukTab4`, `ukTrainingHint`, `ukTrainingTitle`. **+10 (2026-10-19, 3 modos de treino):** `ukTrainingMode/ModeNone/ModeAll/ModeList`, `ukTipTrainingModeNone/All/List`, `ukTrainingAll/None/NoRings`. **Removidas (2026-10-19):** `ukBtnClearTraining`, `ukConfirmClearTraining`, `ukTrainingClearing/Cleared/ClearError`, `ukTrainingSelect/SelectAll`, `unikonTipClearTraining`, `ukTrainingRaceOnly`, `ukTipTrainingRaceOnly`, `ukConfirmTrainingRaceOnly`. HTML fallback text is English; PT is served from the packs.
+**Added 2026-10-18 (push):** 5 key(s) — `ukPushTitle`, `ukPushHint`, `ukPushOff`, `ukPushActive`, `ukPushUnsupported` (EN ≠ PT, validated by `scripts/validate_i18n.py`). O push é automático, por isso **não há chaves de botão**.
 
 All present in `lang_en_ui.h` unless marked MISSING: `btnHome`, `tabUnikonStatus/Arrivals/Contests/Pombal/Config` (`:619-623`), `ukStatus/Arrivals/Contests/Config/Loading`, `ukStatTimed/Race/New/LastPoll`, `ukBtnPollArrivals/ResetCount/SyncCalendar/SyncPombal/EmailPombal/SaveConfig`, `ukArrivalsHint/ContestsHint/PombalHint`, `ukColRing/Chip/Time/Date/Code/Name`, `ukNoArrivals/Contests/Pigeons/Chip`, `ukPombalTitle/ListTitle`, `ukConnTitle/Jumper/Speed`, `ukRs232Active/Loading/Configure`, `ukModuleActive/OfficialFormat`, `ukEmailRegistrations/NotConfigured/Configure`, `ukPollingInterval/Manual/1min/3min/5min/10min/15min/20min/30min/45min/60min/120min` (no 25 min key — UI has none), `ukStatusConnected/Disconnected/Module/Club/ClubCode/Fancier/Release/Race/ZP/IC/AutoPolling`, `ukConfirmCalendar/Pombal/EmailPombal/Reset`, `ukAlertError/UnknownError/ModuleDisabled`, `ukToastPollScheduled/CalendarUpdating/PombalUpdating/EmailQueued/EmailError/ConfigSaved/ConfigError/ConfigSavedMemory/FileNotWritten/CountReset/CalendarScheduled/PombalScheduled/ZPScheduled/WPollScheduled/CountResetApi`, `unikonTipHome/Poll/Reset/SyncCal/SyncPombal/EmailPombal/SendTraining/ClearTraining/Enabled/Official/Interval/Save` (`:1829-1840`).
 MISSING from both dictionaries: none — the 8 JS-only training keys (`ukTrainingSending/Sent/Error`, `ukTrainingClearing/Cleared/ClearError`, `ukConfirmTraining/ClearTraining`) were absent from both dicts AND unreachable via single-arg `t(key)` (no `data-i18n` anchor) so confirms/toasts showed raw keys; added 2026-10-18 together with `t(key, fb)` consulting `window._lang` (auto.js `/api/lang` dict) first. Tab JS fallbacks are Portuguese (`'Estado','Chegadas','Concursos','Pombal','Configuração'`, `unikon_page_renderer.cpp:61-65`).
@@ -204,7 +224,7 @@ MISSING from both dictionaries: none — the 8 JS-only training keys (`ukTrainin
 | UK-3 | **Hardcoded Portuguese API strings.** WiFi `POST /api/unikon-config` returns `"Ficheiro não gravado no LittleFS. Tente novamente."` (`handlers/unikon_handler.cpp:45`) and `"✅ Configuração Unikon guardada!"` (`:49`) regardless of UI language (Ethernet twin at least uses English). | Low | Return stable codes/keys and let the page resolve `ukToastConfigSaved/ukToastFileNotWritten`. |
 | UK-7 | ~~**Training I-frame malformed.**~~ **RESOLVIDO 2026-10-18:** o código era `"990"`, mas o builder original é `I0%02u%02u%02u%-8s%01u` — o `0` logo a seguir a `I` é **literal**, logo o código tem de ser `'0'` + nº de prova de 2 dígitos (`"090"`), e o último byte do nome é um **dígito** (`N[1]`), não um espaço. Corrigido: `UNIKON_TRAINING_CODE "090"`, `sendIFrame()` escreve `NAME[8]` + `UNIKON_I_TAIL_RACE/CLEAR`, e o matcher aceita `"90"`/`" 90"`. | Done | — |
 | UK-8 | **"Sem prova" aparece como "desligado".** `connected` = "last full poll succeeded", logo um RAMBOX presente mas **sem prova programada** (fica em silêncio total — provado em `docs/Unikon Sniffer/16.txt`: três `v`-frames sem resposta) é reportado como `Disconnected`, indistinguível de cabo/aparelho ausente. | Medium | Estado `noRace` distinto de `noDevice` (silêncio no `v`-frame vs porta/eco ausente) e mostrar isso no badge + texto `ukStatusDisconnected`. |
-| UK-9 | **Forma de escrita do registo de pombo por verificar.** O RAMBOX *emite* `"ZP"+ring+chip` (trama de 30 B, medida em todos os ZP das capturas) mas os ficheiros do PC trazem `"P"+ring+chip` (trama de 29 B); o driver (`uniUploadPoulData`, modo `"M"`) envia as linhas directamente. Não está provado que o RAMBOX aceite um `ZP` de escrita. | Info | `UNIKON_ZP_WRITE_PREFIX_Z` escolhe a forma; pôr a `0` se a escrita for rejeitada. |
+| UK-9 | ~~**Forma de escrita do registo de pombo por verificar.**~~ **Resolvido por REA ao `unikonDrv.dll` (2026-10-18):** o upload do pombal é `uniUploadPoulData` → **cada linha leva o prefixo `M`** (`02 81 4D <linha> CK1 CK2 03`, uma trama por pombo); o `M` **não** é comando autónomo (`FUN_10005ee0`: se `cmd[0]=='M'` salta o envio do comando e constrói `"M"+linha`). As provas vão por `IC0` uma vez + linhas `I…` cruas. | Info | `sendZPFrame()` já emite o `M`; `UNIKON_ZP_WRITE_PREFIX_Z` escolhe `ZP`/`P` na linha. Evidência: `rea-work/ucuk/artifacts/drv/COMMAND_MAP.md`. |
 | UK-4 | **No interval validation + silent migration.** `interval` is cast `(uint16_t)request->...->value().toInt()` with no range check (`handlers/unikon_handler.cpp:27`, same in Ethernet `:2664`) — negative input wraps to 65k; values 1–59 s are then silently rewritten to 180 (`unikon_protocol.cpp:2586`). | Low | Clamp/validate (e.g. accept only the 11 UI values, 0 = manual) and report out-of-range instead of migrating silently. |
 | UK-5 | **Status JSON built with raw `snprintf %s`.** `moduleId/clubName/soltaName/clubCode/fancierName/raceDate/raceName/emailDest` are interpolated unescaped into an 896 B buffer (`handlers_unified/unikon_handler.cpp:40-85`); a quote/backslash from a RAMBOX frame yields malformed JSON and possible truncation. | Low | JSON-escape fields or build with ArduinoJson; same for the Ethernet twin. |
 | UK-6 | **Arrivals hint contradicts behaviour.** Hint says "Only records with valid time (HHMMSS) appear in this table" (`page_unikon_asset.h:39`), but the server returns every record (`handlers_unified/unikon_handler.cpp:92-131`) and the client only excludes `kind==='training'` (`:266-281`), rendering `000000`-time rows as `-`. | Info | Either filter `time==="000000"` client-side to match the hint, or reword the hint. |

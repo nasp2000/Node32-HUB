@@ -28,10 +28,10 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
 
             <!-- Tabs (save bar at the bottom is common to all tabs) -->
             <div class='uk-tabs' id='briconTabBar'>
-                <button type='button' class='uk-tab-btn active' onclick='bkSwitchTab(0)'><span data-i18n='briconTab1'>📊 Status & Config</span></button>
-                <button type='button' class='uk-tab-btn' onclick='bkSwitchTab(1)'><span data-i18n='briconTab2'>🏁 Arrivals & Contests</span></button>
-                <button type='button' class='uk-tab-btn' onclick='bkSwitchTab(2)'><span data-i18n='briconTab3'>🐦 Pigeon Loft</span></button>
-                <button type='button' class='uk-tab-btn' onclick='bkSwitchTab(3)'><span data-i18n='briconTab4'>🏋️ Training</span></button>
+                <button type='button' class='uk-tab-btn active' onclick='bkSwitchTab(0)'><span title='Bricon status and configuration' data-i18n-title='briconTipTabStatus' data-i18n='briconTab1'>📊 Status & Config</span></button>
+                <button type='button' class='uk-tab-btn' onclick='bkSwitchTab(1)'><span title='Arrivals and contest list read from the Bricon' data-i18n-title='briconTipTabArrivals' data-i18n='briconTab2'>🏁 Arrivals & Contests</span></button>
+                <button type='button' class='uk-tab-btn' onclick='bkSwitchTab(2)'><span title='Pigeon loft read from the Bricon (read-only)' data-i18n-title='briconTipTabLoft' data-i18n='briconTab3'>🐦 Pigeon Loft</span></button>
+                <button type='button' class='uk-tab-btn' onclick='bkSwitchTab(3)'><span title='Write a training race to the Bricon' data-i18n-title='briconTipTabTraining' data-i18n='briconTab4'>🏋️ Training</span></button>
             </div>
 
             <!-- Tab 1: Status + Configuration -->
@@ -46,8 +46,8 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
                     <div class='stat-card'><div class='stat-label' data-i18n='briconStatRx'>Last RX</div><div class='stat-value' id='bkStatAgo'>--</div></div>
                 </div>
                 <div style='display:flex;gap:8px;flex-wrap:wrap'>
-                    <button onclick='briconPoll()' class='btn' style='flex:1;min-width:160px' data-i18n='briconBtnPoll'>&#128270; Update Arrivals</button>
-                    <button onclick='briconReset()' class='btn' style='flex:1;min-width:160px;background:#374151;border-color:#374151' data-i18n='briconBtnReset'>&#128256; Reset</button>
+                    <button onclick='briconPoll()' class='btn' style='flex:1;min-width:160px' title='Poll the arrivals from the Bricon' data-i18n-title='briconTipPoll' data-i18n='briconBtnPoll'>&#128270; GetPigeon</button>
+                    <button onclick='briconReset()' class='btn' style='flex:1;min-width:160px;background:#374151;border-color:#374151' title='Reset the arrival counters (does not touch the Bricon)' data-i18n-title='briconTipReset' data-i18n='briconBtnReset'>&#128256; Reset</button>
                 </div>
                 <div id='bricon-poll-toast' style='display:none;margin-top:10px;padding:10px 14px;background:#1e3a8a;border-left:4px solid #3b82f6;border-radius:6px;font-size:13px;color:#e0e7ff'></div>
             </div>
@@ -87,6 +87,53 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
                             <option value='115200'>115200</option>
                         </select>
                     </div>
+                    <div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px'>
+                        <label style='font-size:13px;color:#94a3b8;white-space:nowrap' data-i18n='briconCountry'>Country (layout)</label>
+                        <select id='briconCountry' name='country' style='max-width:110px'>
+                            <option value='PT' selected>PT</option>
+                            <option value='ES'>ES</option>
+                            <option value='FR'>FR</option>
+                            <option value='BE'>BE</option>
+                            <option value='NL'>NL</option>
+                            <option value='UK'>UK</option>
+                            <option value='HU'>HU</option>
+                            <option value='RO'>RO</option>
+                            <option value='PL'>PL</option>
+                        </select>
+                        <label style='font-size:13px;color:#94a3b8;white-space:nowrap;margin-left:12px' data-i18n='briconBaAddr'>Clock address</label>
+                        <select id='briconBa' name='ba' style='max-width:190px'>
+                            <option value='0' selected data-i18n='briconBaAuto'>auto-scan</option>
+                            <option value='130'>0x82 Bricon/Little/DUO</option>
+                            <option value='129'>0x81 Benzing</option>
+                            <option value='131'>0x83 Tauris</option>
+                            <option value='132'>0x84 Tipes</option>
+                            <option value='133'>0x85 Unikon</option>
+                            <option value='16'>0x10 Master</option>
+                            <option value='0'>0x00 club</option>
+                        </select>
+                    </div>
+                    <div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px'>
+                        <label style='font-size:13px;color:#94a3b8;white-space:nowrap' data-i18n='briconDataBits'>Data</label>
+                        <select id='briconData' name='data' style='max-width:80px'>
+                            <option value='8' selected>8</option><option value='7'>7</option>
+                        </select>
+                        <label style='font-size:13px;color:#94a3b8;white-space:nowrap' data-i18n='briconParity'>Parity</label>
+                        <select id='briconParity' name='parity' style='max-width:100px'>
+                            <option value='none' selected>none</option><option value='even'>even</option><option value='odd'>odd</option>
+                        </select>
+                        <label style='font-size:13px;color:#94a3b8;white-space:nowrap' data-i18n='briconStopBits'>Stop</label>
+                        <select id='briconStop' name='stop' style='max-width:80px'>
+                            <option value='2' selected>2</option><option value='1'>1</option>
+                        </select>
+                        <span style='font-size:12px;color:#64748b' data-i18n='briconFramingHint'>Bricon uses 9600 8N2 (Unikon is 8N1).</span>
+                    </div>
+                    <div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px'>
+                        <label style='font-size:13px;color:#94a3b8;white-space:nowrap' data-i18n='briconClubId'>Club code</label>
+                        <input id='briconClub' name='club' type='text' maxlength='4' value='0000' style='max-width:80px;font-family:monospace'>
+                        <label style='font-size:13px;color:#94a3b8;white-space:nowrap' data-i18n='briconFlightId'>Flight code</label>
+                        <input id='briconFlight' name='flight' type='text' maxlength='4' value='0000' style='max-width:80px;font-family:monospace'>
+                        <span style='font-size:12px;color:#64748b' data-i18n='briconCodesHint'>Used in the GetPigeon request; 0000 is the wildcard.</span>
+                    </div>
                 </form>
                 <div id='bricon-config-status'></div>
             </div>
@@ -96,7 +143,7 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
             <div class='uk-tab-panel' id='bk-tab-1'>
             <div id='bk-sec-arrivals' class='section'>
                 <h3>&#128330; <span data-i18n='briconArrivals'>Race Arrivals</span></h3>
-                <p style='font-size:13px;color:#94a3b8;margin:0 0 12px 0' data-i18n='briconArrivalsHint'>Only records with valid time (HHMMSS) appear in this table.</p>
+                <p style='font-size:13px;color:#94a3b8;margin:0 0 12px 0' data-i18n='briconArrivalsHint'>Only records with a valid time appear. Columns are the RS-232 record fields: chip (ElBand), ring (FedBand), time, date, contest, position and evaluation.</p>
                 <div class='table-wrapper'>
                     <table style='width:100%;border-collapse:collapse;font-size:13px'>
                         <thead><tr>
@@ -106,8 +153,8 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
                             <th style='text-align:left;padding:8px 10px;border-bottom:1px solid #1e40af;color:#60a5fa' data-i18n='ukColTime'>Time</th>
                             <th style='text-align:left;padding:8px 10px;border-bottom:1px solid #1e40af;color:#60a5fa' data-i18n='ukColDate'>Date</th>
                             <th style='text-align:left;padding:8px 10px;border-bottom:1px solid #1e40af;color:#60a5fa' data-i18n='ukColRace'>Race</th>
-                            <th style='text-align:left;padding:8px 10px;border-bottom:1px solid #1e40af;color:#60a5fa' data-i18n='bkColCat'>Cat</th>
-                            <th style='text-align:left;padding:8px 10px;border-bottom:1px solid #1e40af;color:#60a5fa' data-i18n='bkColSpeed'>Vel</th>
+                            <th style='text-align:left;padding:8px 10px;border-bottom:1px solid #1e40af;color:#60a5fa' data-i18n='bkColPos'>Pos</th>
+                            <th style='text-align:left;padding:8px 10px;border-bottom:1px solid #1e40af;color:#60a5fa' data-i18n='bkColEval'>Eval</th>
                         </tr></thead>
                         <tbody id='briconArrivalsBody'><tr><td colspan='8' style='padding:12px;color:#4b5563;text-align:center' data-i18n='briconNoArrivals'>No race arrivals</td></tr></tbody>
                     </table>
@@ -117,7 +164,7 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
             <div id='bk-sec-contests' class='section'>
                 <div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px'>
                     <h3 style='margin:0'>📅 <span data-i18n='briconContests'>Annual Contest Calendar</span></h3>
-                    <button onclick='briconSyncCalendar()' class='btn' style='background:#1e3a8a;border-color:#1d4ed8;padding:8px 16px;font-size:12px' data-i18n='briconBtnSyncCalendar'>🗓️ Sync Calendar</button>
+                    <button onclick='briconSyncCalendar()' class='btn' style='background:#1e3a8a;border-color:#1d4ed8;padding:8px 16px;font-size:12px' title='Read the contest calendar from the Bricon' data-i18n-title='briconTipSyncCal' data-i18n='briconBtnSyncCalendar'>🗓️ GetFlightNames</button>
                 </div>
                 <div class='table-wrapper'>
                     <table style='width:100%;border-collapse:collapse;font-size:13px'>
@@ -139,7 +186,7 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
             <div id='bk-sec-pombal' class='section'>
                 <div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px'>
                     <h3 style='margin:0' data-i18n='briconPombal'>🕊 Pigeon Loft</h3>
-                    <button onclick='briconSyncPombal()' class='btn' style='background:linear-gradient(180deg,#22c55e,#16a34a);border-color:#4ade80;color:#fff;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.55);padding:8px 16px;font-size:12px' data-i18n='briconBtnSyncPombal'>🔄 Sync Pigeon Loft</button>
+                    <button onclick='briconSyncPombal()' class='btn' style='background:linear-gradient(180deg,#22c55e,#16a34a);border-color:#4ade80;color:#fff;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.55);padding:8px 16px;font-size:12px' title='Read the pigeon loft from the Bricon' data-i18n-title='briconTipSyncPombal' data-i18n='briconBtnSyncPombal'>🔄 GetFancier</button>
                 </div>
                 <p style='font-size:13px;color:#94a3b8;margin:0 0 12px 0' data-i18n='briconPombalHint'>Registered pigeons (ring + chip) read from the Bricon loft.</p>
                 <div class='table-wrapper'>
@@ -162,18 +209,17 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
                 <div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px'>
                     <h3 style='margin:0' data-i18n='briconTraining'>🏋️ Training Session</h3>
                     <div style='display:flex;gap:8px;flex-wrap:wrap'>
-                        <button onclick='briconSendTraining()' class='btn' style='background:#2563eb;border-color:#1d4ed8;padding:8px 16px;font-size:12px' data-i18n='briconBtnSendTraining'>📡 Send Training</button>
-                        <button onclick='briconClearTraining()' class='btn' style='background:#991b1b;border-color:#ef4444;padding:8px 16px;font-size:12px' data-i18n='briconBtnClearTraining'>🗑️ Clear Training</button>
+                        <button onclick='briconSendTraining()' class='btn' style='background:#2563eb;border-color:#1d4ed8;padding:8px 16px;font-size:12px' title='SendDesignated: designate pigeons for the race (the captured Bricon write for allocating pigeons)' data-i18n-title='briconTipSendTraining' data-i18n='briconBtnSendTraining'>📡 Designate (SendDesignated)</button>
                     </div>
                 </div>
-                <p style='font-size:13px;color:#94a3b8;margin:0 0 12px 0' data-i18n='briconTrainingHint'>Writes a training session to the Bricon so it records training arrivals.</p>
+                <p style='font-size:13px;color:#94a3b8;margin:0 0 12px 0' data-i18n='briconTrainingHint'>Bricon has no Unikon-style training session: StartReadout/StartBasket/StartTempReadout are unreferenced in BriconLib. The captured way to allocate pigeons is SendDesignated.</p>
                 <div id='bricon-training-toast' style='display:none;margin-top:10px;padding:10px 14px;background:#1e3a8a;border-left:4px solid #2563eb;border-radius:6px;font-size:13px;color:#bfdbfe'></div>
             </div>
             </div><!-- /bk-tab-3 -->
 
             <!-- Common save bar (all tabs) -->
             <div class='uk-savebar'>
-                <button type='button' onclick='saveBriconConfig()' class='btn' style='padding:10px 24px' data-i18n='briconBtnSave'>&#128190; Save Configuration</button>
+                <button type='button' onclick='saveBriconConfig()' class='btn' style='padding:10px 24px' title='Save the Bricon configuration' data-i18n-title='briconTipSave' data-i18n='briconBtnSave'>&#128190; Save Configuration</button>
             </div>
 
             <div id='bricon-config-status' style='margin-top:15px;padding:12px;border-radius:6px;display:none'></div>
@@ -230,6 +276,21 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
                     if (iv && d.intervalSec !== undefined) iv.value = String(d.intervalSec);
                     var bd = document.getElementById('briconBaud');
                     if (bd && d.baud) bd.value = String(d.baud);
+                    // REA-derived profile fields (framing + layout country + clock address)
+                    var dt = document.getElementById('briconData');
+                    if (dt && d.dataBits) dt.value = String(d.dataBits);
+                    var pa = document.getElementById('briconParity');
+                    if (pa && d.parity) pa.value = d.parity;
+                    var sb = document.getElementById('briconStop');
+                    if (sb && d.stopBits) sb.value = String(d.stopBits);
+                    var cy = document.getElementById('briconCountry');
+                    if (cy && d.country) cy.value = d.country;
+                    var ba = document.getElementById('briconBa');
+                    if (ba && d.baAddress !== undefined) ba.value = String(d.baAddress);
+                    var cl = document.getElementById('briconClub');
+                    if (cl && d.clubId) cl.value = d.clubId;
+                    var fl2 = document.getElementById('briconFlight');
+                    if (fl2 && d.flightId) fl2.value = d.flightId;
                 }
                 loadBriconArrivals();
                 loadBriconPombal();
@@ -246,7 +307,10 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
             ? a.time.substring(0,2) + ':' + a.time.substring(2,4) + ':' + a.time.substring(4,6) : '-';
         var dt = (a.date && a.date.length >= 4 && a.date.substring(0,4) !== '0000')
             ? a.date.substring(0,2) + '/' + a.date.substring(2,4) : '-';
-        var vel = (a.speed > 0) ? a.speed : '';
+        // Only wire fields are shown: the RS-232 record carries Position1..4 and the
+        // Evaluation byte; category/speed live in the club database, not on the wire.
+        var pos = (a.posArriveClub > 0) ? a.posArriveClub : '';
+        var ev = (a.evaluation === '1') ? '1' : (a.evaluation === '0') ? '0' : '';
         return '<tr style="border-bottom:1px solid #1e293b">'
             + '<td style="padding:7px 10px;color:#64748b">' + n + '</td>'
             + '<td style="padding:7px 10px;font-family:monospace">' + besc(a.ring) + '</td>'
@@ -254,8 +318,8 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
             + '<td style="padding:7px 10px;font-family:monospace;color:#4ade80">' + h + '</td>'
             + '<td style="padding:7px 10px;font-family:monospace;color:#93c5fd">' + dt + '</td>'
             + '<td style="padding:7px 10px;font-family:monospace;color:#fbbf24">' + besc(a.race || '') + '</td>'
-            + '<td style="padding:7px 10px">' + briconCat(a.category) + '</td>'
-            + '<td style="padding:7px 10px">' + vel + '</td></tr>';
+            + '<td style="padding:7px 10px;color:#a5b4fc">' + pos + '</td>'
+            + '<td style="padding:7px 10px;color:#f87171">' + ev + '</td></tr>';
     }
     function loadBriconArrivals() {
         fetch('/api/bricon-arrivals', {cache: 'no-store'})
@@ -368,19 +432,17 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
             })
             .catch(function() {});
     }
-    function briconClearTraining() {
-        fetch('/api/bricon-clear-training', { method: 'POST' })
-            .then(function(r) { return r.json(); })
-            .then(function(d) {
-                var el = document.getElementById('bricon-training-toast');
-                if (el) { el.style.display = 'block'; el.textContent = (d && d.message) || ''; }
-            })
-            .catch(function() {});
-    }
     function saveBriconConfig() {
         var params = 'enabled=' + (document.getElementById('briconEnabled').checked ? '1' : '0');
         params += '&interval=' + document.getElementById('briconInterval').value;
         params += '&baud=' + document.getElementById('briconBaud').value;
+        params += '&data=' + document.getElementById('briconData').value;
+        params += '&parity=' + document.getElementById('briconParity').value;
+        params += '&stop=' + document.getElementById('briconStop').value;
+        params += '&country=' + document.getElementById('briconCountry').value;
+        params += '&ba=' + document.getElementById('briconBa').value;
+        params += '&club=' + document.getElementById('briconClub').value;
+        params += '&flight=' + document.getElementById('briconFlight').value;
         fetch('/api/bricon-config', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params })
             .then(function(r) { return r.json(); })
             .then(function(d) {

@@ -65,6 +65,8 @@ headers).
 | arduino-libraries/Ethernet | 2.0.2 | MIT | Paul Stoffregen |
 | greiman/SdFat | 2.3.1 | MIT | William Greiman |
 | adafruit/Adafruit SSD1306 | 2.5.17 | BSD-3-Clause | Adafruit |
+| adafruit/Adafruit SH110X | 2.1.15 | BSD-3-Clause | Adafruit |
+| espressif/ESP_Video | 3.3.11 | Apache-2.0 | Espressif (bundled with arduino-esp32 for esp32p4cam) |
 | adafruit/Adafruit GFX Library | 1.12.6 | BSD-3-Clause | Adafruit |
 | adafruit/Adafruit AHTX0 | 2.0.6 | BSD-3-Clause | Adafruit |
 | adafruit/Adafruit Unified Sensor | 1.1.15 (transitive dep of AHT20/BMP280, unpinned) | Apache-2.0 | Adafruit |

@@ -36,19 +36,23 @@ assert(typeof win.briconReset==='function','briconReset is function');
 assert(typeof win.briconSyncCalendar==='function','briconSyncCalendar is function');
 assert(typeof win.briconSyncPombal==='function','briconSyncPombal is function');
 assert(typeof win.briconSendTraining==='function','briconSendTraining is function');
-assert(typeof win.briconClearTraining==='function','briconClearTraining is function');
+// briconClearTraining was removed: Bricon has no Unikon-style clear (no REA evidence).
+assert(typeof win.briconClearTraining==='undefined','briconClearTraining is gone');
+assert(typeof win.saveBriconConfig==='function','saveBriconConfig is function');
 assert(typeof win.saveBriconConfig==='function','saveBriconConfig is function');
 assert(doc.getElementById('bkStatTotal')!==null,'stat card arrivals exists');
 assert(doc.getElementById('bkStatContests')!==null,'stat card contests exists');
 assert(doc.getElementById('bkStatPombal')!==null,'stat card loft exists');
 assert(doc.getElementById('bkStatAgo')!==null,'stat card last RX exists');
-var _br = win.briconRow({ring:'BE-10-1100002',chip:'C54A7B9A',time:'162444',date:'250412',race:'NOYON',speed:1234,category:2},1);
+var _br = win.briconRow({ring:'BE-10-1100002',chip:'C54A7B9A',time:'162444',date:'250412',race:'NOYON',posArriveClub:7,evaluation:'1'},1);
 assert(_br.indexOf('BE-10-1100002')>=0,'briconRow shows ring');
 assert(_br.indexOf('16:24:44')>=0,'briconRow shows time');
 assert(_br.indexOf('25/04')>=0,'briconRow shows date');
 assert(_br.indexOf('NOYON')>=0,'briconRow shows race');
-assert(_br.indexOf('YEA')>=0,'briconRow shows category');
-assert(_br.indexOf('1234')>=0,'briconRow shows speed');
+// The visible columns are now the RS-232 record fields: position + evaluation
+// (category/speed are NOT on the wire -- they live in the club database).
+assert(_br.indexOf('7')>=0,'briconRow shows position');
+assert(_br.indexOf('>1<')>=0,'briconRow shows evaluation');
 assert(win.briconCat(3)==='YOU' && win.briconCat(1)==='OLD' && win.briconCat(0)==='','briconCat maps codes');
 var _brEmpty = win.briconRow({ring:'',chip:'',time:'000000',date:'0000',race:''},2);
 assert(_brEmpty.indexOf('>-<')>=0,'briconRow dashes missing values');

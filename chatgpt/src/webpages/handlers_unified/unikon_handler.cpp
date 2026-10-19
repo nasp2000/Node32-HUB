@@ -37,7 +37,7 @@ void handleUnikonStatusGet(HttpRequest& req, HttpResponse& res) {
     }
 
     String emailDest = configManager.getEmailDestination();
-    char buf[896];
+    char buf[1200];
     snprintf(buf, sizeof(buf),
         "{"
         "\"connected\":%s,"
@@ -55,6 +55,11 @@ void handleUnikonStatusGet(HttpRequest& req, HttpResponse& res) {
         "\"fancierName\":\"%s\","
         "\"raceDate\":\"%s\","
         "\"raceName\":\"%s\","
+        "\"pushState\":%u,"
+        "\"pushActive\":%s,"
+        "\"pushAuto\":%s,"
+        "\"pushCode\":%u,"
+        "\"pushVersion\":\"%s\","
         "\"enabled\":%s,"
         "\"intervalSec\":%u,"
         "\"polling\":%s,"
@@ -77,6 +82,11 @@ void handleUnikonStatusGet(HttpRequest& req, HttpResponse& res) {
         s.fancierName,
         s.raceDate,
         s.raceName,
+        (unsigned)unikonGetPushState(),
+        unikonIsPushActive() ? "true" : "false",
+        unikonIsPushAuto()   ? "true" : "false",
+        (unsigned)unikonGetPushCode(),
+        unikonGetPushVersion(),
         c.enabled            ? "true"  : "false",
         (unsigned)c.pollIntervalSec,
         (c.enabled && c.pollIntervalSec > 0) ? "true" : "false",
@@ -348,7 +358,30 @@ void handleUnikonClearTrainingPost(HttpRequest& req, HttpResponse& res) {
         return;
     }
     unikonRequestClearTraining();
-    res.sendJson(F("{\"success\":true,\"message\":\"Clearing training contest (990) from RAMBOX.\"}"));
+    res.sendJson(F("{\"success\":true,\"message\":\"Clearing training contest (090) from RAMBOX.\"}"));
+}
+
+// Push (device-initiated arrivals): POST body `on=1|0` (ask the RAMBOX to push / stop) and
+// optional `auto=1|0` (keep the push armed when another RAMBOX is plugged in later).
+void handleUnikonPushPost(HttpRequest& req, HttpResponse& res) {
+    if (!unikonGetConfig().enabled) {
+        res.sendJson(F("{\"success\":false,\"message\":\"Unikon module is disabled.\"}"));
+        return;
+    }
+    bool haveOn = false;
+    bool on     = false;
+    int ki = req.body.indexOf("on=");
+    if (ki >= 0) {
+        on = (req.body.charAt((size_t)ki + 3) == '1');
+        haveOn = true;
+    }
+    int ai = req.body.indexOf("auto=");
+    if (ai >= 0) unikonSetPushAuto(req.body.charAt((size_t)ai + 5) == '1');
+    if (haveOn) unikonRequestPush(on);
+    const char* msg = !haveOn ? "Push auto updated."
+                    : (on ? "Push ON scheduled (P1) — polling will stop if the RAMBOX accepts."
+                          : "Push OFF scheduled (P0) — polling stays available.");
+    res.sendJson(String(F("{\"success\":true,\"message\":\"")) + String(msg) + String(F("\"}")));
 }
 
 #else
@@ -372,4 +405,5 @@ void handleUnikonSyncCalendarPost(HttpRequest& req, HttpResponse& res) { (void)r
 void handleUnikonResetPost(HttpRequest& req, HttpResponse& res) { (void)req; stubNotFound(res); }
 void handleUnikonSendTrainingPost(HttpRequest& req, HttpResponse& res) { (void)req; stubNotFound(res); }
 void handleUnikonClearTrainingPost(HttpRequest& req, HttpResponse& res) { (void)req; stubNotFound(res); }
+void handleUnikonPushPost(HttpRequest& req, HttpResponse& res) { (void)req; stubNotFound(res); }
 #endif

@@ -43,10 +43,10 @@ static const char PAGE_CAN[] PROGMEM = R"HTML(
 <div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome' title='Go to home page' data-i18n-title='canTipHome'>&#127968; Home</a></div>
 <h1>&#128268; CAN Bus (TWAI)</h1>
 <div class='can-tab-bar' style='display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0'>
-<button class='can-tab active' data-tab='status' style='padding:8px;border:2px solid #3b82f6;border-radius:999px;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;cursor:pointer;border:none'>🚥 Status</button>
-<button class='can-tab' data-tab='frames' style='padding:8px;border:2px solid #3b82f6;border-radius:999px;background:transparent;color:#bfdbfe;font-size:12px;font-weight:700;cursor:pointer'>📊 Frames</button>
-<button class='can-tab' data-tab='send' style='padding:8px;border:2px solid #3b82f6;border-radius:999px;background:transparent;color:#bfdbfe;font-size:12px;font-weight:700;cursor:pointer'>📤 Send</button>
-<button class='can-tab' data-tab='config' style='padding:8px;border:2px solid #3b82f6;border-radius:999px;background:transparent;color:#bfdbfe;font-size:12px;font-weight:700;cursor:pointer'>⚙️ Config</button>
+<button class='can-tab active' data-tab='status' style='padding:8px;border:2px solid #3b82f6;border-radius:999px;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;cursor:pointer;border:none' title='CAN bus status and bitrate' data-i18n-title='canTipTabStatus'>🚥 Status</button>
+<button class='can-tab' data-tab='frames' style='padding:8px;border:2px solid #3b82f6;border-radius:999px;background:transparent;color:#bfdbfe;font-size:12px;font-weight:700;cursor:pointer' title='Captured CAN frames' data-i18n-title='canTipTabFrames'>📊 Frames</button>
+<button class='can-tab' data-tab='send' style='padding:8px;border:2px solid #3b82f6;border-radius:999px;background:transparent;color:#bfdbfe;font-size:12px;font-weight:700;cursor:pointer' title='Send a CAN frame' data-i18n-title='canTipTabSend'>📤 Send</button>
+<button class='can-tab' data-tab='config' style='padding:8px;border:2px solid #3b82f6;border-radius:999px;background:transparent;color:#bfdbfe;font-size:12px;font-weight:700;cursor:pointer' title='CAN interface configuration' data-i18n-title='canTipTabConfig'>⚙️ Config</button>
 </div>
 
 <!-- Status -->

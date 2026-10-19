@@ -1,5 +1,7 @@
 // bricon_protocol.h
-// Bricon loft-module driver — SKELETON (driver pending hardware tap).
+// Bricon loft-module driver — wire layer implemented from the REA capture
+// (framing/CK, ActivateMaster/BA scan, GetFancier -> GetPigeon chain -> GetTimer,
+// GetFlightNames, GetBandTable). Not yet validated against real hardware.
 //
 // Same pack as Rambox32: only ONE module may be active at a time
 // (rambox XOR bricon). Enabling one disables the other and applies that
@@ -22,11 +24,24 @@
 // Persistent configuration stored in /config/bricon.json (atomic write).
 struct BriconConfig {
     bool     enabled;            // master enable flag; exclusive with Unikon
-    uint16_t pollIntervalSec;    // reserved for the future poll engine (0 = manual)
-    int      baudrate;           // serial profile for the Bricon link (default 9600)
+    uint16_t pollIntervalSec;    // 0 = manual
+    int      baudrate;           // 9600 base; 38400 only for the firmware-update path
     int      dataBits;           // 5..8 (default 8)
     char     parity[8];          // "none", "even", "odd" (default "none")
-    int      stopBits;           // 1..2 (default 1)
+    // REA: Communication::StartComm builds SerialPort(port, baud, Parity.None, 8,
+    // StopBits.Two) => the Bricon link is 9600 8N2. (Unikon is 8N1.)
+    int      stopBits;           // 1..2 (default 2)
+    // Record layout is decided by the COUNTRY, not by the device:
+    // Utils::IsUKProtocol / GetPigeonCommand::HandleResponse. PT => FedBand 14 B,
+    // 53-byte arrival record, non-UK fancier (104 B).
+    char     country[4];         // "PT", "UK", "BE", ... (default "PT")
+    // BA address of the clock: 0 = auto-scan the recovered list
+    // [0x10, 0x80..0x85, 0x00]; else an explicit Adresses value.
+    int      baAddress;          // 0 = auto, else 0x00/0x10/0x80..0x85
+    // GetPigeon carries the club and flight codes. "0000" is the wildcard the app
+    // itself tolerates (it substitutes the requested ids when the clock echoes 0000).
+    char     clubId[5];          // 4 chars, default "0000"
+    char     flightId[5];        // 4 chars, default "0000"
 };
 
 // One arrival/registration record. Fields mirror what Bricon actually carries
@@ -46,7 +61,10 @@ struct BriconArrival {
     uint16_t posArriveClub;   // arrival position in club (0 = none)
     uint16_t posEnterClub;    // basketing position in club (0 = none)
     bool     hasChip;
-    bool     isTraining;      // training block (Eval 5 semantics)
+    char     evaluation;      // raw Evaluation byte from the wire: '1' clocked (valid
+                              // arrival), '0' unclassified ("poul letter"). Labels like
+                              // Reset/Basketed/Designated are UI strings, not enum values.
+    bool     isTraining;      // training block (derived from the enclosing flight, NOT Eval)
     char     race[16];        // race name/code of the enclosing block, "" if unknown
 };
 
@@ -65,10 +83,13 @@ struct BriconContest {
 // Runtime snapshot exposed to the web UI.
 struct BriconStatus {
     bool     connected;          // true once any RX byte was seen this session
-    bool     hardwarePending;    // true until the wire driver lands (always true for now)
+    bool     hardwarePending;    // true until the wire has been exercised (no clock seen yet)
     uint32_t lastRxMs;           // millis() of last received byte
     uint32_t bytesRx;            // total bytes drained this session
-    uint16_t framesSeen;         // STX(0x02)-led chunks seen (heuristic, framing TBD)
+    uint16_t framesSeen;         // frames exchanged on the wire (requests + replies)
+    uint8_t  baAddress;          // address the clock answered on (0 = none yet)
+    uint16_t lastNewCount;       // arrivals ingested by the last poll
+    uint32_t lastPollMs;         // millis() of the last poll
     char     activeModule[8];    // "rambox", "bricon" or "none"
 };
 
@@ -79,6 +100,7 @@ void briconUpdate();  // passive RX sniffer (non-blocking); logs hex to monitor
 // ----- Module selection (mutual exclusion enforced here) -----
 void briconSetEnabled(bool on);
 bool briconIsActive();  // enabled && selected (i.e. Unikon not enabled)
+bool briconIsEnabled();  // the raw enable flag (used by the Unikon side for exclusion)
 const char* briconActiveModuleName();  // "rambox" | "bricon" | "none"
 
 // ----- Config -----

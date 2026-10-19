@@ -468,12 +468,21 @@ void loop() {
                 // A previous template command may have left the port at a different baud/parity.
                 // This satisfies Req 3: plain commands always use the config-page-saved settings.
                 if (!appliedTemplate) {
-                    bool needsRestore =
+                    // A Rambox module owns the port while selected: its profile (Unikon
+                    // 8N1 / Bricon 8N2) must NOT be reverted to the RS232 page settings.
+                    bool ramboxModuleActive = false;
+#if ENABLE_UNIKON == 1
+                    { extern bool unikonIsEnabled(); ramboxModuleActive = ramboxModuleActive || unikonIsEnabled(); }
+#endif
+#if ENABLE_BRICON == 1
+                    { extern bool briconIsEnabled(); ramboxModuleActive = ramboxModuleActive || briconIsEnabled(); }
+#endif
+                    bool needsRestore = !ramboxModuleActive && (
                         rs232_baudrate_index != configManager.getRs232BaudrateIndex() ||
                         rs232_data_bits      != configManager.getRs232DataBits()      ||
                         rs232_parity         != configManager.getRs232Parity()        ||
                         rs232_stop_bits      != configManager.getRs232StopBits()      ||
-                        rs232_invert_pins    != configManager.getRs232InvertPins();
+                        rs232_invert_pins    != configManager.getRs232InvertPins());
                     if (needsRestore) {
                         // Restore to the config-page-saved settings (no NVS write — already saved there).
                         rs232_baudrate_index = configManager.getRs232BaudrateIndex();

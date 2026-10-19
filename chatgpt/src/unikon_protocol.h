@@ -107,6 +107,11 @@ struct UnikonConfig {
 
 // Initialize: load config from LittleFS and open the UART if enabled.
 void unikonBegin();
+// True when the Unikon module is the selected one (mutual exclusion with Bricon).
+bool unikonIsEnabled();
+// Apply the RAMBOX RS-232 profile (9600 8N1). Called when Unikon becomes active so
+// choosing the module switches the port automatically (Bricon needs 8N2 instead).
+void unikonApplySerialProfile();
 
 // Called from loop(): drives the auto-poll timer and the pending-poll flag.
 // Blocking (up to ~10 s) while a poll is in progress — only runs when interval fires.
@@ -193,6 +198,27 @@ uint16_t unikonSetTrainingFilter(const char* text);
 // Request to clear the training contest (UNIKON_TRAINING_CODE) from the RAMBOX calendar.
 // Non-blocking — sets a flag for unikonUpdate().
 void unikonRequestClearTraining();
+
+// ----- Push (device-initiated arrivals) -----
+// The vendor driver's uniActivatePush()/uniDeactivatePush() send the frames "P1"/"P0".
+// The push is ADDITIVE and AUTOMATIC: the configured auto-poll keeps running as the
+// guarantee, and as soon as a RAMBOX is identified the hub asks it once for the push (per
+// device, see pushCheckDevice()). The pushed frames are read by the passive listener, so an
+// arrival can show up well before the next poll. Nothing is disabled by the push.
+
+// Ask the RAMBOX to push ("P1") or to stop ("P0") — normally not needed: the automatic
+// path does it on identification. Non-blocking — sets a flag for unikonUpdate().
+void unikonRequestPush(bool on);
+
+// Enable/disable the automatic per-device probe (default: enabled).
+void unikonSetPushAuto(bool on);
+
+bool        unikonIsPushAuto();
+bool        unikonIsPushActive();
+uint8_t     unikonGetPushState();    // 0 = off, 1 = active, 2 = unsupported/rejected
+uint16_t    unikonGetPushCode();     // 0 = ACK, 0x3f1 = NAK, 0x3ef = no answer
+const char* unikonGetPushDevice();   // ident the push was negotiated with
+const char* unikonGetPushVersion();  // ident captured by the last probe
 
 // Force save of current contests/registrations to persistent config.
 // Called automatically after successful IC/X polls.

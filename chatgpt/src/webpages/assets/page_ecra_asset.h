@@ -14,7 +14,7 @@ static const char ECRA_PAGE[] PROGMEM = R"rawliteral(
     <canvas id="ecraCanvas" width="800" height="480" aria-label="TouchMeteo-7 display"></canvas>
   </div>
   <div class="ecra-mirror-bar">
-    <button class="btn" id="ecMirrorPlay" type="button">Pause</button>
+    <button class="btn" id="ecMirrorPlay" type="button" title="Pause or resume the screen mirror" data-i18n-title="ecraTipMirrorPlay">Pause</button>
     <label for="ecMirrorRate">Refresh</label>
     <select id="ecMirrorRate">
       <option value="500">2 fps</option>
@@ -33,14 +33,14 @@ static const char ECRA_PAGE[] PROGMEM = R"rawliteral(
   <div class="ecra-geo-current">Current location: <span id="ecPlace">—</span></div>
   <div class="ecra-geo-form">
     <input id="ecGeoQ" maxlength="60" placeholder="Town or city" autocomplete="off">
-    <button class="btn" id="ecGeoGo" type="button">Search</button>
-    <button class="btn" id="ecGeoAuto" type="button">Detect location</button>
+    <button class="btn" id="ecGeoGo" type="button" title="Search the address" data-i18n-title="ecraTipGeoGo">Search</button>
+    <button class="btn" id="ecGeoAuto" type="button" title="Detect the location automatically" data-i18n-title="ecraTipGeoAuto">Detect location</button>
   </div>
   <div id="ecGeoRes" aria-live="polite"></div>
   <div class="ecra-weather-tools">
     <div id="ecWeatherStatus" role="status" aria-live="polite">Checking forecast…</div>
     <pre id="ecWeatherSummary"></pre>
-    <button class="btn" id="ecWeatherRefresh" type="button">Refresh weather</button>
+    <button class="btn" id="ecWeatherRefresh" type="button" title="Refresh the weather forecast" data-i18n-title="ecraTipWeather">Refresh weather</button>
   </div>
 </details>
 </div>

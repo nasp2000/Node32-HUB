@@ -1,10 +1,12 @@
 // bricon_protocol.cpp
-// Bricon loft-module driver — SKELETON (wire driver pending hardware tap).
+// Bricon loft-module driver.
 //
-// Mirrors the Unikon engine structure (poll/calendar/pombal/arrivals/email)
-// so the page, API and tests are real. The RS-232 command layer is a clean
-// fill-in point (see BriconPending* markers): until the tap confirms the
-// exact bytes, the engine NEVER transmits — it only listens and logs.
+// Mirrors the Unikon engine structure (poll/calendar/pombal/arrivals/email).
+// The RS-232 layer below is implemented from the recovered protocol
+// (PROTOCOL_RS232.md): framing + CK, ActivateMaster/BA scan, then the
+// FlightsReadOut sequence GetFancier -> GetPigeon chain -> GetTimer, plus the
+// GetFlightNames and GetBandTable readouts. Validated on the host against the
+// captured byte layouts; still to be exercised against a real clock.
 
 #include "bricon_protocol.h"
 
@@ -46,8 +48,8 @@ extern bool unikonIsPolling();
 #endif
 
 // ----- File-local state -----
-static BriconConfig s_cfg = { false, 0, 9600, 8, "none", 1 };
-static BriconStatus s_status = { false, true, 0, 0, 0, "none" };
+static BriconConfig s_cfg = { false, 0, 9600, 8, "none", 2, "PT", 0, "0000", "0000" };  // 9600 8N2, PT
+static BriconStatus s_status = { false, true, 0, 0, 0, 0, 0, 0, "none" };
 static volatile bool s_configWritePending = false;
 static bool s_pollingActive = false;
 static uint32_t s_lastPollMs = 0;
@@ -64,7 +66,11 @@ static void loadConfig() {
     s_cfg.baudrate = 9600;
     s_cfg.dataBits = 8;
     strlcpy(s_cfg.parity, "none", sizeof(s_cfg.parity));
-    s_cfg.stopBits = 1;
+    s_cfg.stopBits = 2;                       // Bricon = 8N2
+    strlcpy(s_cfg.country, "PT", sizeof(s_cfg.country));
+    s_cfg.baAddress = 0;
+    strlcpy(s_cfg.clubId, "0000", sizeof(s_cfg.clubId));
+    strlcpy(s_cfg.flightId, "0000", sizeof(s_cfg.flightId));
     if (!littlefsBegin()) return;
     if (!LittleFS.exists(BRICON_CFG_PATH)) return;
     File f = LittleFS.open(BRICON_CFG_PATH, "r");
@@ -81,7 +87,14 @@ static void loadConfig() {
     s_cfg.dataBits        = doc["data"]     | 8;
     const char* par       = doc["parity"]   | "none";
     strlcpy(s_cfg.parity, par, sizeof(s_cfg.parity));
-    s_cfg.stopBits        = doc["stop"]     | 1;
+    s_cfg.stopBits        = doc["stop"]     | 2;
+    const char* ctry      = doc["country"]  | "PT";
+    strlcpy(s_cfg.country, ctry, sizeof(s_cfg.country));
+    s_cfg.baAddress       = doc["ba"]       | 0;
+    const char* cl        = doc["club"]     | "0000";
+    const char* fl        = doc["flight"]   | "0000";
+    strlcpy(s_cfg.clubId, cl, sizeof(s_cfg.clubId));
+    strlcpy(s_cfg.flightId, fl, sizeof(s_cfg.flightId));
 }
 
 static bool saveConfig() {
@@ -97,6 +110,10 @@ static bool saveConfig() {
     doc["parity"]   = s_cfg.parity;
     doc["data"]     = s_cfg.dataBits;
     doc["stop"]     = s_cfg.stopBits;
+    doc["country"]  = s_cfg.country;
+    doc["ba"]       = s_cfg.baAddress;
+    doc["club"]     = s_cfg.clubId;
+    doc["flight"]   = s_cfg.flightId;
     String tmpPath = String(BRICON_CFG_PATH) + ".tmp";
     File f = LittleFS.open(tmpPath.c_str(), "w");
     if (!f) return false;
@@ -126,6 +143,8 @@ const char* briconActiveModuleName() {
 #endif
     return s_status.activeModule;
 }
+
+bool briconIsEnabled() { return s_cfg.enabled; }
 
 bool briconIsActive() {
     if (!s_cfg.enabled) return false;
@@ -178,7 +197,23 @@ void briconSetEnabled(bool on) {
         s_status.connected = false;
         s_status.bytesRx = 0;
         s_status.framesSeen = 0;
-        sendVirtualMessage(F("[BRICON] enabled — driver pending hardware tap (listen-only)"), WARN, false, true);
+        {
+            // REA-derived profile: 9600 8N2 and the layout the country selects.
+            uint8_t fed = 22;
+            const char* shortFed[] = { "PT", "ES", "NL", "UA", "PL", "FR", "KSA" };
+            for (size_t i = 0; i < sizeof(shortFed) / sizeof(shortFed[0]); i++)
+                if (strcasecmp(s_cfg.country, shortFed[i]) == 0) { fed = 14; break; }
+            char prof[160];
+            snprintf(prof, sizeof(prof),
+                     "[BRICON] profile: %d 8%s%d country=%s (FedBand %u, arrival %u B, fancier %s) BA=%s",
+                     s_cfg.baudrate, s_cfg.parity[0] ? s_cfg.parity : "none", s_cfg.stopBits,
+                     s_cfg.country, (unsigned)fed, (unsigned)(39 + fed),
+                     (!strcasecmp(s_cfg.country, "PT") || !strcasecmp(s_cfg.country, "ES"))
+                         ? "non-UK 104B" : "per IsUKProtocol",
+                     s_cfg.baAddress ? "explicit" : "auto-scan");
+            sendVirtualMessage(String(prof), WARN, false, true);
+        }
+        sendVirtualMessage(F("[BRICON] enabled — polling the clock"), WARN, false, true);
     } else {
         s_pollingActive = false;
         sendVirtualMessage(F("[BRICON] disabled"), WARN, false, true);
@@ -197,7 +232,12 @@ void briconSetConfig(const BriconConfig& cfg) {
     s_cfg = cfg;
     if (s_cfg.baudrate <= 0) s_cfg.baudrate = 9600;
     if (s_cfg.dataBits < 5 || s_cfg.dataBits > 8) s_cfg.dataBits = 8;
-    if (s_cfg.stopBits != 1 && s_cfg.stopBits != 2) s_cfg.stopBits = 1;
+    if (s_cfg.stopBits != 1 && s_cfg.stopBits != 2) s_cfg.stopBits = 2;
+    if (s_cfg.country[0] == '\0') strlcpy(s_cfg.country, "PT", sizeof(s_cfg.country));
+    if (s_cfg.baAddress != 0 && s_cfg.baAddress != 0x10 &&
+        (s_cfg.baAddress < 0x80 || s_cfg.baAddress > 0x85)) s_cfg.baAddress = 0;
+    if (strlen(s_cfg.clubId) != 4)   strlcpy(s_cfg.clubId, "0000", sizeof(s_cfg.clubId));
+    if (strlen(s_cfg.flightId) != 4) strlcpy(s_cfg.flightId, "0000", sizeof(s_cfg.flightId));
     if (!saveConfig()) s_configWritePending = true;
     if (s_cfg.enabled && !wasOn) {
         enforceExclusionOnEnable();
@@ -476,20 +516,355 @@ void briconRequestXOnlyPoll() { s_xPollPending = true; }
 void briconStartPolling() { s_pollingActive = true; s_lastPollMs = 0; }
 void briconStopPolling() { s_pollingActive = false; }
 
-// BriconPendingDriver: single choke point. Until the tap confirms the exact
-// command bytes (GetPigeon/SendFlight/…), NOTHING is transmitted — requests
-// are acknowledged and logged so the page/API behave sanely.
-static bool briconPendingDriver(const __FlashStringHelper* what) {
-    sendVirtualMessage(String(F("[BRICON] ")) + String(what)
-                       + String(F(": driver pending hardware tap — listen-only, nothing sent")),
-                       WARN, false, true);
+// ===========================================================================
+// Wire layer — framing recovered from BriconLib.Communication::SendCommand
+//   request   6C addr cmd n payload(N) CK    CK = (6C+addr+cmd+n+sum(payload))&FF
+//   response  33 addr cmd n status payload(N-1) CK
+//                                            CK = (33+addr+cmd+n+status+sum)&FF
+//   n == 0 => no status byte. addr/cmd must be echoed.
+// The app writes byte by byte with Thread.Sleep(1) => 1 ms pacing per byte.
+// ===========================================================================
+#define BK_START_REQ   0x6C
+#define BK_START_RSP   0x33
+#define BK_ADDR_MASTER 0x10
+#define BK_TIMEOUT_MS  800
+#define BK_FRAME_MAX   160
+
+static void bkFlushRx() {
+    uint32_t t = millis();
+    while (RS232.available() && millis() - t < 50) RS232.read();
+}
+
+static uint8_t bkChecksumReq(uint8_t addr, uint8_t cmd, uint8_t n, const uint8_t* payload) {
+    uint16_t sum = BK_START_REQ + addr + cmd + n;
+    for (uint8_t i = 0; i < n; i++) sum += payload[i];
+    return (uint8_t)(sum & 0xFF);
+}
+
+// Send one request: 6C addr cmd n payload CK (byte by byte, 1 ms pacing).
+static void bkSendRequest(uint8_t addr, uint8_t cmd, const uint8_t* payload, uint8_t n) {
+    uint8_t frame[BK_FRAME_MAX];
+    uint8_t p = 0;
+    frame[p++] = BK_START_REQ;
+    frame[p++] = addr;
+    frame[p++] = cmd;
+    frame[p++] = n;
+    for (uint8_t i = 0; i < n; i++) frame[p++] = payload[i];
+    frame[p++] = bkChecksumReq(addr, cmd, n, payload);
+    for (uint8_t i = 0; i < p; i++) {
+        RS232.write(frame[i]);
+        delay(1);                      // the app paces every byte with Sleep(1)
+    }
+    RS232.flush();
+    s_status.framesSeen++;                    // one request out
+}
+
+// Read one reply: 33 addr cmd n status payload(n-1) CK. Returns true when a
+// well-formed reply that echoes addr/cmd arrived; status/payload are filled.
+static bool bkReadReply(uint8_t addr, uint8_t cmd,
+                        uint8_t* status, uint8_t* payload, uint8_t* payloadLen,
+                        uint32_t timeoutMs) {
+    uint8_t buf[BK_FRAME_MAX];
+    uint8_t len = 0;
+    uint32_t t0 = millis();
+    bool inFrame = false;
+    while (millis() - t0 < timeoutMs) {
+        if (!RS232.available()) { yield(); continue; }
+        uint8_t b = (uint8_t)RS232.read();
+        s_status.bytesRx++;
+        if (!inFrame) {
+            if (b != BK_START_RSP) continue;      // resync on the response start byte
+            inFrame = true;
+            len = 0;
+        }
+        if (len < BK_FRAME_MAX) buf[len++] = b;
+        else { inFrame = false; len = 0; continue; }
+        if (len < 4) continue;                    // need addr/cmd/n
+        uint8_t n = buf[3];
+        if (len < (uint8_t)(5 + n)) continue;     // 4 header + n payload + CK
+        // complete frame
+        inFrame = false;
+        if (buf[1] != addr || buf[2] != cmd) {
+            char m[96];
+            snprintf(m, sizeof(m), "[BRICON] reply echo mismatch (want %02X/%02X, got %02X/%02X)",
+                     addr, cmd, buf[1], buf[2]);
+            sendVirtualMessage(String(m), WARN, false, true);
+            return false;
+        }
+        uint8_t st = 0, plen = 0;
+        uint16_t sum = BK_START_RSP + buf[1] + buf[2] + n;
+        if (n) { st = buf[4]; sum += st; }
+        for (uint8_t i = 0; i < (uint8_t)(n ? n - 1 : 0); i++) { payload[i] = buf[5 + i]; sum += buf[5 + i]; }
+        plen = (uint8_t)(n ? n - 1 : 0);
+        uint8_t ck = buf[4 + n];
+        if (ck != (uint8_t)(sum & 0xFF)) {
+            char m[96];
+            snprintf(m, sizeof(m), "[BRICON] reply bad CK (got %02X want %02X) — retrying",
+                     ck, (uint8_t)(sum & 0xFF));
+            sendVirtualMessage(String(m), WARN, false, true);
+            return false;
+        }
+        *status = st;
+        *payloadLen = plen;
+        s_status.framesSeen++;                // one reply in
+        s_status.baAddress = addr;
+        return true;
+    }
+    sendVirtualMessage(F("[BRICON] reply timeout"), WARN, false, true);
     return false;
 }
 
-bool briconPollNow() {
-    if (!briconIsActive()) return false;
-    return briconPendingDriver(F("poll"));
+// One command round-trip. retries mirrors the app's tolerance for a lost reply.
+static bool bkCommand(uint8_t addr, uint8_t cmd, const uint8_t* payload, uint8_t n,
+                      uint8_t* status, uint8_t* rspPayload, uint8_t* rspLen) {
+    for (uint8_t attempt = 0; attempt < 3; attempt++) {
+        bkFlushRx();
+        bkSendRequest(addr, cmd, payload, n);
+        if (bkReadReply(addr, cmd, status, rspPayload, rspLen, BK_TIMEOUT_MS)) return true;
+        delay(20);
+    }
+    return false;
 }
+
+// ---- device activation / discovery (Communication::RefreshComPort order) ----
+static uint8_t s_baAddr = 0;
+
+static bool briconActivate(uint8_t addr) {
+    uint8_t status = 0, len = 0, pl[4];
+    if (addr == BK_ADDR_MASTER) {
+        if (!bkCommand(BK_ADDR_MASTER, 0x61, nullptr, 0, &status, pl, &len)) return false;
+    } else {
+        uint8_t p[1] = { 0x00 };
+        if (!bkCommand(addr, 0x50, p, 1, &status, pl, &len)) return false;
+    }
+    if (status != 0x00) {
+        char m[80];
+        snprintf(m, sizeof(m), "[BRICON] activate 0x%02X refused (status 0x%02X)", addr, status);
+        sendVirtualMessage(String(m), WARN, false, true);
+        return false;
+    }
+    s_baAddr = addr;
+    s_status.connected = true;
+    char m[80];
+    snprintf(m, sizeof(m), "[BRICON] device activated at address 0x%02X", addr);
+    sendVirtualMessage(String(m), WARN, false, true);
+    return true;
+}
+
+// Try the configured address first, then the recovered scan order.
+static bool briconFindDevice() {
+    if (s_cfg.baAddress != 0) return briconActivate((uint8_t)s_cfg.baAddress);
+    const uint8_t order[] = { BK_ADDR_MASTER, 0x82, 0x81, 0x83, 0x84, 0x85, 0x80, 0x00 };
+    for (size_t i = 0; i < sizeof(order) / sizeof(order[0]); i++) {
+        if (briconActivate(order[i])) return true;
+    }
+    sendVirtualMessage(F("[BRICON] no clock answered the activation scan"), WARN, false, true);
+    return false;
+}
+
+// ---- record parsers -------------------------------------------------------
+static void bkAscii(const uint8_t* p, uint8_t n, char* out, size_t outSize) {
+    size_t k = 0;
+    for (uint8_t i = 0; i < n && k + 1 < outSize; i++) {
+        char c = (char)p[i];
+        if (c == '\0') break;                 // ByteArrayToString: from the first 0x00 it is spaces
+        out[k++] = (c >= 0x20 && c < 0x7F) ? c : ' ';
+    }
+    out[k] = '\0';
+    while (k > 0 && out[k - 1] == ' ') out[--k] = '\0';   // trim
+}
+
+static uint8_t bkFedBandForCountry() {
+    const char* shortFed[] = { "PT", "ES", "NL", "UA", "PL", "FR", "KSA" };
+    for (size_t i = 0; i < sizeof(shortFed) / sizeof(shortFed[0]); i++)
+        if (strcasecmp(s_cfg.country, shortFed[i]) == 0) return 14;
+    return 22;
+}
+
+// GetPigeonCommand::HandleResponse (rva 0x54270). Layout:
+//   reserved(2) ElBand(8) FedBand(14|22) ClubID(4) FlightID(4) Position1..4(2 BE)
+//   Date(6 DDMMYY) Time(6 HHMMSS) Evaluation(1) [+1..2 ignored] [+1 TeamNbr RO/MD]
+static bool briconParsePigeon(const uint8_t* p, uint8_t len, BriconArrival* out) {
+    if (len < 39) return false;
+    uint8_t fed = bkFedBandForCountry();
+    if (len < (uint8_t)(39 + fed)) {
+        // the reply length itself is a discriminator in the app; fall back to 14
+        fed = 14;
+        if (len < (uint8_t)(39 + fed)) return false;
+    }
+    memset(out, 0, sizeof(*out));
+    uint8_t off = 2;
+    bkAscii(p + off, 8, out->chip, sizeof(out->chip));  off += 8;
+    out->hasChip = (out->chip[0] != '\0');
+    bkAscii(p + off, fed, out->ring, sizeof(out->ring)); off += fed;
+    char club[5] = {0}, flight[5] = {0};
+    bkAscii(p + off, 4, club, sizeof(club)); off += 4;
+    bkAscii(p + off, 4, flight, sizeof(flight)); off += 4;
+    uint16_t pos[4];
+    for (int i = 0; i < 4; i++) { pos[i] = (uint16_t)((p[off] << 8) | p[off + 1]); off += 2; }
+    bkAscii(p + off, 6, out->arrivalDate, sizeof(out->arrivalDate)); off += 6;
+    bkAscii(p + off, 6, out->arrivalTime, sizeof(out->arrivalTime)); off += 6;
+    out->evaluation = (off < len) ? (char)p[off] : '\0';
+    out->posArriveClub = pos[0];
+    out->isTraining = false;          // derived from the enclosing flight, not from Evaluation
+    if (club[0] && !(club[0] == '0' && club[1] == '0' && club[2] == '0' && club[3] == '0'))
+        strlcpy(out->race, flight, sizeof(out->race));
+    return true;
+}
+
+// ---- readouts -------------------------------------------------------------
+// FlightsReadOut::frm_OnPostCommands posts GetFancier -> GetPigeon -> GetTimer.
+static void briconReadFancier() {
+    uint8_t status = 0, len = 0, pl[128];
+    uint8_t req[1] = { 0x00 };
+    if (!bkCommand(s_baAddr, 0x51, req, 1, &status, pl, &len)) return;
+    if (status != 0x00 || len < 20) return;
+    bool uk = false;
+    const char* ukc[] = { "IN","KV","UK","PL","HU","RO","MD","JP","AU","IR","SA","SK","TS","CZ","NZ","MX","US","ES","PT","FI" };
+    for (size_t i = 0; i < sizeof(ukc) / sizeof(ukc[0]); i++)
+        if (strcasecmp(s_cfg.country, ukc[i]) == 0) { uk = true; break; }
+    if (!strcasecmp(s_cfg.country, "PT") || !strcasecmp(s_cfg.country, "ES")) uk = false;
+    uint8_t licLen = uk ? 10 : 8;
+    if (len < licLen) return;
+    char lic[16] = {0}, name[32] = {0};
+    bkAscii(pl, licLen, lic, sizeof(lic));
+    uint8_t off = licLen;
+    bkAscii(pl + off, uk ? 24 : 25, name, sizeof(name));
+    char m[128];
+    snprintf(m, sizeof(m), "[BRICON] fancier: %s '%s' (%s layout)", lic, name, uk ? "UK" : "non-UK");
+    sendVirtualMessage(String(m), WARN, false, true);
+}
+
+// GetPigeon chain: index+1 until status 0x05 (NoRecordThatCompliesTheRequest).
+static uint16_t briconReadArrivals() {
+    uint16_t idx = 0, got = 0;
+    for (uint16_t guard = 0; guard < BRICON_MAX_ARRIVALS + 16; guard++) {
+        uint8_t req[10];
+        req[0] = (uint8_t)(idx >> 8);
+        req[1] = (uint8_t)(idx & 0xFF);
+        // club + flight codes (4 chars each); "0000" = the wildcard the app tolerates
+        memcpy(req + 2, s_cfg.clubId, 4);
+        memcpy(req + 6, s_cfg.flightId, 4);
+        uint8_t status = 0, len = 0, pl[128];
+        if (!bkCommand(s_baAddr, 0x58, req, 10, &status, pl, &len)) break;
+        if (status == 0x05) break;                 // end of chain
+        if (status != 0x00) {
+            char m[80];
+            snprintf(m, sizeof(m), "[BRICON] GetPigeon idx=%u status 0x%02X — stopping", idx, status);
+            sendVirtualMessage(String(m), WARN, false, true);
+            break;
+        }
+        BriconArrival a;
+        if (briconParsePigeon(pl, len, &a)) {
+            if (briconIngestArrival(a)) got++;
+            if (got <= 3 || (got % 25) == 0) {     // throttled log
+                char m[128];
+                snprintf(m, sizeof(m), "[BRICON] arrival %u: %s %s %s %s pos=%u eval=%c",
+                         (unsigned)got, a.chip, a.ring, a.arrivalDate, a.arrivalTime,
+                         (unsigned)a.posArriveClub, a.evaluation ? a.evaluation : '?');
+                sendVirtualMessage(String(m), WARN, false, true);
+            }
+        }
+        idx++;
+    }
+    return got;
+}
+
+static void briconReadTimer() {
+    uint8_t status = 0, len = 0, pl[80];
+    uint8_t req[5] = { 0x00, '0', '0', '0', '0' };
+    if (!bkCommand(s_baAddr, 0x5D, req, 5, &status, pl, &len)) return;
+    if (status != 0x00 || len < 50) return;
+    char d[8] = {0}, t[8] = {0}, rd[8] = {0}, rt[8] = {0};
+    bkAscii(pl + 8, 6, d, sizeof(d));
+    bkAscii(pl + 14, 6, t, sizeof(t));
+    bkAscii(pl + 30, 6, rd, sizeof(rd));
+    bkAscii(pl + 36, 6, rt, sizeof(rt));
+    char m[112];
+    snprintf(m, sizeof(m), "[BRICON] timer: basketing %s %s, readout %s %s", d, t, rd, rt);
+    sendVirtualMessage(String(m), WARN, false, true);
+}
+
+// GetFlightNames chain (FA 0C idx) — the contest calendar.
+static uint16_t briconReadCalendar() {
+    uint16_t idx = 0, got = 0;
+    for (uint16_t guard = 0; guard < BRICON_MAX_CONTESTS + 8; guard++) {
+        uint8_t req[2] = { 0x0C, (uint8_t)idx };
+        uint8_t status = 0, len = 0, pl[128];
+        if (!bkCommand(s_baAddr, 0xFA, req, 2, &status, pl, &len)) break;
+        if (status == 0x05 || status == 0x0B) break;      // end of the list
+        if (status != 0x00) break;
+        if (!briconStorageReady() || s_contestCount >= BRICON_MAX_CONTESTS) break;
+        BriconContest c;
+        memset(&c, 0, sizeof(c));
+        bkAscii(pl, 3, c.code, sizeof(c.code));
+        bkAscii(pl + 3, 6, c.date, sizeof(c.date));
+        bkAscii(pl + 9, 9, c.name, sizeof(c.name));
+        s_contests[s_contestCount++] = c;
+        got++;
+        idx++;
+    }
+    char m[80];
+    snprintf(m, sizeof(m), "[BRICON] calendar: %u contest(s)", (unsigned)got);
+    sendVirtualMessage(String(m), WARN, false, true);
+    return got;
+}
+
+// GetBandTable (52|C2) — the fancier's pigeon list (the "pombal").
+static uint16_t briconReadPombal() {
+    uint8_t req[3] = { 0x00, 0x00, 0x0A };
+    uint8_t status = 0, len = 0, pl[128];
+    if (!bkCommand(s_baAddr, 0x52, req, 3, &status, pl, &len)) return 0;
+    if (status != 0x00) {
+        char m[80];
+        snprintf(m, sizeof(m), "[BRICON] GetBandTable status 0x%02X", status);
+        sendVirtualMessage(String(m), WARN, false, true);
+        return 0;
+    }
+    uint16_t got = 0;
+    // Records are 12 bytes: 8-char ring + 4-char club, until the payload runs out.
+    for (uint8_t off = 0; off + 12 <= len && s_registrationCount < BRICON_MAX_ARRIVALS; off += 12) {
+        BriconArrival r;
+        memset(&r, 0, sizeof(r));
+        bkAscii(pl + off, 8, r.ring, sizeof(r.ring));
+        s_registrations[s_registrationCount++] = r;
+        got++;
+    }
+    char m[96];
+    snprintf(m, sizeof(m), "[BRICON] pombal: %u pigeon(s) read (total %u)",
+             (unsigned)got, (unsigned)s_registrationCount);
+    sendVirtualMessage(String(m), WARN, false, true);
+    return got;
+}
+
+// A full poll = identify/activate + the FlightsReadOut sequence + calendar.
+static bool briconPoll(bool arrivals, bool calendar, bool pombal) {
+    if (!briconIsActive()) return false;
+#if ENABLE_UNIKON == 1
+    if (unikonIsPolling()) return false;          // never fight over the UART
+#endif
+    if (!_rs232PortInitialized) {
+        sendVirtualMessage(F("[BRICON] poll skipped: RS232 not ready"), WARN, false, true);
+        return false;
+    }
+    s_status.connected = false;
+    if (!briconFindDevice()) return false;
+    if (arrivals) {
+        briconReadFancier();
+        uint16_t n = briconReadArrivals();
+        briconReadTimer();
+        s_status.lastNewCount = n;
+        char m[80];
+        snprintf(m, sizeof(m), "[BRICON] poll done — %u arrival(s)", (unsigned)n);
+        sendVirtualMessage(String(m), WARN, false, true);
+    }
+    if (calendar) briconReadCalendar();
+    if (pombal)   briconReadPombal();
+    s_status.lastPollMs = millis();
+    return true;
+}
+
+bool briconPollNow() { return briconPoll(true, true, true); }
 
 // ----- Lifecycle -----
 void briconBegin() {
@@ -527,10 +902,12 @@ void briconUpdate() {
     }
 
     // Consume pending requests (all funnel through the pending driver until wired).
-    if (s_pollPending)   { s_pollPending = false;   briconPollNow(); return; }
-    if (s_wPollPending)  { s_wPollPending = false;  briconPollNow(); return; }
-    if (s_icPollPending) { s_icPollPending = false; briconPollNow(); return; }
-    if (s_xPollPending)  { s_xPollPending = false;  briconPollNow(); return; }
+    // Requests map to the captured readouts: W-only = arrivals (GetPigeon chain),
+    // IC-only = calendar (GetFlightNames chain), X-only = pombal (GetBandTable).
+    if (s_pollPending)   { s_pollPending = false;   briconPoll(true, true, true);   return; }
+    if (s_wPollPending)  { s_wPollPending = false;  briconPoll(true, false, false); return; }
+    if (s_icPollPending) { s_icPollPending = false; briconPoll(false, true, false); return; }
+    if (s_xPollPending)  { s_xPollPending = false;  briconPoll(false, false, true); return; }
 
     // Passive RX sniffer: drain + hexdump for the monitor so the first Little
     // bytes on the wire are visible immediately (day-one diagnosis).
@@ -543,7 +920,7 @@ void briconUpdate() {
     s_status.lastRxMs = millis();
     s_status.bytesRx += n;
     for (uint8_t i = 0; i < n; i++) {
-        if (buf[i] == 0x02) s_status.framesSeen++;
+        if (buf[i] == BK_START_RSP) s_status.framesSeen++;   // stray reply start byte
     }
     // Throttle: at most one log line per 500 ms to protect the monitor.
     if (millis() - s_lastLogMs < 500) return;

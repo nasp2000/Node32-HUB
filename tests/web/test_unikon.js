@@ -25,60 +25,46 @@ assert(typeof win.syncCalendar==='function','syncCalendar is function');
 assert(typeof win.pollNow==='function','pollNow is function');
 assert(typeof win.saveUnikonConfig==='function','saveUnikonConfig is function');
 assert(typeof win.sendTraining==='function','sendTraining is function');
-assert(typeof win.clearTraining==='function','clearTraining is function');
 assert(win.trainingPending===false,'trainingPending starts false');
-assert(win.clearTrainingPending===false,'clearTrainingPending starts false');
 assert(typeof win.splitArrivals==='function','splitArrivals is function');
-assert(win.document.getElementById('trainingPombalSelect')!==null,'training pombal box exists');
-assert(typeof win.selectedTrainingRings==='function','selectedTrainingRings is function');
-assert(typeof win.trainingCheckAll==='function','trainingCheckAll is function');
+// Training always allocates the WHOLE pombal ("rings=*"): a race only opens when its pigeons
+// are allocated, and the poul upload replaces the device's list, so a subset is never sent.
+// There is no clear-training control: the race is deleted on the RAMBOX itself.
 (function(){
-  var box = win.document.getElementById('trainingPombalSelect');
-  function addBox(value, checked) {
-    var lab = win.document.createElement('label');
-    var cb = win.document.createElement('input');
-    cb.type = 'checkbox'; cb.value = value; cb.checked = !!checked;
-    lab.appendChild(cb); box.appendChild(lab);
-  }
-  assert(win.selectedTrainingRings(box).length===0,'no selection by default');
-  assert(win.selectedTrainingRings(null).length===0,'null box is safe');
-  addBox('24004342525', false);
-  addBox('02002830633', true);
-  var got = win.selectedTrainingRings(box);
-  assert(got.length===1 && got[0]==='02002830633','only checked boxes returned');
-  win.trainingCheckAll(true);
-  assert(win.selectedTrainingRings(box).length===2,'check all selects all');
-  win.trainingCheckAll(false);
-  assert(win.selectedTrainingRings(box).length===0,'uncheck all clears');
-})();
-// sendTraining payload sentinels: none -> "-", all -> "*", some -> the ring list
-// (the server maps them to UNIKON_TRAIN_MODE_NONE / ALL / LIST).
-(function(){
-  var box = win.document.getElementById('trainingPombalSelect');
-  box.innerHTML = '';
-  function addBox(value, checked) {
-    var lab = win.document.createElement('label');
-    var cb = win.document.createElement('input');
-    cb.type = 'checkbox'; cb.value = value; cb.checked = !!checked;
-    lab.appendChild(cb); box.appendChild(lab);
-  }
   var sent = [];
   win.fetch = function(url, opts) {
     sent.push((opts && opts.body) || '');
     return Promise.resolve({ json: function(){ return Promise.resolve({success:true,message:'ok'}); } });
   };
-  addBox('24004342525', false);
-  addBox('02002830633', false);
   win.sendTraining();
   assertEq(sent.length, 1, 'sendTraining posts once');
-  assertEq(sent[0], 'rings=-', 'none ticked sends the "-" sentinel');
-  win.trainingCheckAll(true);
+  assertEq(sent[0], 'rings=*', 'default mode (all) sends the whole pombal');
+  // mode = none -> race only
+  win.document.querySelector("input[name='trainingMode'][value='none']").checked = true;
   win.sendTraining();
-  assertEq(sent[1], 'rings=*', 'all ticked sends the "*" sentinel');
-  win.trainingCheckAll(false);
-  box.querySelectorAll('input[type="checkbox"]')[0].checked = true;
+  assertEq(sent[1], 'rings=-', 'race-only mode sends "-" (no pigeon records)');
+  // mode = list -> only the ticked rings
+  win.document.querySelector("input[name='trainingMode'][value='list']").checked = true;
+  var box = win.document.getElementById('trainingPombalSelect');
+  assert(box !== null, 'pigeon checklist exists for the subset mode');
+  box.innerHTML = '';
+  var lab = win.document.createElement('label');
+  var cb = win.document.createElement('input');
+  cb.type = 'checkbox'; cb.value = '24004342525'; cb.checked = true;
+  lab.appendChild(cb); box.appendChild(lab);
+  assertEq(win.selectedTrainingRings(box).length, 1, 'only the ticked rings are collected');
   win.sendTraining();
-  assertEq(sent[2], 'rings=24004342525', 'some ticked sends the ring list');
+  assertEq(sent[2], 'rings=24004342525', 'subset mode sends the ring list');
+  win.document.querySelector("input[name='trainingMode'][value='all']").checked = true;
+  assert(typeof win.trainingCheckAll === 'function', 'trainingCheckAll is available');
+  assert(typeof win.clearTraining==='undefined','clearTraining is gone from the page');
+})();
+// Push is automatic (no buttons): the page only displays the state element.
+(function(){
+  var ps = win.document.getElementById('push-state');
+  assert(ps !== null, 'push state element exists');
+  assert(ps.getAttribute('data-i18n') === 'ukPushOff', 'push state has an i18n anchor');
+  assert(win.document.querySelector("[data-i18n='ukPushTitle']") !== null, 'push block is rendered');
 })();
 var _sp = win.splitArrivals([{ring:'A',kind:'race'},{ring:'B',kind:'training'},{ring:'C'}]);
 assert(_sp.race.length===2 && _sp.training.length===1,'splitArrivals separates race/training, missing kind defaults race');
