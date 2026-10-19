@@ -116,7 +116,7 @@ void briconRequestPoll();        // full: calendar + pombal + arrivals
 void briconRequestWOnlyPoll();   // arrivals only (default periodic)
 void briconRequestIcOnlyPoll();  // calendar only
 void briconRequestXOnlyPoll();   // pombal only
-bool briconPollNow();            // immediate (blocking); false while driver pending
+bool briconPollNow();            // immediate (blocking) full poll
 void briconStartPolling();
 void briconStopPolling();
 

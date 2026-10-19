@@ -1,7 +1,7 @@
 // page_bricon_asset.h
 // Bricon Rambox page — same look & tab structure as the Unikon RAMBOX page.
-// Driver pending hardware tap: shows status + empty tables; actions answer
-// honestly ("awaiting hardware") until bricon_protocol is wired.
+// Wire driver implemented from the REA capture (framing/CK, activation scan,
+// GetFancier -> GetPigeon chain -> GetTimer, GetFlightNames, GetBandTable).
 #pragma once
 #include <Arduino.h>
 

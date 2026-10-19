@@ -245,7 +245,7 @@
   #define ENABLE_UNIKON             0
 #endif
 
-// --- Bricon (loft modules: Little/Speedy via RS232; driver pending hardware) ---
+// --- Bricon (loft modules: Little/DUO/Speedy/Bricon+ via RS232 9600 8N2) ---
 #ifndef ENABLE_BRICON
   #define ENABLE_BRICON             0
 #endif

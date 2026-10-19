@@ -2567,7 +2567,7 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "briconArrivalsHint": "Only records with valid time (HHMMSS) appear in this table.",
   "briconPombalHint": "Registered pigeons (ring + chip) read from the Bricon loft.",
   "briconTrainingHint": "Writes a training session to the Bricon so it records training arrivals.",
-  "briconHardwarePending": "Waiting for hardware (driver not connected yet).",
+  "briconHardwarePending": "No clock seen yet",
   "briconRxBytes": "RX bytes",
   "briconFrames": "Frames",
   "ukBtnSendTraining": "📡 Send Training",
