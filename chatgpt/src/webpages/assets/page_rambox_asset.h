@@ -7,6 +7,9 @@
 // Adding a new clock family = adding one entry to the DEV registry below (endpoints +
 // config fields); the page renders itself from that description.
 //
+// All visible text and tooltips are localised via data-i18n / data-i18n-title and the
+// rmb* keys (see lang_pt_ui.h / lang_en_ui.h); dynamic strings use T().
+//
 // Does NOT include DOCTYPE/html/head/body -- the shell renderer adds those.
 
 #pragma once
@@ -15,81 +18,119 @@
 static const char PAGE_RAMBOX[] PROGMEM = R"rawliteral(
 <main class='page'><div class='wrap'>
 <style>
-    .rm-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 0}
-    .rm-tab{padding:8px 14px;border-radius:8px 8px 0 0;background:#1e293b;color:#cbd5e1;
-            border:1px solid #334155;cursor:pointer;font-size:13px}
-    .rm-tab.active{background:#1d4ed8;color:#fff;border-color:#3b82f6}
-    .rm-card{background:#0f172a;border:1px solid #334155;border-radius:0 10px 10px 10px;padding:12px;margin:0 0 10px}
-    .rm-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:6px 0}
-    .rm-row label{color:#cbd5e1;font-size:13px}
-    .rm-card input,.rm-card select,.rm-card textarea{background:#1e293b;color:#e2e8f0;
-            border:1px solid #475569;border-radius:6px;padding:6px}
+    .rm-bar{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow-x:auto;margin:8px 0 2px}
+    .rm-lbl{color:#93c5fd;font-weight:bold;font-size:14px;white-space:nowrap}
+    .rm-sel{width:auto;padding:3px 6px;font-size:13px;background:#0f172a;color:#e2e8f0;
+            border:1px solid #60a5fa;border-radius:6px}
+    .rm-badge{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:bold;
+              background:#334155;color:#e2e8f0;white-space:nowrap}
+    .rm-badge.on{background:#15803d;color:#fff}
+    .rm-badge.off{background:#b91c1c;color:#fff}
+    .rm-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:10px 0}
+    .rm-tab{padding:8px 6px;border-radius:8px;background:#1e293b;color:#e2e8f0;
+            border:1px solid #475569;cursor:pointer;font-size:13px;font-weight:600;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .rm-tab:hover{background:#334155}
+    .rm-tab.active{background:#2563eb;border-color:#93c5fd;color:#fff}
+    .rm-card{background:#0b1220;border:1px solid #475569;border-radius:10px;padding:12px;margin:0 0 10px}
+    .rm-acts{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+    .rm-acts>button{flex:1 1 150px;padding:9px 10px;border-radius:8px;background:#1d4ed8;
+            color:#fff;border:1px solid #3b82f6;cursor:pointer;font-size:13px;font-weight:600}
+    .rm-acts>button:hover{background:#2563eb}
+    .rm-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:6px 0}
+    .rm-fld{display:flex;align-items:center;gap:6px;color:#cbd5e1;font-size:13px}
+    .rm-chk{display:flex;align-items:center;gap:6px;color:#e2e8f0;font-size:13px;cursor:pointer}
+    .rm-card input[type=number],.rm-card input[type=text],.rm-card select{
+            background:#0f172a;color:#e2e8f0;border:1px solid #64748b;border-radius:6px;padding:5px 7px}
+    .rm-checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));
+               gap:4px 10px;max-height:34vh;overflow:auto;width:100%}
+    .rm-checks label{display:flex;align-items:center;gap:6px;font-family:monospace;font-size:12px;
+               color:#e2e8f0;background:#111827;border:1px solid #374151;border-radius:6px;padding:3px 6px}
     .rm-card table{width:100%;border-collapse:collapse;font-size:13px}
-    .rm-card th,.rm-card td{border:1px solid #334155;padding:5px 7px;text-align:left}
+    .rm-card th,.rm-card td{border:1px solid #475569;padding:5px 7px;text-align:left;white-space:nowrap}
     .rm-card th{background:#1e293b;color:#93c5fd;position:sticky;top:0}
-    .rm-badge{padding:2px 9px;border-radius:10px;font-size:12px;background:#334155;color:#e2e8f0}
-    .rm-badge.on{background:#166534}
-    .rm-badge.off{background:#7f1d1d}
     .rm-muted{color:#94a3b8;font-size:12px}
     .rm-ok{color:#4ade80}.rm-err{color:#f87171}
-    .rm-scroll{max-height:52vh;overflow:auto}
+    .rm-scroll{max-height:48vh;overflow:auto}
 </style>
 
-<div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome' title='Go to home page' data-i18n-title='btnHome'>&#127968; Home</a></div>
-<h1>&#128038; RAMBOX</h1>
+<div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome' data-i18n-title='btnHome' title='Home'>&#127968; Home</a></div>
 
-<div class='rm-row'>
-    <label><b>Aparelho:</b></label>
-    <select id='rmDev' onchange='rmSelect()'>
-        <option value='unikon'>&#128038; Unikon RAMBOX</option>
+<h1 data-i18n='rmbTitle' data-i18n-title='rmbTitleTip' title='RAMBOX'>&#128038; RAMBOX</h1>
+
+<div class='rm-bar'>
+    <label class='rm-lbl' data-i18n='rmbDevice' data-i18n-title='rmbDeviceTip' title='Aparelho'>Aparelho:</label>
+    <select id='rmDev' class='rm-sel' onchange='rmSelect()' title='Aparelho'>
+        <option value='unikon'>&#128038; Unikon</option>
         <option value='bricon'>&#128225; Bricon</option>
     </select>
-    <span id='rmBadge' class='rm-badge'>—</span>
-    <span class='rm-muted'>Só um relógio pode estar ligado/activo em cada ESP32.</span>
+    <span id='rmBadge' class='rm-badge'>&mdash;</span>
 </div>
+<p class='rm-muted' style='margin:2px 0 0' data-i18n='rmbOneOnly' data-i18n-title='rmbDeviceTip'>S&oacute; um rel&oacute;gio pode estar ligado/activo em cada ESP32.</p>
 
 <div class='rm-tabs'>
-    <button class='rm-tab active' data-tab='config'   onclick='rmTab("config")'>&#9881; Configuração</button>
-    <button class='rm-tab'        data-tab='arrivals' onclick='rmTab("arrivals")'>&#128229; Chegadas</button>
-    <button class='rm-tab'        data-tab='pombal'   onclick='rmTab("pombal")'>&#128038; Pombos</button>
-    <button class='rm-tab'        data-tab='race'     onclick='rmTab("race")'>&#127937; Prova</button>
-    <button class='rm-tab'        data-tab='status'   onclick='rmTab("status")'>&#128202; Estado</button>
+    <button class='rm-tab active' data-tab='config'   onclick='rmTab("config")'
+            data-i18n='rmbTabConfig'   data-i18n-title='rmbTabConfigTip'>&#9881; Config</button>
+    <button class='rm-tab'        data-tab='arrivals' onclick='rmTab("arrivals")'
+            data-i18n='rmbTabArrivals' data-i18n-title='rmbTabArrivalsTip'>&#128229; Chegadas</button>
+    <button class='rm-tab'        data-tab='pombal'   onclick='rmTab("pombal")'
+            data-i18n='rmbTabPombal'   data-i18n-title='rmbTabPombalTip'>&#128038; Pombos</button>
+    <button class='rm-tab'        data-tab='race'     onclick='rmTab("race")'
+            data-i18n='rmbTabRace'     data-i18n-title='rmbTabRaceTip'>&#127937; Prova</button>
+    <button class='rm-tab'        data-tab='status'   onclick='rmTab("status")'
+            data-i18n='rmbTabStatus'   data-i18n-title='rmbTabStatusTip'>&#128202; Estado</button>
 </div>
 
 <!-- ================= CONFIG ================= -->
 <section id='rmp-config' class='rm-pane'>
   <div class='rm-card'>
     <div class='rm-row'>
-        <label><input type='checkbox' id='cfg_enabled'> Relógio activo</label>
-        <label>Intervalo de poll (s) <input type='number' id='cfg_interval' min='0' max='3600' style='width:90px'></label>
+        <label class='rm-chk'><input type='checkbox' id='cfg_enabled' data-i18n-title='rmbActiveTip'
+               title='Rel&oacute;gio activo'><span data-i18n='rmbActive'>Rel&oacute;gio activo</span></label>
+        <label class='rm-fld'><span data-i18n='rmbInterval' data-i18n-title='rmbIntervalTip'
+               title='Intervalo de poll'>Intervalo de poll (s)</span>
+            <input type='number' id='cfg_interval' min='0' max='3600' style='width:90px'
+                   data-i18n-title='rmbIntervalTip' title='Intervalo de poll'></label>
     </div>
 
     <div id='cfgdev_unikon' class='rm-devcfg'>
         <div class='rm-row'>
-            <label><input type='checkbox' id='cfg_official'> Formato oficial (columbofilia)</label>
+            <label class='rm-chk'><input type='checkbox' id='cfg_official' data-i18n-title='rmbOfficialTip'
+                   title='Formato oficial'><span data-i18n='rmbOfficial'>Formato oficial (columbofilia)</span></label>
+            <span class='rm-muted'><span data-i18n='rmbEmailLabel' data-i18n-title='rmbEmailLabelTip' title='Email'>Email:</span>
+                <span id='rmEmailDest'>&mdash;</span></span>
         </div>
-        <p class='rm-muted'>Ligação fixa do Unikon: 9600 8N1. &nbsp; Email: <span id='rmEmailDest'>—</span></p>
+        <p class='rm-muted' data-i18n='rmbSerialFixed'>Liga&ccedil;&atilde;o fixa do Unikon: 9600 8N1.</p>
     </div>
 
     <div id='cfgdev_bricon' class='rm-devcfg'>
         <div class='rm-row'>
-            <label>Baud <select id='cfg_baud'>
-                <option>9600</option><option>19200</option><option>38400</option>
-                <option>57600</option><option>115200</option></select></label>
-            <label>Dados <select id='cfg_data'><option>8</option><option>7</option></select></label>
-            <label>Paridade <select id='cfg_parity'>
-                <option value='none'>N</option><option value='even'>E</option><option value='odd'>O</option></select></label>
-            <label>Stop <select id='cfg_stop'><option>2</option><option>1</option></select></label>
-            <label>País <select id='cfg_country'>
-                <option>PT</option><option>UK</option><option>BE</option><option>ES</option>
-                <option>FR</option><option>NL</option></select></label>
+            <label class='rm-fld'><span data-i18n='rmbBaud' data-i18n-title='rmbBaudTip' title='Baud'>Baud</span>
+                <select id='cfg_baud' data-i18n-title='rmbBaudTip' title='Baud'>
+                    <option>9600</option><option>19200</option><option>38400</option>
+                    <option>57600</option><option>115200</option></select></label>
+            <label class='rm-fld'><span data-i18n='rmbData' data-i18n-title='rmbDataTip' title='Dados'>Dados</span>
+                <select id='cfg_data' data-i18n-title='rmbDataTip' title='Dados'><option>8</option><option>7</option></select></label>
+            <label class='rm-fld'><span data-i18n='rmbParity' data-i18n-title='rmbParityTip' title='Paridade'>Paridade</span>
+                <select id='cfg_parity' data-i18n-title='rmbParityTip' title='Paridade'>
+                    <option value='none'>N</option><option value='even'>E</option><option value='odd'>O</option></select></label>
+            <label class='rm-fld'><span data-i18n='rmbStop' data-i18n-title='rmbStopTip' title='Stop'>Stop</span>
+                <select id='cfg_stop' data-i18n-title='rmbStopTip' title='Stop'><option>2</option><option>1</option></select></label>
+            <label class='rm-fld'><span data-i18n='rmbCountry' data-i18n-title='rmbCountryTip' title='Pa&iacute;s'>Pa&iacute;s</span>
+                <select id='cfg_country' data-i18n-title='rmbCountryTip' title='Pa&iacute;s'>
+                    <option>PT</option><option>UK</option><option>BE</option><option>ES</option>
+                    <option>FR</option><option>NL</option></select></label>
         </div>
         <div class='rm-row'>
-            <label>Endereço BA <input type='number' id='cfg_ba' min='0' max='255' style='width:80px' placeholder='auto'></label>
-            <label>Clube <input id='cfg_club' maxlength='4' style='width:70px'></label>
-            <label>Voo <input id='cfg_flight' maxlength='4' style='width:70px'></label>
+            <label class='rm-fld'><span data-i18n='rmbBa' data-i18n-title='rmbBaTip' title='Endere&ccedil;o BA'>Endere&ccedil;o BA</span>
+                <input type='number' id='cfg_ba' min='0' max='255' style='width:80px' placeholder='auto'
+                       data-i18n-title='rmbBaTip' title='Endere&ccedil;o BA'></label>
+            <label class='rm-fld'><span data-i18n='rmbClub' data-i18n-title='rmbClubTip' title='Clube'>Clube</span>
+                <input id='cfg_club' maxlength='4' style='width:70px' data-i18n-title='rmbClubTip' title='Clube'></label>
+            <label class='rm-fld'><span data-i18n='rmbFlight' data-i18n-title='rmbFlightTip' title='Voo'>Voo</span>
+                <input id='cfg_flight' maxlength='4' style='width:70px' data-i18n-title='rmbFlightTip' title='Voo'></label>
         </div>
-        <p class='rm-muted'>Bricon usa 9600 8N2 (a página aplica o perfil automaticamente).</p>
+        <p class='rm-muted' data-i18n='rmbSerialHint'>O Bricon usa 9600 8N2 (o perfil &eacute; aplicado automaticamente).</p>
     </div>
   </div>
 </section>
@@ -97,69 +138,73 @@ static const char PAGE_RAMBOX[] PROGMEM = R"rawliteral(
 <!-- ================= ARRIVALS ================= -->
 <section id='rmp-arrivals' class='rm-pane' style='display:none'>
   <div class='rm-card'>
-    <div class='rm-row'>
-        <button onclick='rmRefresh()'>&#128260; Actualizar</button>
-        <button onclick='rmAct("poll")'>&#128225; Poll agora</button>
-        <button onclick='rmAct("syncPombal")'>&#128038; Sincronizar pombal</button>
-        <button onclick='rmAct("syncCalendar")'>&#127937; Sincronizar calendário</button>
-        <span id='pushWrap' style='display:none'>
-            <button onclick='rmPush(1)'>&#128225; Push ON</button>
-            <button onclick='rmPush(0)'>&#128225; Push OFF</button>
+    <div class='rm-acts'>
+        <button onclick='rmRefresh()' data-i18n='rmbRefresh' data-i18n-title='rmbRefreshTip' title='Actualizar'>&#128260; Actualizar</button>
+        <button onclick='rmAct("poll")' data-i18n='rmbPoll' data-i18n-title='rmbPollTip' title='Poll agora'>&#128225; Poll agora</button>
+        <button onclick='rmAct("syncPombal")' data-i18n='rmbSyncPombal' data-i18n-title='rmbSyncPombalTip' title='Sincronizar pombal'>&#128038; Sincronizar pombal</button>
+        <button onclick='rmAct("syncCalendar")' data-i18n='rmbSyncCalendar' data-i18n-title='rmbSyncCalendarTip' title='Sincronizar calend&aacute;rio'>&#127937; Sincronizar calend&aacute;rio</button>
+        <span id='pushWrap' style='display:contents'>
+            <button onclick='rmPush(1)' data-i18n='rmbPushOn' data-i18n-title='rmbPushOnTip' title='Push ON'>&#128225; Push ON</button>
+            <button onclick='rmPush(0)' data-i18n='rmbPushOff' data-i18n-title='rmbPushOffTip' title='Push OFF'>&#128225; Push OFF</button>
         </span>
-        <span id='arrmsg' class='rm-muted'></span>
     </div>
-    <div class='rm-row' id='rmStats' style='gap:16px'></div>
+    <div class='rm-row' id='rmStats' style='gap:8px'></div>
     <div class='rm-scroll'><table id='tblArr'><thead></thead><tbody></tbody></table></div>
+    <p class='rm-muted' id='arrmsg'></p>
   </div>
 </section>
 
 <!-- ================= PIGEONS ================= -->
 <section id='rmp-pombal' class='rm-pane' style='display:none'>
   <div class='rm-card'>
-    <div class='rm-row'>
-        <button onclick='rmRefresh()'>&#128260; Actualizar</button>
-        <button onclick='rmAct("syncPombal")'>&#128229; Ler do relógio</button>
-        <button id='btnEmailPombal' onclick='rmAct("emailPombal")'>&#9993; Email do pombal</button>
-        <span id='pommsg' class='rm-muted'></span>
+    <div class='rm-acts'>
+        <button onclick='rmRefresh()' data-i18n='rmbRefresh' data-i18n-title='rmbRefreshTip' title='Actualizar'>&#128260; Actualizar</button>
+        <button onclick='rmAct("syncPombal")' data-i18n='rmbReadDevice' data-i18n-title='rmbReadDeviceTip' title='Ler do rel&oacute;gio'>&#128229; Ler do rel&oacute;gio</button>
+        <button id='btnEmailPombal' onclick='rmAct("emailPombal")' data-i18n='rmbEmailPombal' data-i18n-title='rmbEmailPombalTip' title='Email do pombal'>&#9993; Email do pombal</button>
     </div>
     <div class='rm-scroll'><table id='tblPom'><thead></thead><tbody></tbody></table></div>
+    <p class='rm-muted' id='pommsg'></p>
   </div>
 </section>
 
 <!-- ================= RACE / TRAINING ================= -->
 <section id='rmp-race' class='rm-pane' style='display:none'>
   <div class='rm-card'>
-    <div class='rm-row'>
-        <button onclick='rmRefresh()'>&#128260; Actualizar</button>
-        <button onclick='rmAct("syncCalendar")'>&#128229; Ler provas do relógio</button>
-        <span id='racemmsg' class='rm-muted'></span>
+    <div class='rm-acts'>
+        <button onclick='rmRefresh()' data-i18n='rmbRefresh' data-i18n-title='rmbRefreshTip' title='Actualizar'>&#128260; Actualizar</button>
+        <button onclick='rmAct("syncCalendar")' data-i18n='rmbSyncCalendar' data-i18n-title='rmbSyncCalendarTip' title='Ler provas'>&#128229; Ler provas do rel&oacute;gio</button>
     </div>
     <div class='rm-scroll'><table id='tblRace'><thead></thead><tbody></tbody></table></div>
+    <p class='rm-muted' id='racemmsg'></p>
   </div>
 
   <div class='rm-card' id='rmTraining'>
-    <h3 style='margin:0 0 8px;color:#93c5fd;font-size:15px'>&#127937; Enviar treino</h3>
+    <h3 style='margin:0 0 8px;color:#93c5fd;font-size:15px'
+        data-i18n='rmbTrainTitle' data-i18n-title='rmbTrainTitleTip' title='Enviar treino'>&#127937; Enviar treino</h3>
+
     <div id='train_unikon'>
         <div class='rm-row'>
-            <label>Pombos:
-                <select id='trMode' onchange='rmTrainMode()'>
-                    <option value='all'>Pombal todo</option>
-                    <option value='list'>Só os indicados</option>
-                    <option value='none'>Só a prova (sem pombos)</option>
-                </select>
-            </label>
+            <label class='rm-fld'><span data-i18n='rmbTrainMode' data-i18n-title='rmbTrainModeTip' title='Pombos'>Pombos:</span>
+                <select id='trMode' onchange='rmTrainMode()' data-i18n-title='rmbTrainModeTip' title='Pombos'>
+                    <option value='all'  data-i18n='rmbModeAll'>Pombal todo</option>
+                    <option value='list' data-i18n='rmbModeList'>S&oacute; os marcados</option>
+                    <option value='none' data-i18n='rmbModeNone'>S&oacute; a prova (sem pombos)</option>
+                </select></label>
+            <button onclick='rmSelAll(1)' data-i18n='rmbSelectAll' data-i18n-title='rmbSelectAllTip' title='Marcar todos'>Marcar todos</button>
+            <button onclick='rmSelAll(0)' data-i18n='rmbClearSel' data-i18n-title='rmbClearSelTip' title='Limpar selec&ccedil;&atilde;o'>Limpar selec&ccedil;&atilde;o</button>
         </div>
         <div class='rm-row' id='trRingsRow' style='display:none'>
-            <select id='trRings' multiple size='9' style='min-width:230px'></select>
-            <span class='rm-muted'>Ctrl/Shift para escolher vários.<br>As anilhas vêm do pombal lido.</span>
+            <div id='trRings' class='rm-checks' data-i18n-title='rmbChecklistTip' title='Marque os pombos'></div>
         </div>
-        <p class='rm-muted'>O clube envia a prova com os pombos dela; o relógio acumula provas (não existe "apagar pombo").</p>
+        <p class='rm-muted' data-i18n='rmbChecklistTip'>Marque um ou v&aacute;rios pombos para enviar no treino.</p>
+        <p class='rm-muted' data-i18n='rmbTrainHint'>No clube leva-se o m&oacute;dulo e os pombos dessa prova.</p>
     </div>
-    <div id='train_bricon' class='rm-muted' style='display:none'>
-        Escreve a prova de treino/Bricon no relógio.
-    </div>
-    <div class='rm-row'>
-        <button onclick='rmSendTraining()'>&#9654; Enviar treino</button>
+
+    <div id='train_bricon' class='rm-muted' style='display:none'
+         data-i18n='rmbTrainBricon'>Escreve a prova de treino no rel&oacute;gio Bricon.</div>
+
+    <div class='rm-acts'>
+        <button onclick='rmSendTraining()' data-i18n='rmbSendTraining' data-i18n-title='rmbSendTrainingTip' title='Enviar treino'>&#9654; Enviar treino</button>
         <span id='trainmsg' class='rm-muted'></span>
     </div>
   </div>
@@ -168,14 +213,17 @@ static const char PAGE_RAMBOX[] PROGMEM = R"rawliteral(
 <!-- ================= STATUS ================= -->
 <section id='rmp-status' class='rm-pane' style='display:none'>
   <div class='rm-card'>
-    <div class='rm-row'>
-        <button onclick='rmRefresh()'>&#128260; Actualizar</button>
-        <button onclick='rmAct("reset")' style='background:#7f1d1d'>&#128465; Limpar dados do relógio</button>
-        <span id='stmsg' class='rm-muted'></span>
+    <div class='rm-acts'>
+        <button onclick='rmRefresh()' data-i18n='rmbRefresh' data-i18n-title='rmbRefreshTip' title='Actualizar'>&#128260; Actualizar</button>
     </div>
-    <div class='rm-scroll'><table id='tblStatus'><thead></thead><tbody></tbody></table></div>
+    <div class='rm-scroll'><table id='tblStatus'><tbody></tbody></table></div>
   </div>
 </section>
+
+<div class='actions' style='margin:6px 0 26px'>
+    <button onclick='rmSaveCfg()' data-i18n='rmbSave' data-i18n-title='rmbSaveTip' title='Guardar configura&ccedil;&atilde;o'>&#128190; Guardar configura&ccedil;&atilde;o</button>
+    <span id='cfgmsg' class='rm-muted'></span>
+</div>
 
 <script>
 /* ---------------------------------------------------------------------------
@@ -194,11 +242,11 @@ var RM_DEV = {
         syncPombal:   '/api/unikon-sync-pombal',
         syncCalendar: '/api/unikon-sync-calendar',
         emailPombal:  '/api/unikon-email-pombal',
-        reset:        '/api/unikon-reset',
         training:     '/api/unikon-send-training',
+        push:         '/api/unikon-push',
         trainingMode: true,
-        arrCols: ['No','Anilha','Chip','Hora','Data','Prova','Pos','Eval'],
-        pomCols: ['No','Anilha','Chip','Hora','Data','Prova']
+        colsArr: 8,
+        colsPom: 6
     },
     bricon: {
         label: 'Bricon',
@@ -211,18 +259,19 @@ var RM_DEV = {
         syncPombal:   '/api/bricon-sync-pombal',
         syncCalendar: '/api/bricon-sync-calendar',
         emailPombal:  null,
-        reset:        '/api/bricon-reset',
         training:     '/api/bricon-send-training',
+        push:         null,
         trainingMode: false,
-        arrCols: ['No','Anilha','Chip','Hora','Data','Prova','Pos','Eval'],
-        pomCols: ['No','Anilha','Chip']
+        colsArr: 8,
+        colsPom: 3
     }
 };
 
 var rmDev = 'unikon', rmCurTab = 'config';
 var rmLastStatus = null;
 
-function rmD() { return RM_DEV[rmDev]; }
+function rmd() { return RM_DEV[rmDev]; }
+function T(k, fb) { return (window._t ? window._t(k, fb) : fb); }
 
 function rmEsc(s) {
     return String(s === undefined || s === null ? '' : s)
@@ -236,6 +285,12 @@ function rmGet(url) {
     });
 }
 
+function rmMsg(el, txt, ok) {
+    if (!el) return;
+    el.textContent = txt || '';
+    el.className = ok === false ? 'rm-err' : 'rm-ok';
+}
+
 function rmPost(url, body, msgEl) {
     if (!url) return;
     var opt = {method:'POST'};
@@ -245,26 +300,22 @@ function rmPost(url, body, msgEl) {
     }
     fetch(url, opt).then(function(r){ return r.json().catch(function(){ return {}; }); })
         .then(function(d){
-            if (msgEl) {
-                msgEl.textContent = (d && (d.message || d.msg)) || ('HTTP ok');
-                msgEl.className = (d && d.success === false) ? 'rm-err' : 'rm-ok';
-            }
+            rmMsg(msgEl, (d && (d.message || d.msg)) || 'ok', d && d.success === false);
             setTimeout(rmRefresh, 1200);
         })
-        .catch(function(e){ if (msgEl) { msgEl.textContent = 'Erro: ' + e; msgEl.className='rm-err'; } });
+        .catch(function(e){ rmMsg(msgEl, 'Erro: ' + e, false); });
 }
 
 /* ---- selector / tabs ---- */
 function rmSelect() {
-    var s = document.getElementById('rmDev');
-    rmDev = s.value;
+    rmDev = document.getElementById('rmDev').value;
     try { localStorage.setItem('rm_dev', rmDev); } catch (e) {}
     document.getElementById('cfgdev_unikon').style.display = (rmDev === 'unikon') ? '' : 'none';
     document.getElementById('cfgdev_bricon').style.display = (rmDev === 'bricon') ? '' : 'none';
-    document.getElementById('train_unikon').style.display = rmD().trainingMode ? '' : 'none';
-    document.getElementById('train_bricon').style.display = rmD().trainingMode ? 'none' : '';
-    document.getElementById('btnEmailPombal').style.display = rmD().emailPombal ? '' : 'none';
-    document.getElementById('pushWrap').style.display = (rmDev === 'unikon') ? '' : 'none';
+    document.getElementById('train_unikon').style.display = rmd().trainingMode ? '' : 'none';
+    document.getElementById('train_bricon').style.display = rmd().trainingMode ? 'none' : '';
+    document.getElementById('btnEmailPombal').style.display = rmd().emailPombal ? '' : 'none';
+    document.getElementById('pushWrap').style.display = (rmDev === 'unikon') ? 'contents' : 'none';
     rmRefresh();
 }
 
@@ -281,17 +332,26 @@ function rmTab(t) {
 /* ---- tables ---- */
 function rmTable(id, cols, rows) {
     var t = document.getElementById(id);
-    var th = '<tr>';
-    for (var i = 0; i < cols.length; i++) th += '<th>' + rmEsc(cols[i]) + '</th>';
-    th += '</tr>';
-    t.tHead.innerHTML = th;
+    if (cols) {
+        var th = '<tr>';
+        for (var i = 0; i < cols.length; i++) th += '<th>' + rmEsc(cols[i]) + '</th>';
+        th += '</tr>';
+        if (!t.tHead) {
+            var thead = document.createElement('thead');
+            t.insertBefore(thead, t.firstChild);
+        }
+        t.tHead.innerHTML = th;
+    } else if (t.tHead) {
+        t.tHead.innerHTML = '';
+    }
     var body = '';
     for (var r = 0; r < rows.length; r++) {
         body += '<tr>';
         for (var c = 0; c < rows[r].length; c++) body += '<td>' + rmEsc(rows[r][c]) + '</td>';
         body += '</tr>';
     }
-    if (!rows.length) body = '<tr><td colspan="' + cols.length + '" class="rm-muted">sem dados</td></tr>';
+    var n = cols ? cols.length : (rows[0] ? rows[0].length : 1);
+    if (!rows.length) body = '<tr><td colspan="' + n + '" class="rm-muted">' + rmEsc(T('rmbEmpty','sem dados')) + '</td></tr>';
     t.tBodies[0].innerHTML = body;
 }
 
@@ -319,9 +379,9 @@ function rmStatus(d) {
     rmLastStatus = d;
     var en = !!d.enabled;
     var b = document.getElementById('rmBadge');
-    b.textContent = rmD().label + ' — ' + (en ? 'activo' : 'inactivo') +
-                    (d.connected ? ' · ligado' : '') +
-                    (d.activeModule && d.activeModule !== rmDev ? ' · activo: ' + d.activeModule : '');
+    b.textContent = rmd().label + ' \u2014 ' + (en ? (T('rmbOnline','ligado')) : (T('rmbOffline','desligado'))) +
+                    (d.connected ? ' \u00b7 ' + T('rmbOnline','ligado') : '') +
+                    (d.activeModule && d.activeModule !== rmDev ? ' \u00b7 ' + d.activeModule : '');
     b.className = 'rm-badge ' + (en ? 'on' : 'off');
 
     document.getElementById('cfg_enabled').checked = en;
@@ -330,7 +390,7 @@ function rmStatus(d) {
     if (rmDev === 'unikon') {
         document.getElementById('cfg_official').checked = d.officialFormat !== false;
         var ed = document.getElementById('rmEmailDest');
-        if (ed) ed.textContent = d.emailDest || '(nao configurado)';
+        if (ed) ed.textContent = d.emailDest || '\u2014';
     } else {
         document.getElementById('cfg_baud').value = String(rmPick(d, ['baud','baudrate']) || 9600);
         document.getElementById('cfg_data').value = String(rmPick(d, ['dataBits','data']) || 8);
@@ -349,7 +409,7 @@ function rmStatus(d) {
         if (typeof v === 'object') v = JSON.stringify(v);
         rows.push([k, v]);
     }
-    rmTable('tblStatus', ['Campo','Valor'], rows);
+    rmTable('tblStatus', null, rows);
 }
 
 /* ---- arrivals / pombal / contests ---- */
@@ -369,7 +429,9 @@ function rmArrivals(d) {
             rmPick(a, ['evaluation'])
         ]);
     }
-    rmTable('tblArr', rmD().arrCols, rows);
+    rmTable('tblArr', [T('rmbNo','No'), T('rmbRing','Anilha'), T('rmbChip','Chip'),
+                       T('rmbTime','Hora'), T('rmbDate','Data'), T('rmbRace','Prova'),
+                       T('rmbPos','Pos'), T('rmbEval','Eval')], rows);
     rmStats(rows.length);
 }
 
@@ -379,10 +441,10 @@ function rmStats(nArr) {
     var el = document.getElementById('rmStats');
     if (!el) return;
     el.innerHTML =
-        '<span class="rm-badge">Chegadas: ' + nArr + '</span>' +
-        '<span class="rm-badge">Novas: ' + rmPick(d, ['lastNewCount','newCount']) + '</span>' +
-        '<span class="rm-badge">' + (ago === '' ? 'sem poll' : ('poll há ' + ago + ' s')) + '</span>' +
-        '<span class="rm-badge">' + (d.connected ? 'ligado' : 'desligado') + '</span>';
+        '<span class="rm-badge">' + rmEsc(T('rmbArrivals','Chegadas:')) + ' ' + nArr + '</span>' +
+        '<span class="rm-badge">' + rmEsc(T('rmbNew','Novas:')) + ' ' + rmEsc(rmPick(d, ['lastNewCount','newCount']) || 0) + '</span>' +
+        '<span class="rm-badge">' + rmEsc(ago === '' ? T('rmbNoPoll','sem poll') : (T('rmbPollAgo','poll há') + ' ' + ago + ' s')) + '</span>' +
+        '<span class="rm-badge">' + rmEsc(d.connected ? T('rmbOnline','ligado') : T('rmbOffline','desligado')) + '</span>';
 }
 
 function rmPombal(d) {
@@ -399,22 +461,39 @@ function rmPombal(d) {
             rmPick(a, ['race','raceName'])
         ]);
     }
-    rmTable('tblPom', rmD().pomCols, rows);
+    rmTable('tblPom', [T('rmbNo','No'), T('rmbRing','Anilha'), T('rmbChip','Chip'),
+                       T('rmbTime','Hora'), T('rmbDate','Data'), T('rmbRace','Prova')], rows);
 
-    // Checklist do treino: uma opcao por anilha lida do relogio.
-    var sel = document.getElementById('trRings');
-    var keep = [];
-    for (var k = 0; k < sel.options.length; k++) if (sel.options[k].selected) keep.push(sel.options[k].value);
-    sel.innerHTML = '';
+    // Checklist do treino: uma CAIXA DE MARCACAO por anilha lida do relogio.
+    var box = document.getElementById('trRings');
+    var keep = {};
+    var old = box.querySelectorAll("input[type='checkbox']");
+    for (var k = 0; k < old.length; k++) if (old[k].checked) keep[old[k].value] = 1;
+    box.innerHTML = '';
+    var seen = {};
     for (var m = 0; m < arr.length; m++) {
         var ring = String(rmPick(arr[m], ['ring','anilha']) || '').trim();
-        if (ring.length !== 11) continue;
-        var o = document.createElement('option');
-        o.value = ring;
-        o.textContent = ring;
-        if (keep.indexOf(ring) >= 0) o.selected = true;
-        sel.appendChild(o);
+        if (ring.length !== 11 || seen[ring]) continue;
+        seen[ring] = 1;
+        var lab = document.createElement('label');
+        var cb  = document.createElement('input');
+        cb.type = 'checkbox'; cb.value = ring; cb.checked = !!keep[ring];
+        var sp  = document.createElement('span');
+        sp.textContent = ring;
+        lab.appendChild(cb); lab.appendChild(sp);
+        box.appendChild(lab);
     }
+    if (!box.children.length) {
+        var em = document.createElement('span');
+        em.className = 'rm-muted';
+        em.textContent = T('rmbEmpty','sem dados');
+        box.appendChild(em);
+    }
+}
+
+function rmSelAll(on) {
+    var cbs = document.getElementById('trRings').querySelectorAll("input[type='checkbox']");
+    for (var i = 0; i < cbs.length; i++) cbs[i].checked = !!on;
 }
 
 function rmContests(d) {
@@ -425,12 +504,13 @@ function rmContests(d) {
         rows.push([ (i + 1) + '.', rmPick(a, ['code']), rmPick(a, ['date']), rmPick(a, ['name']),
                     rmPick(a, ['pigeonCount','count']) ]);
     }
-    rmTable('tblRace', ['No','Código','Data','Nome','Pombos'], rows);
+    rmTable('tblRace', [T('rmbNo','No'), T('rmbRace','Prova'), T('rmbDate','Data'),
+                        'Nome', T('rmbPigeons','Pombos:')], rows);
 }
 
 /* ---- refresh ---- */
 function rmRefresh() {
-    var D = rmD();
+    var D = rmd();
     rmGet(D.status).then(rmStatus).catch(function(){});
     rmGet(D.arrivals).then(rmArrivals).catch(function(){});
     rmGet(D.pombal).then(rmPombal).catch(function(){});
@@ -438,21 +518,19 @@ function rmRefresh() {
 }
 
 function rmPush(on) {
-    var el = document.getElementById('arrmsg');
-    rmPost('/api/unikon-push', 'on=' + (on ? '1' : '0') + '&auto=1', el);
+    rmPost(rmd().push, 'on=' + (on ? '1' : '0') + '&auto=1', document.getElementById('arrmsg'));
 }
 
 function rmAct(kind) {
-    var D = rmD();
-    var msg = {poll:'arrmsg', syncPombal:'pommsg', syncCalendar:'racemmsg', reset:'stmsg'}[kind] || null;
-    var el = msg ? document.getElementById(msg) : null;
-    if (kind === 'emailPombal') { rmPost(D.emailPombal, 'pombal=current', el); return; }
-    rmPost(D[kind], null, el);
+    var el = {poll:'arrmsg', syncPombal:'pommsg', syncCalendar:'racemmsg'}[kind] || null;
+    var box = el ? document.getElementById(el) : null;
+    if (kind === 'emailPombal') { rmPost(rmd().emailPombal, 'pombal=current', box); return; }
+    rmPost(rmd()[kind], null, box);
 }
 
 /* ---- config ---- */
 function rmSaveCfg() {
-    var D = rmD(), el = document.getElementById('cfgmsg');
+    var D = rmd(), el = document.getElementById('cfgmsg');
     var b = 'enabled=' + (document.getElementById('cfg_enabled').checked ? '1' : '0') +
             '&interval=' + encodeURIComponent(document.getElementById('cfg_interval').value);
     if (rmDev === 'unikon') {
@@ -476,16 +554,22 @@ function rmTrainMode() {
     document.getElementById('trRingsRow').style.display = (m === 'list') ? '' : 'none';
 }
 
+function rmCheckedRings() {
+    var out = [];
+    var cbs = document.getElementById('trRings').querySelectorAll("input[type='checkbox']");
+    for (var i = 0; i < cbs.length; i++) if (cbs[i].checked) out.push(cbs[i].value);
+    return out;
+}
+
 function rmSendTraining() {
-    var D = rmD(), el = document.getElementById('trainmsg');
+    var D = rmd(), el = document.getElementById('trainmsg');
     if (!D.trainingMode) { rmPost(D.training, null, el); return; }
     var m = document.getElementById('trMode').value;
     if (m === 'none') { rmPost(D.training, 'rings=-', el); return; }   /* "-" = so a prova */
     if (m === 'all')  { rmPost(D.training, 'rings=*', el); return; }   /* "*" = pombal todo */
-    var sel = document.getElementById('trRings');
-    var lines = [];
-    for (var i = 0; i < sel.options.length; i++) if (sel.options[i].selected) lines.push(sel.options[i].value);
-    rmPost(D.training, 'rings=' + encodeURIComponent(lines.join('\n')), el);
+    var rings = rmCheckedRings();
+    if (!rings.length) { rmMsg(el, T('rmbChecklistTip','Marque um ou vários pombos.'), false); return; }
+    rmPost(D.training, 'rings=' + encodeURIComponent(rings.join('\n')), el);
 }
 
 /* ---- boot ---- */
@@ -502,13 +586,11 @@ function rmSendTraining() {
     document.getElementById('rmDev').value = rmDev;
     rmSelect();
     rmTab(rmCurTab);
+    // re-render depois do i18n carregar (cabecalhos/titulos usam _t)
+    if (window.applyI18n) { try { window.applyI18n(); } catch (e) {} }
+    setTimeout(rmRefresh, 900);
     setInterval(function(){ if (rmCurTab === 'arrivals' || rmCurTab === 'status') rmRefresh(); }, 5000);
 })();
 </script>
-
-<div class='actions' style='margin:14px 0 24px'>
-    <button onclick='rmSaveCfg()'>&#128190; Guardar configuração</button>
-    <span id='cfgmsg' class='rm-muted'></span>
-</div>
 </div></main>
 )rawliteral";
