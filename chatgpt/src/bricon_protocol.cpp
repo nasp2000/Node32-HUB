@@ -918,6 +918,11 @@ void briconUpdate() {
     if (s_icPollPending) { s_icPollPending = false; briconPoll(false, true, false); return; }
     if (s_xPollPending)  { s_xPollPending = false;  briconPoll(false, false, true); return; }
 
+    // Arrival email on EVERY loop pass. A synchronous poll ends with no further RX, and
+    // the tick used to live only in the RX logger -- so after a poll the arrivals were
+    // ingested but never emailed. Cheap when there is nothing pending (early return).
+    briconEmailTick();
+
     // Passive RX sniffer: drain + hexdump for the monitor so the first Little
     // bytes on the wire are visible immediately (day-one diagnosis).
     if (!RS232.available()) return;
