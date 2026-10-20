@@ -864,8 +864,13 @@ static uint16_t briconReadCalendar() {
         bkAscii(pl, 3, c.code, sizeof(c.code));
         bkAscii(pl + 3, 6, c.date, sizeof(c.date));
         bkAscii(pl + 9, 9, c.name, sizeof(c.name));
-        s_contests[s_contestCount++] = c;
-        got++;
+        // A clock that repeats the same record must not fill the calendar with clones.
+        bool dup = false;
+        for (uint16_t k = 0; k < s_contestCount; k++) {
+            if (strncmp(s_contests[k].code, c.code, sizeof(c.code)) == 0 &&
+                strncmp(s_contests[k].date, c.date, sizeof(c.date)) == 0) { dup = true; break; }
+        }
+        if (!dup) { s_contests[s_contestCount++] = c; got++; }
         idx++;
     }
     char m[80];
