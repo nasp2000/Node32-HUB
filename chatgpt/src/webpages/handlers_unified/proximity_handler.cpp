@@ -643,8 +643,13 @@ void handleProximityChartDataGet(HttpRequest& req, HttpResponse& res) {
     _ProxStringPrint sp(buf);
     // Merged serving (file history + PSRAM ring tail, always minute-fresh —
     // same envelope as the file stream, one stride budget over the union).
-    extern bool proxChartServeMergedJson(Print& out, const String& path, uint32_t fromTs, uint16_t maxOut);
-    if (!proxChartServeMergedJson(sp, chartPath, fromTs, (uint16_t)maxOut)) {
+    // untilTs = end of the requested day, so the live tail never leaks into a
+    // past date's series (that gap made the JS delta chain dump hours of
+    // production into a single bar).
+    uint32_t untilTs = chartHistoryDayStartFromRs232DateId(resolvedDate) + 86400UL;
+    extern bool proxChartServeMergedJson(Print& out, const String& path, uint32_t fromTs,
+                                         uint16_t maxOut, uint32_t untilTs);
+    if (!proxChartServeMergedJson(sp, chartPath, fromTs, (uint16_t)maxOut, untilTs)) {
         buf = "{\"count\":0,\"stride\":1,\"labels\":[],\"timestamps\":[]}";
     }
     res.send(200, "application/json", buf);

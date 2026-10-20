@@ -5,6 +5,38 @@
 // DO NOT add #pragma once - this is an impl-include file, not a shared header.
 #include "flash_fallback_store.h" // needed by SMTP funcs below (also included again at v1.118 block)
 #include "email_flash_rpc.h" // stack-safe LittleFS (email tasks run with PSRAM stacks)
+
+// ---- Email tables -------------------------------------------------------
+// Reports built as ASCII tables (columns padded with spaces) only line up in a
+// monospace font. Clients that render text/plain with a proportional font (Gmail
+// web, phones) break the columns, so ANY body that contains a table is sent as
+// HTML inside a <pre>. This is done at the transport level so every pack and
+// every report gets it, not just the Rambox emails.
+static bool smtpBodyHasAsciiTable(const String& body) {
+    if (body.startsWith("+---")) return true;
+    if (body.indexOf("\n+---") >= 0) return true;
+    if (body.startsWith("| ") && body.indexOf(" |") >= 0) return true;
+    if (body.indexOf("\n| ") >= 0 && body.indexOf(" |\n") >= 0) return true;
+    return false;
+}
+
+static String smtpWrapHtmlPre(const String& text) {
+    String h;
+    h.reserve(text.length() + 192);
+    h += F("<!DOCTYPE html><html><head><meta charset='UTF-8'></head>"
+           "<body style='margin:0;padding:6px;background:#ffffff'>"
+           "<pre style=\"font-family:Consolas,'Courier New',monospace;font-size:13px;"
+           "line-height:1.35;white-space:pre\">");
+    for (size_t i = 0; i < text.length(); i++) {
+        char c = text[i];
+        if      (c == '&') h += F("&amp;");
+        else if (c == '<') h += F("&lt;");
+        else if (c == '>') h += F("&gt;");
+        else               h += c;
+    }
+    h += F("</pre></body></html>");
+    return h;
+}
 // Send email with SD attachments using AUTONOMOUS chunked SMTP streaming
 // Does not use ReadyMail library - own TLS connection, doesn't accumulate MIME in RAM
 // This function does everything: connects, authenticates, sends, disconnects
@@ -311,9 +343,13 @@ static bool smtpSendEmailStreamingSD(
     // Parte 1: corpo de texto
     smtpRawSendF(client, F("--"));
     smtpRawSend(client, boundary);
-    smtpRawSendF(client, F("\r\nContent-Type: text/plain; charset=UTF-8\r\n"));
+    bool bodyHtml = smtpBodyHasAsciiTable(bodyText) && bodyText.length() <= 40000;
+    String htmlBody;
+    if (bodyHtml) htmlBody = smtpWrapHtmlPre(bodyText);
+    smtpRawSendF(client, bodyHtml ? F("\r\nContent-Type: text/html; charset=UTF-8\r\n")
+                                  : F("\r\nContent-Type: text/plain; charset=UTF-8\r\n"));
     smtpRawSendF(client, F("Content-Transfer-Encoding: 7bit\r\n\r\n"));
-    smtpRawSend(client, bodyText);
+    smtpRawSend(client, bodyHtml ? htmlBody : bodyText);
     smtpRawSendF(client, F("\r\n"));
     vTaskDelay(pdMS_TO_TICKS(1));
     
@@ -901,9 +937,13 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     // Parte 1: corpo de texto
     smtpRawSendF(client, F("--"));
     smtpRawSend(client, boundary);
-    smtpRawSendF(client, F("\r\nContent-Type: text/plain; charset=UTF-8\r\n"));
+    bool bodyHtml = smtpBodyHasAsciiTable(bodyText) && bodyText.length() <= 40000;
+    String htmlBody;
+    if (bodyHtml) htmlBody = smtpWrapHtmlPre(bodyText);
+    smtpRawSendF(client, bodyHtml ? F("\r\nContent-Type: text/html; charset=UTF-8\r\n")
+                                  : F("\r\nContent-Type: text/plain; charset=UTF-8\r\n"));
     smtpRawSendF(client, F("Content-Transfer-Encoding: 7bit\r\n\r\n"));
-    smtpRawSend(client, bodyText);
+    smtpRawSend(client, bodyHtml ? htmlBody : bodyText);
     smtpRawSendF(client, F("\r\n"));
     vTaskDelay(pdMS_TO_TICKS(1));
     
@@ -1170,19 +1210,28 @@ bool smtpSendEmail(
     smtpRawSend(client, String(F("To: ")) + to + "\r\n");
     smtpRawSend(client, String(F("Subject: ")) + subject + "\r\n");
     smtpRawSendC(client, "MIME-Version: 1.0\r\n");
-    smtpRawSendC(client, isHtml ? "Content-Type: text/html; charset=UTF-8\r\n"
-                                : "Content-Type: text/plain; charset=UTF-8\r\n");
-    if (isAscii7(body)) {
+    // Any body with an ASCII table goes out as HTML <pre> (aligned in every client).
+    String htmlBody;
+    bool bodyHtml = isHtml;
+    if (!bodyHtml && body.length() <= 40000 && smtpBodyHasAsciiTable(body)) {
+        htmlBody = smtpWrapHtmlPre(body);
+        bodyHtml = true;
+    }
+    const String& outBody = (bodyHtml && htmlBody.length()) ? htmlBody : body;
+
+    smtpRawSendC(client, bodyHtml ? "Content-Type: text/html; charset=UTF-8\r\n"
+                                  : "Content-Type: text/plain; charset=UTF-8\r\n");
+    if (isAscii7(outBody)) {
         smtpRawSendC(client, "\r\n");
-        smtpRawSend(client, body);
+        smtpRawSend(client, outBody);
     } else {
         // Non-ASCII body (e.g. PT accents as UTF-8 bytes): base64, otherwise
         // MTAs treat the missing CTE as 7bit and mangle the accents. Same rule
         // as the multipart builder (buildMultipartMixedPlainText).
         smtpRawSendC(client, "Content-Transfer-Encoding: base64\r\n\r\n");
         String b64;
-        b64.reserve(((body.length() + 2) / 3) * 4 + 64);
-        appendBase64Wrapped(b64, body);
+        b64.reserve(((outBody.length() + 2) / 3) * 4 + 64);
+        appendBase64Wrapped(b64, outBody);
         smtpRawSend(client, b64);
     }
     smtpRawSendC(client, "\r\n.\r\n"); // End of DATA

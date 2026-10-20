@@ -747,8 +747,12 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
         }
         response->addHeader("Cache-Control", "no-store");
         // Merged serving (file history + PSRAM ring tail, always minute-fresh).
-        extern bool proxChartServeMergedJson(Print& out, const String& path, uint32_t fromTs, uint16_t maxOut);
-        if (!proxChartServeMergedJson(*response, chartPath, fromTs, (uint16_t)maxOut)) {
+        // untilTs = end of the requested day: the live tail must not leak into a
+        // past date's series.
+        uint32_t untilTs = chartHistoryDayStartFromRs232DateId(resolvedDate) + 86400UL;
+        extern bool proxChartServeMergedJson(Print& out, const String& path, uint32_t fromTs,
+                                             uint16_t maxOut, uint32_t untilTs);
+        if (!proxChartServeMergedJson(*response, chartPath, fromTs, (uint16_t)maxOut, untilTs)) {
             request->send(200, "application/json", "{\"count\":0,\"stride\":1,\"labels\":[],\"timestamps\":[]}");
             return;
         }

@@ -96,6 +96,20 @@ a 22h boundary reads `23h,24h,1h…22h` left-to-right ("das 23H às 22H"). Bound
 Tick labels thin out (every 2nd/4th, last column kept when it fits) on narrow
 screens so they never overlap.
 
+**Ring-tail bound (fixed 2026-10-20).** `loadHistoricalData()` fetches two
+production-day segments (previous date from the boundary, plus the aligned date)
+and accumulates per-hour buckets from `v − prev`. The backend
+(`proxChartServeMergedJson`) merges the live 1-min PSRAM ring tail into every
+response; it was filtered only by `fromTs`, so the PREVIOUS-date segment also
+carried today's live samples. The last row of segment 1 (yesterday 23:30) and the
+first live ring sample (today 19:18) then produced one delta of +234 790 credited
+to a single hour — the "one giant bar + empty hours" symptom on the dashboard
+(verified on .29: column 19h = 270 230 while every other hour was 8k–17k). The
+tail is now bounded by `untilTs` (end of the requested day), so a past date
+returns its own file only and the delta chain stays continuous. The shift-email
+side of the same symptom is fixed in `_proxReadHourlyCounts()` (gap-aware
+attribution, see `proximity_sensors.md`).
+
 Light theme (`--pd-*` CSS variables, values identical to the sensor-charts **sky**
 theme); responsive: charts go full width at ≤700 px.
 Typography and canvas colors follow `/sensor-charts` 1:1 (same size relationships):

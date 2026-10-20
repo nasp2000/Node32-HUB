@@ -3073,7 +3073,6 @@ bool unikonQueuePombalSeasonEmail(String& messageOut) {
     body.reserve(640 + (size_t)s_registrationCount * 96u);
     ramboxEmailSourceLine(body, "Unikon");
     body += String(rmbT("Relatorio manual do pombal da epoca\n", "Manual season-loft report\n"));
-    body += String(rmbT("Tabela ASCII de largura fixa\n\n", "Fixed-width ASCII table\n\n"));
 
     char moduleId[44];
     char clubName[32];

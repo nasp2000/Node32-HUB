@@ -1156,7 +1156,8 @@ static void proximityChartPeriodicFlush() {
 // backend, any cadence) + PSRAM ring tail — always minute-fresh, one stride
 // budget over the union. Schema is fixed (PROXIMITY_CHANNELS x in/out/ppm).
 // Non-static: called from the unified handler TU.
-bool proxChartServeMergedJson(Print& out, const String& path, uint32_t fromTs, uint16_t maxOut) {
+bool proxChartServeMergedJson(Print& out, const String& path, uint32_t fromTs,
+                              uint16_t maxOut, uint32_t untilTs = 0) {
     const uint16_t kRawCap = 1500; // dense legacy 1-min day (1440) + margin
     const uint16_t kTailCap = 40;  // ring holds 32
     ChartServePoint* raw = (ChartServePoint*)heap_caps_malloc((size_t)kRawCap * sizeof(ChartServePoint),
@@ -1171,13 +1172,19 @@ bool proxChartServeMergedJson(Print& out, const String& path, uint32_t fromTs, u
         size_t sz = _proxChartRing.size();
         for (size_t i = 0; i < sz && nTail < kTailCap; i++) {
             const ProximityChartRecord& r = _proxChartRing[i];
-            if (r.timestamp >= fromTs) {
-                ChartServePoint* q = &tail[nTail++];
-                q->timestamp = r.timestamp;
-                q->valueCount = (r.valueCount > CHART_SERVE_MAX_COLS) ? CHART_SERVE_MAX_COLS : r.valueCount;
-                for (uint8_t c = 0; c < CHART_SERVE_MAX_COLS; c++) {
-                    q->values[c] = (c < CHART_HISTORY_PROXIMITY_MAX_COLUMNS) ? r.values[c] : NAN;
-                }
+            // The live tail must not leak into a PAST date's response: the ring
+            // always holds "now" samples, so a caller asking for yesterday would
+            // otherwise get yesterday's file PLUS today's tail. The JS delta
+            // chain then jumps across the gap and dumps the whole span into one
+            // hour (the giant bar + empty hours bug). untilTs bounds the tail to
+            // the requested day; 0 keeps the old unbounded behaviour.
+            if (r.timestamp < fromTs) continue;
+            if (untilTs != 0 && r.timestamp > untilTs) continue;
+            ChartServePoint* q = &tail[nTail++];
+            q->timestamp = r.timestamp;
+            q->valueCount = (r.valueCount > CHART_SERVE_MAX_COLS) ? CHART_SERVE_MAX_COLS : r.valueCount;
+            for (uint8_t c = 0; c < CHART_SERVE_MAX_COLS; c++) {
+                q->values[c] = (c < CHART_HISTORY_PROXIMITY_MAX_COLUMNS) ? r.values[c] : NAN;
             }
         }
         xSemaphoreGive(_proxChartRingMutex);

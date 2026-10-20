@@ -193,7 +193,7 @@ Handlers: `handlers_unified/proximity_handler.cpp`. All JSON; errors use
 | `/api/proximity/test-email` | POST | send SHIFTDAY-style test email (checks: recipients configured, email+WIFI ok, storage ok, NTP synced, today's SD folder exists) — when the FTP cycle holds the SD exclusivity mutex answers `sd_busy` fast instead of interleaving |
 | `/api/proximity/shift-history?days=` | GET | reads SD CSVs (`days` 1–30, default 7), last 20 `shift_end` rows per day — per-day SD access is short-mutex-guarded; answers `{"error":"sd_busy"}` during the FTP cycle |
 | `/api/proximity/events` | GET | **stub — returns empty structure** (findings) |
-| `/api/proximity-chart-files/-cols/-data` | GET | merged chart data for charts page (needs `getChartsPageEnabled()` + `ENABLE_PROXIMITY_CHARTS`): persisted `.chart` file (SD, or identical-path LittleFS mirror) + volatile 1-min PSRAM ring tail (~30 min, always on, no configuration), one stride budget over the union — always minute-fresh on either backend |
+| `/api/proximity-chart-files/-cols/-data` | GET | merged chart data for charts page (needs `getChartsPageEnabled()` + `ENABLE_PROXIMITY_CHARTS`): persisted `.chart` file (SD, or identical-path LittleFS mirror) + volatile 1-min PSRAM ring tail (~30 min, always on, no configuration), one stride budget over the union — always minute-fresh on either backend. The ring tail is bounded by `untilTs` = end of the requested day, so the live samples never leak into a PAST date's series (that leak made the dashboard delta chain jump across the gap and paint ~235k into one hour) |
 
 Chart-data streaming is single-pass with online downsampling (`chart_stream_decimate.h`,
 compiled into `chart_history.cpp`): records are read in ~4 KB SD blocks and decimated into a
@@ -273,15 +273,18 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
   of shifts — by design, not a missing email.
 - **Shift email body** (`proximityBuildShiftEmailBody()`): "Registos (Turno XH-YH)" +
   pieces (+ scrap/setup) + OEE line, then a **stacked time bar** (Unicode blocks:
-  production █ / planned ▓ / unplanned ░, 30 wide — fits one email line — + legend
-  with % summing to 100). Note the two denominators (both standard, audited 2026-09-22):
+  production ▓ / planned ▒ / unplanned ░, 30 wide — fits one email line — + legend
+  with % summing to 100). Production deliberately avoids `█` FULL BLOCK: the owner
+  asked for a lighter black in the shift-end email (2026-10-20). Note the two
+  denominators (both standard, audited 2026-09-22):
   the bar partitions CLOCK time (`run/elapsed`, `planned/elapsed`, rest) while the OEE
-  line's Availability divides by PBT (`run/(elapsed−planned)`) — so `█%` ≠ `A%` whenever
+  line's Availability divides by PBT (`run/(elapsed−planned)`) — so `▓%` ≠ `A%` whenever
   stops exist (e.g. 8h shift + 30-min stop + 23328s run: bar `81/6/13`, line `A=86%`),
   then the hourly "Pcs por hora" chart **using the same production-bar blocks**
-  (`█` FULL BLOCK filled / `░` LIGHT SHADE track, `proximityBuildHourlyChart()`),
-  e.g. `21H  446  [█░░░░░░░░░]` — each part separated by one blank
-  line. The chart bar is **10 cells** (owner pick 2026-10-15: phone-width body,
+  (`▓` DARK SHADE filled / `░` LIGHT SHADE track, `proximityBuildHourlyChart()`),
+  e.g. `21H  446 pcs  [▓░░░░░░░░░]` — each part separated by one blank
+  line. The count is `" pcs"`-suffixed and right-aligned to the widest value of the
+  shift (`%02dH %*d pcs`), so every row's bar opens at the same column. The chart bar is **10 cells** (owner pick 2026-10-15: phone-width body,
   one row per shift hour), down from 20. Chart columns cover the ACTUAL shift hours `[start, end)` from
   `proximityGetShiftWindow()` and are **labelled by their END hour** — the hour
   the count is taken — so a shift 06H–14H renders the buckets `07H..14H`
@@ -301,13 +304,22 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
   end the live counter delta is cross-checked against the CSV hourly sum
   (`_proxWriteWeeklyOee()` out-param): CSV higher by >10%+500 pcs ⇒ WARN on
   Serial/monitor + a `NOTE:` line in the email body (mid-shift reboot with lost
-  baselines — header numbers partial, chart already full). Each hourly bar additionally shows the **planned-stop share of that hour**
-  as `▓` MEDIUM SHADE (e.g. `17H 17340  [█████████▓▓▓▓▓▓▓▓▓▓░]` for a 30-min stop):
+  baselines — header numbers partial, chart already full). **Gap-aware attribution
+  (owner report 2026-10-20):** a positive tick-to-tick delta is spread over every
+  bucket the pair actually covers, proportional to the minutes spent in each
+  (minute read from the row timestamp, midnight wrap handled; a sub-minute pair
+  counts as one bucket). Normal 30-min ticks still land in ONE bucket, but when
+  rows go missing (FTP holds the SD exclusively for its whole upload cycle, so
+  `_proxWriteCSVRow()` skips the row — HISTORIC #57; also reboot/clock jump/OTA)
+  a 6 h gap no longer dumps the whole span into one column: live 20-10-2026 data
+  (08:00→13:59, 65 640 pcs) used to render `09H 65640` with every other hour at 0
+  and now renders ~10 970 per hour with the sum preserved. Each hourly bar additionally shows the **planned-stop share of that hour**
+  as `▒` MEDIUM SHADE (e.g. `17H 17340 pcs  [▓▓▓▓▒▒▒▒▒░]` for a 30-min stop):
   the planned fraction is computed over **absolute wall-clock hour windows**
   (last column dated from `refWall` = shift-end/test time, earlier columns walking
   back one day per hour wrap, via `proximityPlannedStopSec()`), so a mid-shift
   reboot can never hide them — unlike the live millis-based snapshot window,
-  which restarts at boot. Production fills what is left of the 20 segments;
+  which restarts at boot. Production fills what is left of the 10 segments;
   output is byte-identical to before when no stops are configured. The render
   mirror (`renderBar()` + planned cases in `test_proximity_chart.cpp`) is natively
   unit-tested.

@@ -1638,8 +1638,19 @@ static void _proxWriteCSVRow(const char* type, int8_t shiftNum,
     // FTP holds the SD exclusively for its whole upload cycle (HISTORIC #57):
     // a short lock timeout then skip this row rather than interleave with the
     // SDMMC scan/stream (that concurrency is what crashed the board). Once the
-    // cycle ends the next interval resumes the appends.
-    if (!sdMutexLock(pdMS_TO_TICKS(1500))) return;
+    // cycle ends the next interval resumes the appends. A long cycle leaves a
+    // hole in the hourly history (the chart spreads the surviving delta), so
+    // report it instead of dropping it silently — throttled to one per hour.
+    if (!sdMutexLock(pdMS_TO_TICKS(1500))) {
+        static uint32_t s_lastSkipWarnMs = 0;
+        const uint32_t nowSkipMs = millis();
+        if (s_lastSkipWarnMs == 0 || (nowSkipMs - s_lastSkipWarnMs) >= 3600000UL) {
+            s_lastSkipWarnMs = nowSkipMs;
+            sendVirtualMessage(String(F("Prox: CSV row skipped (SD busy, FTP cycle) — hourly history gap: ")) +
+                               filePathS, WARN, false, true);
+        }
+        return;
+    }
 
     File f = SD_MMC.open(filePathS.c_str(), FILE_APPEND);
     if (!f) { sdMutexUnlock(); return; }
@@ -1973,12 +1984,14 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
 
     long prevIn = -1;
     int  prevHour = -1;
+    int  prevMin = -1;      // minute of the previous sample (gap-aware attribution)
     long prevPrevIn = -1;   // ch0 of the tick BEFORE the last one (for closing the last hour)
     int  prevPrevHour = -1; // hour of the tick BEFORE the last one
     long lastCh0 = -1;   // ch0 of the most recent tick (for closing the last hour)
     int  lastHour = -1;  // hour of the most recent tick
     long boundaryDelta = -1;  // delta that crosses into lastShiftHour (for double-tick fix)
     int  boundaryFromHour = -1; // hour the boundary delta was attributed to
+    bool lastPairSpread = false; // last pair spanned >1 bucket (delta already distributed)
     int lastShiftHour = (startHour + durHours - 1) % 24;
     char* line = buf;
     while (line && *line) {
@@ -2003,6 +2016,9 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
                             if (isTick || isBoundary) {
                                 long ch0 = strtol(c3 + 1, nullptr, 10);
                                 int hour = (p[11] - '0') * 10 + (p[12] - '0');
+                                int minute = (c1 - p >= 16) ? ((p[14] - '0') * 10 + (p[15] - '0')) : 0;
+                                if (minute < 0 || minute > 59) minute = 0;
+                                lastPairSpread = false;
                                 if (hour >= 0 && hour <= 23 && prevIn >= 0 && prevHour >= 0) {
                                     long delta = ch0 - prevIn;
                                     int attrHour = prevHour;
@@ -2021,17 +2037,63 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
                                         delta = ch0;
                                         attrHour = _proxHourInWindow(prevHour, startHour, durHours)
                                             ? prevHour : hour;
-                                    } else if (hour == lastShiftHour && prevHour != lastShiftHour && prevHour >= 0) {
-                                        boundaryDelta = delta;
-                                        boundaryFromHour = prevHour;
+                                        if (hourVal[attrHour] < 0) hourVal[attrHour] = 0;
+                                        hourVal[attrHour] += delta;
+                                    } else {
+                                        // Gap-aware attribution: credit the delta to
+                                        // every bucket it actually covers, in
+                                        // proportion to the minutes spent there.
+                                        // A lost tick (reboot, SD busy/FTP lock,
+                                        // clock jump, OTA) used to dump HOURS of
+                                        // production into one column — a single huge
+                                        // bar plus empty hours. Normal 30 min ticks
+                                        // stay single-bucket (unchanged output).
+                                        int prevMinOfDay = prevHour * 60 + ((prevMin < 0) ? 0 : prevMin);
+                                        int curMinOfDay  = hour * 60 + minute;
+                                        int spanMin = curMinOfDay - prevMinOfDay;
+                                        if (spanMin < 0) spanMin += 1440;   // crossed midnight
+                                        if (spanMin == 0) spanMin = 1;      // sub-minute sample pair
+                                        int firstBucketMin = 60 - ((prevMin < 0) ? 0 : prevMin);
+                                        if (firstBucketMin <= 0 || firstBucketMin > 60) firstBucketMin = 60;
+                                        int consumed = 0;
+                                        long credited = 0;
+                                        int buckets = 0;
+                                        for (int k = 0; k < 24 && consumed < spanMin; k++) {
+                                            int hh = (prevHour + k) % 24;
+                                            int bucketMin = (k == 0) ? firstBucketMin : 60;
+                                            int take = spanMin - consumed;
+                                            if (take > bucketMin) take = bucketMin;
+                                            long share = (long)((double)delta * (double)take / (double)spanMin + 0.5);
+                                            if (share > delta - credited) share = delta - credited;
+                                            if (share < 0) share = 0;
+                                            if (_proxHourInWindow(hh, startHour, durHours)) {
+                                                if (hourVal[hh] < 0) hourVal[hh] = 0;
+                                                hourVal[hh] += share;
+                                            }
+                                            credited += share;
+                                            consumed += take;
+                                            buckets++;
+                                        }
+                                        // Rounding remainder goes to the sample's own hour.
+                                        if (credited < delta && _proxHourInWindow(hour, startHour, durHours)) {
+                                            if (hourVal[hour] < 0) hourVal[hour] = 0;
+                                            hourVal[hour] += (delta - credited);
+                                        }
+                                        if (buckets > 1) {
+                                            lastPairSpread = true;
+                                        } else if (hour == lastShiftHour && prevHour != lastShiftHour && prevHour >= 0) {
+                                            // Single-bucket delta crossing into the last
+                                            // shift hour keeps the double-tick fix below.
+                                            boundaryDelta = delta;
+                                            boundaryFromHour = prevHour;
+                                        }
                                     }
-                                    if (hourVal[attrHour] < 0) hourVal[attrHour] = 0;
-                                    hourVal[attrHour] += delta;
                                 }
                                 prevPrevIn = prevIn;
                                 prevPrevHour = prevHour;
                                 prevIn = ch0;
                                 prevHour = (hour >= 0 && hour <= 23) ? hour : prevHour;
+                                prevMin = minute;
                                 lastCh0 = ch0;
                                 lastHour = (hour >= 0 && hour <= 23) ? hour : lastHour;
                             }
@@ -2043,8 +2105,10 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
         line = nl ? (nl + 1) : nullptr;
     }
     // Close the last hour correctly (shift-end flush re-credited to the last
-    // shift hour so it is never reported as 0).
-    if (lastHour >= 0 && prevPrevHour >= 0) {
+    // shift hour so it is never reported as 0). Skipped when the final pair
+    // spanned several buckets: the gap-aware distribution above already
+    // credited every hour it covered, so moving it again would double-count.
+    if (!lastPairSpread && lastHour >= 0 && prevPrevHour >= 0) {
         if (boundaryDelta >= 0 && boundaryFromHour >= 0
                 && boundaryFromHour != lastShiftHour) {
             int hourDiff = (lastShiftHour - boundaryFromHour + 24) % 24;
