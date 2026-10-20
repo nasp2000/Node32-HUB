@@ -524,7 +524,7 @@ static void briconEmailTick() {
     String subject = ramboxEmailSubject("Bricon", raceNm.c_str(), pendingRace + pendingTraining);
     String body;
     ramboxEmailHeader(body, "Bricon", clubStr.c_str(), "",
-                      rc ? rc->club : "", raceNm.c_str(), rc ? rc->date : "", "");
+                      s_status.fancierName, raceNm.c_str(), rc ? rc->date : "", "");
     appendBriconRegistrationsSection(body);
 
     String secRaceNew, secTrainNew, secRaceOld;
@@ -791,6 +791,9 @@ static void briconReadFancier() {
     bkAscii(pl, licLen, lic, sizeof(lic));
     uint8_t off = licLen;
     bkAscii(pl + off, uk ? 24 : 25, name, sizeof(name));
+    // Keep the fancier (the email header shows "Concorrente" like the Unikon one).
+    strlcpy(s_status.fancierLic, lic, sizeof(s_status.fancierLic));
+    strlcpy(s_status.fancierName, name, sizeof(s_status.fancierName));
     char m[128];
     snprintf(m, sizeof(m), "[BRICON] fancier: %s '%s' (%s layout)", lic, name, uk ? "UK" : "non-UK");
     sendVirtualMessage(String(m), WARN, false, true);

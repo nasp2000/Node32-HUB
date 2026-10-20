@@ -19,11 +19,12 @@ void handleBriconStatusGet(HttpRequest& req, HttpResponse& res) {
     BriconConfig cc = briconGetConfig();
     BriconStatus st = briconGetStatus();
     uint32_t agoSec = (st.lastRxMs > 0) ? (millis() - st.lastRxMs) / 1000UL : 0;
-    char buf[384];
+    char buf[640];
     snprintf(buf, sizeof(buf),
         "{\"connected\":%s,\"hardwarePending\":%s,\"enabled\":%s,"
         "\"intervalSec\":%u,\"baud\":%d,\"dataBits\":%d,\"parity\":\"%s\",\"stopBits\":%d,"
         "\"country\":\"%s\",\"baAddress\":%d,\"clubId\":\"%s\",\"flightId\":\"%s\","
+        "\"fancierLic\":\"%s\",\"fancierName\":\"%s\","
         "\"baActiveAddress\":%u,\"lastNewCount\":%u,\"lastPollAgoSec\":%lu,"
         "\"lastRxAgoSec\":%lu,\"bytesRx\":%lu,\"framesSeen\":%u,"
         "\"activeModule\":\"%s\"}",
@@ -33,6 +34,7 @@ void handleBriconStatusGet(HttpRequest& req, HttpResponse& res) {
         (unsigned)cc.pollIntervalSec,
         cc.baudrate, cc.dataBits, cc.parity, cc.stopBits,
         cc.country, cc.baAddress, cc.clubId, cc.flightId,
+        st.fancierLic, st.fancierName,
         (unsigned)st.baAddress, (unsigned)st.lastNewCount,
         (unsigned long)((st.lastPollMs > 0) ? (millis() - st.lastPollMs) / 1000UL : 0),
         (unsigned long)agoSec,

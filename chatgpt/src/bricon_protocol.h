@@ -91,6 +91,8 @@ struct BriconStatus {
     uint16_t lastNewCount;       // arrivals ingested by the last poll
     uint32_t lastPollMs;         // millis() of the last poll
     char     activeModule[8];    // "rambox", "bricon" or "none"
+    char     fancierLic[16];     // licence from GetFancier (0x51)
+    char     fancierName[32];    // fancier name from GetFancier (0x51)
 };
 
 // ----- Lifecycle -----
