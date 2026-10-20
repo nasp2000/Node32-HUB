@@ -1064,7 +1064,8 @@ bool smtpSendEmail(
     int port,
     const String &user,
     const String &pass,
-    bool tlsInsecure)
+    bool tlsInsecure,
+    bool isHtml)
 {
     esp_task_wdt_reset();
 
@@ -1169,7 +1170,8 @@ bool smtpSendEmail(
     smtpRawSend(client, String(F("To: ")) + to + "\r\n");
     smtpRawSend(client, String(F("Subject: ")) + subject + "\r\n");
     smtpRawSendC(client, "MIME-Version: 1.0\r\n");
-    smtpRawSendC(client, "Content-Type: text/plain; charset=UTF-8\r\n");
+    smtpRawSendC(client, isHtml ? "Content-Type: text/html; charset=UTF-8\r\n"
+                                : "Content-Type: text/plain; charset=UTF-8\r\n");
     if (isAscii7(body)) {
         smtpRawSendC(client, "\r\n");
         smtpRawSend(client, body);

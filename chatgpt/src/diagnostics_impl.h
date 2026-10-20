@@ -1664,7 +1664,7 @@ bool sendEmailPartialFileSd(const String &filePath, size_t startOffset, size_t e
         }
         emailBusy    = true;
         isEmailSending = true;
-        success = smtpSendEmail(user, recipients, subject, finalBody, server, port, user, pass, tlsInsecure);
+        success = smtpSendEmail(user, recipients, subject, finalBody, server, port, user, pass, tlsInsecure, false);
         isEmailSending = false;
         emailBusy    = false;
     }

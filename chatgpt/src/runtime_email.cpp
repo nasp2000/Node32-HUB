@@ -65,7 +65,8 @@ extern bool smtpSendEmail(const String &from,
                           int port,
                           const String &user,
                           const String &pass,
-                          bool tlsInsecure);
+                          bool tlsInsecure,
+                          bool isHtml);
 
 EmailSendingState currentEmailSendingState = EMAIL_IDLE;
 String emailContentToSend = "";
@@ -903,7 +904,7 @@ void emailTestTask(void *parameter) {
             bool tlsInsecure = configManager.getSmtpTlsInsecure();
             String from = user;
 
-            success = smtpSendEmail(from, dest, localSubject, localBody, server, port, user, pass, tlsInsecure);
+            success = smtpSendEmail(from, dest, localSubject, localBody, server, port, user, pass, tlsInsecure, false);
 
             vTaskDelay(pdMS_TO_TICKS(100));
             esp_task_wdt_reset();
@@ -1014,6 +1015,27 @@ static TaskHandle_t  unikonEmailTaskHandle = NULL;
 static String        unikonEmailSubject    = "";
 static String        unikonEmailBody       = "";
 
+// The Rambox reports are plain-text tables padded with spaces: they only line up in a
+// monospace font. Clients that render text/plain with a proportional font (Gmail web,
+// phones) break the columns, so the body is sent as HTML inside a <pre> block.
+static String ramboxEmailToHtml(const String &text) {
+    String h;
+    h.reserve(text.length() + 192);
+    h += F("<!DOCTYPE html><html><head><meta charset='UTF-8'></head>"
+           "<body style='margin:0;padding:6px;background:#ffffff'>"
+           "<pre style=\"font-family:Consolas,'Courier New',monospace;font-size:13px;"
+           "line-height:1.35;white-space:pre\">");
+    for (size_t i = 0; i < text.length(); i++) {
+        char c = text[i];
+        if      (c == '&') h += F("&amp;");
+        else if (c == '<') h += F("&lt;");
+        else if (c == '>') h += F("&gt;");
+        else               h += c;
+    }
+    h += F("</pre></body></html>");
+    return h;
+}
+
 static void unikonEmailTask(void* /*parameter*/) {
     unikonEmailInProgress = true;
     esp_task_wdt_add(NULL);
@@ -1095,8 +1117,11 @@ static void unikonEmailTask(void* /*parameter*/) {
             String user   = configManager.getSmtpUsername();
             String pass   = configManager.getSmtpPassword();
             bool insecure = configManager.getSmtpTlsInsecure();
-            success = smtpSendEmail(user, dest, localSubject, localBody,
-                                    server, port, user, pass, insecure);
+            // Rambox report -> HTML (monospace <pre>) so the ASCII tables align everywhere.
+            bool asHtml = (localBody.length() <= 40000);
+            String mailBody = asHtml ? ramboxEmailToHtml(localBody) : localBody;
+            success = smtpSendEmail(user, dest, localSubject, mailBody,
+                                    server, port, user, pass, insecure, asHtml);
             vTaskDelay(pdMS_TO_TICKS(100));
             esp_task_wdt_reset();
             smtpUnlock();
@@ -1291,7 +1316,7 @@ void inactivityAlertTask(void *parameter) {
             bool smtpTlsInsecure = configManager.getSmtpTlsInsecure();
 
             sendSuccess = smtpSendEmail(smtpFrom, localRecipients, localSubject, localBody,
-                                        smtpServer, smtpPort, smtpUser, smtpPass, smtpTlsInsecure);
+                                        smtpServer, smtpPort, smtpUser, smtpPass, smtpTlsInsecure, false);
         }
 
         smtpUnlock();

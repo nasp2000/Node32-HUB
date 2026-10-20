@@ -3064,12 +3064,14 @@ bool unikonQueuePombalSeasonEmail(String& messageOut) {
         return false;
     }
 
-    String subject = String(rmbT("Rambox32 - Pombal da Epoca (", "Rambox32 - Season loft ("))
+    String subject = String(F("Rambox32 - Unikon - "))
+                   + String(rmbT("Pombal da Epoca (", "Season loft ("))
                    + String((unsigned)s_registrationCount)
                    + String(F(")"));
 
     String body;
     body.reserve(640 + (size_t)s_registrationCount * 96u);
+    ramboxEmailSourceLine(body, "Unikon");
     body += String(rmbT("Relatorio manual do pombal da epoca\n", "Manual season-loft report\n"));
     body += String(rmbT("Tabela ASCII de largura fixa\n\n", "Fixed-width ASCII table\n\n"));
 

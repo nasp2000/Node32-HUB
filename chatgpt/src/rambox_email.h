@@ -37,14 +37,20 @@ static inline String ramboxEmailSubject(const char* device, const char* race, ui
     return s;
 }
 
-static inline void ramboxEmailHeader(String& body, const char* device,
-                                     const char* club, const char* clubCode,
-                                     const char* fancier, const char* race,
-                                     const char* raceDate, const char* solta) {
+// "Registos captados pelo módulo <device>:" / "Records captured by the <device>:"
+// The single line that tells the reader which clock produced the email.
+static inline void ramboxEmailSourceLine(String& body, const char* device) {
     body += String(rmbT("Registos captados pelo m\u00f3dulo ",
                         "Records captured by the "));
     body += String(device && device[0] ? device : "?");
     body += String(F(":\n\n"));
+}
+
+static inline void ramboxEmailHeader(String& body, const char* device,
+                                     const char* club, const char* clubCode,
+                                     const char* fancier, const char* race,
+                                     const char* raceDate, const char* solta) {
+    ramboxEmailSourceLine(body, device);
 
     if (club && club[0]) {
         body += String(rmbT("Clube: ", "Club: ")) + String(club);
