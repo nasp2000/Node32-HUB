@@ -767,7 +767,11 @@ static bool briconParsePigeon(const uint8_t* p, uint8_t len, BriconArrival* out)
     bkAscii(p + off, 6, out->arrivalTime, sizeof(out->arrivalTime)); off += 6;
     out->evaluation = (off < len) ? (char)p[off] : '\0';
     out->posArriveClub = pos[0];
-    out->isTraining = false;          // derived from the enclosing flight, not from Evaluation
+    // The Little manual lists Evaluation 5 = Training (1=Clocked, 2=Basketed,
+    // 3=Designated, 5=Training). The PC library only shows 0/1, so this is the
+    // bench hypothesis; confirm on the real clock with a training-only arrival.
+    // The flight (ClubID/FlightID) remains the alternative discriminator.
+    out->isTraining = (out->evaluation == '5');
     if (club[0] && !(club[0] == '0' && club[1] == '0' && club[2] == '0' && club[3] == '0'))
         strlcpy(out->race, flight, sizeof(out->race));
     return true;
