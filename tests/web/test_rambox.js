@@ -51,6 +51,8 @@ function lastPost(u) {
     assert(btn('Limpar dados') === null, 'no "clear data" button');
     assert(doc.querySelectorAll('[data-i18n-title]').length >= 30, 'tooltips on the controls');
     assert(doc.querySelector('#rmDev').getAttribute('class').indexOf('rm-sel') >= 0, 'compact device selector');
+    assert(doc.querySelectorAll('#tblPom th').length === 3, 'pombal table has 3 columns (fits a phone)');
+    setTimeout(function(){}, 0);
 
     // ---- Unikon actions ----
     doc.getElementById('cfg_interval').value = '120';

@@ -51,7 +51,16 @@ static const char PAGE_RAMBOX[] PROGMEM = R"rawliteral(
     .rm-card th{background:#1e293b;color:#93c5fd;position:sticky;top:0}
     .rm-muted{color:#94a3b8;font-size:12px}
     .rm-ok{color:#4ade80}.rm-err{color:#f87171}
-    .rm-scroll{max-height:48vh;overflow:auto}
+    .rm-scroll{max-height:48vh;overflow:auto;-webkit-overflow-scrolling:touch}
+    .rm-scroll table{min-width:100%}
+    @media (max-width:640px){
+        .rm-card{padding:8px}
+        .rm-tab{font-size:12px;padding:7px 4px}
+        .rm-card th,.rm-card td{padding:4px 5px;font-size:12px}
+        .rm-acts>button{flex:1 1 120px;padding:8px 6px;font-size:12px}
+        .rm-checks{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));max-height:30vh}
+        .rm-fld,.rm-chk{font-size:12px}
+    }
 </style>
 
 <div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome' data-i18n-title='btnHome' title='Home'>&#127968; Home</a></div>
@@ -455,14 +464,12 @@ function rmPombal(d) {
         rows.push([
             (i + 1) + '.',
             rmPick(a, ['ring','anilha']),
-            rmPick(a, ['chip']),
-            rmTime(rmPick(a, ['time','arrivalTime','hhmmss'])),
-            rmDate(rmPick(a, ['date','arrivalDate','ddmm'])),
-            rmPick(a, ['race','raceName'])
+            rmPick(a, ['chip'])
         ]);
     }
-    rmTable('tblPom', [T('rmbNo','No'), T('rmbRing','Anilha'), T('rmbChip','Chip'),
-                       T('rmbTime','Hora'), T('rmbDate','Data'), T('rmbRace','Prova')], rows);
+    // No telemovel uma tabela de 6 colunas nao cabe: o pombal mostra o essencial
+    // (No / Anilha / Chip), que e o que o relogio devolve no X (ring + chip).
+    rmTable('tblPom', [T('rmbNo','No'), T('rmbRing','Anilha'), T('rmbChip','Chip')], rows);
 
     // Checklist do treino: uma CAIXA DE MARCACAO por anilha lida do relogio.
     var box = document.getElementById('trRings');

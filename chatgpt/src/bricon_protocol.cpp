@@ -349,6 +349,52 @@ static void bkAppendCell(String& out, const char* s, uint8_t width) {
     out += '|';
 }
 
+// Loft list in the arrival email (same section the Unikon email already carries,
+// so both clocks send "the email with the pigeons").
+static void appendBriconRegistrationsSection(String& body) {
+    if (s_registrationCount == 0) return;
+    body += String(rmbT("Pombal da \u00e9poca (registados) \u2014 ", "Season loft (registered) \u2014 "))
+          + String((unsigned)s_registrationCount)
+          + String((s_registrationCount == 1) ? rmbT(" pombo\n", " pigeon\n")
+                                              : rmbT(" pombos\n", " pigeons\n"));
+
+    uint8_t wNo = 3, wRing = 6;
+    for (uint16_t i = 0; i < s_registrationCount; i++) {
+        char b[10];
+        int n = snprintf(b, sizeof(b), "%u.", (unsigned)(i + 1));
+        if (n > (int)wNo) wNo = (uint8_t)n;
+        n = (int)strlen(s_registrations[i].ring);
+        if (n > (int)wRing) wRing = (uint8_t)n;
+    }
+    if (wNo > 6) wNo = 6;
+    if (wRing > 15) wRing = 15;
+
+    String sep;
+    sep += '+';
+    for (uint8_t k = 0; k < (uint8_t)(wNo + 2); k++) sep += '-';
+    sep += '+';
+    for (uint8_t k = 0; k < (uint8_t)(wRing + 2); k++) sep += '-';
+    sep += '+';
+    sep += '\n';
+
+    body += sep;
+    body += '|';
+    bkAppendCell(body, rmbT("No", "No"), wNo);
+    bkAppendCell(body, rmbT("Anilha", "Ring"), wRing);
+    body += '\n';
+    body += sep;
+    for (uint16_t i = 0; i < s_registrationCount; i++) {
+        char b[10];
+        snprintf(b, sizeof(b), "%u.", (unsigned)(i + 1));
+        body += '|';
+        bkAppendCell(body, b, wNo);
+        bkAppendCell(body, s_registrations[i].ring, wRing);
+        body += '\n';
+    }
+    body += sep;
+    body += '\n';
+}
+
 // Email table for the arrival sections. The column widths are COMPUTED from the
 // widest text in each column (header vs values), and the separator, the header and
 // every row use the same widths — so the table is always aligned, whoever reads it.
@@ -479,6 +525,7 @@ static void briconEmailTick() {
     String body;
     ramboxEmailHeader(body, "Bricon", clubStr.c_str(), "",
                       rc ? rc->club : "", raceNm.c_str(), rc ? rc->date : "", "");
+    appendBriconRegistrationsSection(body);
 
     String secRaceNew, secTrainNew, secRaceOld;
     appendBriconArrivalSection(secRaceNew, ramboxEmailSecNew(), false, s_pendingEmailStart, s_arrivalCount);
