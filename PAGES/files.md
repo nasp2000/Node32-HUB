@@ -82,6 +82,7 @@ Download links point to `/api/sd/download?storage=…&path=…` with a 2 s in-pr
 | 🗑 Apagar | `deleteSelectedFiles()` | confirm → `POST /api/sd/delete-multiple` JSON `{files}` |
 | 📁 Nova Pasta | `createNewFolder()` | `customPrompt` → `fetch POST /api/sd/create-dir` JSON → reload on ok |
 | ✏️ Renomear | `renameSelected()` | 1 file only → `customPrompt` → `POST /api/sd/rename` (form submit) |
+<!-- 2026-10-21: o botão mostrava literalmente "&#9999;&#65039; Renomear": a chave i18n `filesBtnRename` trazia a entidade HTML e o `auto.js` aplica `data-i18n` via `textContent` (que não descodifica entidades). A chave passou a usar o emoji literal (✏️). Corrigidas na mesma altura 37 chaves EN/PT com o mesmo padrão (hx711*, ina226*, max31865*, grbl*, sound*, ipg*, proxTestEmailBtn, filesBtnRename). -->
 
 ### Keyboard shortcuts
 

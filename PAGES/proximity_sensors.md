@@ -280,6 +280,12 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
   the bar partitions CLOCK time (`run/elapsed`, `planned/elapsed`, rest) while the OEE
   line's Availability divides by PBT (`run/(elapsed−planned)`) — so `▓%` ≠ `A%` whenever
   stops exist (e.g. 8h shift + 30-min stop + 23328s run: bar `81/6/13`, line `A=86%`),
+  **.txt no cartão (2026-10-21):** só o email de **turno** guarda `.txt`
+  (`turno{N}_<data>_<hora>.txt` + `turno_data.txt`, escritos por
+  `_proxWriteShiftDataTxtAt()`). Os corpos genéricos dos emails deixaram de ser
+  arquivados — `emailArchiveSaveBody()` só guarda os tipos UNIKON/BRICON; assim
+  o cartão não enche com `ALARM_*.txt` / `INACTIVITY_*.txt` / `TEST_*.txt` que
+  ninguém usava.
   then the hourly "Pcs por hora" chart **using the same production-bar blocks**
   (`▓` DARK SHADE filled / `░` LIGHT SHADE track, `proximityBuildHourlyChart()`),
   e.g. `21H  446 pcs  [▓░░░░░░░░░]` — each part separated by one blank

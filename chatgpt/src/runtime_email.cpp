@@ -83,7 +83,7 @@ EmailTriggerSource lastEmailTriggerSource = TRIGGER_NONE;
 bool emailProcessInitiatedThisCycle = false;
 bool isEmailSendingActive = false;
 
-// T24 — .txt body file of ALL emails, T8b standard (turno_data).
+// T24 — .txt body file of the emails, T8b standard (turno_data).
 // Path /{sys}/<type>_<YYYY-MM-DD>_<HH-MM>.txt with send time:
 // SD when (sdMode && mounted), otherwise the same path in LittleFS.
 // Writes on EVERY call (local record; the email is best-effort). Never touches
@@ -91,8 +91,21 @@ bool isEmailSendingActive = false;
 // NOTE: defined BEFORE the #if ENABLE_SMTP==1 block to stay available
 // also in google-only builds (SMTP=0), where the Unikon direct points
 // call this function.
+//
+// Owner 2026-10-21: on the board only the SHIFT email keeps a .txt. The shift
+// record has its own path (turno{N}_<date>_<time>.txt + turno_data.txt, written
+// by _proxWriteShiftDataTxtAt() in proximity_manager.cpp) and is NOT affected
+// here. The generic email bodies (ALARM_*, INACTIVITY_*, TEST_*, EMAILDAY_*,
+// SENSORDAY_*, LOGDAY_*, STREAM_*, MOTION_*) were just noise on the card — they
+// are no longer archived. UNIKON/BRICON keep theirs (their own products, with
+// their own local record).
+static inline bool emailArchiveTipoAllowed(const String &tipo) {
+    return tipo == "UNIKON" || tipo == "BRICON";
+}
+
 bool emailArchiveSaveBody(const String &tipo, const String &body) {
     if (body.isEmpty() || tipo.isEmpty()) return false;
+    if (!emailArchiveTipoAllowed(tipo)) return false;   // owner: only the shift .txt
     std::string tipoS(tipo.c_str());
     String sysName = configManager.getSdcardName();
     std::string sysS(sysName.c_str());

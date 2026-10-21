@@ -24,6 +24,7 @@
 #include "../sd_layout.h"     // standard flat day-file paths (all packs)
 #include "../flash_fallback_store.h" // no-SD LittleFS writers (stub when disabled)
 #include "../ConfigManager.h" // ConfigManager type needed for getSdcardName()
+#include <cstring>
 #include "../sd_rotation_manager.h" // stringToInterval() / intervalToMs() for CSV flush interval
 #include "../email_message_builder.h" // buildEmailSignature() for shift-end email body
 #include "../psram_helpers.h"         // psramFound() / heap_caps_malloc for PSRAM buffers
@@ -1590,14 +1591,18 @@ static const char* _proxAppendRowToSd(const String& path, const char* row) {
         f.println();
     }
 
-    const size_t rowStart = f.size();
-    f.print(row);
-    f.println();
-    const size_t rowEnd = f.size();
+    // Success = the bytes actually written, NOT the file size delta: on a card
+    // that refuses the flush, f.size() can stay stale while the append still
+    // lands (the row was then re-appended on every retry -> duplicated rows).
+    size_t wrote = f.print(row);
+    wrote += f.println();
     f.close();
     sdMutexUnlock();
-    if (rowEnd <= rowStart) return "write";
-    storNoteSdWrite(rowEnd - rowStart);
+    const size_t expected = strlen(row) + 1;   // println() adds the newline
+    if (wrote == 0) return "write";           // nothing landed -> safe to retry
+    if (wrote != expected) return "partial";  // torn write -> the card is broken;
+                                               // retrying would append garbage
+    storNoteSdWrite(wrote);
     return nullptr;
 }
 
@@ -1741,15 +1746,20 @@ static void _proxWriteCSVRow(const char* type, int8_t shiftNum,
 
     const char* failStage = _proxAppendRowToSd(filePathS, row);
     if (failStage) {
-        _proxEnqueueRow(row, filePathS);
+        // "partial" = torn write: the card is broken, retrying would append
+        // garbage -> drop the row and shout. "lock"/"open"/"write" = nothing
+        // landed -> keep the row and retry it on the next inject tick.
+        const bool retryable = (strcmp(failStage, "partial") != 0);
+        if (retryable) _proxEnqueueRow(row, filePathS);
         static uint32_t s_lastSkipWarnMs = 0;
         const uint32_t nowSkipMs = millis();
         if (s_lastSkipWarnMs == 0 || (nowSkipMs - s_lastSkipWarnMs) >= 3600000UL) {
             s_lastSkipWarnMs = nowSkipMs;
             sendVirtualMessage(String(F("Prox: CSV append failed (")) + failStage +
-                               F(") — row queued for retry, pending=") + String((unsigned)_proxPendingCount) +
+                               (retryable ? F(") — row queued for retry, pending=") : F(") — row DROPPED (torn write, card broken), pending=")) +
+                               String((unsigned)_proxPendingCount) +
                                F(" | heap=") + String((unsigned)(ESP.getFreeHeap() / 1024)) + F("KB"),
-                               WARN, false, true);
+                               retryable ? WARN : ERROR, false, true);
         }
     }
 #endif
