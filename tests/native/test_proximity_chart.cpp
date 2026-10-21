@@ -21,7 +21,6 @@
 struct ChartState {
     long prevIn;
     int  prevHour;
-    int  prevMin;
     long hourVal[24];
 };
 
@@ -31,9 +30,9 @@ struct ChartState {
 // identical in both: a negative delta means the counter was reset since the
 // previous row, so ch0 (production since the reset) is attributed to the
 // previous row's hour when charted, else to the current row's hour.
-// Positive deltas are gap-aware: they are credited to every bucket the sample
-// pair covers, proportional to the minutes spent there (a lost tick must not
-// dump hours of production into one column).
+// Positive deltas are EXACT: the whole delta belongs to the previous row's hour
+// (30-min ticks never span an hour). Missing rows are not interpolated by the
+// reader — the writer keeps them in a FIFO and retries until they land.
 static bool hourInWindow(int h, int startHour, int durHours) {
     if (h < 0 || h > 23 || durHours <= 0) return false;
     for (int k = 0; k < durHours && k < 24; k++) {
@@ -57,8 +56,6 @@ static void parseLine(ChartState& st, const char* line, int startHour = 0, int d
                     if (isTick || isBoundary) {
                         long ch0 = strtol(c3 + 1, nullptr, 10);
                         int hour = (p[11] - '0') * 10 + (p[12] - '0');
-                        int minute = (c1 - p >= 16) ? ((p[14] - '0') * 10 + (p[15] - '0')) : 0;
-                        if (minute < 0 || minute > 59) minute = 0;
                         if (hour >= 0 && hour <= 23 && st.prevIn >= 0 && st.prevHour >= 0) {
                             long delta = ch0 - st.prevIn;
                             int attrHour = st.prevHour;
@@ -66,41 +63,12 @@ static void parseLine(ChartState& st, const char* line, int startHour = 0, int d
                                 delta = ch0;
                                 attrHour = hourInWindow(st.prevHour, startHour, durHours)
                                     ? st.prevHour : hour;
-                                if (st.hourVal[attrHour] < 0) st.hourVal[attrHour] = 0;
-                                st.hourVal[attrHour] += delta;
-                            } else {
-                                int prevMin = (st.prevMin < 0) ? 0 : st.prevMin;
-                                int spanMin = (hour * 60 + minute) - (st.prevHour * 60 + prevMin);
-                                if (spanMin < 0) spanMin += 1440;   // crossed midnight
-                                if (spanMin == 0) spanMin = 1;      // sub-minute sample pair
-                                int firstBucketMin = 60 - prevMin;
-                                if (firstBucketMin <= 0 || firstBucketMin > 60) firstBucketMin = 60;
-                                int consumed = 0;
-                                long credited = 0;
-                                for (int k = 0; k < 24 && consumed < spanMin; k++) {
-                                    int hh = (st.prevHour + k) % 24;
-                                    int bucketMin = (k == 0) ? firstBucketMin : 60;
-                                    int take = spanMin - consumed;
-                                    if (take > bucketMin) take = bucketMin;
-                                    long share = (long)((double)delta * (double)take / (double)spanMin + 0.5);
-                                    if (share > delta - credited) share = delta - credited;
-                                    if (share < 0) share = 0;
-                                    if (hourInWindow(hh, startHour, durHours)) {
-                                        if (st.hourVal[hh] < 0) st.hourVal[hh] = 0;
-                                        st.hourVal[hh] += share;
-                                    }
-                                    credited += share;
-                                    consumed += take;
-                                }
-                                if (credited < delta && hourInWindow(hour, startHour, durHours)) {
-                                    if (st.hourVal[hour] < 0) st.hourVal[hour] = 0;
-                                    st.hourVal[hour] += (delta - credited);
-                                }
                             }
+                            if (st.hourVal[attrHour] < 0) st.hourVal[attrHour] = 0;
+                            st.hourVal[attrHour] += delta;
                         }
                         st.prevIn = ch0;
                         if (hour >= 0 && hour <= 23) st.prevHour = hour;
-                        st.prevMin = minute;
                     }
                 }
             }
@@ -193,11 +161,9 @@ TEST_CASE("Bug1: real production tick accumulates per hour") {
 
     parseLine(st, "2026-08-21 15:12:33,tick,,1756,0,36.0,0,0,0.0,0,0,0.0,0,0,0.0,0,0,0.0,0,0,0.0,0,0,0.0,0,0,0.0");
     parseLine(st, "2026-08-21 16:12:33,tick,,3489,0,36.0,0,0,0.0,0,0,0.0,0,0,0.0,0,0,0.0,0,0,0.0,0,0,0.0,0,0,0.0");
-    // delta 3489-1756 = 1733 covers 15:12:33 -> 16:12:33, i.e. 48 min in hour 15
-    // and 12 min in hour 16 (gap-aware attribution: proportional to minutes).
-    CHECK(st.hourVal[15] + st.hourVal[16] == 1733);
-    CHECK(st.hourVal[15] > 1300);   // ~48/60 of the window
-    CHECK(st.hourVal[16] > 0);      // ~12/60 of the window
+    // delta 3489-1756 = 1733 belongs to hour 15 (previous tick's hour).
+    CHECK(st.hourVal[15] == 1733);
+    CHECK(st.hourVal[16] == -1);
 }
 
 // Bug 2 regression: night shift 22:00->08:00. First (22h) and last (07h) hours
@@ -221,16 +187,10 @@ TEST_CASE("Bug2: night shift 22h-08h first/last hour not zero") {
     // Delta 0->1000 (tick 22:30) + 1000->2000 (tick 23:00) both land on hour 22
     // (prevHour 22) -> hourVal[22] accumulates to 2000.
     CHECK(st.hourVal[22] == 2000);
-    // The 23:30->07:30 gap (6000 over 480 min) is spread across every bucket it
-    // covers (~750 each) instead of dumping it all into hour 23; the 23:00->23:30
-    // tick (1000) still belongs to hour 23 alone.
-    CHECK(st.hourVal[23] == 1375);        // 1000 + 30/480 of the gap
-    CHECK(st.hourVal[0] > 0);             // overnight hours are filled, not 0
-    CHECK(st.hourVal[3] > 0);
-    // Total preserved (2000 + 1000 + spread 6000 + 500).
-    long sum = 0;
-    for (int h = 0; h < 24; h++) if (st.hourVal[h] > 0) sum += st.hourVal[h];
-    CHECK(sum == 9500);
+    // The 23:30->07:30 gap (6000) lands on prevHour 23 -> hourVal[23]=7000.
+    // (A hole this large means the writer lost rows; the FIFO in
+    // _proxWriteCSVRow() is what prevents it — the reader never invents values.)
+    CHECK(st.hourVal[23] == 7000);
     // The first shift hour (22h) is NON-ZERO (was 0 before Bug 2 fix).
     CHECK(st.hourVal[22] > 0);
     // The last shift hour (07h) also gets its delta -> NON-ZERO.
@@ -511,9 +471,9 @@ TEST_CASE("hourly row: pcs suffix present and bars start at the same column") {
     // numW = digits of the shift max (here 16240 -> 5); the count is
     // right-aligned so every row's bar opens at the same column.
     char r1[64], r2[64], r3[64];
-    snprintf(r1, sizeof(r1), "%02dH %c%*d pcs  [", 7, ' ', 5, 690);
-    snprintf(r2, sizeof(r2), "%02dH %c%*d pcs  [", 8, ' ', 5, 15680);
-    snprintf(r3, sizeof(r3), "%02dH %c%*d pcs  [", 14, '~', 5, 16240);
+    snprintf(r1, sizeof(r1), "%02dH %*d pcs  [", 7, 5, 690);
+    snprintf(r2, sizeof(r2), "%02dH %*d pcs  [", 8, 5, 15680);
+    snprintf(r3, sizeof(r3), "%02dH %*d pcs  [", 14, 5, 16240);
     std::string s1(r1), s2(r2), s3(r3);
     CHECK(s1.find(" pcs") != std::string::npos);
     CHECK(s1.find("690 pcs") != std::string::npos);
@@ -521,11 +481,9 @@ TEST_CASE("hourly row: pcs suffix present and bars start at the same column") {
     size_t b1 = s1.find('['), b2 = s2.find('['), b3 = s3.find('[');
     CHECK(b1 == b2);
     CHECK(b2 == b3);
-    CHECK(s1 == "07H    690 pcs  [");
-    CHECK(s2 == "08H  15680 pcs  [");
-    // An interpolated hour carries the "~" mark in the same 1-char column.
-    CHECK(s3 == "14H ~16240 pcs  [");
-    CHECK(s3.find("~") != std::string::npos);
+    CHECK(s1 == "07H   690 pcs  [");
+    CHECK(s2 == "08H 15680 pcs  [");
+    CHECK(s3 == "14H 16240 pcs  [");
 }
 
 TEST_CASE("shift email bars: production uses DARK SHADE, never FULL BLOCK") {
@@ -537,67 +495,6 @@ TEST_CASE("shift email bars: production uses DARK SHADE, never FULL BLOCK") {
     std::string bar = renderBar(15680, 16240);
     CHECK(bar.find("\xE2\x96\x88") == std::string::npos);
     CHECK(bar.find(BLOCK) != std::string::npos);
-}
-
-// ── Lost-tick gaps (owner report 2026-10-20) ─────────────────────────────
-// Today's emails/chart showed empty hours and ONE huge hour: a 30-min tick
-// stopped being written (reboot / SD busy / clock jump), so the next delta
-// covered several hours and the whole span landed in a single column.
-// The delta is now spread over the buckets it actually covers.
-TEST_CASE("gap: 6h without ticks spreads the delta instead of one huge hour") {
-    ChartState st;
-    memset(&st, 0, sizeof(st));
-    st.prevIn = -1;
-    st.prevHour = -1;
-    for (int h = 0; h < 24; h++) st.hourVal[h] = -1;
-
-    // Real 20-10 case, shift 06H-14H: last tick 08:00:02 = 1368048, next row
-    // 13:59:00 = 1433688 (delta 65640 over 5h59m, no ticks in between).
-    parseLine(st, "2026-10-20 08:00:02,tick,,1368048,0,360.0,0,0,0.0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0", 6, 8);
-    parseLine(st, "2026-10-20 13:59:00,shift_boundary,,1433688,0,240.0,0,0,0.0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0", 6, 8);
-    // 08:00 -> 13:59 covers buckets 8,9,10,11,12,13 (6 columns, ~60 min each).
-    for (int h = 8; h <= 13; h++) {
-        CHECK(st.hourVal[h] > 9000);
-        CHECK(st.hourVal[h] < 13000);
-    }
-    // No single column absorbed the whole span.
-    for (int h = 0; h < 24; h++) CHECK(st.hourVal[h] < 65640);
-    // Sum preserved (no pieces lost or duplicated).
-    long sum = 0;
-    for (int h = 0; h < 24; h++) if (st.hourVal[h] > 0) sum += st.hourVal[h];
-    CHECK(sum == 65640);
-}
-
-TEST_CASE("gap: partial-hour buckets get the proportional share") {
-    ChartState st;
-    memset(&st, 0, sizeof(st));
-    st.prevIn = -1;
-    st.prevHour = -1;
-    for (int h = 0; h < 24; h++) st.hourVal[h] = -1;
-
-    // 01:00:01 (1286658) -> 05:59:00 (1340538): delta 53880 over 4h59m.
-    parseLine(st, "2026-10-20 01:00:01,tick,,1286658,0,120.0,0,0,0.0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0", 0, 24);
-    parseLine(st, "2026-10-20 05:59:00,shift_boundary,,1340538,0,120.0,0,0,0.0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0", 0, 24);
-    long sum = 0;
-    for (int h = 0; h < 24; h++) if (st.hourVal[h] > 0) sum += st.hourVal[h];
-    CHECK(sum == 53880);
-    // 01H..04H are nearly full buckets, 05H gets the last 59 min.
-    CHECK(st.hourVal[1] > st.hourVal[5]);
-    CHECK(st.hourVal[5] > 9000);
-    CHECK(st.hourVal[2] > 9000);
-}
-
-TEST_CASE("gap: normal 30-min tick still lands in a single hour (no regression)") {
-    ChartState st;
-    memset(&st, 0, sizeof(st));
-    st.prevIn = -1;
-    st.prevHour = -1;
-    for (int h = 0; h < 24; h++) st.hourVal[h] = -1;
-
-    parseLine(st, "2026-10-20 09:00:01,tick,,1000,0,300.0,0,0,0.0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0", 6, 8);
-    parseLine(st, "2026-10-20 09:30:01,tick,,3000,0,300.0,0,0,0.0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0,0,0,0.0,0,0,0", 6, 8);
-    CHECK(st.hourVal[9] == 2000);
-    CHECK(st.hourVal[10] == -1);
 }
 
 TEST_CASE("Bug2+: triple tick at shift-end hour stays in last hour") {

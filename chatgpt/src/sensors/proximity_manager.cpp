@@ -168,8 +168,7 @@ static void _proxWriteCSVRow(const char* type, int8_t shiftNum,
                               const uint32_t* chRun, const uint32_t* chDown, const uint32_t* chGood,
                               time_t nowOverride = 0);
 static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durHours,
-                                  long hourVal[24], uint32_t* chartTotalOut,
-                                  bool interpOut[24] = nullptr);
+                                  long hourVal[24], uint32_t* chartTotalOut);
 static void _proxWriteWeeklyOee(int8_t endedShift, int startHour, int durHours,
                                 uint32_t shiftPiecesDI1, float shiftAvailDI1,
                                 float shiftPerfDI1, float shiftQualDI1, float shiftOeeDI1,
@@ -1546,6 +1545,91 @@ static int8_t _detectCurrentShift(const struct tm* t) {
 
 // --- RX buffer injection (rules engine, monitor, SD pipeline) ---
 
+// --- Deferred CSV rows (SD refused the append) ------------------------------
+#if ENABLE_SDCARD==1
+// See _proxWriteCSVRow(): a row is kept here and retried every inject tick until
+// it lands, strictly in order, so the daily CSV never gets a hole while the
+// device is running. PSRAM, allocated on first use (zero cost until needed).
+struct ProxPendingCsvRow {
+    char path[56];
+    char text[352];
+};
+static const uint8_t PROX_PENDING_MAX = 32;   // 32 rows = 16 h at the 30 min cadence
+static ProxPendingCsvRow* _proxPendingRows = nullptr;
+static uint8_t _proxPendingHead = 0;
+static uint8_t _proxPendingCount = 0;
+
+static bool _proxPendingEnsure() {
+    if (_proxPendingRows) return true;
+    _proxPendingRows = (ProxPendingCsvRow*)heap_caps_malloc(
+        (size_t)PROX_PENDING_MAX * sizeof(ProxPendingCsvRow), MALLOC_CAP_SPIRAM);
+    if (!_proxPendingRows) {
+        // PSRAM unavailable: internal RAM fallback (~13 KB) — better than losing rows.
+        _proxPendingRows = (ProxPendingCsvRow*)heap_caps_malloc(
+            (size_t)PROX_PENDING_MAX * sizeof(ProxPendingCsvRow), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
+    return _proxPendingRows != nullptr;
+}
+
+// Appends one row to its daily CSV on the SD. Returns nullptr on success, or the
+// failing stage ("lock" / "open" / "write") for the monitor.
+static const char* _proxAppendRowToSd(const String& path, const char* row) {
+    if (!sdMutexLock(pdMS_TO_TICKS(1500))) return "lock";
+    File f = SD_MMC.open(path.c_str(), FILE_APPEND);
+    if (!f) { sdMutexUnlock(); return "open"; }
+
+    // CSV header on the first write to this file.
+    if (f.size() == 0) {
+        f.print(F("timestamp,type,shift"));
+        for (uint8_t i = 0; i < PROXIMITY_CHANNELS; i++) {
+            char col[48];
+            snprintf(col, sizeof(col), ",ch%u_in,ch%u_out,ch%u_ppm,ch%u_run,ch%u_down,ch%u_good",
+                     (unsigned)i, (unsigned)i, (unsigned)i, (unsigned)i, (unsigned)i, (unsigned)i);
+            f.print(col);
+        }
+        f.println();
+    }
+
+    const size_t rowStart = f.size();
+    f.print(row);
+    f.println();
+    const size_t rowEnd = f.size();
+    f.close();
+    sdMutexUnlock();
+    if (rowEnd <= rowStart) return "write";
+    storNoteSdWrite(rowEnd - rowStart);
+    return nullptr;
+}
+
+static void _proxEnqueueRow(const char* row, const String& path) {
+    if (!_proxPendingEnsure()) return;                 // out of memory: nothing to do
+    if (_proxPendingCount >= PROX_PENDING_MAX) {
+        // Backlog full (16 h of failed appends): drop the OLDEST so the newest
+        // (most useful) rows still make it. Logged once per hour by the caller.
+        _proxPendingHead = (uint8_t)((_proxPendingHead + 1) % PROX_PENDING_MAX);
+        _proxPendingCount--;
+    }
+    const uint8_t idx = (uint8_t)((_proxPendingHead + _proxPendingCount) % PROX_PENDING_MAX);
+    ProxPendingCsvRow& e = _proxPendingRows[idx];
+    strncpy(e.path, path.c_str(), sizeof(e.path) - 1);
+    e.path[sizeof(e.path) - 1] = '\0';
+    strncpy(e.text, row, sizeof(e.text) - 1);
+    e.text[sizeof(e.text) - 1] = '\0';
+    _proxPendingCount++;
+}
+
+// Retries the backlog in order, stopping at the first row that still cannot be
+// written (order must be preserved).
+static void _proxFlushPendingRows() {
+    while (_proxPendingRows && _proxPendingCount > 0) {
+        ProxPendingCsvRow& e = _proxPendingRows[_proxPendingHead];
+        if (_proxAppendRowToSd(String(e.path), e.text) != nullptr) return;
+        _proxPendingHead = (uint8_t)((_proxPendingHead + 1) % PROX_PENDING_MAX);
+        _proxPendingCount--;
+    }
+}
+#endif // ENABLE_SDCARD
+
 // Appends a CSV row to /{sdcardName}/PROXIMITY_DD-MM-YYYY/PROXIMITY_DD-MM-YYYY.csv on the SD card.
 // type:     "tick" for periodic absolute snapshots; "shift_end" for per-shift deltas;
 //           "shift_boundary" for the absolute snapshot written at the exact shift transition.
@@ -1636,50 +1720,34 @@ static void _proxWriteCSVRow(const char* type, int8_t shiftNum,
 
     if (!SD_MMC.exists(rootDir.c_str()))   SD_MMC.mkdir(rootDir.c_str());
 
-    // A row is the only record of its 30-min window: losing it leaves a hole in
-    // the hourly history that later has to be estimated. Take the SD mutex with a
-    // short timeout (FTP/cleanup hold it; interleaving with an SDMMC scan is what
-    // crashed the board — HISTORIC #57), retry ONCE, and if the write still does
-    // not land, say exactly WHICH stage failed (lock/open/short write) so the
-    // cause is visible in the monitor instead of a silent gap.
-    const char* failStage = nullptr;
-    for (int attempt = 0; attempt < 2 && !failStage; attempt++) {
-        if (!sdMutexLock(pdMS_TO_TICKS(1500))) { failStage = "lock"; continue; }
-        File f = SD_MMC.open(filePathS.c_str(), FILE_APPEND);
-        if (!f) { sdMutexUnlock(); failStage = "open"; continue; }
-
-        // Write CSV header on the first write to this file.
-        if (f.size() == 0) {
-            f.print(F("timestamp,type,shift"));
-            for (uint8_t i = 0; i < PROXIMITY_CHANNELS; i++) {
-                char col[48];
-                snprintf(col, sizeof(col), ",ch%u_in,ch%u_out,ch%u_ppm,ch%u_run,ch%u_down,ch%u_good",
-                         (unsigned)i, (unsigned)i, (unsigned)i, (unsigned)i, (unsigned)i, (unsigned)i);
-                f.print(col);
-            }
-            f.println();
-        }
-
-        // Write the pre-built data row (shared builder above — same bytes).
-        const size_t rowStart = f.size();
-        f.print(row);
-        f.println();
-        const size_t rowEnd = f.size();
-        f.close();
-        sdMutexUnlock();
-        if (rowEnd > rowStart) {
-            storNoteSdWrite(rowEnd - rowStart);
-        } else {
-            failStage = "write";
-        }
+    // --- Deferred rows -------------------------------------------------------
+    // A tick row is the ONLY record of its 30-min window: losing it leaves a hole
+    // that no later reader can reconstruct. When the SD refuses the append
+    // (mutex held / open failed / short write) the row is kept in this small
+    // PSRAM FIFO and retried on the following inject ticks (every 60 s) UNTIL it
+    // lands. Two invariants:
+    //   1. Strict FIFO — while older rows are pending, a newer row is only
+    //      enqueued, never written, so the CSV stays chronological (the hourly
+    //      chart derives deltas from consecutive rows; an out-of-order row would
+    //      read as a counter reset).
+    //   2. The row keeps its own target path, so a backlog crossing the 22:00
+    //      day boundary still lands in the right daily file.
+    // Capacity 32 rows = 16 h of backlog at the 30 min cadence.
+    _proxFlushPendingRows();
+    if (_proxPendingCount > 0) {
+        _proxEnqueueRow(row, filePathS);
+        return;
     }
+
+    const char* failStage = _proxAppendRowToSd(filePathS, row);
     if (failStage) {
+        _proxEnqueueRow(row, filePathS);
         static uint32_t s_lastSkipWarnMs = 0;
         const uint32_t nowSkipMs = millis();
         if (s_lastSkipWarnMs == 0 || (nowSkipMs - s_lastSkipWarnMs) >= 3600000UL) {
             s_lastSkipWarnMs = nowSkipMs;
-            sendVirtualMessage(String(F("Prox: CSV row NOT written (")) + failStage +
-                               F(") — hourly history gap: ") + filePathS +
+            sendVirtualMessage(String(F("Prox: CSV append failed (")) + failStage +
+                               F(") — row queued for retry, pending=") + String((unsigned)_proxPendingCount) +
                                F(" | heap=") + String((unsigned)(ESP.getFreeHeap() / 1024)) + F("KB"),
                                WARN, false, true);
         }
@@ -1790,6 +1858,12 @@ static void _proxInjectShiftMarker(int8_t endedShift, time_t ctxNow) {
 static void _proxInjectTick(uint32_t nowMs) {
     if (nowMs - _lastInjectMs < PROX_INJECT_INTERVAL_MS) return;
     _lastInjectMs = nowMs;
+
+    // Retry any CSV rows the SD refused earlier (once per minute). Keeps the
+    // hourly history complete even when an append failed transiently.
+#if ENABLE_SDCARD==1
+    _proxFlushPendingRows();
+#endif
 
     // Power-cut recovery point: after NTP sync, when the RTC mirror did NOT
     // restore at boot, pull the last absolute CSV snapshot from the microSD.
@@ -1939,13 +2013,9 @@ static bool _proxHourInWindow(int h, int startHour, int durHours) {
 // PREVIOUS sample, filling hourVal[24] (-1 = no sample for that hour) and the
 // chart total (sum of hourVal over the shift window). Returns false on open/read
 // failure (no usable data). Shared by the ASCII chart and the weekly OEE CSV.
-// interpOut (optional) flags the hours whose value came from SPREADING a delta
-// across a gap (missing ticks), i.e. an estimate rather than a measured hour.
 static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durHours,
-                                  long hourVal[24], uint32_t* chartTotalOut,
-                                  bool interpOut[24]) {
+                                  long hourVal[24], uint32_t* chartTotalOut) {
 #if ENABLE_SDCARD==1
-    if (interpOut) { for (int h = 0; h < 24; h++) interpOut[h] = false; }
     // Source 1: SD card. FTP holds the SD exclusively during its cycle
     // (HISTORIC #57): short lock timeout, then fail the read (the caller
     // omits the chart, never wedging the SDMMC host).
@@ -1997,14 +2067,12 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
 
     long prevIn = -1;
     int  prevHour = -1;
-    int  prevMin = -1;      // minute of the previous sample (gap-aware attribution)
     long prevPrevIn = -1;   // ch0 of the tick BEFORE the last one (for closing the last hour)
     int  prevPrevHour = -1; // hour of the tick BEFORE the last one
     long lastCh0 = -1;   // ch0 of the most recent tick (for closing the last hour)
     int  lastHour = -1;  // hour of the most recent tick
     long boundaryDelta = -1;  // delta that crosses into lastShiftHour (for double-tick fix)
     int  boundaryFromHour = -1; // hour the boundary delta was attributed to
-    bool lastPairSpread = false; // last pair spanned >1 bucket (delta already distributed)
     int lastShiftHour = (startHour + durHours - 1) % 24;
     char* line = buf;
     while (line && *line) {
@@ -2029,9 +2097,6 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
                             if (isTick || isBoundary) {
                                 long ch0 = strtol(c3 + 1, nullptr, 10);
                                 int hour = (p[11] - '0') * 10 + (p[12] - '0');
-                                int minute = (c1 - p >= 16) ? ((p[14] - '0') * 10 + (p[15] - '0')) : 0;
-                                if (minute < 0 || minute > 59) minute = 0;
-                                lastPairSpread = false;
                                 if (hour >= 0 && hour <= 23 && prevIn >= 0 && prevHour >= 0) {
                                     long delta = ch0 - prevIn;
                                     int attrHour = prevHour;
@@ -2050,69 +2115,17 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
                                         delta = ch0;
                                         attrHour = _proxHourInWindow(prevHour, startHour, durHours)
                                             ? prevHour : hour;
-                                        if (hourVal[attrHour] < 0) hourVal[attrHour] = 0;
-                                        hourVal[attrHour] += delta;
-                                    } else {
-                                        // Gap-aware attribution: credit the delta to
-                                        // every bucket it actually covers, in
-                                        // proportion to the minutes spent there.
-                                        // A lost tick (reboot, SD busy/FTP lock,
-                                        // clock jump, OTA) used to dump HOURS of
-                                        // production into one column — a single huge
-                                        // bar plus empty hours. Normal 30 min ticks
-                                        // stay single-bucket (unchanged output).
-                                        int prevMinOfDay = prevHour * 60 + ((prevMin < 0) ? 0 : prevMin);
-                                        int curMinOfDay  = hour * 60 + minute;
-                                        int spanMin = curMinOfDay - prevMinOfDay;
-                                        if (spanMin < 0) spanMin += 1440;   // crossed midnight
-                                        if (spanMin == 0) spanMin = 1;      // sub-minute sample pair
-                                        int firstBucketMin = 60 - ((prevMin < 0) ? 0 : prevMin);
-                                        if (firstBucketMin <= 0 || firstBucketMin > 60) firstBucketMin = 60;
-                                        int consumed = 0;
-                                        long credited = 0;
-                                        int buckets = 0;
-                                        for (int k = 0; k < 24 && consumed < spanMin; k++) {
-                                            int hh = (prevHour + k) % 24;
-                                            int bucketMin = (k == 0) ? firstBucketMin : 60;
-                                            int take = spanMin - consumed;
-                                            if (take > bucketMin) take = bucketMin;
-                                            long share = (long)((double)delta * (double)take / (double)spanMin + 0.5);
-                                            if (share > delta - credited) share = delta - credited;
-                                            if (share < 0) share = 0;
-                                            if (_proxHourInWindow(hh, startHour, durHours)) {
-                                                if (hourVal[hh] < 0) hourVal[hh] = 0;
-                                                hourVal[hh] += share;
-                                                // A bucket fed by a spread delta is an
-                                                // ESTIMATE (ticks were missing), never a
-                                                // measured hour: flag it so the report
-                                                // can mark it instead of presenting a
-                                                // fabricated flat number as real.
-                                                if (interpOut && spanMin > firstBucketMin) interpOut[hh] = true;
-                                            }
-                                            credited += share;
-                                            consumed += take;
-                                            buckets++;
-                                        }
-                                        // Rounding remainder goes to the sample's own hour.
-                                        if (credited < delta && _proxHourInWindow(hour, startHour, durHours)) {
-                                            if (hourVal[hour] < 0) hourVal[hour] = 0;
-                                            hourVal[hour] += (delta - credited);
-                                        }
-                                        if (buckets > 1) {
-                                            lastPairSpread = true;
-                                        } else if (hour == lastShiftHour && prevHour != lastShiftHour && prevHour >= 0) {
-                                            // Single-bucket delta crossing into the last
-                                            // shift hour keeps the double-tick fix below.
-                                            boundaryDelta = delta;
-                                            boundaryFromHour = prevHour;
-                                        }
+                                    } else if (hour == lastShiftHour && prevHour != lastShiftHour && prevHour >= 0) {
+                                        boundaryDelta = delta;
+                                        boundaryFromHour = prevHour;
                                     }
+                                    if (hourVal[attrHour] < 0) hourVal[attrHour] = 0;
+                                    hourVal[attrHour] += delta;
                                 }
                                 prevPrevIn = prevIn;
                                 prevPrevHour = prevHour;
                                 prevIn = ch0;
                                 prevHour = (hour >= 0 && hour <= 23) ? hour : prevHour;
-                                prevMin = minute;
                                 lastCh0 = ch0;
                                 lastHour = (hour >= 0 && hour <= 23) ? hour : lastHour;
                             }
@@ -2127,7 +2140,7 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
     // shift hour so it is never reported as 0). Skipped when the final pair
     // spanned several buckets: the gap-aware distribution above already
     // credited every hour it covered, so moving it again would double-count.
-    if (!lastPairSpread && lastHour >= 0 && prevPrevHour >= 0) {
+    if (lastHour >= 0 && prevPrevHour >= 0) {
         if (boundaryDelta >= 0 && boundaryFromHour >= 0
                 && boundaryFromHour != lastShiftHour) {
             int hourDiff = (lastShiftHour - boundaryFromHour + 24) % 24;
@@ -2165,7 +2178,6 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
     return true;
 #else
     (void)csvPath; (void)startHour; (void)durHours; (void)hourVal; (void)chartTotalOut;
-    (void)interpOut;
     return false;
 #endif
 }
@@ -2313,10 +2325,9 @@ String proximityBuildHourlyChart(const String& csvPath, int startHour, int durHo
     // SD access under the exclusivity mutex (FTP cycle, HISTORIC #57) and
     // returns false when the file is missing, producing the same empty chart.
     long hourVal[24];
-    bool hourInterp[24];
     for (int h = 0; h < 24; h++) hourVal[h] = -1; // -1 = no sample for that hour
     uint32_t chartTotal = 0;
-    if (!_proxReadHourlyCounts(csvPath, startHour, durHours, hourVal, &chartTotal, hourInterp)) return chart;
+    if (!_proxReadHourlyCounts(csvPath, startHour, durHours, hourVal, &chartTotal)) return chart;
     if (chartTotalOut) *chartTotalOut = chartTotal;
 
     int nCols = durHours > 24 ? 24 : durHours;
@@ -2390,11 +2401,9 @@ String proximityBuildHourlyChart(const String& csvPath, int startHour, int durHo
         // "21H   446 pcs  [▓░░░░░░░░░]" / "17H 17340 pcs  [▓▓▓▓▒▒▒▒▒░]"
         // The " pcs" suffix is constant-width and the count is right-aligned
         // to numW, so every row's bar starts at the same column.
-        // A "~" prefix marks a bucket whose value was spread over a missing-tick
-        // gap (an estimate, not a measured hour) so a flat run is never read as
-        // real production. The mark occupies its own 1-char column on EVERY row,
-        // so the bars stay aligned.
-        n = snprintf(o, room, "%02dH %c%*d pcs" , lbl, hourInterp[h] ? '~' : ' ', numW, (int)v);
+        // The count column is constant-width and right-aligned, so every row's
+        // bar opens at the same column.
+        n = snprintf(o, room, "%02dH %*d pcs" , lbl, numW, (int)v);
         o += n; room -= (size_t)n;
         n = snprintf(o, room, "  [");
         o += n; room -= (size_t)n;

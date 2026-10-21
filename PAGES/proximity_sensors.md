@@ -284,8 +284,7 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
   (`▓` DARK SHADE filled / `░` LIGHT SHADE track, `proximityBuildHourlyChart()`),
   e.g. `21H  446 pcs  [▓░░░░░░░░░]` — each part separated by one blank
   line. The count is `" pcs"`-suffixed and right-aligned to the widest value of the
-  shift (`%02dH %c%*d pcs`, the `%c` a 1-char mark column: blank, or `~` for an
-  estimated hour), so every row's bar opens at the same column. The chart bar is **10 cells** (owner pick 2026-10-15: phone-width body,
+  shift (`%02dH %*d pcs`), so every row's bar opens at the same column. The chart bar is **10 cells** (owner pick 2026-10-15: phone-width body,
   one row per shift hour), down from 20. Chart columns cover the ACTUAL shift hours `[start, end)` from
   `proximityGetShiftWindow()` and are **labelled by their END hour** — the hour
   the count is taken — so a shift 06H–14H renders the buckets `07H..14H`
@@ -305,21 +304,24 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
   end the live counter delta is cross-checked against the CSV hourly sum
   (`_proxWriteWeeklyOee()` out-param): CSV higher by >10%+500 pcs ⇒ WARN on
   Serial/monitor + a `NOTE:` line in the email body (mid-shift reboot with lost
-  baselines — header numbers partial, chart already full). **Gap-aware attribution
-  (owner report 2026-10-20):** a positive tick-to-tick delta is spread over every
-  bucket the pair actually covers, proportional to the minutes spent in each
-  (minute read from the row timestamp, midnight wrap handled; a sub-minute pair
-  counts as one bucket). Normal 30-min ticks still land in ONE bucket, but when
-  rows go missing (FTP holds the SD exclusively for its whole upload cycle, so
-  `_proxWriteCSVRow()` skips the row — HISTORIC #57; also reboot/clock jump/OTA)
-  a 6 h gap no longer dumps the whole span into one column: live 20-10-2026 data
-  (08:00→13:59, 65 640 pcs) used to render `09H 65640` with every other hour at 0
-  and now renders ~10 970 per hour with the sum preserved. **Those spread hours are
-  ESTIMATES**: a bucket fed by a spread delta is flagged and rendered with a `~`
-  right after the hour label (`00H ~11702 pcs  [...]`), so a flat run across
-  missing ticks is never read as measured production. A row that could not be
-  written now logs one throttled WARN per hour naming the failing stage
-  (`lock` / `open` / `write`) plus the free heap, instead of vanishing. Each hourly bar additionally shows the **planned-stop share of that hour**
+  baselines — header numbers partial, chart already full). **No interpolation
+  (owner decision 2026-10-21):** a positive tick-to-tick delta is attributed
+  EXACTLY to the previous row's hour — the reader never spreads or invents
+  values, so every hourly number is measured. The hourly series is guaranteed by
+  the WRITER instead: `_proxWriteCSVRow()` keeps a 32-row PSRAM FIFO
+  (`_proxPendingRows`, ~13 KB, allocated on first use) and retries the append
+  every inject tick (60 s) until it lands, **strictly in order** — a newer row is
+  never written while an older one is pending, because the hourly chart derives
+  its deltas from consecutive rows and an out-of-order row would read as a
+  counter reset. Each queued row keeps its own daily path, so a backlog crossing
+  the 22:00 boundary still lands in the right file. Capacity 32 rows = 16 h; if
+  the backlog ever fills, the OLDEST row is dropped (newest kept). An append that
+  fails logs one throttled WARN per hour naming the failing stage
+  (`lock` / `open` / `write`) and the pending depth, so the cause is diagnosable
+  instead of a silent gap. Live evidence 2026-10-21 (.29): ticks arriving at
+  `:00/:30` but landing only 3 times in 20 h (20-10: 8 consecutive, then 7 h and
+  6.5 h holes, then 1 success in 4) — the FIFO turns those holes into delayed
+  appends. Each hourly bar additionally shows the **planned-stop share of that hour**
   as `▒` MEDIUM SHADE (e.g. `17H 17340 pcs  [▓▓▓▓▒▒▒▒▒░]` for a 30-min stop):
   the planned fraction is computed over **absolute wall-clock hour windows**
   (last column dated from `refWall` = shift-end/test time, earlier columns walking
