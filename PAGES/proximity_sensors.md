@@ -284,7 +284,8 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
   (`▓` DARK SHADE filled / `░` LIGHT SHADE track, `proximityBuildHourlyChart()`),
   e.g. `21H  446 pcs  [▓░░░░░░░░░]` — each part separated by one blank
   line. The count is `" pcs"`-suffixed and right-aligned to the widest value of the
-  shift (`%02dH %*d pcs`), so every row's bar opens at the same column. The chart bar is **10 cells** (owner pick 2026-10-15: phone-width body,
+  shift (`%02dH %c%*d pcs`, the `%c` a 1-char mark column: blank, or `~` for an
+  estimated hour), so every row's bar opens at the same column. The chart bar is **10 cells** (owner pick 2026-10-15: phone-width body,
   one row per shift hour), down from 20. Chart columns cover the ACTUAL shift hours `[start, end)` from
   `proximityGetShiftWindow()` and are **labelled by their END hour** — the hour
   the count is taken — so a shift 06H–14H renders the buckets `07H..14H`
@@ -313,7 +314,12 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
   `_proxWriteCSVRow()` skips the row — HISTORIC #57; also reboot/clock jump/OTA)
   a 6 h gap no longer dumps the whole span into one column: live 20-10-2026 data
   (08:00→13:59, 65 640 pcs) used to render `09H 65640` with every other hour at 0
-  and now renders ~10 970 per hour with the sum preserved. Each hourly bar additionally shows the **planned-stop share of that hour**
+  and now renders ~10 970 per hour with the sum preserved. **Those spread hours are
+  ESTIMATES**: a bucket fed by a spread delta is flagged and rendered with a `~`
+  right after the hour label (`00H ~11702 pcs  [...]`), so a flat run across
+  missing ticks is never read as measured production. A row that could not be
+  written now logs one throttled WARN per hour naming the failing stage
+  (`lock` / `open` / `write`) plus the free heap, instead of vanishing. Each hourly bar additionally shows the **planned-stop share of that hour**
   as `▒` MEDIUM SHADE (e.g. `17H 17340 pcs  [▓▓▓▓▒▒▒▒▒░]` for a 30-min stop):
   the planned fraction is computed over **absolute wall-clock hour windows**
   (last column dated from `refWall` = shift-end/test time, earlier columns walking

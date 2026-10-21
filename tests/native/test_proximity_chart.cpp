@@ -511,9 +511,9 @@ TEST_CASE("hourly row: pcs suffix present and bars start at the same column") {
     // numW = digits of the shift max (here 16240 -> 5); the count is
     // right-aligned so every row's bar opens at the same column.
     char r1[64], r2[64], r3[64];
-    snprintf(r1, sizeof(r1), "%02dH %*d pcs  [", 7, 5, 690);
-    snprintf(r2, sizeof(r2), "%02dH %*d pcs  [", 8, 5, 15680);
-    snprintf(r3, sizeof(r3), "%02dH %*d pcs  [", 14, 5, 16240);
+    snprintf(r1, sizeof(r1), "%02dH %c%*d pcs  [", 7, ' ', 5, 690);
+    snprintf(r2, sizeof(r2), "%02dH %c%*d pcs  [", 8, ' ', 5, 15680);
+    snprintf(r3, sizeof(r3), "%02dH %c%*d pcs  [", 14, '~', 5, 16240);
     std::string s1(r1), s2(r2), s3(r3);
     CHECK(s1.find(" pcs") != std::string::npos);
     CHECK(s1.find("690 pcs") != std::string::npos);
@@ -521,8 +521,11 @@ TEST_CASE("hourly row: pcs suffix present and bars start at the same column") {
     size_t b1 = s1.find('['), b2 = s2.find('['), b3 = s3.find('[');
     CHECK(b1 == b2);
     CHECK(b2 == b3);
-    CHECK(s1 == "07H   690 pcs  [");
-    CHECK(s2 == "08H 15680 pcs  [");
+    CHECK(s1 == "07H    690 pcs  [");
+    CHECK(s2 == "08H  15680 pcs  [");
+    // An interpolated hour carries the "~" mark in the same 1-char column.
+    CHECK(s3 == "14H ~16240 pcs  [");
+    CHECK(s3.find("~") != std::string::npos);
 }
 
 TEST_CASE("shift email bars: production uses DARK SHADE, never FULL BLOCK") {

@@ -168,7 +168,8 @@ static void _proxWriteCSVRow(const char* type, int8_t shiftNum,
                               const uint32_t* chRun, const uint32_t* chDown, const uint32_t* chGood,
                               time_t nowOverride = 0);
 static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durHours,
-                                  long hourVal[24], uint32_t* chartTotalOut);
+                                  long hourVal[24], uint32_t* chartTotalOut,
+                                  bool interpOut[24] = nullptr);
 static void _proxWriteWeeklyOee(int8_t endedShift, int startHour, int durHours,
                                 uint32_t shiftPiecesDI1, float shiftAvailDI1,
                                 float shiftPerfDI1, float shiftQualDI1, float shiftOeeDI1,
@@ -1635,46 +1636,54 @@ static void _proxWriteCSVRow(const char* type, int8_t shiftNum,
 
     if (!SD_MMC.exists(rootDir.c_str()))   SD_MMC.mkdir(rootDir.c_str());
 
-    // FTP holds the SD exclusively for its whole upload cycle (HISTORIC #57):
-    // a short lock timeout then skip this row rather than interleave with the
-    // SDMMC scan/stream (that concurrency is what crashed the board). Once the
-    // cycle ends the next interval resumes the appends. A long cycle leaves a
-    // hole in the hourly history (the chart spreads the surviving delta), so
-    // report it instead of dropping it silently — throttled to one per hour.
-    if (!sdMutexLock(pdMS_TO_TICKS(1500))) {
+    // A row is the only record of its 30-min window: losing it leaves a hole in
+    // the hourly history that later has to be estimated. Take the SD mutex with a
+    // short timeout (FTP/cleanup hold it; interleaving with an SDMMC scan is what
+    // crashed the board — HISTORIC #57), retry ONCE, and if the write still does
+    // not land, say exactly WHICH stage failed (lock/open/short write) so the
+    // cause is visible in the monitor instead of a silent gap.
+    const char* failStage = nullptr;
+    for (int attempt = 0; attempt < 2 && !failStage; attempt++) {
+        if (!sdMutexLock(pdMS_TO_TICKS(1500))) { failStage = "lock"; continue; }
+        File f = SD_MMC.open(filePathS.c_str(), FILE_APPEND);
+        if (!f) { sdMutexUnlock(); failStage = "open"; continue; }
+
+        // Write CSV header on the first write to this file.
+        if (f.size() == 0) {
+            f.print(F("timestamp,type,shift"));
+            for (uint8_t i = 0; i < PROXIMITY_CHANNELS; i++) {
+                char col[48];
+                snprintf(col, sizeof(col), ",ch%u_in,ch%u_out,ch%u_ppm,ch%u_run,ch%u_down,ch%u_good",
+                         (unsigned)i, (unsigned)i, (unsigned)i, (unsigned)i, (unsigned)i, (unsigned)i);
+                f.print(col);
+            }
+            f.println();
+        }
+
+        // Write the pre-built data row (shared builder above — same bytes).
+        const size_t rowStart = f.size();
+        f.print(row);
+        f.println();
+        const size_t rowEnd = f.size();
+        f.close();
+        sdMutexUnlock();
+        if (rowEnd > rowStart) {
+            storNoteSdWrite(rowEnd - rowStart);
+        } else {
+            failStage = "write";
+        }
+    }
+    if (failStage) {
         static uint32_t s_lastSkipWarnMs = 0;
         const uint32_t nowSkipMs = millis();
         if (s_lastSkipWarnMs == 0 || (nowSkipMs - s_lastSkipWarnMs) >= 3600000UL) {
             s_lastSkipWarnMs = nowSkipMs;
-            sendVirtualMessage(String(F("Prox: CSV row skipped (SD busy, FTP cycle) — hourly history gap: ")) +
-                               filePathS, WARN, false, true);
+            sendVirtualMessage(String(F("Prox: CSV row NOT written (")) + failStage +
+                               F(") — hourly history gap: ") + filePathS +
+                               F(" | heap=") + String((unsigned)(ESP.getFreeHeap() / 1024)) + F("KB"),
+                               WARN, false, true);
         }
-        return;
     }
-
-    File f = SD_MMC.open(filePathS.c_str(), FILE_APPEND);
-    if (!f) { sdMutexUnlock(); return; }
-
-    // Write CSV header on the first write to this file.
-    if (f.size() == 0) {
-        f.print(F("timestamp,type,shift"));
-        for (uint8_t i = 0; i < PROXIMITY_CHANNELS; i++) {
-            char col[48];
-            snprintf(col, sizeof(col), ",ch%u_in,ch%u_out,ch%u_ppm,ch%u_run,ch%u_down,ch%u_good",
-                     (unsigned)i, (unsigned)i, (unsigned)i, (unsigned)i, (unsigned)i, (unsigned)i);
-            f.print(col);
-        }
-        f.println();
-    }
-
-    // Write the pre-built data row (shared builder above — same bytes).
-    size_t rowStart = f.size();
-    f.print(row);
-    f.println();
-    size_t rowEnd = f.size();
-    f.close();
-    storNoteSdWrite(rowEnd > rowStart ? rowEnd - rowStart : 0);
-    sdMutexUnlock();
 #endif
 }
 
@@ -1930,9 +1939,13 @@ static bool _proxHourInWindow(int h, int startHour, int durHours) {
 // PREVIOUS sample, filling hourVal[24] (-1 = no sample for that hour) and the
 // chart total (sum of hourVal over the shift window). Returns false on open/read
 // failure (no usable data). Shared by the ASCII chart and the weekly OEE CSV.
+// interpOut (optional) flags the hours whose value came from SPREADING a delta
+// across a gap (missing ticks), i.e. an estimate rather than a measured hour.
 static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durHours,
-                                  long hourVal[24], uint32_t* chartTotalOut) {
+                                  long hourVal[24], uint32_t* chartTotalOut,
+                                  bool interpOut[24]) {
 #if ENABLE_SDCARD==1
+    if (interpOut) { for (int h = 0; h < 24; h++) interpOut[h] = false; }
     // Source 1: SD card. FTP holds the SD exclusively during its cycle
     // (HISTORIC #57): short lock timeout, then fail the read (the caller
     // omits the chart, never wedging the SDMMC host).
@@ -2069,6 +2082,12 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
                                             if (_proxHourInWindow(hh, startHour, durHours)) {
                                                 if (hourVal[hh] < 0) hourVal[hh] = 0;
                                                 hourVal[hh] += share;
+                                                // A bucket fed by a spread delta is an
+                                                // ESTIMATE (ticks were missing), never a
+                                                // measured hour: flag it so the report
+                                                // can mark it instead of presenting a
+                                                // fabricated flat number as real.
+                                                if (interpOut && spanMin > firstBucketMin) interpOut[hh] = true;
                                             }
                                             credited += share;
                                             consumed += take;
@@ -2146,6 +2165,7 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
     return true;
 #else
     (void)csvPath; (void)startHour; (void)durHours; (void)hourVal; (void)chartTotalOut;
+    (void)interpOut;
     return false;
 #endif
 }
@@ -2293,9 +2313,10 @@ String proximityBuildHourlyChart(const String& csvPath, int startHour, int durHo
     // SD access under the exclusivity mutex (FTP cycle, HISTORIC #57) and
     // returns false when the file is missing, producing the same empty chart.
     long hourVal[24];
+    bool hourInterp[24];
     for (int h = 0; h < 24; h++) hourVal[h] = -1; // -1 = no sample for that hour
     uint32_t chartTotal = 0;
-    if (!_proxReadHourlyCounts(csvPath, startHour, durHours, hourVal, &chartTotal)) return chart;
+    if (!_proxReadHourlyCounts(csvPath, startHour, durHours, hourVal, &chartTotal, hourInterp)) return chart;
     if (chartTotalOut) *chartTotalOut = chartTotal;
 
     int nCols = durHours > 24 ? 24 : durHours;
@@ -2369,7 +2390,11 @@ String proximityBuildHourlyChart(const String& csvPath, int startHour, int durHo
         // "21H   446 pcs  [▓░░░░░░░░░]" / "17H 17340 pcs  [▓▓▓▓▒▒▒▒▒░]"
         // The " pcs" suffix is constant-width and the count is right-aligned
         // to numW, so every row's bar starts at the same column.
-        n = snprintf(o, room, "%02dH %*d pcs" , lbl, numW, (int)v);
+        // A "~" prefix marks a bucket whose value was spread over a missing-tick
+        // gap (an estimate, not a measured hour) so a flat run is never read as
+        // real production. The mark occupies its own 1-char column on EVERY row,
+        // so the bars stay aligned.
+        n = snprintf(o, room, "%02dH %c%*d pcs" , lbl, hourInterp[h] ? '~' : ' ', numW, (int)v);
         o += n; room -= (size_t)n;
         n = snprintf(o, room, "  [");
         o += n; room -= (size_t)n;
