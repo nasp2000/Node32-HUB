@@ -3,6 +3,7 @@
 // Included by chatgpt.ino before loop_impl.h.
 
 #pragma once
+#include "heap_trace.h"
 
 #include "network_mdns.h"
 

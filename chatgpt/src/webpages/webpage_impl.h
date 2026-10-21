@@ -1,5 +1,6 @@
 #ifndef WEBPAGE_IMPL_H
 #define WEBPAGE_IMPL_H
+#include "heap_trace.h"
 
 #include <Arduino.h>
 #include <ESPAsyncWebServer.h>

@@ -2,6 +2,7 @@
 // Included only from chatgpt.ino (single translation unit).
 
 // Line accumulator size — used unconditionally by setup_impl.h / loop_impl.h
+#include "heap_trace.h"
 #define SDCARD_LINE_ACCUMULATOR_SIZE 512
 
 // Forward declarations (defined later in .ino chain)

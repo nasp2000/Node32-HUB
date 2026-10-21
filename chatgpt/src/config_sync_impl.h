@@ -3,6 +3,7 @@
 // Config persistence and UI sync: saveAllConfigs, loadAllConfigs,
 // enviarTodasConfiguracoesParaUI, sendWifiStatusAndRssi.
 // DO NOT add #pragma once - this is an impl-include file, not a shared header.
+#include "heap_trace.h"
 void saveAllConfigs() {
     // Check memory before creating large JSON documents.
     size_t freeHeap = ESP.getFreeHeap();

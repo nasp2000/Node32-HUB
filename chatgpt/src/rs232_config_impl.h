@@ -1,6 +1,7 @@
 // rs232_config_impl.h
 // Included only from chatgpt.ino (single translation unit).
 
+#include "heap_trace.h"
 #include "littlefs_manager.h" // littlefsBegin() — no-SD crash-log fallback
 
 #if ENABLE_RS232==1

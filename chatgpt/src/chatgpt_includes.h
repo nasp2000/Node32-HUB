@@ -3,6 +3,11 @@
 // chatgpt.ino.  Keeps the .ino file lean and the include order easy to audit.
 #pragma once
 
+// Boot-time heap checkpoints (heap_trace.cpp). Included FIRST: the impl headers
+// below (webpage_impl.h via webpage.h/smtp_core_impl.h) call heapTraceMark()
+// and are pulled in before the "remaining shared includes" block.
+#include "heap_trace.h"
+
 // ── Email trigger flags (defined here before smtp_core_impl.h needs them) ──
 bool rs232MicroPauseArmed = false;
 bool autoEmailTriggeredByNewline = false;
@@ -149,7 +154,6 @@ bool startEmailDayAsync(const String &, const String &, const String &) { return
 
 // ── Remaining shared includes (always included) ────────────────────────────
 #include "sensors/sensor_helpers_impl.h"
-#include "heap_trace.h"
 #include "setup_impl.h"
 // rs232_config_impl.h is always included: applyRS232Config() contains the full
 // boot sequence (config load, NTP, WiFi, screen, web server). RS232-specific

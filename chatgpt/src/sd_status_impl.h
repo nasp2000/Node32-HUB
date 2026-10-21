@@ -11,6 +11,7 @@
 // sdcardStopAutoMount(): Disable hot-plug scanning.
 // sdcardIsAutoMountEnabled(): Query auto-mount state.
 
+#include "heap_trace.h"
 /**
  * @brief Quick SD card presence check without mounting
  * @return true if card physically present, false otherwise

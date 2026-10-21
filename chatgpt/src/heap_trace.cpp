@@ -6,6 +6,7 @@
 
 #include "heap_trace.h"
 
+#include <cstring>
 #include <esp_heap_caps.h>
 
 static HeapTracePoint s_trace[HEAP_TRACE_MAX];

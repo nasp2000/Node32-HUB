@@ -1,5 +1,6 @@
 // setup_impl.h
 // Included only from chatgpt.ino (single translation unit).
+#include "heap_trace.h"
 #include "ota_security.h"
 #include "CommandRegistry.h"
 #include <esp_log.h>

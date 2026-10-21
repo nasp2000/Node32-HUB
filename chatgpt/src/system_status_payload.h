@@ -1,4 +1,5 @@
 #pragma once
+#include "heap_trace.h"   // measured boot checkpoints (heap_trace.cpp)
 
 #include <ArduinoJson.h>
 #include <WiFi.h>
@@ -32,7 +33,6 @@
 
 #if ENABLE_ETHERNET==1
 #include <Ethernet.h>
-#include "heap_trace.h"
 #endif
 
 #if (defined(BOARD_HAS_PSRAM) || defined(CONFIG_SPIRAM_SUPPORT)) && defined(__has_include)
