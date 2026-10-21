@@ -32,6 +32,7 @@
 
 #if ENABLE_ETHERNET==1
 #include <Ethernet.h>
+#include "heap_trace.h"
 #endif
 
 #if (defined(BOARD_HAS_PSRAM) || defined(CONFIG_SPIRAM_SUPPORT)) && defined(__has_include)
@@ -175,6 +176,29 @@ inline void fillSystemStatusJson(JsonDocument& out, SystemStatusPayloadState& st
     out["free_internal"] = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
     out["largest_block_psram"] = (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
     out["free_psram"] = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+
+    // DMA-capable internal pool: the one WiFi/SDMMC/SPI actually need. It can be
+    // exhausted while ordinary DRAM still looks free, so surface it explicitly.
+    out["dma_free"] = (uint32_t)heap_caps_get_free_size(MALLOC_CAP_DMA);
+    out["dma_largest"] = (uint32_t)heap_caps_get_largest_free_block(MALLOC_CAP_DMA);
+
+    // Boot-time heap checkpoints (MEASURED at each init step, heap_trace.h).
+    // heap_trace[] is the raw sequence; heap_breakdown[] below pairs each module
+    // estimate with the measured delta of its checkpoint.
+    {
+        JsonArray tr = out.createNestedArray("heap_trace");
+        for (int i = 0; i < heapTraceCount(); i++) {
+            const HeapTracePoint* p = heapTraceAt(i);
+            if (!p) continue;
+            JsonObject e = tr.createNestedObject();
+            e["label"]     = p->label;
+            e["free_kb"]   = (int)(p->heapFree / 1024UL);
+            e["dma_kb"]    = (int)(p->dmaFree / 1024UL);
+            e["largest_kb"]= (int)(p->largestInt / 1024UL);
+            e["psram_kb"]  = (int)(p->psramFree / 1024UL);
+            e["delta_kb"]  = (int)((heapTraceDeltaAt(i) + 512) / 1024);
+        }
+    }
 
     out["cpu_mhz"] = (int)getCpuFrequencyMhz();
     out["wifi_channel"] = wifiConnected ? WiFi.channel() : 0;
@@ -624,37 +648,47 @@ inline void fillSystemStatusJson(JsonDocument& out, SystemStatusPayloadState& st
     // These are compile-time estimates, not runtime measurements.
     {
         JsonArray hb = out.createNestedArray("heap_breakdown");
-        auto addHb = [&](const char* name, int estKb, const char* color) {
+        // trace_key: checkpoint label whose MEASURED delta is this module's cost
+        // ("" = no checkpoint -> measured unknown, est stays the only figure).
+        auto addHb = [&](const char* name, int estKb, const char* color,
+                         const char* traceKey = "") {
             JsonObject e = hb.createNestedObject();
             e["name"] = name;
             e["est_kb"] = estKb;
             e["color"] = color;
+            if (traceKey && traceKey[0]) {
+                const HeapTracePoint* tp = heapTraceFind(traceKey);
+                if (tp) {
+                    e["meas_kb"] = (int)((heapTraceDeltaFor(traceKey) + 512) / 1024);
+                    e["trace_key"] = traceKey;
+                }
+            }
         };
-        addHb("FreeRTOS + Base ESP-IDF", 28, "#6366f1");
+        addHb("FreeRTOS + Base ESP-IDF", 28, "#6366f1");   // baseline: used before our modules
 #if ENABLE_WIFI == 1
   #if defined(TARGET_BOARD_P4) && TARGET_BOARD_P4 == 1
-        addHb("WiFi C6-SDIO (esp-hosted)", 32, "#3b82f6");
+        addHb("WiFi C6-SDIO (esp-hosted)", 32, "#3b82f6", "wifi");
   #else
-        addHb("WiFi stack (lwIP+NVS)", 55, "#3b82f6");
+        addHb("WiFi stack (lwIP+NVS)", 55, "#3b82f6", "wifi");
   #endif
   #if ENABLE_WIFI_WEB_SERVER == 1
-        addHb("AsyncWebServer", 14, "#0ea5e9");
+        addHb("AsyncWebServer", 14, "#0ea5e9", "webserver");
   #endif
 #endif // ENABLE_WIFI
 #if ENABLE_ETHERNET == 1
-        addHb("Ethernet W5500", 3, "#06b6d4");
+        addHb("Ethernet W5500", 3, "#06b6d4", "ethernet");
 #endif
 #if ENABLE_OTA == 1
         addHb("OTA", 10, "#8b5cf6");
 #endif
 #if ENABLE_SMTP == 1
-        addHb("SMTP/TLS", 25, "#f59e0b");
+        addHb("SMTP/TLS", 25, "#f59e0b", "email");
 #endif
 #if ENABLE_SDCARD == 1
-        addHb("SD card (SD_MMC)", 7, "#10b981");
+        addHb("SD card (SD_MMC)", 7, "#10b981", "sd");
 #endif
 #if ENABLE_FILESYSTEM == 1
-        addHb("LittleFS", 5, "#34d399");
+        addHb("LittleFS", 5, "#34d399", "littlefs");
 #endif
 #if ENABLE_TELNET == 1
         addHb("Telnet", 4, "#a78bfa");
@@ -675,7 +709,7 @@ inline void fillSystemStatusJson(JsonDocument& out, SystemStatusPayloadState& st
         addHb("Sensor MQ135", 1, "#86efac");
 #endif
 #if ENABLE_PROXIMITY == 1
-        addHb("Sensor Proximidade", 2, "#bbf7d0");
+        addHb("Sensor Proximidade", 2, "#bbf7d0", "proximity");
 #endif
 #if !(defined(BOARD_HAS_PSRAM) || defined(CONFIG_SPIRAM_SUPPORT))
         // Main circular buffer on internal heap when no PSRAM is available.

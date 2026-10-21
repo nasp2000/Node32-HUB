@@ -288,15 +288,19 @@ var _lastLive = null, _lastCfg = null;   // last poll payloads (title-mode re-re
 var _lastShiftCfg = null;                // last shift-config payload (production-day window)
 var sysName = '';                        // system name, fetched once for chart titles
 var PALETTE = ['#0284c7','#059669','#d97706','#dc2626','#7c3aed','#db2777','#0891b2','#65a30d'];
-// T23 (Nuno): timeline stop cells — 12 cells of 5 min per hour (2 cells = one
-// 10-min block). A cell paints as stopped from half of it (2.5 min) on, so the
-// bar shows the real stop length: 10 min = 1 block, 15 min = 1.5, 20 min = 2.
-var STOP_CELL_MIN = 5;            // minutes per cell (half a block)
-var STOP_CELL_SEC = 300;          // seconds per cell
-var STOP_CELLS_PER_HOUR = 12;     // cells per hour column (= 6 blocks)
-var STOP_CELL_STOP_SEC = 150;     // cell counts as stopped from half of it
+// T23 (Nuno) → owner revision 2026-10-21: the timeline squares are TEN-MINUTE
+// blocks again — 6 squares per hour, max. A square only paints when the whole
+// 10 min had no production, so anything shorter than 10 min never appears
+// (no half squares). Stops that straddle two squares are snapped to whole
+// squares by stopSquaresFromBins() (a 15-min stop paints 2, a 20-min stop 2),
+// keeping the strip readable at 6 squares/hour.
+var STOP_CELL_MIN = 10;           // minutes per square
+var STOP_CELL_SEC = 600;          // seconds per square
+var STOP_CELLS_PER_HOUR = 6;      // squares per hour column (max 6)
+var STOP_CELL_STOP_SEC = 300;     // a square is "stop-ish" from half of it
+var STOP_CELL_SHOW_SEC = 600;     // ...but only a >= 10 min run is shown
 var STOP_GAP_MAX_SEC = 1200;      // ignore data holes longer than 20 min
-var STOP_SEP_MIN_W = 3;           // draw block separators from 3px per cell
+var STOP_SEP_MIN_W = 3;           // draw square separators from 3px per cell
 
 function isActive(ch, cfg, i) {
   if (ch.count_in > 0 || ch.count_out > 0) return true;
@@ -695,10 +699,9 @@ function drawChart24(canvas, hourly, scrapHourly, chName, dateStr, curCol, color
   // T22 (Nuno): OEE timeline strip under the hour labels — one segment per
   // visible hour slot in donut colors (green production, amber planned stop,
   // red unplanned stop, gray future). Same states as the day donut.
-  // T23 (Nuno): micro-stop cells — when stopBins carries per-channel stop
-  // SECONDS for the 5-min cells of the hour (see markStopSec), the segment
-  // paints cell by cell, so a stop keeps its real length: 10 min = 1 block,
-  // 15 min = 1.5 blocks, 20 min = 2 blocks (1 block = 2 cells = 10 min).
+  // T23 → owner revision 2026-10-21: 6 squares of 10 min per hour. A square is
+  // painted only for a stop run of at least 10 min (stopSquaresFromBins), so
+  // short micro-stops never show; the run is snapped to whole squares.
   // Columns without samples (or no stopBins at all) fall back to the solid
   // hour color.
   (function drawTimeline() {
@@ -719,11 +722,12 @@ function drawChart24(canvas, hourly, scrapHourly, chName, dateStr, curCol, color
         ctx.fillStyle = hourColor;
         ctx.fillRect(segX, tlY, segW, tlH);
       } else {
+        var sq4 = stopSquaresFromBins(row4, STOP_CELL_SEC, STOP_CELL_SHOW_SEC);
         var bw4 = segW / STOP_CELLS_PER_HOUR;
         for (var b4 = 0; b4 < STOP_CELLS_PER_HOUR; b4++) {
           var c4;
           if (stopBinIsFuture(kc4, b4, curCol, curBin)) c4 = '#e2e8f0';
-          else if (row4[b4] >= STOP_CELL_STOP_SEC) c4 = (inStop4 || !inShift4) ? '#f59e0b' : '#dc2626';
+          else if (sq4[b4]) c4 = (inStop4 || !inShift4) ? '#f59e0b' : '#dc2626';
           else if (row4[b4] >= 0) c4 = '#16a34a';
           else c4 = hourColor;
           var xa4 = Math.round(segX + bw4 * b4);
@@ -731,12 +735,10 @@ function drawChart24(canvas, hourly, scrapHourly, chName, dateStr, curCol, color
           ctx.fillStyle = c4;
           ctx.fillRect(xa4, tlY, Math.max(1, xb4 - xa4), tlH);
         }
-        // 10-min block separators (cells 0|1, 2|3, ... are one block) so the
-        // eye can count blocks: a 20-min stop reads as two blocks, a 15-min
-        // stop as one block plus half of the next.
+        // One separator per 10-min square so the six squares are countable.
         if (bw4 >= STOP_SEP_MIN_W) {
           ctx.fillStyle = 'rgba(255,255,255,.6)';
-          for (var s4 = 2; s4 < STOP_CELLS_PER_HOUR; s4 += 2) {
+          for (var s4 = 1; s4 < STOP_CELLS_PER_HOUR; s4++) {
             ctx.fillRect(Math.round(segX + bw4 * s4), tlY, 1, tlH);
           }
         }
@@ -776,7 +778,7 @@ function timelineLegendHTML() {
     + '<span><i style="background:#16a34a"></i>' + t('proxDashTlProd', 'Production') + '</span>'
     + '<span><i style="background:#f59e0b"></i>' + t('proxDashTlPlan', 'Planned stop') + '</span>'
     + '<span><i style="background:#dc2626"></i>' + t('proxDashTlUnplan', 'Unplanned stop') + '</span>'
-    + '<span style="opacity:.7">(' + t('proxDashTlBin', 'block = 10 min (half = 5 min)') + ')</span>'
+    + '<span style="opacity:.7">(' + t('proxDashTlBin', 'block = 10 min (stops ≥ 10 min)') + ')</span>'
     + '</div>';
 }
 function loadSysName() {
@@ -1271,11 +1273,12 @@ function timelineSlotColor(count, inShift, inStop, isFuture) {
   if (inStop || !inShift) return '#f59e0b';
   return '#dc2626';
 }
-// T23 (Nuno): micro-stop cells — 12 cells of 5 min per hour column holding the
-// SECONDS with no production inside each cell (cells[col] = [-1 unknown |
-// seconds]). The timeline paints a cell as stopped from half of it (2.5 min)
-// on, so a stop keeps its real length: 10 min = 1 block, 15 min = 1.5 blocks,
-// 20 min = 2 blocks (1 block = 2 cells = 10 min). Counter resets (or a value
+// T23 (Nuno): stop cells — STOP_CELLS_PER_HOUR squares per hour column (6 x
+// 10 min since the 2026-10-21 revision) holding the SECONDS with no production
+// inside each square (cells[col] = [-1 unknown | seconds]). The timeline only
+// paints a stop run of at least STOP_CELL_SHOW_SEC (10 min) and snaps it to
+// whole squares (stopSquaresFromBins), so nothing shorter than 10 min shows and
+// there are never more than 6 squares per hour. Counter resets (or a value
 // going backwards) only re-baseline. Data holes longer than STOP_GAP_MAX_SEC
 // (board off, stale file) credit at most that window, so a hole never paints
 // the whole day red. Pure (testable): returns the new prev for the next sample.
@@ -1326,6 +1329,42 @@ function markStopSec(cells, prevV, v, tsSec, prevTsSec, dayStart) {
 function stopBinIsFuture(col, bin, curCol, curBin) {
   if (col !== curCol) return col > curCol;
   return bin > curBin;
+}
+
+// Owner rule (2026-10-21): show stops in 10-min squares (6 per hour) and only
+// when the machine was stopped for at least 10 min. Takes one hour's measured
+// stop seconds per square and returns a boolean per square:
+//   - a run is a sequence of squares with at least half a square stopped
+//     (STOP_CELL_STOP_SEC), so a stop straddling a square boundary stays one run;
+//   - runs shorter than `showSec` (10 min) are ignored (no half squares);
+//   - longer runs are snapped to round(total/10 min) squares, starting at the
+//     first square of the run (15 min -> 2, 20 min -> 2, 45 min -> 5), clamped
+//     to the hour. A small over/under of one square is inherent to 10-min
+//     quantisation; the point is "was this hour blocked, and roughly how long".
+// Pure (testable).
+function stopSquaresFromBins(row, cellSec, showSec) {
+  var out = [];
+  var n = (row && row.length) ? row.length : STOP_CELLS_PER_HOUR;
+  for (var z = 0; z < n; z++) out.push(false);
+  if (!row) return out;
+  var half = (cellSec || STOP_CELL_SEC) / 2;
+  var show = showSec || (cellSec || STOP_CELL_SEC);
+  var i = 0;
+  while (i < n) {
+    if (row[i] >= half && row[i] >= 0) {
+      var j = i, total = 0;
+      while (j < n && row[j] >= half && row[j] >= 0) { total += row[j]; j++; }
+      if (total >= show) {
+        var sq = Math.round(total / (cellSec || STOP_CELL_SEC));
+        if (sq < 1) sq = 1;
+        for (var k = i; k < i + sq && k < n; k++) out[k] = true;
+      }
+      i = j;
+    } else {
+      i++;
+    }
+  }
+  return out;
 }
 function donutFractions(runSec, plannedSec, elapsedSec) {
   if (!elapsedSec || elapsedSec <= 0) return null;

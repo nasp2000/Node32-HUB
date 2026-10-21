@@ -149,6 +149,7 @@ bool startEmailDayAsync(const String &, const String &, const String &) { return
 
 // ── Remaining shared includes (always included) ────────────────────────────
 #include "sensors/sensor_helpers_impl.h"
+#include "heap_trace.h"
 #include "setup_impl.h"
 // rs232_config_impl.h is always included: applyRS232Config() contains the full
 // boot sequence (config load, NTP, WiFi, screen, web server). RS232-specific

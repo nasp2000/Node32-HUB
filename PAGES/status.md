@@ -79,7 +79,9 @@ No other inputs — fully read-only.
     COMMANDS BY DATE/TIME (slot, interval/date, days, destination System/RS232),
     daily reboot, and per-source live counts (RS232 RX/BPS, buffer use, RX status,
     active/inactive timeouts, printer mode, etc.).
-  - **`#heap-section`** — heap/PSRAM/flash/NVS usage bars + fragmentation (`heap_frag_pct`) + **largest contiguous internal block** (`largest_block_internal`) — the real fragmentation signal (a large free heap with a tiny largest block means fragmentation).
+  - **`#heap-section`** — heap/PSRAM/flash/NVS usage bars + **DMA pool** (`dma_free`, `dma_largest` — the pool WiFi/SDMMC/SPI actually need; it can be exhausted while ordinary DRAM still looks free) + fragmentation (`heap_frag_pct`) + **largest contiguous internal block** (`largest_block_internal`) — the real fragmentation signal (a large free heap with a tiny largest block means fragmentation).
+  - **Internal Heap Analysis table** — one row per compiled module with **three columns: `Module | Est. KB | Meas.`**. `Est.` is the hardcoded compile-time guess (`heap_breakdown[].est_kb`); `Meas.` is the **measured** delta between boot checkpoints (`heap_breakdown[].meas_kb`, `—` when that module has no checkpoint). The footer shows `Actual used | Σ est. | Σ measured | Δ`; Δ = what remains unattributed (JSON buffers, strings, sockets, running tasks). Legend added under the footer.
+
   - `fmtSendFreq(v)`: `0` → "no limit"; `s`/`min`/`h` formatting.
 - i18n via `_st(k,fb)` helper (window._t → localStorage cache → fallback). Fallbacks are
   English (good). No arrow functions.
@@ -105,6 +107,16 @@ Payload covers: `firmware_version/build`, `chip_model/revision/features/cores/mh
 (`heap_caps_get_free_size` / `get_largest_free_block(MALLOC_CAP_INTERNAL)`), and the PSRAM
 equivalents `free_psram`, `largest_block_psram`. Use `largest_block_internal` (not just
 `free_heap`) to detect fragmentation and to measure the effect of any heap-tuning change.
+`dma_free` / `dma_largest` expose the DMA-capable internal pool separately.
+
+**Measured boot trace (2026-10-21):** `heap_trace[]` is a sequence of boot checkpoints
+recorded by `heap_trace.h/.cpp` (`heapTraceMark(label)` in `setup_impl.h`,
+`rs232_config_impl.h` (email), `webpage_impl.h` (webserver), `config_sync_impl.h` (wifi),
+`sd_status_impl.h` (sd), `sd_tasks_impl.h` (ethernet), `loop_blocks.h` (boot_ok)). Each
+entry carries `label`, `free_kb`, `dma_kb`, `largest_kb`, `psram_kb` and `delta_kb` (heap
+consumed since the previous checkpoint). `heap_breakdown[]` rows map to a checkpoint via
+`trace_key` and expose `meas_kb`, replacing the "Δ = dynamic heap" black box with named
+measurements. Cost: 16 slots × 24 B of `.bss`, no allocations.
 
 ---
 

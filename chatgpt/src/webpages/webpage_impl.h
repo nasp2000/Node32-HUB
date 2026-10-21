@@ -136,6 +136,7 @@ inline void setupWebServer(AsyncWebServer& server) {
     registerApiRoutesToServer(server, routeContext);
 
     sendVirtualMessage(F("WebServer ON"), INFO);
+    heapTraceMark("webserver");
 }
 
 inline void showDataSampleInWebMonitor() {

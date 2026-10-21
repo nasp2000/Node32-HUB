@@ -1002,6 +1002,7 @@ static void taskInitEthernet(void *param){
     ethernetBootLogLine(_delayMsg.c_str());
     sendVirtualMessage(F("ETH: init async"), INFO, false, false);
     ethernetBegin();
+    heapTraceMark("ethernet");   // W5500 driver + async TCP plumbing
     int st = ethernetStatus();
     if(st==0){ sendVirtualMessage(F("ETH: pronta"), INFO, false, false); }
     else { sendVirtualMessage(F("ETH: erro"), WARN, false, false); }

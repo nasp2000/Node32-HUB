@@ -1069,33 +1069,59 @@ async function timelineTests() {
   function tsAt(h, m) { return Math.floor(new Date(2026, 8, 9, h, m, 0).getTime() / 1000); }
   function emptyBins() { var b = []; for (var i = 0; i < 24; i++) b.push(null); return b; }
 
-  test('markStopSec: 15-min stop paints 3 cells = 1.5 blocks inside a producing hour', function () {
+  test('markStopSec: 10-min squares — 15-min stop snaps to 2 squares', function () {
     var cells = [];
     var prev = null, pts = null;
-    // Production until 10:05, stop 10:05-10:20, recovery at 10:20.
+    // Production until 10:05, stop 10:05-10:20, recovery at 10:25.
     var seq = [[9,55,1000],[10,0,1050],[10,5,1100],[10,10,1100],[10,15,1100],[10,20,1100],[10,25,1150]];
     seq.forEach(function(s) { prev = win.markStopSec(cells, prev, s[2], tsAt(s[0], s[1]), pts, 0); pts = tsAt(s[0], s[1]); });
     is(prev, 1150, 'returns latest value as next prev');
-    is(cells[10][0], 0, 'cell 10:00-10:05 produced (0 s of stop)');
-    is(cells[10][1], 300, 'cell 10:05-10:10 fully stopped');
-    is(cells[10][2], 300, 'cell 10:10-10:15 fully stopped');
-    is(cells[10][3], 300, 'cell 10:15-10:20 fully stopped');
-    is(cells[10][4], -1, 'cell 10:20-10:25 stays unknown (no sample lands in it)');
-    is(cells[10][5], 0, 'recovery sample at 10:25 marks its own cell producing');
+    is(win.STOP_CELLS_PER_HOUR, 6, 'six squares per hour');
+    is(win.STOP_CELL_SEC, 600, 'each square is 10 min');
+    is(cells[10][0], 300, 'square 10:00-10:10 half stopped (stop began at 10:05)');
+    is(cells[10][1], 600, 'square 10:10-10:20 fully stopped');
+    is(cells[10][2], 0, 'square 10:20-10:30 produced again');
+    var sq = win.stopSquaresFromBins(cells[10], 600, 600);
+    is(sq.length, 6, 'six squares');
+    is([sq[0], sq[1], sq[2], sq[3]].join(','), 'true,true,false,false', '15-min stop = 2 squares');
   });
-  test('markStopSec: 20-min stop owns 4 cells (2 blocks), 5-min stop only 1', function () {
+  test('markStopSec: 20-min stop = 2 squares, 5-min stop is hidden', function () {
     var c20 = [], p = null, t = null;
     [[10,0,1000],[10,5,1500],[10,10,1500],[10,15,1500],[10,20,1500],[10,25,1500],[10,30,2000]].forEach(function(s) {
       p = win.markStopSec(c20, p, s[2], tsAt(s[0], s[1]), t, 0); t = tsAt(s[0], s[1]);
     });
-    is([c20[10][1], c20[10][2], c20[10][3], c20[10][4]].join(','), '300,300,300,300', '20-min stop = 4 cells = 2 blocks');
-    ok(c20[10][5] < win.STOP_CELL_STOP_SEC, 'recovery cell is not a stop cell');
+    is([c20[10][0], c20[10][1], c20[10][2], c20[10][3]].join(','), '300,600,300,0', '20-min stop measured per 10-min square');
+    var sq20 = win.stopSquaresFromBins(c20[10], 600, 600);
+    is(sq20.filter(Boolean).length, 2, '20-min stop = 2 squares');
+    // 5-min stop: never shown (owner: nothing below 10 min).
     var c5 = [], q = null, u = null;
-    [[10,0,1000],[10,5,1500],[10,10,1500],[10,15,2000]].forEach(function(s) {
+    [[10,0,1000],[10,3,1500],[10,5,1500],[10,10,2000]].forEach(function(s) {
       q = win.markStopSec(c5, q, s[2], tsAt(s[0], s[1]), u, 0); u = tsAt(s[0], s[1]);
     });
-    ok(c5[10][1] >= win.STOP_CELL_STOP_SEC, '5-min stop owns one cell');
-    ok(c5[10][2] < win.STOP_CELL_STOP_SEC, 'a 5-min stop does not bleed into the next cell');
+    var sq5 = win.stopSquaresFromBins(c5[10], 600, 600);
+    is(sq5.filter(Boolean).length, 0, '5-min stop paints nothing');
+  });
+  test('markStopSec: exactly 10 min shows one square, 9 min shows none', function () {
+    function run(secs) {
+      var c = [], p = null, t = null;
+      p = win.markStopSec(c, p, 1000, tsAt(9, 55), t, 0); t = tsAt(9, 55);
+      p = win.markStopSec(c, p, 1000, tsAt(10, 0), t, 0); t = tsAt(10, 0);
+      p = win.markStopSec(c, p, 1000, tsAt(10, 0) + secs, t, 0); t = tsAt(10, 0) + secs;
+      return c[10];
+    }
+    var ten = win.stopSquaresFromBins(run(600), 600, 600);
+    is(ten.filter(Boolean).length, 1, '10 min = 1 square');
+    var nine = win.stopSquaresFromBins(run(540), 600, 600);
+    is(nine.filter(Boolean).length, 0, '9 min = hidden');
+  });
+  test('stopSquaresFromBins: clamped to 6 squares and handles unknown cells', function () {
+    var full = [600, 600, 600, 600, 600, 600];
+    is(win.stopSquaresFromBins(full, 600, 600).filter(Boolean).length, 6, 'full hour = 6 squares');
+    var over = [600, 600, 600, 600, 600, 600];
+    is(win.stopSquaresFromBins(over, 600, 600).length, 6, 'never more than 6');
+    var mixed = [0, -1, 600, -1, 0, 0];
+    is(win.stopSquaresFromBins(mixed, 600, 600).filter(Boolean).length, 1, 'unknown cells break the run');
+    is(win.stopSquaresFromBins(null, 600, 600).filter(Boolean).length, 0, 'no row = nothing');
   });
   test('markStopSec: nulls, counter reset and long data holes', function () {
     var cells = [];
@@ -1106,16 +1132,16 @@ async function timelineTests() {
     is(p, 400, 'counter reset re-baselines');
     ok(!cells[10], 'reset credits nothing');
     p = win.markStopSec(cells, p, 400, tsAt(10, 6), tsAt(10, 5), 0);
-    is(cells[10][0], -1, 'no stop recorded before the reset');
-    is(cells[10][1], 60, '60 s gap after reset credited to the 10:05 cell');
+    is(cells[10][0], 60, '60 s gap after reset credited to the 10:00-10:10 square');
+    ok(cells[10][0] < win.STOP_CELL_SHOW_SEC, 'and it is below the 10-min show threshold');
     // 3-hour data hole (board off): only the last 20 min count as stop.
     var g = [], q = win.markStopSec(g, 1000, 1000, tsAt(10, 0), null, 0);
     q = win.markStopSec(g, q, 1000, tsAt(13, 0), tsAt(10, 0), 0);
     var cred = 0;
-    for (var hh = 0; hh < 24; hh++) for (var kk = 0; kk < 12; kk++) if (g[hh] && g[hh][kk] > 0) cred += g[hh][kk];
+    for (var hh = 0; hh < 24; hh++) for (var kk = 0; kk < win.STOP_CELLS_PER_HOUR; kk++) if (g[hh] && g[hh][kk] > 0) cred += g[hh][kk];
     is(cred, win.STOP_GAP_MAX_SEC, 'a 3-hour hole credits at most STOP_GAP_MAX_SEC');
   });
-  test('stopBinIsFuture: column and 5-min cell ordering', function () {
+  test('stopBinIsFuture: column and square ordering', function () {
     ok(!win.stopBinIsFuture(5, 0, 9, 3), 'past column never future');
     ok(win.stopBinIsFuture(10, 0, 9, 3), 'later column future');
     ok(!win.stopBinIsFuture(9, 2, 9, 3), 'earlier cell in current column not future');
@@ -1128,28 +1154,28 @@ async function timelineTests() {
     var hourly = []; for (var h = 0; h < 24; h++) hourly.push(0);
     hourly[8] = 5000;
     var sb = emptyBins();
-    sb[8] = [0, 300, 300, 300, 0, -1, -1, -1, -1, -1, -1, -1];   // 15-min stop
+    sb[8] = [0, 600, 300, -1, -1, -1];   // 15-min stop (10:05-10:20)
     win.drawChart24(cv, hourly, [], 'DI1', '09-10-2026', 10, '#0284c7', 0, 85, {}, sb);
     var slotW = (400 - 50 - 14) / 24;          // jsdom canvas falls back to W=400
     var x0 = 50 + slotW * 8 + 1, x1 = x0 + slotW - 2;
     var fl = stripFillsIn(x0, x1), red = 0, green = 0;
     fl.forEach(function(c) { if (c === '#dc2626') red++; if (c === '#16a34a') green++; });
-    is(red, 3, '15-min stop paints 3 red cells (1.5 blocks)');
-    is(green, 9, 'the other 9 cells of the hour stay green');
+    is(red, 2, '15-min stop paints 2 red squares');
+    ok(green >= 1, 'the measured-but-producing square stays green');
   });
   test('drawChart24 paints amber cells inside a planned stop', function () {
     t23Log = [];
     var cv = doc.createElement('canvas');
     var hourly = []; for (var h = 0; h < 24; h++) hourly.push(0);
     var sb = emptyBins();
-    sb[8] = [0, 300, 300, -1, -1, -1, -1, -1, -1, -1, -1, -1];
+    sb[8] = [0, 600, 600, -1, -1, -1];
     win._lastShiftCfg = { en: true, slots: [{h:6,m:0},{h:14,m:0},{h:22,m:0}], stops: [{sh:8,sm:0,eh:9,em:0}] };
     win.drawChart24(cv, hourly, [], 'DI1', '09-10-2026', 10, '#0284c7', 0, 85, {}, sb);
     var fl = stripFills();
     ok(fl.indexOf('#f59e0b') >= 0, 'stopped cells inside the planned stop are amber');
     win._lastShiftCfg = null;
   });
-  test('drawChart24 draws 10-min block separators over the stop cells', function () {
+  test('drawChart24 draws one separator per 10-min square', function () {
     t23Log = [];
     var cv = doc.createElement('canvas');
     Object.defineProperty(cv, 'clientWidth', { value: 1400, configurable: true });
@@ -1171,12 +1197,12 @@ async function timelineTests() {
     ok(fl.indexOf('#16a34a') < 0, 'no green without production');
     ok(fl.indexOf('#e2e8f0') >= 0, 'future columns stay gray');
   });
-  test('timelineLegendHTML notes the 10-min blocks and the 5-min half', function () {
+  test('timelineLegendHTML notes the 10-min squares and the minimum stop', function () {
     var lg = win.timelineLegendHTML();
     ok(lg.indexOf('10 min') >= 0, 'legend explains block = 10 min');
-    ok(lg.indexOf('5 min') >= 0, 'legend explains the 5-min half');
+    ok(lg.indexOf('\u2265 10 min') >= 0, 'legend states stops are only shown from 10 min');
   });
-  test('updateHourly marks the live 5-min cell on production polls', function () {
+  test('updateHourly marks the live 10-min square on production polls', function () {
     var live = { channels: [{ name: 'DI1', mode: 0, ppm: 5, count_in: 100, count_out: 0, total_in: 0, total_out: 0 }] };
     var cfg = { channels: [{ m: 0, gi: 10, gl: 0, gc: 255, sc: 255 }] };
     win.renderRows(live, cfg);

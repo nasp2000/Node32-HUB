@@ -1713,7 +1713,7 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "proxDashTlProd": "Production",
   "proxDashTlPlan": "Planned stop",
   "proxDashTlUnplan": "Unplanned stop",
-  "proxDashTlBin": "block = 10 min (half = 5 min)",
+  "proxDashTlBin": "block = 10 min (stops ≥ 10 min)",
   "proxDashTipHourMark": "Show current-hour marker",
   "proxDashTipWindow": "Hours visible per chart",
   "proxDashTipYMode": "Y axis scale mode",

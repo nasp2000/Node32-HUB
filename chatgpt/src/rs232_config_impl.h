@@ -238,6 +238,7 @@ void applyRS232Config() { // Apply RS232 configs or perform startup if first run
     }
 
     runtimeEmailInitBackgroundTasks();
+    heapTraceMark("email");
 
     } else { syncGlobalVariables(false); } // Light reapply (ignore RS232)
     // Keep RS232 runtime settings stable at boot.

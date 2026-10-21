@@ -507,6 +507,7 @@ void sendWifiStatusAndRssi(LogLevel level, unsigned long currentMillis) {
     String ipMsg = String(F("WIFI_OK:"));
         ipMsg += ipAddress;
         sendVirtualMessage(ipMsg, level);
+        heapTraceMark("wifi");
 
     String rssiMsg = String(F("RSSI:"));
         rssiMsg += String(WiFi.RSSI());

@@ -44,6 +44,8 @@ static int espLogToWebMonitor(const char *fmt, va_list args) {
 
 void setup(){ // setup function added (missing caused undefined reference at link)
     Serial.begin(115200); // Initialize Serial first so all boot messages are visible
+    heapTraceReset();
+    heapTraceMark("boot");
 #if SCREEN_TYPE == 3
     T7LOG("setup() entry");
 #endif
@@ -224,6 +226,7 @@ void setup(){ // setup function added (missing caused undefined reference at lin
     // Non-fatal when PSRAM is missing (APIs fall back to files); stubbed for
     // builds without the data pipeline.
     chartRingsBegin();
+    heapTraceMark("psram_buffers");   // PSRAM sinks + chart rings (should be ~0 KB internal)
 
 #if ENABLE_SMTP==1
     smtpInitStaticBase64Buffers();
@@ -320,6 +323,7 @@ void setup(){ // setup function added (missing caused undefined reference at lin
 #endif
     }
 #endif
+    heapTraceMark("littlefs");
 
     // PHASE 1: Pre-allocate savedNetworks vector to avoid fragmentation
     savedNetworks.reserve(MAX_SAVED_NETWORKS); // Reserve slots for 10 networks
@@ -337,6 +341,7 @@ void setup(){ // setup function added (missing caused undefined reference at lin
 #if ENABLE_PROXIMITY==1
     proximityBegin();
 #endif
+    heapTraceMark("proximity");
 #if defined(BOARD_HAS_TCA9554_DO) && BOARD_HAS_TCA9554_DO == 1
     tca9554Begin();
     tca9554SetInvert((uint8_t)(configManager.getSection("do")["invert"] | 0)); // apply saved inversion mask
@@ -415,6 +420,7 @@ void setup(){ // setup function added (missing caused undefined reference at lin
     // cycle only when enabled + auto_upload + interval elapsed + network up.
     ftpClientInit();
 #endif
+    heapTraceMark("modules");   // usb/grbl/ftp + the small per-module begins above
 #if ENABLE_USBIP_SERVER == 1
     {
         JsonVariant usbServer = configManager.getSection("usb_server");

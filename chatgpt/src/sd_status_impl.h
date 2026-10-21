@@ -440,6 +440,7 @@ static void sdcard_mount_task(void *arg){
     bool ok = sdcardBegin();
     if(ok) Serial.println(F("SD: montagem em background OK"));
     else Serial.println(F("SD: montagem em background FALHOU"));
+    if (ok) heapTraceMark("sd");   // SD_MMC mount: FatFS/VFS caches + DMA buffers
 
     // Re-report stack watermark after init (check for extreme consumption)
     #if configUSE_TRACE_FACILITY == 1 || configUSE_STATS_FORMATTING_FUNCTIONS == 1

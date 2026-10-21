@@ -433,6 +433,7 @@ static void handleStartupStateMachine() {
                     sendVirtualMessage(String(F("System initialized")), INFO);
                     sendVirtualMessage(String(F("10s -> WebServer")), INFO);
                     safeEnviarMensagemVirtual("Heap disponivel: %u bytes", INFO, (unsigned)ESP.getFreeHeap());
+                    heapTraceMark("boot_ok");
                     // Remind the user whether firmware-to-SD logging is active.
                     if (configManager.getBootLogEnabled()) {
                         sendVirtualMessage(F("BOOT-LOG: ON — firmware logs saved to SD (use BOOT-LOG OFF to disable)"), INFO);
