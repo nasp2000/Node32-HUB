@@ -62,7 +62,7 @@ main.page.ftp > div.wrap
 └ 📊 Card "Status" [ftpStatusTitle] (purple border)
    ├ div#ftp-status (source | last cycle time | last file | last result | OK/FAIL counters)
    ├ 📋 "Recent uploads" [ftpRecentTitle]: table#ftp-recent (File | Size | Time | Result)
-   │  └ tbody#ftp-recent-body — newest first, ✔ green / ✘ red; div#ftp-recent-empty
+   │  └ tbody#ftp-recent-body — newest first, word OK (green) / FAIL (red) [ftpResultOk]/[ftpResultFail]; div#ftp-recent-empty
    │     [ftpRecentEmpty] shown instead when the device has no recorded sends
    ├ button #btn-ftp-test "Test connection" [ftpTestBtn]
    └ button #btn-ftp-now "Upload now" [ftpNowBtn]
@@ -113,7 +113,7 @@ Inline `<script>` (no arrow functions; `customAlert`, `disableBtn`/`enableBtn`, 
 
 - `ftpText(k, fb)` — i18n helper with fallback.
 - `ftpLoad()` — `GET /api/ftp-status` (`cache:'no-store'`); fills all inputs + checkboxes; renders `#ftp-status` line (`Source | Last cycle | last file | result | OK/FAIL`) and calls `ftpRenderRecent(d.recent)`.
-- `ftpRenderRecent(list)` — rebuilds `#ftp-recent-body` (file, `ftpFmtSize()`, `time_str`, ✔/✘) with `textContent` only (filenames are never parsed as markup); shows `#ftp-recent-empty` when the persisted list is empty.
+- `ftpRenderRecent(list)` — rebuilds `#ftp-recent-body` (file, `ftpFmtSize()`, `time_str`, explicit `OK`/`FAIL` word via `ftpText('ftpResultOk'|'ftpResultFail')`, green/red) with `textContent` only (filenames are never parsed as markup); shows `#ftp-recent-empty` when the persisted list is empty.
 - `ftpFmtSize(b)` — bytes → `B` / `KB` / `MB` for the recent list.
 - `ftpLoadFolders()` — `GET /api/ftp-folders`; rebuilds `#ftp_local_dir` grouped by filesystem (`<optgroup>` SD card / PSRAM VFS / Internal flash); selects the exact saved value, else the group root; a legacy bare value not in the list is prepended and kept selected.
 - Test/now buttons — POST with empty JSON body; `customAlert(d.message)`; `ftpLoad()` refresh after.
@@ -169,7 +169,7 @@ Compiled under `#if ENABLE_FTP_CLIENT==1` (`ftp_client.cpp`):
 
 **Added (full PT/EN coverage, `lang_en_ui.h` + `lang_pt_ui.h`):** 11 key(s) — `ftpTipExtAvi`, `ftpTipExtBin`, `ftpTipExtCsv`, `ftpTipExtFlac`, `ftpTipExtGcode`, `ftpTipExtJpg`, `ftpTipExtLog`, `ftpTipExtMp3`, `ftpTipExtNc`, `ftpTipExtTxt`, `ftpTipExtWav`. HTML fallback text is English; PT is served from the packs.
 
-**Added 2026-10-23 (last sends):** `ftpStatusSource`, `ftpStatusLastCycle`, `ftpRecentTitle`, `ftpRecentEmpty`, `ftpColFile`, `ftpColSize`, `ftpColTime`, `ftpColResult` — EN + PT.
+**Added 2026-10-23 (last sends):** `ftpStatusSource`, `ftpStatusLastCycle`, `ftpRecentTitle`, `ftpRecentEmpty`, `ftpColFile`, `ftpColSize`, `ftpColTime`, `ftpColResult`, `ftpResultOk` ("OK"/"OK"), `ftpResultFail` ("FAIL"/"FALHA") — EN + PT.
 
 `homeFtp`, `ftpPageTitle`, `ftpConnTitle`, `ftpHostLbl`, `ftpHostDesc`,
 `ftpPortLbl`, `ftpUserLbl`, `ftpPassLbl`, `ftpAnonLbl`, `ftpRemoteLbl`,
@@ -207,7 +207,7 @@ All present in `lang_en_ui.h` and `lang_pt_ui.h`; HTML fallback text is English.
 | 17 | **Audit 2026-09-24** — `break` on the first upload failure: one file the server persistently rejects (e.g. 553) wedged the whole queue behind it every cycle. **Fixed:** break only on session-level failures (`ftpIsConnectFailure()`: control/greeting/login, natively tested); per-file failures skip loudly and continue. | Medium | fixed — needs `pio run` |
 | 18 | **Audit 2026-09-24** — `POST /api/ftp-upload-now` always returned `success:true`, even when nothing ran (`busy` / `disabled/incomplete`). **Fixed:** `success:false` + 500 when the cycle never ran; `cycle done: 0` (nothing new) stays success. | Low | fixed — needs `pio run` |
 | 19 | **Audit 2026-09-24** — stale docs: header claimed 4 KB chunked STOR streaming (`FTP_CHUNK_SIZE`, never used) and a "full STOR probe" test (actually PWD+PASV); `PAGES/ftp.md` repeated the 4 KB chunk claim. **Fixed:** header + page doc describe whole-file PSRAM staging (cap 4 MB); dead define removed. | Info | fixed |
-| 20 | **Audit 2026-10-23 (board .29)** — the page's whole status was RAM-only: 10 files uploaded at 10:01, reboot at 10:02, `/api/ftp-status` then showed `last_file:"" ok_count:0 fail_count:0`, so the operator could not see what was sent or whether it failed. **Fixed:** `ftp_status_store.h` (pure, natively tested) + `/config/ftp_status.json` written only on an upload event (counted via `storNoteLfsWrite`, atomic `.tmp` swap); `ftpClientInit()` restores totals into the RAM status; `/api/ftp-status` adds `last_time_str`/`last_epoch`/`recent[]` (all legacy keys kept); the page renders a "Recent uploads" table (newest first, ✔/✘) with a readable empty state. `ftp_sent.log` untouched. | High (no diagnosis after reboot) | fixed — needs `pio run` + OTA |
+| 20 | **Audit 2026-10-23 (board .29)** — the page's whole status was RAM-only: 10 files uploaded at 10:01, reboot at 10:02, `/api/ftp-status` then showed `last_file:"" ok_count:0 fail_count:0`, so the operator could not see what was sent or whether it failed. **Fixed:** `ftp_status_store.h` (pure, natively tested) + `/config/ftp_status.json` written only on an upload event (counted via `storNoteLfsWrite`, atomic `.tmp` swap); `ftpClientInit()` restores totals into the RAM status; `/api/ftp-status` adds `last_time_str`/`last_epoch`/`recent[]` (all legacy keys kept); the page renders a "Recent uploads" table (newest first, explicit OK/FAIL word in green/red) with a readable empty state. `ftp_sent.log` untouched. | High (no diagnosis after reboot) | fixed — needs `pio run` + OTA |
 
 ---
 

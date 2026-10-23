@@ -2182,6 +2182,8 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "ftpColSize": "Size",
   "ftpColTime": "Time",
   "ftpColResult": "Result",
+  "ftpResultOk": "OK",
+  "ftpResultFail": "FAIL",
   "ftpTestBtn": "🔌 Test connection",
   "ftpNowBtn": "⬆ Upload now",
   "ftpTestDone": "Test finished",

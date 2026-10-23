@@ -99,8 +99,11 @@ setTimeout(function() {
   assertEq(rows[0].children[0].textContent, 'a.csv', 'newest upload first');
   assertEq(rows[0].children[1].textContent, '2 KB', 'size rendered in KB');
   assertEq(rows[0].children[2].textContent, '23-10-2026 10:01:05', 'upload time rendered');
-  assertEq(rows[0].children[3].textContent, '\u2714', 'success marked with a tick');
-  assertEq(rows[1].children[3].textContent, '\u2718', 'failure marked with a cross');
+  assertEq(rows[0].children[3].textContent, 'OK', 'success shown as the word OK');
+  assertEq(rows[1].children[3].textContent, 'FAIL', 'failure shown as the word FAIL');
+  assert(!!rows[0].children[3].style.color &&
+         rows[0].children[3].style.color !== rows[1].children[3].style.color,
+         'result keeps distinct colours (green vs red)');
   assertEq(doc.getElementById('ftp-recent-empty').style.display, 'none', 'empty hint hidden when there are rows');
   assertEq(win.ftpFmtSize(500), '500 B', 'ftpFmtSize bytes');
   assertEq(win.ftpFmtSize(1572864), '1.5 MB', 'ftpFmtSize megabytes');

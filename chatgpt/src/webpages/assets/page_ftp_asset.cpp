@@ -309,10 +309,12 @@ function ftpRenderRecent(list) {
     tdTime.style.padding = '2px 6px';
     tdTime.style.whiteSpace = 'nowrap';
     var tdRes = document.createElement('td');
-    tdRes.textContent = r.ok ? '\u2714' : '\u2718';
-    tdRes.title = r.ok ? 'OK' : 'FAIL';
+    // Explicit word (not just a glyph): the operator asked for OK / FAIL.
+    tdRes.textContent = r.ok ? ftpText('ftpResultOk', 'OK') : ftpText('ftpResultFail', 'FAIL');
+    tdRes.title = tdRes.textContent;
     tdRes.style.padding = '2px 0';
     tdRes.style.textAlign = 'center';
+    tdRes.style.fontWeight = 'bold';
     tdRes.style.color = r.ok ? '#22c55e' : '#ef4444';
     tr.appendChild(tdFile);
     tr.appendChild(tdSize);
