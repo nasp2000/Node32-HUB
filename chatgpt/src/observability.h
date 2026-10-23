@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include "log.h"
+#include "email_event_fields.h"
 
 // This module is intentionally header-only.
 // It includes log.h directly so inline helpers can always use the compact event logger.
@@ -199,15 +200,14 @@ static inline void observabilityLogEmailPipeline(const char* stage,
                                                  const char* subject,
                                                  const char* recipients,
                                                  bool success,
-                                                 int attachmentCount) {
+                                                 int attachmentCount,
+                                                 const char* error = nullptr) {
+    // `error` is the transport reason (smtpLastErrorText()) on failure: without
+    // it the persisted event only said "it failed" and a card on a bench could
+    // not be diagnosed after a reboot wiped the serial monitor.
     char details[224];
-    snprintf(details, sizeof(details),
-             "stage=%s channel=%s files=%d subject=%.72s to=%.72s",
-             stage ? stage : "-",
-             channel ? channel : "-",
-             attachmentCount,
-             subject ? subject : "",
-             recipients ? recipients : "");
+    emailEventFormatPipelineDetails(details, sizeof(details), stage, channel,
+                                    attachmentCount, subject, recipients, error);
     logCompactBufferedEvent(success ? "EMAIL_PIPELINE_OK" : "EMAIL_PIPELINE_FAIL", details);
     if (success) gObservability.emailOk++; else gObservability.emailFail++;
 }

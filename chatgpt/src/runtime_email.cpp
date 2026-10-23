@@ -67,6 +67,9 @@ extern bool smtpSendEmail(const String &from,
                           const String &pass,
                           bool tlsInsecure,
                           bool isHtml);
+// Last SMTP transport failure (smtp_core_impl.h, single TU): persisted as the
+// EMAIL_PIPELINE_FAIL `err=` on SMTP failures. GAS failures pass nullptr.
+extern const char *smtpLastErrorText();
 
 EmailSendingState currentEmailSendingState = EMAIL_IDLE;
 String emailContentToSend = "";
@@ -651,7 +654,8 @@ void processEmailQueue() {
                 dayReportEndAttempt(true);
 #endif
             } else {
-                observabilityLogEmailPipeline("emailday-queue", (emailMethod == "google") ? "GAS" : "SMTP", subject.c_str(), configManager.getEmailDestination().c_str(), false, 1);
+                observabilityLogEmailPipeline("emailday-queue", (emailMethod == "google") ? "GAS" : "SMTP", subject.c_str(), configManager.getEmailDestination().c_str(), false, 1,
+                                              (emailMethod == "google") ? nullptr : smtpLastErrorText());
 #if ENABLE_SCHEDULER==1
                 dayReportEndAttempt(false);
 #endif
@@ -945,7 +949,8 @@ void emailTestTask(void *parameter) {
         observabilityLogEmailPipeline("test", useGoogle ? "GAS" : "SMTP", localSubject.c_str(), dest.c_str(), true, 0);
     } else {
         sendVirtualMessage(F("\n❌ [EMAIL_TEST] TEST EMAIL FAILED AFTER 3 ATTEMPTS\n"), ERROR, false, false);
-        observabilityLogEmailPipeline("test", useGoogle ? "GAS" : "SMTP", localSubject.c_str(), dest.c_str(), false, 0);
+        observabilityLogEmailPipeline("test", useGoogle ? "GAS" : "SMTP", localSubject.c_str(), dest.c_str(), false, 0,
+                                      useGoogle ? nullptr : smtpLastErrorText());
     }
 
     priorityManager().endEmail();
@@ -1153,7 +1158,8 @@ static void unikonEmailTask(void* /*parameter*/) {
     } else {
         sendVirtualMessage(F("❌ [UNIKON_EMAIL] Failed after retries"), ERROR, false, false);
         observabilityLogEmailPipeline("unikon", useGoogle ? "GAS" : "SMTP",
-                                      localSubject.c_str(), dest.c_str(), false, 0);
+                                      localSubject.c_str(), dest.c_str(), false, 0,
+                                      useGoogle ? nullptr : smtpLastErrorText());
     }
 
     priorityManager().endEmail();
@@ -1350,7 +1356,8 @@ void inactivityAlertTask(void *parameter) {
         }
 
         sendVirtualMessage(runtimeEmailBuildMessage("❌ [INACTIVITY] Send failed (attempt %d/%d)", attempt, maxAttempts), ERROR, false, false);
-        observabilityLogEmailPipeline("inactivity", channel, localSubject.c_str(), localRecipients.c_str(), false, 0);
+        observabilityLogEmailPipeline("inactivity", channel, localSubject.c_str(), localRecipients.c_str(), false, 0,
+                                       (channel[0] == 'S') ? smtpLastErrorText() : nullptr); // 'S'MTP only; GAS has no transport err
         if (attempt < maxAttempts) {
             unsigned long backoffMs = (attempt <= 1) ? 10000UL : (attempt <= 2) ? 30000UL : 60000UL;
             sendVirtualMessage(runtimeEmailBuildMessage("[INACTIVITY] Waiting %lus before retry...", backoffMs / 1000), WARN, false, false);

@@ -131,6 +131,20 @@ status page — the web UI never learns the outcome.
   release sends wedged past 10 min via `emailDayForceCleanup()` (clears flag/handle +
   idempotent freeze/priority/snapshot cleanup, never kills a live task);
   `POST /api/email-reset` does the same on demand.
+- **Failure diagnosis (`err=`)**: every SMTP transport failure records a short
+  single-line reason (`smtpErrorSet()` in `smtp_core_impl.h`: stage + server reply,
+  e.g. `auth 535 5.7.8`, `connect`, `rcpt 550 5.1.1`, `stream sd-mutex`) via
+  `smtpLastErrorText()`; the `EMAIL_PIPELINE_FAIL` call sites persist it as `err=`
+  (`email_event_fields.h`, byte-identical legacy format when empty). GAS failures
+  pass no `err` (no transport reply exists). Diagnosing a dead card after a reboot
+  no longer depends on the volatile serial monitor.
+- **Recipient normalization**: `emailNormalizeRecipientList()`
+  (`chatgpt/src/email_recipients.h`, unit-tested) trims, drops empties/junk, strips
+  `<>` and dedupes case-insensitively (first spelling wins, rejoin with `,`). Applied
+  once at the transport entry (`smtpSendEmail*`, so RCPT TO + `To:` match) and at the
+  `emailday-batch` envelope build — the extras list may repeat the primary
+  destination, which previously produced `to=a@x.com, a@x.com,b@y.com` in the
+  persisted event plus a duplicate RCPT TO.
 
 ---
 

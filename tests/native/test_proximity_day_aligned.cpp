@@ -373,3 +373,26 @@ TEST_CASE("computeOee ISO: planned stops raise A, guards hold, legacy default un
     ProximityOeeResult fresh = proximityComputeOee(0, 0, 0, 0, 300.0f, 0);
     CHECK(fresh.availability == 0.0f);
 }
+TEST_CASE("chart/API day start: label D starts at D-1 boundary (22h -> -2h)") {
+    // .29 evidence: the civil-day chart started at 00:xx while the CSV/totals
+    // run [D-1 22:00, D 22:00). The writer and the API share this helper so
+    // graph and donut use the SAME day.
+    const uint32_t civilMid = (uint32_t)wallClock(2026, 8, 30, 0, 0, 0);
+    const uint32_t start = proxShiftDayStartFromCivilMidnight(civilMid, 22);
+    CHECK(start == (uint32_t)wallClock(2026, 8, 29, 22, 0, 0));
+    // The served window is exactly one production day.
+    CHECK(start + 86400UL == (uint32_t)wallClock(2026, 8, 30, 22, 0, 0));
+}
+
+TEST_CASE("chart/API day start: boundary 0 keeps the calendar day") {
+    const uint32_t civilMid = (uint32_t)wallClock(2026, 8, 30, 0, 0, 0);
+    CHECK(proxShiftDayStartFromCivilMidnight(civilMid, 0) == civilMid);
+}
+
+TEST_CASE("chart/API day start: 6h boundary pulls back 18h, guards hold") {
+    const uint32_t civilMid = (uint32_t)wallClock(2026, 8, 30, 0, 0, 0);
+    CHECK(proxShiftDayStartFromCivilMidnight(civilMid, 6) ==
+          (uint32_t)wallClock(2026, 8, 29, 6, 0, 0));
+    CHECK(proxShiftDayStartFromCivilMidnight(0, 22) == 0);
+    CHECK(proxShiftDayStartFromCivilMidnight(civilMid, 24) == civilMid);
+}

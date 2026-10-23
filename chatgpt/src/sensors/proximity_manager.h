@@ -578,6 +578,18 @@ static inline uint8_t proxShiftAlignedDate(time_t now, uint8_t boundaryHour, str
     return boundaryHour;
 }
 
+// Wall-clock START (epoch) of the production day labeled with the calendar
+// date whose local midnight is `civilMidnightTs`. Label D covers
+// [D-1 b:00, D b:00), so the start is civil midnight pulled back (24 - b)h.
+// Boundary 0 keeps the calendar day. Pure — shared by the .chart writer and
+// the proximity chart API so the axis and the totals use the SAME day
+// (tests/native/test_proximity_chart.cpp).
+static inline uint32_t proxShiftDayStartFromCivilMidnight(uint32_t civilMidnightTs, uint8_t boundaryHour) {
+    if (civilMidnightTs == 0 || boundaryHour == 0 || boundaryHour > 23) return civilMidnightTs;
+    const uint32_t backSec = (uint32_t)(24 - boundaryHour) * 3600UL;
+    return (civilMidnightTs > backSec) ? (civilMidnightTs - backSec) : 0;
+}
+
 // 1-based turno number for a shift slot, rotated so the turn that STARTS at the
 // day-boundary hour is Turno 1 (e.g. {6,14,22} with boundary 22h: 22h=Turno 1,
 // 6h=Turno 2, 14h=Turno 3 — the day's first turn is the overnight one). Derived

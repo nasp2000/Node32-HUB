@@ -410,7 +410,7 @@ void processSdEmailQueue() {
             screenManager.showEmailSent();
             #endif
         } else {
-            observabilityLogEmailPipeline("data-sd", "SMTP", subject.c_str(), recipients.c_str(), false, 1);
+            observabilityLogEmailPipeline("data-sd", "SMTP", subject.c_str(), recipients.c_str(), false, 1, smtpLastErrorText());
         }
 
         for (const String &ruleName : rules) {
@@ -858,7 +858,7 @@ void processRamEmailQueue() {
             #endif
         } else {
             sendVirtualMessage(buildMessage("❌ RAM Email: FAILED to [%s]", job.recipients.c_str()), ERROR);
-            observabilityLogEmailPipeline("data-ram", "SMTP", subject.c_str(), job.recipients.c_str(), false, 0);
+            observabilityLogEmailPipeline("data-ram", "SMTP", subject.c_str(), job.recipients.c_str(), false, 0, smtpLastErrorText());
         }
 
         finalizeMatchedRulesResult(job.matchedRules, success);

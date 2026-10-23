@@ -8,6 +8,7 @@
 
 #include "../../ConfigManager.h"
 #include "../../chart_history.h"
+#include "../../sensors/proximity_manager.h"
 #include "../../feature_flags.h"
 #include "../../psram_helpers.h"
 #include "../../sdcard.h"
@@ -726,6 +727,11 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
         String resolvedDate  = (requestedDate.length() == 10) ? requestedDate : String(today);
         String mode          = request->hasParam("mode") ? request->getParam("mode")->value() : String("day");
 
+        // Production-day window (same day the CSV/totals use: label D covers
+        // [D-1 b:00, D b:00)) — mirrors handleProximityChartDataGet (unified).
+        const uint32_t prodDayStart =
+            proxShiftDayStartFromCivilMidnight(chartHistoryDayStartFromRs232DateId(resolvedDate),
+                                               proximityShiftDayBoundaryHour());
         uint32_t fromTs = 0;
         if (request->hasParam("from")) {
             fromTs = (uint32_t)strtoul(request->getParam("from")->value().c_str(), nullptr, 10);
@@ -733,7 +739,7 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
             time_t nowTs = time(nullptr);
             if      (mode == "live") fromTs = (uint32_t)(nowTs > 900   ? nowTs - 900   : 0); // 15 min
             else if (mode == "8h")   fromTs = (uint32_t)(nowTs > 28800 ? nowTs - 28800 : 0); // 8 h
-            else                     fromTs = chartHistoryDayStartFromRs232DateId(resolvedDate); // full day
+            else                     fromTs = prodDayStart; // full production day
         }
 
         uint32_t rangeSeconds = (uint32_t)(time(nullptr) > (time_t)fromTs ? time(nullptr) - (time_t)fromTs : 86400UL);
@@ -747,9 +753,10 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
         }
         response->addHeader("Cache-Control", "no-store");
         // Merged serving (file history + PSRAM ring tail, always minute-fresh).
-        // untilTs = end of the requested day: the live tail must not leak into a
-        // past date's series.
-        uint32_t untilTs = chartHistoryDayStartFromRs232DateId(resolvedDate) + 86400UL;
+        // untilTs = end of the requested PRODUCTION day: the live tail must not
+        // leak into a past date's series.
+        uint32_t untilTs = prodDayStart ? prodDayStart + 86400UL
+                                        : chartHistoryDayStartFromRs232DateId(resolvedDate) + 86400UL;
         extern bool proxChartServeMergedJson(Print& out, const String& path, uint32_t fromTs,
                                              uint16_t maxOut, uint32_t untilTs);
         if (!proxChartServeMergedJson(*response, chartPath, fromTs, (uint16_t)maxOut, untilTs)) {

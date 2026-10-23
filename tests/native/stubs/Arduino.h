@@ -45,6 +45,16 @@ public:
     char charAt(int idx) const { return (idx >= 0 && (size_t)idx < _impl.length()) ? _impl[idx] : '\0'; }
     int indexOf(const String& s) const { size_t p = _impl.find(s._impl); return (p != std::string::npos) ? (int)p : -1; }
     int indexOf(const char* s) const { size_t p = _impl.find(s); return (p != std::string::npos) ? (int)p : -1; }
+    // Arduino API parity: char and fromIndex overloads (used by email_recipients.h).
+    int indexOf(char c) const { size_t p = _impl.find(c); return (p != std::string::npos) ? (int)p : -1; }
+    int indexOf(char c, unsigned int from) const {
+        size_t p = _impl.find(c, from);
+        return (p != std::string::npos) ? (int)p : -1;
+    }
+    int indexOf(const String& s, unsigned int from) const {
+        size_t p = _impl.find(s._impl, from);
+        return (p != std::string::npos) ? (int)p : -1;
+    }
     String substring(int begin, int end) const { return String(_impl.substr(begin, end - begin)); }
     String substring(int begin) const { return String(_impl.substr(begin)); }
     double toDouble() const { return atof(_impl.c_str()); }

@@ -1003,8 +1003,12 @@ static void _proxChartDoFlush() {
         return;
     }
     const bool useFlash = !sdcardShouldUseSD();
+    // Production-day label (same rule as the CSV: label D = [D-1 b:00, D b:00)),
+    // so the .chart file and PROXIMITY_D.csv cover the SAME day and the graph
+    // axis can no longer drift off the donut/totals by the boundary offset.
     struct tm ti;
-    localtime_r(&now, &ti);
+    const uint8_t dayBoundary = proximityShiftDayBoundaryHour();
+    proximityShiftDayAlignedDate(now, &ti);
 
     char dateId[11];
     snprintf(dateId, sizeof(dateId), "%02d-%02d-%04d",
@@ -1041,15 +1045,17 @@ static void _proxChartDoFlush() {
     }
 
     String chartPath = chartHistoryProximityPathForDate(configManager.getSdcardName(), String(dateId));
+    // Header day start = production-day start (civil midnight of the label
+    // pulled back to the previous boundary), not civil midnight.
     uint32_t dayStart = 0;
     {
-        int d, m, y;
-        sscanf(dateId, "%d-%d-%d", &d, &m, &y);
-        struct tm dayTm = {};
-        dayTm.tm_year = y - 1900;
-        dayTm.tm_mon  = m - 1;
-        dayTm.tm_mday = d;
-        dayStart = (uint32_t)mktime(&dayTm);
+        struct tm dayTm = ti;
+        dayTm.tm_hour = 0;
+        dayTm.tm_min = 0;
+        dayTm.tm_sec = 0;
+        dayTm.tm_isdst = -1;
+        const time_t civilMid = mktime(&dayTm);
+        dayStart = proxShiftDayStartFromCivilMidnight(civilMid > 0 ? (uint32_t)civilMid : 0, dayBoundary);
     }
 
     ChartRs232Writer writer;

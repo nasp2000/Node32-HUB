@@ -626,6 +626,12 @@ void handleProximityChartDataGet(HttpRequest& req, HttpResponse& res) {
     }
     String resolvedDate = (requestedDate.length() == 10) ? requestedDate : String(today);
     if (mode.length() == 0) mode = "day";
+    // Production-day window (same day the CSV/totals use: label D covers
+    // [D-1 b:00, D b:00)). The .chart file is named by the same label, so the
+    // axis and the totals can no longer disagree by the boundary offset.
+    const uint32_t prodDayStart =
+        proxShiftDayStartFromCivilMidnight(chartHistoryDayStartFromRs232DateId(resolvedDate),
+                                           proximityShiftDayBoundaryHour());
     uint32_t fromTs = 0;
     if (fromStr.length()) {
         fromTs = (uint32_t)strtoul(fromStr.c_str(), nullptr, 10);
@@ -633,7 +639,7 @@ void handleProximityChartDataGet(HttpRequest& req, HttpResponse& res) {
         time_t nowTs = time(nullptr);
         if      (mode == "live") fromTs = (uint32_t)(nowTs > 900   ? nowTs - 900   : 0);
         else if (mode == "8h")   fromTs = (uint32_t)(nowTs > 28800 ? nowTs - 28800 : 0);
-        else                     fromTs = chartHistoryDayStartFromRs232DateId(resolvedDate);
+        else                     fromTs = prodDayStart;
     }
     uint32_t rangeSeconds = (uint32_t)(now > (time_t)fromTs ? now - (time_t)fromTs : 86400UL);
     const int maxOut = (rangeSeconds <= 3600UL) ? 72 : ((rangeSeconds <= 28800UL) ? 144 : 288);
@@ -643,10 +649,11 @@ void handleProximityChartDataGet(HttpRequest& req, HttpResponse& res) {
     _ProxStringPrint sp(buf);
     // Merged serving (file history + PSRAM ring tail, always minute-fresh —
     // same envelope as the file stream, one stride budget over the union).
-    // untilTs = end of the requested day, so the live tail never leaks into a
-    // past date's series (that gap made the JS delta chain dump hours of
-    // production into a single bar).
-    uint32_t untilTs = chartHistoryDayStartFromRs232DateId(resolvedDate) + 86400UL;
+    // untilTs = end of the requested PRODUCTION day, so the live tail never
+    // leaks into a past date's series (that gap made the JS delta chain dump
+    // hours of production into a single bar).
+    uint32_t untilTs = prodDayStart ? prodDayStart + 86400UL
+                                    : chartHistoryDayStartFromRs232DateId(resolvedDate) + 86400UL;
     extern bool proxChartServeMergedJson(Print& out, const String& path, uint32_t fromTs,
                                          uint16_t maxOut, uint32_t untilTs);
     if (!proxChartServeMergedJson(sp, chartPath, fromTs, (uint16_t)maxOut, untilTs)) {

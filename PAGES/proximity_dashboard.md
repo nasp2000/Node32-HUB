@@ -110,6 +110,19 @@ returns its own file only and the delta chain stays continuous. The shift-email
 side of the same symptom is fixed in `_proxReadHourlyCounts()` (gap-aware
 attribution, see `proximity_sensors.md`).
 
+**Production-day window (fixed 2026-10-23).** The `.chart` file was named by the
+civil date while the CSV/totals use the shift-aligned production day
+(label D = `[D-1 b:00, D b:00)`), so a direct `?date=D&mode=day` started at 00:xx
+and lost the night-shift head (22:00–24:00) versus the donut — the dashboard only
+masked it by merging two requests. The writer now names/flushes the `.chart` by
+the aligned date (`proximityShiftDayAlignedDate`, same rule as the CSV) with the
+production-day start in the header, and both chart endpoints
+(`handleProximityChartDataGet` unified + the legacy `rs232_history_handler` one
+that actually serves WiFi, first-registered) default `fromTs` to
+`proxShiftDayStartFromCivilMidnight()` and `untilTs` to start + 86400
+(`proximity_manager.h`, unit-tested in `test_proximity_day_aligned.cpp`).
+`mode=live`/`8h` and explicit `from=` are unchanged; payload format unchanged.
+
 Light theme (`--pd-*` CSS variables, values identical to the sensor-charts **sky**
 theme); responsive: charts go full width at ≤700 px.
 Typography and canvas colors follow `/sensor-charts` 1:1 (same size relationships):

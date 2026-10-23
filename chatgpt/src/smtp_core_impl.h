@@ -5,6 +5,45 @@
 // DO NOT add #pragma once - this is an impl-include file, not a shared header.
 #include "flash_fallback_store.h" // needed by SMTP funcs below (also included again at v1.118 block)
 #include "email_flash_rpc.h" // stack-safe LittleFS (email tasks run with PSRAM stacks)
+#include "email_recipients.h" // one envelope, one address, once
+
+// ---- Last SMTP failure reason -------------------------------------------
+// Every failure below already logs a human sentence to the serial/web monitor,
+// but that ring buffer is volatile: the persisted EMAIL_PIPELINE_FAIL event
+// only carried stage/channel/files/subject/to, so after a reboot nothing said
+// WHY the send failed. Keep the LAST reason (short stage + server reply, e.g.
+// "auth 535 5.7.8", "connect", "rcpt 550 5.1.1") for the caller to persist as
+// err=... in the same event. The email tasks are serialized by the SMTP mutex,
+// so a single buffer (no lock) is enough.
+static char s_smtpLastError[104] = {0};
+
+static inline void smtpErrorClear() { s_smtpLastError[0] = '\0'; }
+
+// Single-line, log-safe: collapses CR/LF/TAB to spaces, drops the '|' field
+// separator, trims, caps at 64 chars (the details buffer is 224).
+static void smtpErrorSet(const char* stage, const char* detail = nullptr) {
+    char clean[64];
+    size_t o = 0;
+    if (detail) {
+        for (const char* p = detail; *p && o + 1 < sizeof(clean); p++) {
+            unsigned char c = (unsigned char)*p;
+            if (c == '\r' || c == '\n' || c == '\t' || c == '|') c = ' ';
+            if (c == ' ' && (o == 0 || clean[o - 1] == ' ')) continue;
+            clean[o++] = (char)c;
+        }
+        while (o > 0 && clean[o - 1] == ' ') o--;
+    }
+    clean[o] = '\0';
+    if (o > 0) {
+        snprintf(s_smtpLastError, sizeof(s_smtpLastError), "%s %s", stage ? stage : "-", clean);
+    } else {
+        snprintf(s_smtpLastError, sizeof(s_smtpLastError), "%s", stage ? stage : "-");
+    }
+}
+
+// Persisted by the EMAIL_PIPELINE_FAIL call sites (observability `err=`).
+// Also called from runtime_email.cpp (separate TU) with an extern declaration.
+const char* smtpLastErrorText() { return s_smtpLastError; }
 
 // ---- Email tables -------------------------------------------------------
 // Reports built as ASCII tables (columns padded with spaces) only line up in a
@@ -58,7 +97,15 @@ static bool smtpSendEmailStreamingSD(
 ) {
     // Reset watchdog at function entry (critical SMTP streaming operation)
     esp_task_wdt_reset();
-    
+
+    smtpErrorClear();
+
+    // One envelope, one address, once (dedupe/trim, see email_recipients.h).
+    // Fallback to the raw list when nothing parses, so a malformed address still
+    // reaches the server and yields a real err= instead of a silent no-op.
+    String rcptList = emailNormalizeRecipientList(recipients);
+    if (rcptList.length() == 0) rcptList = recipients;
+
     sendVirtualMessage(buildMessage("SMTP STREAM: %d file(s)", (int)files.size()), INFO);
     
     // ====================================================================
@@ -79,8 +126,10 @@ static bool smtpSendEmailStreamingSD(
         String reason = emailTransportUnavailableReason();
         if (reason.length() > 0) {
             sendVirtualMessage(String(F("SMTP: transport unavailable: ")) + reason, ERROR);
+            smtpErrorSet("client", reason.c_str());
         } else {
             sendVirtualMessage(F("SMTP: failed to allocate network client"), ERROR);
+            smtpErrorSet("client", "alloc");
         }
         return false;
     }
@@ -99,6 +148,7 @@ static bool smtpSendEmailStreamingSD(
     
     if (!client->connect(server.c_str(), port)) {
         sendVirtualMessage(buildMessage("SMTP: TLS connect failed %s:%d", server.c_str(), port), ERROR);
+        smtpErrorSet("connect", server.c_str());
         delete client; // Free heap
         return false;
     }
@@ -120,6 +170,7 @@ static bool smtpSendEmailStreamingSD(
     
     if (code != 220) {
         sendVirtualMessage(buildMessage("SMTP: invalid greeting (%s)", response), ERROR);
+        smtpErrorSet("greeting", response);
         client->stop();
         delete client;
         return false;
@@ -137,6 +188,7 @@ static bool smtpSendEmailStreamingSD(
     
     if (code != 250) {
         sendVirtualMessage(buildMessage("SMTP: EHLO failed (%s)", response), ERROR);
+        smtpErrorSet("ehlo", response);
     } else {
         sendVirtualMessage(F("SMTP: EHLO OK"), INFO);
     }
@@ -156,6 +208,7 @@ static bool smtpSendEmailStreamingSD(
     code = smtpWaitForCode(client, 334, /*multiline=*/false, 5000, response, sizeof(response));
     if (code != 334) {
         sendVirtualMessage(buildMessage("SMTP: AUTH LOGIN rejected (%s)", response), ERROR);
+        smtpErrorSet("auth", response);
         client->stop();
         delete client;
         return false;
@@ -186,6 +239,7 @@ static bool smtpSendEmailStreamingSD(
     };
     if (!sendB64Line(user)) {
         sendVirtualMessage(F("STREAM: failed to send Base64 username"), ERROR);
+        smtpErrorSet("auth-user", "send");
         client->stop();
         delete client;
         return false;
@@ -195,6 +249,7 @@ static bool smtpSendEmailStreamingSD(
     code = smtpWaitForCode(client, 334, /*multiline=*/false, 5000, response, sizeof(response));
     if (code != 334) {
         sendVirtualMessage(buildMessage("SMTP: username rejected (%s)", response), ERROR);
+        smtpErrorSet("auth-user", response);
         client->stop();
         delete client;
         return false;
@@ -202,6 +257,7 @@ static bool smtpSendEmailStreamingSD(
     
     if (!sendB64Line(pass)) {
         sendVirtualMessage(F("STREAM: failed to send Base64 password"), ERROR);
+        smtpErrorSet("auth-pass", "send");
         client->stop();
         delete client;
         return false;
@@ -215,6 +271,7 @@ static bool smtpSendEmailStreamingSD(
     
     if (code != 235) {
         sendVirtualMessage(F("SMTP: authentication failed"), ERROR);
+        smtpErrorSet("auth-pass", response);
         client->stop();
         delete client;
         return false;
@@ -244,6 +301,7 @@ static bool smtpSendEmailStreamingSD(
     code = smtpWaitFor2xx(client, 5000, response, sizeof(response));
     if (code < 200 || code >= 300) {
         sendVirtualMessage(buildMessage("SMTP: MAIL FROM rejected (%s)", response), ERROR);
+        smtpErrorSet("mail-from", response);
         client->stop();
         delete client;
         return false;
@@ -254,16 +312,16 @@ static bool smtpSendEmailStreamingSD(
     
     // RCPT TO (for each recipient)
     int pos = 0;
-    while (pos < (int)recipients.length()) {
-        int sep1 = recipients.indexOf(',', pos);
-        int sep2 = recipients.indexOf(';', pos);
+    while (pos < (int)rcptList.length()) {
+        int sep1 = rcptList.indexOf(',', pos);
+        int sep2 = rcptList.indexOf(';', pos);
         int sep = -1;
         if (sep1 < 0) sep = sep2;
         else if (sep2 < 0) sep = sep1;
         else sep = min(sep1, sep2);
-        if (sep < 0) sep = recipients.length();
+        if (sep < 0) sep = rcptList.length();
         
-        String oneAddr = recipients.substring(pos, sep);
+        String oneAddr = rcptList.substring(pos, sep);
         oneAddr.trim();
         if (oneAddr.length() > 0 && oneAddr.indexOf('@') > 0) {
             // Reset watchdog for each RCPT TO (multiple recipients can take time)
@@ -280,6 +338,7 @@ static bool smtpSendEmailStreamingSD(
             code = smtpWaitFor2xx(client, 5000, response, sizeof(response));
             if (code < 200 || code >= 300) {
                 sendVirtualMessage(buildMessage("SMTP: RCPT rejected (%s)", response), ERROR);
+                smtpErrorSet("rcpt", response);
                 client->stop();
                 delete client;
                 return false;
@@ -299,6 +358,7 @@ static bool smtpSendEmailStreamingSD(
     
     if (!smtpRawSendF(client, F("DATA\r\n"))) {
          sendVirtualMessage(F("SMTP: failed to send DATA"), ERROR);
+         smtpErrorSet("data", "send");
          return false;
     }
     vTaskDelay(pdMS_TO_TICKS(200));
@@ -308,6 +368,7 @@ static bool smtpSendEmailStreamingSD(
     code = smtpWaitForCode(client, 354, /*multiline=*/false, 5000, response, sizeof(response));
     if (code != 354) {
         sendVirtualMessage(F("SMTP: DATA rejected (expected 354)"), ERROR);
+        smtpErrorSet("data", response);
         client->stop();
         delete client;
         return false;
@@ -319,7 +380,7 @@ static bool smtpSendEmailStreamingSD(
     snprintf(line, sizeof(line), "From: <%s>\r\n", from.c_str());
     smtpRawSendC(client, line);
 
-    snprintf(line, sizeof(line), "To: %s\r\n", recipients.c_str());
+    snprintf(line, sizeof(line), "To: %s\r\n", rcptList.c_str());
     smtpRawSendC(client, line);
 
     snprintf(line, sizeof(line), "Subject: %s\r\n", subject.c_str());
@@ -396,6 +457,7 @@ static bool smtpSendEmailStreamingSD(
             if (sdMutex != NULL) {
                 if (!sdMutexLock(pdMS_TO_TICKS(5000))) {
                     sendVirtualMessage(F("STREAM: SD mutex timeout before open"), ERROR);
+                    smtpErrorSet("stream", "sd-mutex");
                     sdMutexDumpState();
                     client->stop();
                     delete client;
@@ -543,6 +605,7 @@ static bool smtpSendEmailStreamingSD(
 
         if (!streamOk) {
             sendVirtualMessage(String(F("STREAM: failed at ")) + fileName, ERROR);
+            smtpErrorSet("stream", fileName.c_str());
             client->stop();
             delete client;
             return false;
@@ -588,6 +651,7 @@ static bool smtpSendEmailStreamingSD(
     response[0] = 0;
     code = smtpWaitForCode(client, 250, /*multiline=*/false, 8000, response, sizeof(response));
     bool success = (code >= 200 && code < 300);
+    if (!success) smtpErrorSet("data-end", response);
     // sendVirtualMessage(buildMessage("STREAM: %s (resp: %s)", success ? "OK" : "FAIL", response.c_str()), success ? INFO : ERROR); // Hidden
     
     // ====================================================================
@@ -677,6 +741,10 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     bool tlsInsecure) {
     
     size_t dataSize = endOffset - startOffset;
+    smtpErrorClear();
+    // One envelope, one address, once (see email_recipients.h).
+    String rcptList = emailNormalizeRecipientList(recipients);
+    if (rcptList.length() == 0) rcptList = recipients;
     sendVirtualMessage(buildMessage("AUTONOMOUS PARTIAL STREAM: %s [%u-%u] (%u bytes)", 
                                       filePath.c_str(), (unsigned)startOffset, (unsigned)endOffset, (unsigned)dataSize), INFO);
     
@@ -692,8 +760,10 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
         String reason = emailTransportUnavailableReason();
         if (reason.length() > 0) {
             sendVirtualMessage(String(F("PARTIAL STREAM: transport unavailable: ")) + reason, ERROR);
+            smtpErrorSet("client", reason.c_str());
         } else {
             sendVirtualMessage(F("PARTIAL STREAM: failed to allocate network client"), ERROR);
+            smtpErrorSet("client", "alloc");
         }
         return false;
     }
@@ -706,6 +776,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     
     if (!client->connect(server.c_str(), port)) {
         sendVirtualMessage(F("PARTIAL STREAM: failed TLS connection"), ERROR);
+        smtpErrorSet("connect", server.c_str());
         delete client;
         return false;
     }
@@ -719,6 +790,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     int code = smtpWaitForCode(client, 220, /*multiline=*/false, 5000, response, sizeof(response));
     if (code != 220) {
         sendVirtualMessage(F("SMTP PARTIAL: invalid greeting"), ERROR);
+        smtpErrorSet("greeting", response);
         client->stop();
         delete client;
         return false;
@@ -748,6 +820,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     code = smtpWaitForCode(client, 334, /*multiline=*/false, 5000, response, sizeof(response));
     if (code != 334) {
         sendVirtualMessage(buildMessage("SMTP PARTIAL: AUTH LOGIN rejected (%s)", response), ERROR);
+        smtpErrorSet("auth", response);
         client->stop();
         delete client;
         return false;
@@ -778,6 +851,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     };
     if (!sendB64Line(user)) {
         sendVirtualMessage(F("PARTIAL STREAM: failed to send Base64 username"), ERROR);
+        smtpErrorSet("auth-user", "send");
         client->stop();
         delete client;
         return false;
@@ -787,6 +861,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     code = smtpWaitForCode(client, 334, /*multiline=*/false, 5000, response, sizeof(response));
     if (code != 334) {
         sendVirtualMessage(buildMessage("SMTP PARTIAL: username rejected (%s)", response), ERROR);
+        smtpErrorSet("auth-user", response);
         client->stop();
         delete client;
         return false;
@@ -794,6 +869,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     
     if (!sendB64Line(pass)) {
         sendVirtualMessage(F("PARTIAL STREAM: failed to send Base64 password"), ERROR);
+        smtpErrorSet("auth-pass", "send");
         client->stop();
         delete client;
         return false;
@@ -805,6 +881,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     code = smtpWaitForCode(client, 235, /*multiline=*/false, 5000, response, sizeof(response));
     if (code != 235) {
         sendVirtualMessage(F("SMTP PARTIAL: auth failed"), ERROR);
+        smtpErrorSet("auth-pass", response);
         client->stop();
         delete client;
         return false;
@@ -831,6 +908,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     code = smtpWaitFor2xx(client, 5000, response, sizeof(response));
     if (code < 200 || code >= 300) {
         sendVirtualMessage(buildMessage("SMTP PARTIAL: MAIL FROM rejected (%s)", response), ERROR);
+        smtpErrorSet("mail-from", response);
         client->stop();
         delete client;
         return false;
@@ -840,7 +918,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     esp_task_wdt_reset();
     
     // RCPT TO - process multiple recipients
-    String recipientsCopy = recipients;
+    String recipientsCopy = rcptList;
     recipientsCopy.replace(" ", "");
     int startIdx = 0;
     int commaIdx;
@@ -858,6 +936,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
             code = smtpWaitFor2xx(client, 5000, response, sizeof(response));
             if (code < 200 || code >= 300) {
                 sendVirtualMessage(buildMessage("SMTP PARTIAL: RCPT rejected (%s)", response), ERROR);
+                smtpErrorSet("rcpt", response);
                 client->stop();
                 delete client;
                 return false;
@@ -879,6 +958,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
         code = smtpWaitFor2xx(client, 5000, response, sizeof(response));
         if (code < 200 || code >= 300) {
             sendVirtualMessage(buildMessage("SMTP PARTIAL: RCPT rejected (%s)", response), ERROR);
+            smtpErrorSet("rcpt", response);
             client->stop();
             delete client;
             return false;
@@ -900,6 +980,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     code = smtpWaitForCode(client, 354, /*multiline=*/false, 5000, response, sizeof(response));
     if (code != 354) {
         sendVirtualMessage(F("SMTP PARTIAL: DATA rejected (expected 354)"), ERROR);
+        smtpErrorSet("data", response);
         client->stop();
         delete client;
         return false;
@@ -913,7 +994,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     snprintf(line, sizeof(line), "From: <%s>\r\n", from.c_str());
     smtpRawSendC(client, line);
 
-    snprintf(line, sizeof(line), "To: %s\r\n", recipients.c_str());
+    snprintf(line, sizeof(line), "To: %s\r\n", rcptList.c_str());
     smtpRawSendC(client, line);
 
     snprintf(line, sizeof(line), "Subject: %s\r\n", subject.c_str());
@@ -954,6 +1035,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     if (sdMutex != NULL) {
         if (!sdMutexLock(pdMS_TO_TICKS(30000))) {
             sendVirtualMessage(F("STREAM PARTIAL: SD mutex timeout before open"), ERROR);
+            smtpErrorSet("stream", "sd-mutex");
             sdMutexDumpState();
             smtpRawSendF(client, F(".\r\n"));
             client->stop();
@@ -1005,18 +1087,21 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     
     if (usingSd && !file) {
         sendVirtualMessage(String(F("PARTIAL STREAM: failed to open ")) + filePath, ERROR);
+        smtpErrorSet("stream", filePath.c_str());
         smtpRawSendF(client, F(".\r\n"));
         client->stop();
         delete client;
         return false;
     } else if (usingPsram && (psramFolder.isEmpty() || psramVFSGetFileSize(psramFolder, psramFile) == 0)) {
         sendVirtualMessage(String(F("PARTIAL STREAM: PSRAM file not found ")) + filePath, ERROR);
+        smtpErrorSet("stream", "psram-missing");
         smtpRawSendF(client, F(".\r\n"));
         client->stop();
         delete client;
         return false;
     } else if (!usingSd && !usingPsram && !usingFlash) {
         sendVirtualMessage(F("PARTIAL STREAM: No storage available"), ERROR);
+        smtpErrorSet("stream", "no-storage");
         smtpRawSendF(client, F(".\r\n"));
         client->stop();
         delete client;
@@ -1052,6 +1137,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     
     if (!streamOk) {
         sendVirtualMessage(F("PARTIAL STREAM: failed to encode Base64"), ERROR);
+        smtpErrorSet("stream", "encode");
         smtpRawSendF(client, F(".\r\n"));
         client->stop();
         delete client;
@@ -1075,6 +1161,7 @@ static bool smtpSendEmailStreamingSDPartial_Internal(
     response[0] = 0;
     code = smtpWaitForCode(client, 250, /*multiline=*/false, 8000, response, sizeof(response));
     bool success = (code >= 200 && code < 300);
+    if (!success) smtpErrorSet("data-end", response);
     sendVirtualMessage(buildMessage("SMTP PARTIAL: %s (resp: %s)", success ? "OK" : "FAIL", response), success ? INFO : ERROR);
     
     // ====================================================================
@@ -1109,13 +1196,20 @@ bool smtpSendEmail(
 {
     esp_task_wdt_reset();
 
+    smtpErrorClear();
+    // One envelope, one address, once (see email_recipients.h).
+    String rcptNorm = emailNormalizeRecipientList(to);
+    if (rcptNorm.length() == 0) rcptNorm = to;
+
     Client* client = emailTransportCreateClient(tlsInsecure, 30000, 60);
     if (!client) {
         String reason = emailTransportUnavailableReason();
         if (reason.length() > 0) {
             sendVirtualMessage(String(F("SMTP: transport unavailable: ")) + reason, ERROR);
+            smtpErrorSet("client", reason.c_str());
         } else {
             sendVirtualMessage(F("SMTP: failed to allocate network client"), ERROR);
+            smtpErrorSet("client", "alloc");
         }
         return false;
     }
@@ -1123,6 +1217,7 @@ bool smtpSendEmail(
     sendVirtualMessage(buildMessage("SMTP: connecting to %s:%d", server.c_str(), port), DEBUG);
     if (!client->connect(server.c_str(), port)) {
         sendVirtualMessage(F("SMTP: connect failed"), ERROR);
+        smtpErrorSet("connect", server.c_str());
         delete client;
         return false;
     }
@@ -1132,6 +1227,7 @@ bool smtpSendEmail(
     char lineBuf[256];
     if (!smtpReadLine(client, lineBuf, sizeof(lineBuf), 10000) || lineBuf[0] != '2') {
         sendVirtualMessage(F("SMTP: no greeting"), ERROR);
+        smtpErrorSet("greeting", lineBuf[0] ? lineBuf : nullptr);
         client->stop(); delete client; return false;
     }
 
@@ -1148,6 +1244,7 @@ bool smtpSendEmail(
     smtpRawSendC(client, "AUTH LOGIN\r\n");
     if (!smtpReadLine(client, lineBuf, sizeof(lineBuf), 5000) || lineBuf[0] != '3') {
         sendVirtualMessage(F("SMTP: AUTH LOGIN rejected"), ERROR);
+        smtpErrorSet("auth", lineBuf[0] ? lineBuf : nullptr);
         client->stop(); delete client; return false;
     }
 
@@ -1158,6 +1255,7 @@ bool smtpSendEmail(
     smtpRawSend(client, userB64 + "\r\n");
     if (!smtpReadLine(client, lineBuf, sizeof(lineBuf), 5000) || lineBuf[0] != '3') {
         sendVirtualMessage(F("SMTP: username rejected"), ERROR);
+        smtpErrorSet("auth-user", lineBuf[0] ? lineBuf : nullptr);
         client->stop(); delete client; return false;
     }
 
@@ -1168,6 +1266,7 @@ bool smtpSendEmail(
     smtpRawSend(client, passB64 + "\r\n");
     if (!smtpReadLine(client, lineBuf, sizeof(lineBuf), 10000) || lineBuf[0] != '2') {
         sendVirtualMessage(F("SMTP: auth failed"), ERROR);
+        smtpErrorSet("auth-pass", lineBuf[0] ? lineBuf : nullptr);
         client->stop(); delete client; return false;
     }
     esp_task_wdt_reset();
@@ -1176,11 +1275,12 @@ bool smtpSendEmail(
     smtpRawSend(client, String(F("MAIL FROM:<")) + from + ">\r\n");
     if (!smtpReadLine(client, lineBuf, sizeof(lineBuf), 5000) || lineBuf[0] != '2') {
         sendVirtualMessage(F("SMTP: MAIL FROM rejected"), ERROR);
+        smtpErrorSet("mail-from", lineBuf[0] ? lineBuf : nullptr);
         client->stop(); delete client; return false;
     }
 
     // RCPT TO (may be comma-separated)
-    String rcptList = to;
+    String rcptList = rcptNorm;
     rcptList.replace(" ", "");
     int start = 0;
     while (start < (int)rcptList.length()) {
@@ -1190,6 +1290,7 @@ bool smtpSendEmail(
             smtpRawSend(client, String(F("RCPT TO:<")) + rcpt + ">\r\n");
             if (!smtpReadLine(client, lineBuf, sizeof(lineBuf), 5000) || lineBuf[0] != '2') {
                 sendVirtualMessage(buildMessage("SMTP: RCPT TO rejected: %s", rcpt.c_str()), ERROR);
+                smtpErrorSet("rcpt", lineBuf[0] ? lineBuf : rcpt.c_str());
                 client->stop(); delete client; return false;
             }
         }
@@ -1202,12 +1303,13 @@ bool smtpSendEmail(
     smtpRawSendC(client, "DATA\r\n");
     if (!smtpReadLine(client, lineBuf, sizeof(lineBuf), 5000) || lineBuf[0] != '3') {
         sendVirtualMessage(F("SMTP: DATA rejected"), ERROR);
+        smtpErrorSet("data", lineBuf[0] ? lineBuf : nullptr);
         client->stop(); delete client; return false;
     }
 
     // Headers + body
     smtpRawSend(client, String(F("From: ")) + from + "\r\n");
-    smtpRawSend(client, String(F("To: ")) + to + "\r\n");
+    smtpRawSend(client, String(F("To: ")) + rcptNorm + "\r\n");
     smtpRawSend(client, String(F("Subject: ")) + subject + "\r\n");
     smtpRawSendC(client, "MIME-Version: 1.0\r\n");
     // Any body with an ASCII table goes out as HTML <pre> (aligned in every client).
@@ -1239,6 +1341,7 @@ bool smtpSendEmail(
 
     if (!smtpReadLine(client, lineBuf, sizeof(lineBuf), 15000) || lineBuf[0] != '2') {
         sendVirtualMessage(F("SMTP: message rejected"), ERROR);
+        smtpErrorSet("data-end", lineBuf[0] ? lineBuf : nullptr);
         client->stop(); delete client; return false;
     }
 
@@ -2224,6 +2327,9 @@ bool enviarEmailComAnexosSD(const String &folderPath, const String &subject, con
         } else {
             allRecipients = extraEmails;
         }
+        // One envelope, one address, once: the extras list may repeat the
+        // primary destination (dupes + stray spaces in the persisted to=).
+        allRecipients = emailNormalizeRecipientList(allRecipients);
         
         sendVirtualMessage(buildMessage("Config SMTP: server=%s, port=%d, user=%s, dest=%s", 
                                           server.c_str(), port, user.c_str(), allRecipients.c_str()), DEBUG);
@@ -2293,7 +2399,7 @@ bool enviarEmailComAnexosSD(const String &folderPath, const String &subject, con
         if (!success) {
             sendVirtualMessage(buildMessage("❌ Failed to send email %d (smtp.send() returned false, heap=%u)", 
                                               batchNum, (unsigned)ESP.getFreeHeap()), ERROR);
-            observabilityLogEmailPipeline("emailday-batch", "SMTP", emailSubject.c_str(), allRecipients.c_str(), false, (int)filesForStream.size());
+            observabilityLogEmailPipeline("emailday-batch", "SMTP", emailSubject.c_str(), allRecipients.c_str(), false, (int)filesForStream.size(), smtpLastErrorText());
             sendVirtualMessage(F("Possible causes:"), ERROR);
             sendVirtualMessage(F("  1) Gmail: wrong password or blocking app (use App Password)"), ERROR);
             sendVirtualMessage(F("  2) SMTP server rejected recipients/message"), ERROR);
@@ -2388,6 +2494,8 @@ bool enviarEmailComAnexosSD(const String &folderPath, const String &subject, con
                 if (dest.length() > 0 && extraEmails.length() > 0) allRecipients = dest + ", " + extraEmails;
                 else if (dest.length() > 0) allRecipients = dest;
                 else allRecipients = extraEmails;
+                // One envelope, one address, once (see above): extras may repeat dest.
+                allRecipients = emailNormalizeRecipientList(allRecipients);
 
                 bool success = smtpSendEmailStreamingSDPartial(
                     user,
