@@ -63,7 +63,7 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/alerts-config` | Inactivity/OEE alert rules | static | manual | B | no | `ENABLE_PAGE_ALERTS` + `ENABLE_PROXIMITY` |
 | `/email` | SMTP config + test | static | manual | B | no | `ENABLE_SMTP` |
 | `/recipients` | Email recipient groups | static | manual | B | no | `ENABLE_PAGE_RECIPIENTS` |
-| `/ftp` | FTP upload client + test | static | manual | B | no | `ENABLE_FTP_CLIENT` + `ENABLE_PAGE_FTP` |
+| `/ftp` | FTP upload client + test + last-sends history (persisted `/config/ftp_status.json`, loaded once on page open) | static | manual | B | no | `ENABLE_FTP_CLIENT` + `ENABLE_PAGE_FTP` |
 | `/structures` | Custom fixtures page | static | manual | B | no | `ENABLE_STRUCTURES_PAGE` |
 | `/rs232` · `/lpt-db25` | RS232/LPT-DB25 config + pins | static | manual | B | no | `ENABLE_RS232` / `ENABLE_DB25` |
 | `/printer` · `/buzzer` · `/do` | Printer / buzzer test / outputs | static | manual | B | no | — / `ENABLE_BUZZER` / `BOARD_HAS_TCA9554_DO` |

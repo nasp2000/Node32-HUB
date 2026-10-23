@@ -84,7 +84,7 @@ void handleFtpStatusGet(HttpRequest& req, HttpResponse& res) {
     FtpStatus st;
     ftpGetStatus(st);
     // JSON in PSRAM (SpiRamJsonDocument), response <4KB.
-    SpiRamJsonDocument doc(2048);
+    SpiRamJsonDocument doc(3072);
     doc["enabled"] = st.enabled;
     doc["auto_upload"] = st.autoUpload;
     doc["host"] = configManager.getFtpHost();
@@ -114,6 +114,30 @@ void handleFtpStatusGet(HttpRequest& req, HttpResponse& res) {
     doc["busy"] = st.busy;
     doc["source"] = st.activeSource;
     doc["monitor_stack_free"] = (unsigned long)st.monitorStackFree;
+
+    // ---- Persisted last sends (survive reboot) ----------------------------
+    // Additive keys only: the page still reads every legacy field above.
+    // `last_time`/`last_code` stay the live RAM values (uptime millis / reply
+    // code); the durable summary lives in `last_time_str` + `recent`.
+    FtpStatusStore store;
+    ftpGetStatusStore(store);
+    char when[32];
+    ftpStatusFormatTs(store.lastTs, when, sizeof(when));
+    doc["last_time_str"] = when;
+    doc["last_epoch"] = (unsigned long)store.lastTs;
+    JsonArray recent = doc.createNestedArray("recent");
+    const uint8_t n = (store.count < FTP_STATUS_RECENT_MAX) ? store.count : (uint8_t)FTP_STATUS_RECENT_MAX;
+    for (uint8_t i = 0; i < n; i++) {
+        JsonObject o = recent.createNestedObject();
+        o["file"] = store.recent[i].name;
+        o["size"] = (unsigned long)store.recent[i].size;
+        o["ok"] = store.recent[i].ok;
+        char at[32];
+        ftpStatusFormatTs(store.recent[i].ts, at, sizeof(at));
+        o["time_str"] = at;
+        o["ts"] = (unsigned long)store.recent[i].ts;
+    }
+
     String out;
     serializeJson(doc, out);
     res.send(200, F("application/json"), out);

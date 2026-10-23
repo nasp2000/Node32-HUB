@@ -112,6 +112,8 @@ bool ftpIsConnectFailure(const char* detail);
 #include "feature_flags.h"
 #if ENABLE_FTP_CLIENT==1
 
+#include "ftp_status_store.h"   // FtpStatusStore (persisted last sends)
+
 struct FtpStatus {
     bool enabled = false;
     bool autoUpload = false;
@@ -129,6 +131,9 @@ struct FtpStatus {
 void ftpClientInit();
 bool ftpIsAvailable();
 void ftpGetStatus(FtpStatus& out);
+// Persisted summary + newest sends (LittleFS /config/ftp_status.json): what the
+// FTP page shows after a reboot, when the RAM status is gone.
+void ftpGetStatusStore(FtpStatusStore& out);
 // Non-blocking busy peek for 1s-tick gates (graceful reboot): try-take the
 // status mutex with zero wait instead of ftpGetStatus()'s 2s blocking take.
 bool ftpIsBusy();

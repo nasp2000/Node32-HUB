@@ -60,7 +60,13 @@ win.__MOCK_API__['/api/ftp-status'] = {
   remote_path: '/up', local_dir: 'SD:/logs', interval_min: 120, max_files: 5,
   filter: '*.csv', enabled: true, auto_upload: true, only_new: true,
   delete_after: false, source: 'SD', last_file: 'a.csv',
-  last_result: 'OK', ok_count: 3, fail_count: 1
+  last_result: 'OK', ok_count: 3, fail_count: 1,
+  // persisted summary (new): survives reboot on the device
+  last_time_str: '23-10-2026 10:01:05',
+  recent: [
+    { file: 'a.csv', size: 2048, ok: true, time_str: '23-10-2026 10:01:05' },
+    { file: 'b.csv', size: 10, ok: false, time_str: '23-10-2026 09:00:00' }
+  ]
 };
 win.ftpLoad();
 setTimeout(function() {
@@ -85,6 +91,20 @@ setTimeout(function() {
    win.ftpSetFtpExtChecks('*.csv');
   var st = doc.getElementById('ftp-status').textContent;
   assert(st.indexOf('a.csv') >= 0, 'status shows last file');
+  // --- persisted summary + recent list (new) ---
+  assert(st.indexOf('23-10-2026 10:01:05') >= 0, 'status shows persisted last cycle time');
+  assert(st.indexOf('Last cycle') >= 0, 'status labels the last cycle');
+  var rows = doc.querySelectorAll('#ftp-recent-body tr');
+  assertEq(rows.length, 2, 'recent list renders both uploads');
+  assertEq(rows[0].children[0].textContent, 'a.csv', 'newest upload first');
+  assertEq(rows[0].children[1].textContent, '2 KB', 'size rendered in KB');
+  assertEq(rows[0].children[2].textContent, '23-10-2026 10:01:05', 'upload time rendered');
+  assertEq(rows[0].children[3].textContent, '\u2714', 'success marked with a tick');
+  assertEq(rows[1].children[3].textContent, '\u2718', 'failure marked with a cross');
+  assertEq(doc.getElementById('ftp-recent-empty').style.display, 'none', 'empty hint hidden when there are rows');
+  assertEq(win.ftpFmtSize(500), '500 B', 'ftpFmtSize bytes');
+  assertEq(win.ftpFmtSize(1572864), '1.5 MB', 'ftpFmtSize megabytes');
+  assertEq(win.ftpFmtSize(undefined), '0 B', 'ftpFmtSize undefined is 0 B');
   // --- local folder dropdown: prefixed values grouped per filesystem, no custom ---
   var sel = doc.getElementById('ftp_local_dir');
   assertEq(sel.value, 'SD:/logs', 'dropdown selects prefixed local_dir');
@@ -107,7 +127,8 @@ setTimeout(function() {
     remote_path: '/', local_dir: '/logs', interval_min: 60, max_files: 10,
     filter: '*.csv;*.log', enabled: false, auto_upload: false,
     only_new: false, delete_after: true, source: 'PSRAM',
-    last_file: '-', last_result: '-', ok_count: 0, fail_count: 0
+    last_file: '-', last_result: '-', ok_count: 0, fail_count: 0,
+    last_time_str: '-', recent: []
   };
   win.ftpLoad();
   setTimeout(function() {
@@ -115,6 +136,10 @@ setTimeout(function() {
     assert(doc.getElementById('ftp_enabled').checked === false, 'enabled unchecked');
     assert(doc.getElementById('ftp_only_new').checked === false, 'only_new unchecked');
     assert(doc.getElementById('ftp-status').textContent.indexOf('PSRAM') >= 0, 'status shows PSRAM source');
+    // --- empty persisted list: readable "nothing yet" state, no rows ---
+    assertEq(doc.querySelectorAll('#ftp-recent-body tr').length, 0, 'no recent rows when list empty');
+    assertEq(doc.getElementById('ftp-recent-empty').style.display, 'block', 'empty hint shown');
+    assert(doc.getElementById('ftp-status').textContent.indexOf('-') >= 0, 'empty last cycle renders as dash');
     // legacy "/logs" not in options → re-selected as first option
     assertEq(doc.getElementById('ftp_local_dir').value, '/logs', 'legacy bare path preserved');
 

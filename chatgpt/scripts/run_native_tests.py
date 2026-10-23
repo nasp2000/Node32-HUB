@@ -52,7 +52,7 @@ TEST_BINS = ["test_modbus_crc", "test_charset", "test_string_utils",
                 "test_touch7_logic", "test_touch7_geo", "test_sd_layout", "test_sensor_history_sources", "test_sensor_rtc_tail", "test_proximity_csv_restore", "test_rtc_state_util",                 "test_reboot_anchor_logic", "test_nvs_write_guard", "test_chart_ring_serve", "test_email_day_dedupe",
                  "test_ogg_parser", "test_opus_head", "test_stb_vorbis_decode", "test_sensor_day_report", "test_email_body_archive",
              "test_lfs_mutex_guard", "test_email_flash_rpc",
-             "test_email_recipients", "test_email_event_fields"]
+             "test_email_recipients", "test_email_event_fields", "test_ftp_status_store"]
 LOGS_DIR = os.path.normpath(os.path.join(_PARENT, "..", "logs"))
 LOG_FILE = os.path.join(LOGS_DIR, "test_results_latest.txt")
 

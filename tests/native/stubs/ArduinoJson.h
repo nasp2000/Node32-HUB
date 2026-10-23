@@ -272,6 +272,11 @@ public:
     template<typename T> T toT();
     template<typename T> T to();
     template<typename T> T as();
+
+    // ArduinoJson 6 convenience used across the firmware (declared here,
+    // defined after JsonVariant is complete).
+    JsonArray createNestedArray(const char* key);
+    JsonObject createNestedObject(const char* key);
 };
 
 // --- JsonVariantConst: const view into a JsonVal tree (ArduinoJson 6 style) ---
@@ -889,3 +894,8 @@ inline void JsonVariant::set(const JsonVariantConst& src) {
     if (src._v) { *_v = *src._v; }
     else { _v->type = JsonVal::STR; _v->s = src._raw; }
 }
+
+// --- JsonDocument nested-container helpers (defined last: need the
+// JsonVariant::to<T>() specializations above) ---
+inline JsonArray JsonDocument::createNestedArray(const char* key) { return (*this)[key].to<JsonArray>(); }
+inline JsonObject JsonDocument::createNestedObject(const char* key) { return (*this)[key].to<JsonObject>(); }

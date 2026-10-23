@@ -3,7 +3,7 @@
 <head>
   <meta charset='UTF-8'>
   <meta name='viewport' content='width=device-width,initial-scale=1'>
-  <title>FTP Upload (Test)</title>
+  <title>ftp (Test)</title>
 </head>
 <body>
 
@@ -114,6 +114,21 @@
 <div style='border:2px solid #8b5cf6;border-radius:8px;padding:10px;background:#0f172a;margin-top:10px'>
 <h2 style='margin-top:0;margin-bottom:4px;font-size:16px;color:#8b5cf6' data-i18n='ftpStatusTitle'>&#128202; Status</h2>
 <div id='ftp-status' style='font-size:13px;color:#94a3b8;line-height:1.8'>Loading...</div>
+<div style='margin-top:6px'>
+<div style='font-size:12px;color:#c4b5fd;margin-bottom:2px' data-i18n='ftpRecentTitle'>&#128340; Recent uploads</div>
+<div id='ftp-recent-empty' style='display:none;font-size:12px;color:#64748b;font-style:italic' data-i18n='ftpRecentEmpty'>No uploads recorded yet</div>
+<div id='ftp-recent' style='overflow-x:auto'>
+<table style='width:100%;border-collapse:collapse;font-size:12px'>
+<thead><tr style='color:#94a3b8;text-align:left'>
+<th style='padding:2px 6px 2px 0' data-i18n='ftpColFile'>File</th>
+<th style='padding:2px 6px;text-align:right' data-i18n='ftpColSize'>Size</th>
+<th style='padding:2px 6px' data-i18n='ftpColTime'>Time</th>
+<th style='padding:2px 0;text-align:center' data-i18n='ftpColResult'>Result</th>
+</tr></thead>
+<tbody id='ftp-recent-body'></tbody>
+</table>
+</div>
+</div>
 <div style='display:flex;gap:10px;flex-wrap:wrap;margin-top:8px'>
 <button id='btn-ftp-test' type='button' class='btn' style='flex:1;background:#7c3aed;border:1px solid #7c3aed' data-i18n='ftpTestBtn' title='Test FTP connection' data-i18n-title='ftpTipTest'>&#128268; Test connection</button>
 <button id='btn-ftp-now' type='button' class='btn' style='flex:1;background:#059669;border:1px solid #059669' data-i18n='ftpNowBtn' title='Upload now' data-i18n-title='ftpTipNow'>&#11014; Upload now</button>
@@ -289,10 +304,66 @@ function ftpLoad() {
       var st = document.getElementById('ftp-status');
       var lf = d.last_file || '-';
       var lr = d.last_result || '-';
-      st.textContent = 'Source: ' + (d.source || '?') + ' | Last: ' + lf + ' | ' + lr + ' | OK ' + (d.ok_count || 0) + ' / FAIL ' + (d.fail_count || 0);
+      st.textContent = ftpText('ftpStatusSource', 'Source') + ': ' + (d.source || '?') +
+        ' | ' + ftpText('ftpStatusLastCycle', 'Last cycle') + ': ' + (d.last_time_str || '-') +
+        ' | ' + lf + ' | ' + lr +
+        ' | OK ' + (d.ok_count || 0) + ' / FAIL ' + (d.fail_count || 0);
+      ftpRenderRecent(d.recent);
       ftpLoadFolders(localDir);
     })
     .catch(function() { ftpLoadFolders(); });
+}
+
+// Human size for the recent list (bytes -> B / KB / MB).
+function ftpFmtSize(b) {
+  var n = Number(b) || 0;
+  if (n >= 1048576) return (Math.round(n / 104857.6) / 10) + ' MB';
+  if (n >= 1024) return (Math.round(n / 102.4) / 10) + ' KB';
+  return n + ' B';
+}
+
+// Last sends table (persisted on the device, newest first).
+// Built with textContent: filenames are never interpreted as markup.
+function ftpRenderRecent(list) {
+  var body = document.getElementById('ftp-recent-body');
+  var empty = document.getElementById('ftp-recent-empty');
+  if (!body) return;
+  body.innerHTML = '';
+  if (!list || !list.length) {
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  for (var i = 0; i < list.length; i++) {
+    var r = list[i] || {};
+    var tr = document.createElement('tr');
+    tr.style.borderTop = '1px solid #1e293b';
+    var tdFile = document.createElement('td');
+    tdFile.textContent = r.file || '-';
+    tdFile.style.padding = '2px 6px 2px 0';
+    tdFile.style.color = '#e2e8f0';
+    tdFile.style.wordBreak = 'break-all';
+    var tdSize = document.createElement('td');
+    tdSize.textContent = ftpFmtSize(r.size);
+    tdSize.style.padding = '2px 6px';
+    tdSize.style.textAlign = 'right';
+    tdSize.style.whiteSpace = 'nowrap';
+    var tdTime = document.createElement('td');
+    tdTime.textContent = r.time_str || '-';
+    tdTime.style.padding = '2px 6px';
+    tdTime.style.whiteSpace = 'nowrap';
+    var tdRes = document.createElement('td');
+    tdRes.textContent = r.ok ? '\u2714' : '\u2718';
+    tdRes.title = r.ok ? 'OK' : 'FAIL';
+    tdRes.style.padding = '2px 0';
+    tdRes.style.textAlign = 'center';
+    tdRes.style.color = r.ok ? '#22c55e' : '#ef4444';
+    tr.appendChild(tdFile);
+    tr.appendChild(tdSize);
+    tr.appendChild(tdTime);
+    tr.appendChild(tdRes);
+    body.appendChild(tr);
+  }
 }
 
 function ftpLoadFolders(want) {

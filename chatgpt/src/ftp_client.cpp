@@ -4,6 +4,7 @@
 #if ENABLE_FTP_CLIENT==1
 
 #include "ftp_client.h"
+#include "ftp_status_store.h"
 #include "config_manager_runtime.h"
 #include "runtime_environment.h" // hasNetworkConnectivity() for the monitor tick gate
 #include "sdcard.h"
@@ -254,9 +255,19 @@ bool ftpIsProtectedUploadPath(const char* path) {
 
 // --- Runtime state (DRAM: ~150 bytes) ---
 static FtpStatus s_status;
+// Durable "last sends" (FTP page must still explain the last cycle after a
+// reboot). Written ONLY on an upload event — never on the hot path; the file
+// is ~1 KB and lives beside the only_new journal (which keeps its own format).
+static FtpStatusStore s_statusStore;
+static bool s_statusStoreLoaded = false;
 static SemaphoreHandle_t s_mutex = nullptr;
 static TaskHandle_t s_monitorTask = nullptr;
 static unsigned long s_lastCycle = 0;
+
+// Durable status (defined after ftpMarkSent, where the LittleFS helpers live).
+static void ftpStatusStoreLoad();
+static void ftpStatusStoreSave();
+static void ftpStatusStoreRecord(const char* file, uint32_t size, bool ok, const char* result);
 
 // --- RTC RAM: auto-upload schedule phase (FTPC) --------------------
 // RTC_SLOW_MEM (SRAM, zero flash wear). `lastCyEpoch` mirrors the wall-clock
@@ -340,6 +351,7 @@ void ftpClientInit() {
     // the first run happens at ~60min uptime, not 30s.
     s_lastCycle = millis();
     _ftpRtcRead();
+    ftpStatusStoreLoad();   // persisted last-sends (page survives reboot)
 }
 
 bool ftpIsAvailable() {
@@ -354,6 +366,15 @@ void ftpGetStatus(FtpStatus& out) {
     out = s_status;
     out.enabled = configManager.getFtpEnabled();
     out.autoUpload = configManager.getFtpAutoUpload();
+    ftpUnlock();
+}
+
+// Persisted "last sends" (survives reboot). Copy under the lock: an upload in
+// progress may be rewriting the ring.
+void ftpGetStatusStore(FtpStatusStore& out) {
+    ftpStatusStoreLoad();   // idempotent; LittleFS read outside the lock
+    ftpLock();
+    out = s_statusStore;
     ftpUnlock();
 }
 
@@ -760,6 +781,63 @@ static void ftpMarkSent(const String& base, size_t size) {
     ftpTrimSentLog();
 }
 
+// ---- Durable status: /config/ftp_status.json --------------------------------
+// Separate file from the only_new journal on purpose: ftp_sent.log is a
+// name:size parser input, this one is a display summary (JSON).
+#define FTP_STATUS_PATH "/config/ftp_status.json"
+
+static void ftpStatusStoreLoad() {
+    if (s_statusStoreLoaded) return;
+    s_statusStoreLoaded = true;
+    ftpStatusStoreInit(s_statusStore);
+    if (!littlefsBegin()) return;
+    File f = LittleFS.open(FTP_STATUS_PATH, "r");
+    if (!f) return;
+    String js;
+    if ((size_t)f.size() < 8192) js.reserve((size_t)f.size() + 1);
+    while (f.available()) js += (char)f.read();
+    f.close();
+    if (!ftpStatusStoreFromJson(js, s_statusStore)) {
+        // Unreadable/foreign file: start clean (next upload rewrites it).
+        ftpStatusStoreInit(s_statusStore);
+        return;
+    }
+    // Seed the RAM status so the page/whoever asks shows the persisted totals
+    // from before the reboot (they are the source of truth for uploads).
+    s_status.okCount = s_statusStore.okCount;
+    s_status.failCount = s_statusStore.failCount;
+    if (s_statusStore.count > 0) {
+        strncpy(s_status.lastFile, s_statusStore.recent[0].name, sizeof(s_status.lastFile) - 1);
+        s_status.lastCode = s_statusStore.recent[0].ok ? 226 : 500;
+    }
+    strncpy(s_status.lastResult, s_statusStore.lastResult, sizeof(s_status.lastResult) - 1);
+}
+
+static void ftpStatusStoreSave() {
+    if (!littlefsBegin()) return;
+    const String js = ftpStatusStoreToJson(s_statusStore);
+    if (js.length() == 0) return;
+    File f = LittleFS.open(FTP_STATUS_PATH ".tmp", "w");
+    if (!f) return;
+    const size_t w = f.print(js);
+    f.close();
+    // Atomic swap: never write the final path directly (power-cut safe).
+    if (w == 0) { LittleFS.remove(FTP_STATUS_PATH ".tmp"); return; }
+    LittleFS.remove(FTP_STATUS_PATH);
+    LittleFS.rename(FTP_STATUS_PATH ".tmp", FTP_STATUS_PATH);
+    storNoteLfsWrite(w);   // every LittleFS write must be counted
+}
+
+// One upload attempt: append to the ring, bump totals, persist. Called with
+// the FTP lock already held (rare path: <= max_files per cycle, 12 h apart).
+static void ftpStatusStoreRecord(const char* file, uint32_t size, bool ok, const char* result) {
+    if (!s_statusStoreLoaded) ftpStatusStoreLoad();
+    const time_t now = time(nullptr);
+    const uint32_t ts = (now > 1000000000L) ? (uint32_t)now : 0;  // 0 = clock not set
+    ftpStatusStoreAddSend(s_statusStore, file, size, ok, ts, result);
+    ftpStatusStoreSave();
+}
+
 // Best-effort creation of the configured remote base folder and its parents
 // ("/Equip15" -> MKD /Equip15; "/a/b" -> MKD /a, MKD /a/b). A missing target
 // folder is the usual cause of STOR "553 Could not create file". "Already
@@ -914,6 +992,8 @@ bool ftpUploadFileImpl(FtpLocalFs fs, const String& localPath, const String& rem
     s_status.lastCode = ok ? 226 : 500;
     if (ok) s_status.okCount++; else s_status.failCount++;
     strncpy(s_status.activeSource, useSd ? "SD" : (usePsram ? "PSRAM" : "LFS"), sizeof(s_status.activeSource) - 1);
+    // Durable history for the page (survives the reboot that used to erase it).
+    ftpStatusStoreRecord(remoteName.c_str(), (uint32_t)fileSize, ok, detail.c_str());
     ftpUnlock();
     sendVirtualMessage(String(F("FTP upload ")) + detail, ok ? 0 : 1, true, true);
     return ok;

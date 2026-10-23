@@ -60,7 +60,10 @@ main.page.ftp > div.wrap
  │  │  └ File filter [ftpFilterLbl] + hint → extension checkbox strip + custom text (full-width row, `grid-column:1/-1`)
 │  └ 💾 Save (submit, form attr)
 └ 📊 Card "Status" [ftpStatusTitle] (purple border)
-   ├ div#ftp-status (source | last file | last result | OK/FAIL counters)
+   ├ div#ftp-status (source | last cycle time | last file | last result | OK/FAIL counters)
+   ├ 📋 "Recent uploads" [ftpRecentTitle]: table#ftp-recent (File | Size | Time | Result)
+   │  └ tbody#ftp-recent-body — newest first, ✔ green / ✘ red; div#ftp-recent-empty
+   │     [ftpRecentEmpty] shown instead when the device has no recorded sends
    ├ button #btn-ftp-test "Test connection" [ftpTestBtn]
    └ button #btn-ftp-now "Upload now" [ftpNowBtn]
 ```
@@ -109,7 +112,9 @@ checkboxes sit directly on the blue card — no inner dark box (the former
 Inline `<script>` (no arrow functions; `customAlert`, `disableBtn`/`enableBtn`, `showLoading`/`hideLoading`):
 
 - `ftpText(k, fb)` — i18n helper with fallback.
-- `ftpLoad()` — `GET /api/ftp-status` (`cache:'no-store'`); fills all inputs + checkboxes; renders `#ftp-status` line (`Source | Last | result | OK/FAIL`).
+- `ftpLoad()` — `GET /api/ftp-status` (`cache:'no-store'`); fills all inputs + checkboxes; renders `#ftp-status` line (`Source | Last cycle | last file | result | OK/FAIL`) and calls `ftpRenderRecent(d.recent)`.
+- `ftpRenderRecent(list)` — rebuilds `#ftp-recent-body` (file, `ftpFmtSize()`, `time_str`, ✔/✘) with `textContent` only (filenames are never parsed as markup); shows `#ftp-recent-empty` when the persisted list is empty.
+- `ftpFmtSize(b)` — bytes → `B` / `KB` / `MB` for the recent list.
 - `ftpLoadFolders()` — `GET /api/ftp-folders`; rebuilds `#ftp_local_dir` grouped by filesystem (`<optgroup>` SD card / PSRAM VFS / Internal flash); selects the exact saved value, else the group root; a legacy bare value not in the list is prepended and kept selected.
 - Test/now buttons — POST with empty JSON body; `customAlert(d.message)`; `ftpLoad()` refresh after.
 - Submit — `FormData` → `section=ftp`, sends the dropdown value as-is (`SD:/…` etc.), forces checkbox `'1'/'0'`, deletes empty `ftp_pass` so the NVS password is kept; urlencoded `POST /api/config`.
@@ -120,7 +125,7 @@ Inline `<script>` (no arrow functions; `customAlert`, `disableBtn`/`enableBtn`, 
 
 | Endpoint | Method | Handler | Purpose / shape |
 |---|---|---|---|
-| `/api/ftp-status` | GET | `ftp_handler.cpp` (`handleFtpStatusGet`) | full ftp section (password `"********"`) + `last_file/last_result/last_code/ok_count/fail_count/busy/source/monitor_stack_free`; JSON built in PSRAM |
+| `/api/ftp-status` | GET | `ftp_handler.cpp` (`handleFtpStatusGet`) | full ftp section (password `"********"`) + `last_file/last_result/last_code/ok_count/fail_count/busy/source/monitor_stack_free` + the persisted summary `last_time_str`/`last_epoch` and `recent[]` (`{file,size,ok,time_str,ts}`, newest first, ≤8); JSON built in PSRAM |
 | `/api/ftp-folders` | GET | `ftp_handler.cpp` (`handleFtpFoldersGet`) | JSON array of selectable local folders: `SD:/` + SD primary folders (SD mutex taken/released per entry + 1 ms yield so the SD never stays blocked), `PSRAM:/` + VFS folders, `LFS:/` + LittleFS primary folders (both guarded by their `ENABLE_*` flags) |
 | `/api/ftp-test` | POST | `ftp_handler.cpp` (`handleFtpTestPost`) | 429 throttle 10 s; 400 `config_incomplete`; else stepwise `control+login+PASV` probe (+ remote path existence check) → 200/500 with detail |
 | `/api/ftp-upload-now` | POST | `ftp_handler.cpp` (`handleFtpUploadNowPost`) | immediate monitor cycle → 200 `{uploaded, message}` when the cycle ran (incl. 0 new files); 400 when unconfigured; 500 `success:false` when the cycle never ran (`busy` / `disabled/incomplete`) |
@@ -139,6 +144,7 @@ Disabled build (`ENABLE_FTP_CLIENT==0`) → all three FTP APIs return 503 `ftp_d
 | FTP password real value | **NVS** namespace `esp32_config`, key `cfg_ftp_pwd` (`NVS_KEY_FTP_PWD`, `ConfigManager.h`) — disk copy stores `"********"` |
 | Load path | NVS password merged over file section at boot (`ConfigManager.cpp` `loadPwd`) |
 | Sent-files log (`name:size` lines, only-new tracking) | LittleFS `/config/ftp_sent.log` (append-only; read takes the NEWEST ~8 KB tail, line-aligned via `ftpSentTailWindow()` + `ftpSentKeepOffset()`; rotated at 16 KB keeping the newest ~8 KB from a line start — audit 2026-09-24: the old head-read forgot recent entries past 8 KB and re-uploaded them every cycle until rotation) |
+| Last-sends summary for the page (`v/last_time/ok_count/fail_count/last_result/recent[]`) | LittleFS `/config/ftp_status.json` (`ftp_status_store.h` + `ftp_client.cpp`; atomic `.tmp` → remove → rename, counted with `storNoteLfsWrite()`). Written **only on an upload event** (≤ `max_files` per cycle, 12 h apart) — never on a timer. Separate file from `ftp_sent.log` on purpose: the journal format is a `name:size` parser input and must not change. Restored in `ftpClientInit()` so `ok_count`/`fail_count`/`last_file`/`last_result` survive a reboot (they used to reset to 0, hiding the last cycle). |
 
 ---
 
@@ -162,6 +168,8 @@ Compiled under `#if ENABLE_FTP_CLIENT==1` (`ftp_client.cpp`):
 ## 10. i18n keys
 
 **Added (full PT/EN coverage, `lang_en_ui.h` + `lang_pt_ui.h`):** 11 key(s) — `ftpTipExtAvi`, `ftpTipExtBin`, `ftpTipExtCsv`, `ftpTipExtFlac`, `ftpTipExtGcode`, `ftpTipExtJpg`, `ftpTipExtLog`, `ftpTipExtMp3`, `ftpTipExtNc`, `ftpTipExtTxt`, `ftpTipExtWav`. HTML fallback text is English; PT is served from the packs.
+
+**Added 2026-10-23 (last sends):** `ftpStatusSource`, `ftpStatusLastCycle`, `ftpRecentTitle`, `ftpRecentEmpty`, `ftpColFile`, `ftpColSize`, `ftpColTime`, `ftpColResult` — EN + PT.
 
 `homeFtp`, `ftpPageTitle`, `ftpConnTitle`, `ftpHostLbl`, `ftpHostDesc`,
 `ftpPortLbl`, `ftpUserLbl`, `ftpPassLbl`, `ftpAnonLbl`, `ftpRemoteLbl`,
@@ -199,6 +207,7 @@ All present in `lang_en_ui.h` and `lang_pt_ui.h`; HTML fallback text is English.
 | 17 | **Audit 2026-09-24** — `break` on the first upload failure: one file the server persistently rejects (e.g. 553) wedged the whole queue behind it every cycle. **Fixed:** break only on session-level failures (`ftpIsConnectFailure()`: control/greeting/login, natively tested); per-file failures skip loudly and continue. | Medium | fixed — needs `pio run` |
 | 18 | **Audit 2026-09-24** — `POST /api/ftp-upload-now` always returned `success:true`, even when nothing ran (`busy` / `disabled/incomplete`). **Fixed:** `success:false` + 500 when the cycle never ran; `cycle done: 0` (nothing new) stays success. | Low | fixed — needs `pio run` |
 | 19 | **Audit 2026-09-24** — stale docs: header claimed 4 KB chunked STOR streaming (`FTP_CHUNK_SIZE`, never used) and a "full STOR probe" test (actually PWD+PASV); `PAGES/ftp.md` repeated the 4 KB chunk claim. **Fixed:** header + page doc describe whole-file PSRAM staging (cap 4 MB); dead define removed. | Info | fixed |
+| 20 | **Audit 2026-10-23 (board .29)** — the page's whole status was RAM-only: 10 files uploaded at 10:01, reboot at 10:02, `/api/ftp-status` then showed `last_file:"" ok_count:0 fail_count:0`, so the operator could not see what was sent or whether it failed. **Fixed:** `ftp_status_store.h` (pure, natively tested) + `/config/ftp_status.json` written only on an upload event (counted via `storNoteLfsWrite`, atomic `.tmp` swap); `ftpClientInit()` restores totals into the RAM status; `/api/ftp-status` adds `last_time_str`/`last_epoch`/`recent[]` (all legacy keys kept); the page renders a "Recent uploads" table (newest first, ✔/✘) with a readable empty state. `ftp_sent.log` untouched. | High (no diagnosis after reboot) | fixed — needs `pio run` + OTA |
 
 ---
 
@@ -218,5 +227,6 @@ All present in `lang_en_ui.h` and `lang_pt_ui.h`; HTML fallback text is English.
 | Route registry + manifests | `route_registry_api.cpp`, `selftest_handler.cpp`, `test_manifest_handler.cpp` |
 | Flags + pack validation | `config_defaults.h`, `packs/pack_validator.h`, packs `pack_cam/cam_p4/waveshare.h` (FTP on); CNC packs (`pack_s3_cnc_usb/p4_cnc.h`) have FTP client + page OFF |
 | i18n | `chatgpt/src/languages/lang_en_ui.h`, `lang_pt_ui.h` (ftp* keys) |
-| Tests | `tests/native/test_ftp_client.cpp`, `tests/web/test_ftp.js`, fixture `tests/web/pages/ftp.html` |
+| Tests | `tests/native/test_ftp_client.cpp`, `tests/native/test_ftp_status_store.cpp`, `tests/web/test_ftp.js`, fixture `tests/web/pages/ftp.html` |
+| Persisted last-sends store | `chatgpt/src/ftp_status_store.h` (pure) + `/config/ftp_status.json` I/O in `chatgpt/src/ftp_client.cpp` |
 | Flags sentinel | `tests/native/test_config_defaults.cpp`, `test_pack_validator.cpp` |
