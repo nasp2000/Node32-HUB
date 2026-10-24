@@ -1216,6 +1216,45 @@ async function timelineTests() {
     ok(hd.stopBins && hd.stopBins[cc], 'current column has cells');
     is(hd.stopBins[cc][cb], 0, 'live production keeps the current 5-min cell producing');
   });
+  // ====== T24: server 10-min stop buckets (?stops=1) ======
+  test('stopCellsFromBins maps blocks to the production-day grid (boundary 22)', function () {
+    // Mid-June: no DST transition inside the 24 h the blocks span.
+    var t0 = Math.floor(new Date(2026, 5, 15, 22, 0, 0).getTime() / 1000);
+    var bins = []; for (var i = 0; i < 144; i++) bins.push(0);
+    bins[0] = 600;     // 22:00-22:10 -> column 0, square 0
+    bins[7] = 300;     // 23:10-23:20 -> column 1, square 1
+    bins[143] = 600;   // 21:50-22:00 -> last column, last square
+    var cells = win.stopCellsFromBins(bins, t0, 22);
+    is(cells[0][0], 600, 'block 0 = first square of the boundary hour');
+    is(cells[1][1], 300, 'block 7 = second square of the next column');
+    is(cells[23][5], 600, 'last block = last square of the last column');
+    is(cells[0][1], 0, 'watched block without stop stays 0');
+  });
+  test('stopCellsFromBins keeps -1 (not watched) and rejects empty input', function () {
+    var t0 = Math.floor(new Date(2026, 5, 15, 0, 0, 0).getTime() / 1000);
+    var bins = []; for (var i = 0; i < 144; i++) bins.push(-1);
+    bins[12] = 0;      // 02:00-02:10 watched, no stop
+    var cells = win.stopCellsFromBins(bins, t0, 0);
+    is(cells[2][0], 0, 'watched block with production = 0');
+    is(cells[2][1], -1, 'not watched stays unknown');
+    is(win.stopCellsFromBins(null, t0, 0).length, 0, 'no bins = no cells');
+    is(win.stopCellsFromBins(bins, 0, 0).length, 0, 'no day start = no cells');
+  });
+  test('server bins reach the strip as red squares', function () {
+    t23Log = [];
+    var cv = doc.createElement('canvas');
+    var hourly = []; for (var h = 0; h < 24; h++) hourly.push(0);
+    hourly[8] = 5000;
+    var t0 = Math.floor(new Date(2026, 5, 15, 0, 0, 0).getTime() / 1000);
+    var bins = []; for (var i = 0; i < 144; i++) bins.push(0);
+    for (var b = 8 * 6 + 1; b < 8 * 6 + 3; b++) bins[b] = 600;   // 08:10-08:30 stopped
+    var cells = win.stopCellsFromBins(bins, t0, 0);
+    win.drawChart24(cv, hourly, [], 'DI1', '09-10-2026', 12, '#0284c7', 0, 85, {}, cells);
+    var slotW = (400 - 50 - 14) / 24;
+    var x0 = 50 + slotW * 8 + 1, x1 = x0 + slotW - 2;
+    var red = stripFillsIn(x0, x1).filter(function(c) { return c === '#dc2626'; }).length;
+    is(red, 2, 'two server-measured blocks paint 2 red squares');
+  });
 }
 
 // Summary

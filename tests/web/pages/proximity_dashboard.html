@@ -3,7 +3,7 @@
 <head>
   <meta charset='UTF-8'>
   <meta name='viewport' content='width=device-width,initial-scale=1'>
-  <title>Charts and OEE (Test)</title>
+  <title>proximity_dashboard (Test)</title>
 </head>
 <body>
 
@@ -323,6 +323,7 @@ var targetMap = {};      // chartChIdx -> target ppm (for the Y-axis max)
 var oeeTgtMap = {};     // chartChIdx -> Target OEE % (drives the target line)
 var _lastLive = null, _lastCfg = null;   // last poll payloads (title-mode re-render)
 var _lastShiftCfg = null;                // last shift-config payload (production-day window)
+var srvStops = null;                     // ?stops=1 payload {dayStart, byCh:{ch:[secs]}}
 var sysName = '';                        // system name, fetched once for chart titles
 var PALETTE = ['#0284c7','#059669','#d97706','#dc2626','#7c3aed','#db2777','#0891b2','#65a30d'];
 // T23 (Nuno) → owner revision 2026-10-21: the timeline squares are TEN-MINUTE
@@ -1037,7 +1038,7 @@ function updateHourly(live) {
     var liveTs = Math.floor(now.getTime() / 1000);
     hd.stopPrev = markStopSec(hd.stopBins, hd.stopPrev, countIn, liveTs, hd.stopPrevTs, dayStart);
     hd.stopPrevTs = liveTs;
-    drawChart24(document.getElementById('chart' + key), hd.counts, hd.scrapCounts, ch.name || ('DI' + (i+1)), dayKey, curCol, chartLines[key], targetMap[key] || 0, oeeTgtMap[key] || 85, vo, hd.stopBins);
+    drawChart24(document.getElementById('chart' + key), hd.counts, hd.scrapCounts, ch.name || ('DI' + (i+1)), dayKey, curCol, chartLines[key], targetMap[key] || 0, oeeTgtMap[key] || 85, vo, hd.srvBins || hd.stopBins);
   });
 }
 
@@ -1233,10 +1234,42 @@ function loadHistoricalData() {
         // live poll re-marks the current bin from stopPrev, which still tracks
         // the same absolute counter).
         hd.stopBins = stopBins[key];
-        drawChart24(document.getElementById('chart' + key), hd.counts, hd.scrapCounts, '', alignedStr, curCol, chartLines[key], targetMap[key] || 0, oeeTgtMap[key] || 85, vo, hd.stopBins);
+        drawChart24(document.getElementById('chart' + key), hd.counts, hd.scrapCounts, '', alignedStr, curCol, chartLines[key], targetMap[key] || 0, oeeTgtMap[key] || 85, vo, hd.srvBins || hd.stopBins);
       });
     })
     .catch(function() {});
+}
+
+// Ask the server for today's 10-min stop squares (RAM buckets measured every
+// minute) and keep them fresh: the persisted .chart is far too coarse for a
+// 10-min square. Applied after the charts are on screen so the strip upgrade
+// never delays the first paint. Replaces the counter heuristic per channel
+// only when the server watched that channel today.
+function applyServerStops() {
+  if (!srvStops) return;
+  var dayStart = currentDayStart();
+  Object.keys(hourlyData).forEach(function(key) {
+    var bins = srvStops.byCh[key];
+    if (!bins) return;
+    hourlyData[key].srvBins = stopCellsFromBins(bins, srvStops.dayStart, dayStart);
+  });
+  redrawCharts();
+}
+
+function loadStopBins() {
+  var now = new Date();
+  var dates = prodDayDates(now, currentBoundary());
+  var url = '/api/proximity-chart-data?date=' + _fmtDate(dates.aligned) + '&mode=day&stops=1';
+  fetch(url, {cache:'no-store'})
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(d) {
+      if (d && d.stops) {
+        srvStops = { dayStart: d.day_start || 0, byCh: d.stops };
+        applyServerStops();
+      }
+    })
+    .catch(function() {})
+    .finally(function() { setTimeout(loadStopBins, 120000); });
 }
 
 // Current-shift detection mirrors the firmware _detectCurrentShift(): the slot
@@ -1403,6 +1436,32 @@ function stopSquaresFromBins(row, cellSec, showSec) {
   }
   return out;
 }
+// Server stop squares (GET /api/proximity-chart-data?stops=1, RAM buckets the
+// firmware measures every minute). The persisted .chart keeps the configured
+// cadence (10m/30m/60m), so a 10-min stop disappears between two samples —
+// which is why the strip stayed green. Each server block is a clock-aligned
+// 10-min slice holding the SECONDS without production (-1 = not watched, 0 =
+// watched and producing); here they are folded into the same 24x6 cell grid
+// the strip already draws, so stopSquaresFromBins() needs no change.
+// Pure (testable): dayStartEpoch = epoch of block 0, dayStart = production-day
+// boundary hour (column order).
+function stopCellsFromBins(bins, dayStartEpoch, dayStart) {
+  var cells = [];
+  if (!bins || !bins.length || !dayStartEpoch) return cells;
+  for (var i = 0; i < bins.length; i++) {
+    var d = new Date((dayStartEpoch + i * STOP_CELL_SEC) * 1000);
+    var col = colForHour(d.getHours(), dayStart);
+    var k = Math.floor(d.getMinutes() / STOP_CELL_MIN);
+    if (k < 0) k = 0; else if (k >= STOP_CELLS_PER_HOUR) k = STOP_CELLS_PER_HOUR - 1;
+    if (!cells[col]) {
+      cells[col] = [];
+      for (var z = 0; z < STOP_CELLS_PER_HOUR; z++) cells[col].push(-1);
+    }
+    cells[col][k] = (bins[i] == null) ? -1 : bins[i];
+  }
+  return cells;
+}
+
 function donutFractions(runSec, plannedSec, elapsedSec) {
   if (!elapsedSec || elapsedSec <= 0) return null;
   var prod = Math.max(0, Math.min(1, (runSec || 0) / elapsedSec));
@@ -1549,6 +1608,7 @@ function poll() {
 
 poll();
 setTimeout(loadHistoricalData, 3000);
+setTimeout(loadStopBins, 6000);   // strip squares (server RAM buckets)
 loadSysName();
 syncDashOptsUI();
 document.getElementById('pdTrigger').addEventListener('mouseenter', function() {

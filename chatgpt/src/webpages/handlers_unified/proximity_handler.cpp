@@ -609,6 +609,7 @@ void handleProximityChartDataGet(HttpRequest& req, HttpResponse& res) {
     char today[11];
     snprintf(today, sizeof(today), "%02d-%02d-%04d", ti.tm_mday, ti.tm_mon + 1, ti.tm_year + 1900);
     String requestedDate, mode, fromStr;
+    bool wantStops = false;
     int start = 0;
     while (start < (int)req.query.length()) {
         int amp = req.query.indexOf('&', start);
@@ -620,9 +621,22 @@ void handleProximityChartDataGet(HttpRequest& req, HttpResponse& res) {
             if (k == "date") requestedDate = v;
             if (k == "mode") mode = v;
             if (k == "from") fromStr = v;
+            if (k == "stops") wantStops = (v != "0");
         }
         if (amp < 0) break;
         start = amp + 1;
+    }
+    // OEE timeline squares (10-min stop seconds of the production day, RAM
+    // only): a compact side-channel of the same route — the .chart series is
+    // served at the configured cadence, far too coarse for a 10-min square.
+    if (wantStops) {
+        String sbuf;
+        sbuf.reserve(2048);
+        _ProxStringPrint sbp(sbuf);
+        extern bool proxChartStopBinsJson(Print& out);
+        if (!proxChartStopBinsJson(sbp)) sbuf = F("{\"day_start\":0,\"bins\":0,\"stops\":{}}");
+        res.send(200, "application/json", sbuf);
+        return;
     }
     String resolvedDate = (requestedDate.length() == 10) ? requestedDate : String(today);
     if (mode.length() == 0) mode = "day";

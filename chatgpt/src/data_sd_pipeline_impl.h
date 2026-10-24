@@ -986,6 +986,26 @@ static PsramCircularBuffer<ProximityChartRecord> _proxChartRing(_CHART_RING_CAP,
 static SemaphoreHandle_t _proxChartRingMutex = NULL;
 static unsigned long _proxChartRingLastMs = 0;
 
+// --- OEE timeline stop buckets (Gráficos e OEE strip) ----------------------
+// The persisted .chart follows the CONFIGURED cadence (10m/30m/60m), which is
+// far too coarse for a 10-min square: a whole stop fits inside one record
+// interval, so the strip stayed green all day. The squares are therefore
+// measured HERE, at the 1-min accumulator cadence, in RAM only (no file, no
+// flash write): a block collects the seconds it had no production (counter
+// did not move since the previous minute tick), capped at the block size.
+// Index 0 = the block starting at the shift day boundary; the array is reset
+// when the production day changes and _PROX_STOP_UNKNOWN marks blocks the
+// board did not watch (before boot / no sensor), so the page keeps its own
+// fallback there instead of painting them as production.
+#define _PROX_STOP_BIN_SEC      600                  // 10 min per square
+#define _PROX_STOP_BINS         144                  // squares per production day
+#define _PROX_STOP_UNKNOWN      0xFFFF
+#define _PROX_STOP_MAX_CH       (CHART_HISTORY_PROXIMITY_MAX_COLUMNS / 3)
+static uint16_t _proxStopSec10[_PROX_STOP_MAX_CH][_PROX_STOP_BINS];
+static uint32_t _proxStopLastIn[_PROX_STOP_MAX_CH];
+static uint32_t _proxStopLastTick[_PROX_STOP_MAX_CH];
+static uint32_t _proxStopDayStart = 0;
+
 // Write one ProximityChartRecord for the current accumulator state.
 // Uniform persisted cadence: SD *and* LittleFS follow the configured flush
 // interval (default 30m, same rule as the CSV ticks) at the IDENTICAL path.
@@ -1113,6 +1133,92 @@ static void _proxChartRingPush(uint8_t nCols, uint32_t nowSec) {
     xSemaphoreGive(_proxChartRingMutex);
 }
 
+// Feed the 10-min stop buckets (see the table comment above). Called once per
+// minute tick: a channel whose counter did not move since the previous tick
+// produced nothing in that interval, so the seconds are credited to the block
+// holding `now`. _PROX_STOP_UNKNOWN is replaced by 0 the first time a block is
+// watched, so "no stop" (0) and "not watched" (-1 on the wire) stay distinct.
+// RAM only — no file, no flash counter involved.
+static void _proxStopBinsAdd(uint8_t nCh, const uint32_t* chIn, time_t now) {
+    if (!chIn || now <= 1000000000L) return;
+    struct tm ti;
+    localtime_r(&now, &ti);
+    uint32_t dayStart = 0;
+    const int bin = proxStopBinFromClock(ti.tm_hour, ti.tm_min, ti.tm_sec,
+                                         proximityShiftDayBoundaryHour(), now, &dayStart);
+    if (dayStart != _proxStopDayStart) {
+        _proxStopDayStart = dayStart;
+        for (uint8_t c = 0; c < _PROX_STOP_MAX_CH; c++) {
+            for (int b = 0; b < _PROX_STOP_BINS; b++) _proxStopSec10[c][b] = _PROX_STOP_UNKNOWN;
+            _proxStopLastIn[c] = 0;
+            _proxStopLastTick[c] = 0;
+        }
+    }
+    if (bin < 0 || bin >= _PROX_STOP_BINS) return;
+    for (uint8_t i = 0; i < nCh && i < _PROX_STOP_MAX_CH; i++) {
+        uint16_t &cell = _proxStopSec10[i][bin];
+        if (cell == _PROX_STOP_UNKNOWN) cell = 0;   // block is being watched now
+        const uint32_t v = chIn[i];
+        const uint32_t last = _proxStopLastTick[i];
+        // Before the first pulse of the day there is nothing to measure (an
+        // unconnected channel must not look stopped).
+        if (last != 0 && _proxStopLastIn[i] != 0 && v == _proxStopLastIn[i]) {
+            uint32_t dt = (uint32_t)(now - (time_t)last);
+            if (dt < 20) dt = 0;                                  // same-minute re-entry
+            else if (dt > _PROX_STOP_BIN_SEC) dt = _PROX_STOP_BIN_SEC;
+            if (dt > 0) {
+                uint32_t s = (uint32_t)cell + dt;
+                cell = (uint16_t)((s > _PROX_STOP_BIN_SEC) ? _PROX_STOP_BIN_SEC : s);
+            }
+        }
+        _proxStopLastIn[i] = v;
+        _proxStopLastTick[i] = (uint32_t)now;
+    }
+}
+
+// Stops payload for the OEE timeline strip (GET /api/proximity-chart-data?stops=1):
+// {"day_start":<epoch of block 0>,"bin_sec":600,"bins":144,
+//  "stops":{"<ch>":[144 x seconds | -1 = not watched]}} — RAM only, one entry
+// per channel that ever produced today (a quiet machine costs ~80 B/channel).
+// Non-static: called from the unified handler TU and the legacy WiFi handler.
+bool proxChartStopBinsJson(Print& out) {
+    time_t now = time(nullptr);
+    if (!sd_layout::clockReady(now)) return false;
+    struct tm ti;
+    localtime_r(&now, &ti);
+    uint32_t dayStart = 0;
+    (void)proxStopBinFromClock(ti.tm_hour, ti.tm_min, ti.tm_sec,
+                               proximityShiftDayBoundaryHour(), now, &dayStart);
+    out.print("{\"day_start\":");
+    out.print((unsigned long)dayStart);
+    out.print(",\"bin_sec\":");
+    out.print(_PROX_STOP_BIN_SEC);
+    out.print(",\"bins\":");
+    out.print(_PROX_STOP_BINS);
+    out.print(",\"stops\":{");
+    uint8_t nCh = _proxChartAccum.count / 3;
+    if (nCh > _PROX_STOP_MAX_CH) nCh = _PROX_STOP_MAX_CH;
+    if (dayStart == 0 || dayStart != _proxStopDayStart) nCh = 0;   // nothing measured yet today
+    bool first = true;
+    for (uint8_t i = 0; i < nCh; i++) {
+        if (_proxStopLastIn[i] == 0) continue;   // channel never saw production
+        if (!first) out.print(',');
+        first = false;
+        out.print('"');
+        out.print((unsigned)i);
+        out.print("\":[");
+        for (int b = 0; b < _PROX_STOP_BINS; b++) {
+            if (b) out.print(',');
+            const uint16_t v = _proxStopSec10[i][b];
+            if (v == _PROX_STOP_UNKNOWN) out.print(-1);
+            else out.print((unsigned)v);
+        }
+        out.print(']');
+    }
+    out.print("}}");
+    return true;
+}
+
 // Public function called by proximity_manager.cpp (via extern) each tick injection.
 // chIn/chOut are absolute totals; chPpm is the current rate.
 void proximityChartAddTick(uint8_t count, const uint32_t* chIn, const uint32_t* chOut, const float* chPpm) {
@@ -1147,6 +1253,11 @@ void proximityChartAddTick(uint8_t count, const uint32_t* chIn, const uint32_t* 
         _proxChartRingLastMs = nowMs;
         _proxChartRingPush(nCols, (uint32_t)rsNow);
     }
+
+    // OEE timeline squares: exact 10-min stop seconds in RAM (?stops=1). Runs at
+    // the same 1-min cadence as the record above, so a stop is measured even
+    // when nothing is being written/emailed.
+    _proxStopBinsAdd(nCh, chIn, rsNow);
 }
 
 // Periodic flush called from the main loop to guarantee a final record even when

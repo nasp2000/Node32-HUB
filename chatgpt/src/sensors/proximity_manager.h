@@ -590,6 +590,25 @@ static inline uint32_t proxShiftDayStartFromCivilMidnight(uint32_t civilMidnight
     return (civilMidnightTs > backSec) ? (civilMidnightTs - backSec) : 0;
 }
 
+// 10-min block of the production day that holds a given local clock time, plus
+// the epoch of that day's start. The block index runs 0..143 from the
+// day-boundary hour (same ordering as the .chart columns and the OEE timeline
+// strip), so block 0 is [b:00,b:10) and block 143 is [b-1:50,b:00). Pure —
+// shared by the RAM stop buckets and tests/native/test_proximity_day_aligned.cpp.
+// boundaryHour 0 = calendar day. `sec` only rounds the day start down.
+static inline int proxStopBinFromClock(int hour, int minute, int sec, uint8_t boundaryHour,
+                                       time_t now, uint32_t* dayStartOut) {
+    int mins  = (hour * 60) + minute;
+    int since = mins - ((int)boundaryHour * 60);
+    if (since < 0) since += 1440;
+    if (since >= 1440) since -= 1440;
+    if (dayStartOut) {
+        time_t start = now - (time_t)since * 60 - (time_t)(sec < 0 ? 0 : sec);
+        *dayStartOut = (start > 0) ? (uint32_t)start : 0;
+    }
+    return since / 10;
+}
+
 // 1-based turno number for a shift slot, rotated so the turn that STARTS at the
 // day-boundary hour is Turno 1 (e.g. {6,14,22} with boundary 22h: 22h=Turno 1,
 // 6h=Turno 2, 14h=Turno 3 — the day's first turn is the overnight one). Derived

@@ -396,3 +396,39 @@ TEST_CASE("chart/API day start: 6h boundary pulls back 18h, guards hold") {
     CHECK(proxShiftDayStartFromCivilMidnight(0, 22) == 0);
     CHECK(proxShiftDayStartFromCivilMidnight(civilMid, 24) == civilMid);
 }
+
+// ===== OEE timeline stop buckets (?stops=1) =====
+// The strip draws 6 squares of 10 min per hour column, in the SAME order as the
+// .chart columns (they start at the day-boundary hour). proxStopBinFromClock is
+// the pure mapping the RAM bucket writer and the page share, so a block index
+// always lands on the column/square the strip paints.
+TEST_CASE("stop bins: 22h boundary puts 22:00 in block 0 and 21:50 in block 143") {
+    const time_t now2200 = wallClock(2026, 6, 15, 22, 0, 0);
+    const time_t now0130 = wallClock(2026, 6, 16, 1, 30, 0);
+    const time_t now2155 = wallClock(2026, 6, 15, 21, 55, 0);
+    uint32_t ds = 0;
+
+    CHECK(proxStopBinFromClock(22, 0, 0, 22, now2200, &ds) == 0);
+    CHECK(ds == (uint32_t)now2200);                    // the day starts here
+    CHECK(proxStopBinFromClock(1, 30, 0, 22, now0130, &ds) == 21);   // 22:00+3h30
+    CHECK(ds == (uint32_t)wallClock(2026, 6, 15, 22, 0, 0));
+    CHECK(proxStopBinFromClock(21, 55, 0, 22, now2155, &ds) == 143); // last square
+    CHECK(ds == (uint32_t)wallClock(2026, 6, 14, 22, 0, 0));
+    // Every block maps back to its own start once the page adds bin*600 s.
+    for (int b = 0; b < 144; b++) {
+        CHECK((uint32_t)(ds + (uint32_t)b * 600) ==
+              (uint32_t)(wallClock(2026, 6, 14, 22, 0, 0) + b * 600));
+    }
+}
+
+TEST_CASE("stop bins: boundary 0 = calendar day, sub-minute seconds floor the start") {
+    const time_t t = wallClock(2026, 6, 15, 8, 17, 42);
+    uint32_t ds = 0;
+    CHECK(proxStopBinFromClock(0, 5, 0, 0, wallClock(2026, 6, 15, 0, 5, 0), &ds) == 0);
+    CHECK(proxStopBinFromClock(23, 59, 0, 0, wallClock(2026, 6, 15, 23, 59, 0), &ds) == 143);
+    // 08:17:42 -> block 49 (08:10) and a day start of 00:00:00 exactly.
+    CHECK(proxStopBinFromClock(8, 17, 42, 0, t, &ds) == 49);
+    CHECK(ds == (uint32_t)wallClock(2026, 6, 15, 0, 0, 0));
+    // NULL day-start pointer is allowed (JSON emitter only needs the index).
+    CHECK(proxStopBinFromClock(8, 17, 42, 0, t, nullptr) == 49);
+}

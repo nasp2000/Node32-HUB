@@ -732,6 +732,20 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
         const uint32_t prodDayStart =
             proxShiftDayStartFromCivilMidnight(chartHistoryDayStartFromRs232DateId(resolvedDate),
                                                proximityShiftDayBoundaryHour());
+        // OEE timeline squares (10-min stop seconds, RAM only) — compact side
+        // channel of this route, kept identical to the unified handler.
+        if (request->hasParam("stops") && request->getParam("stops")->value() != "0") {
+            AsyncResponseStream* stops = request->beginResponseStream("application/json");
+            if (!stops) { request->send(500, "application/json", "{\"error\":\"no memory\"}"); return; }
+            stops->addHeader("Cache-Control", "no-store");
+            extern bool proxChartStopBinsJson(Print& out);
+            if (!proxChartStopBinsJson(*stops)) {
+                request->send(200, "application/json", "{\"day_start\":0,\"bins\":0,\"stops\":{}}");
+                return;
+            }
+            request->send(stops);
+            return;
+        }
         uint32_t fromTs = 0;
         if (request->hasParam("from")) {
             fromTs = (uint32_t)strtoul(request->getParam("from")->value().c_str(), nullptr, 10);

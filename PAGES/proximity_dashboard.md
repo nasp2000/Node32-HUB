@@ -286,6 +286,18 @@ chart on change via `onDashOptChange()` → `redrawCharts()`, persisted in
   runs below `STOP_CELL_SHOW_SEC` (600 s) and paints `round(run/10 min)` squares from
   the run start, so 10 min = 1 square, 15 min = 2, 20 min = 2, 45 min = 5. No half
   squares and nothing shorter than 10 min ever appears; one separator per square.
+- **`stopCellsFromBins(bins, dayStartEpoch, dayStart)`** — pure: folds the server's
+  10-min stop buckets (`?stops=1`; index 0 = block starting at `dayStartEpoch`, values
+  in SECONDS without production, `-1` = not watched) into the same 24×6 cell grid the
+  strip draws (`col = colForHour(hour of the block start)`, `k = minute/10`), so
+  `stopSquaresFromBins()` and `drawTimeline()` need no change. `-1` is kept as unknown
+  (breaks a run instead of counting as production).
+- **`loadStopBins()` / `applyServerStops()`** — fired 6 s after load and re-fired every
+  2 min: fetches the compact stops payload for the aligned date and attaches
+  `hd.srvBins` per channel; `drawChart24` receives `hd.srvBins || hd.stopBins`, i.e. the
+  exact server measurement replaces the counter heuristic for every channel the board
+  watched today (a channel missing from `stops` keeps the heuristic). 6 s/2 min keeps it
+  off the first paint and well inside the route's rate guard.
 - **`loadHistoricalData()`** — fired 3 s after load: fetches the two calendar files
   the production day spans (`GET /api/proximity-chart-data?date=PREV&mode=day&from=<boundaryTs>`
   + `?date=ALIGNED&mode=day`; boundary 0 = single legacy request) and buckets the
@@ -295,7 +307,10 @@ chart on change via `onDashOptChange()` → `redrawCharts()`, persisted in
   through the current one (`k <= curCol`, `mergeHistoryBackfill()`); future columns stay
   empty. T23: every kept sample pair also feeds `markStopSec()` (same baseline
   discipline, plus the previous timestamp), building the per-channel 24×12 stop cells
-  (seconds without production per 5-min cell) attached as `hd.stopBins`. **Current-hour column full from SD + live re-anchor:** on a page (re)load mid-hour
+  (seconds without production per 5-min cell) attached as `hd.stopBins`. Since
+  2026-10-24 the server's 10-min RAM buckets (`?stops=1`, see `loadStopBins()`) take
+  precedence for every channel the board watched (`hd.srvBins`); this heuristic stays
+  as the fallback (old firmware, request failed, channel never seen today). **Current-hour column full from SD + live re-anchor:** on a page (re)load mid-hour
   the current column is backfilled from SD and each channel's live baseline is re-anchored
   to `liveIn − SD_current_col` (clamped ≥0; scrap counterpart via the scrap-mapped channel,
   else own `count_out`), so the current-hour bar shows the whole hour from start — not just
@@ -325,6 +340,7 @@ chart on change via `onDashOptChange()` → `redrawCharts()`, persisted in
 | `/api/proximity/oee` | GET | per-channel real-time OEE result `{ch,name,scrap_count,running_sec,downtime_sec,effective_good,target_ppm,availability,performance,quality,oee,theoretical,day_oee,day_a,day_p,day_q,day_run,day_planned,day_elapsed}` (`day_*` = day-so-far since the shift-aligned day-boundary baselines; `day_run/planned/elapsed` feed the donut) |
 | `/api/proximity/shift-config` | GET | shift slots `{en,ar,nSlots,slots:[{h,m}],stops:[…],emails}` (used for the shift chip) |
 | `/api/proximity-chart-data?date&mode=day[&from]` | GET | merged per-channel series `{timestamps, stride, prox_ch<i>_in, …}` for the given calendar date (uniform standard: persisted file history — SD or identical-path LittleFS mirror at the configured flush interval, default 30m — PLUS the volatile 1-min PSRAM ring tail, always minute-fresh, one stride budget over the union); the dashboard fetches PREV (`from` = boundary hour) + ALIGNED to cover one production day |
+| `/api/proximity-chart-data?…&stops=1` | GET | **OEE timeline squares** — `{day_start, bin_sec:600, bins:144, stops:{"<ch>":[144 × seconds | -1 = not watched]}}`: seconds WITHOUT production per 10-min block of the production day, measured every minute in RAM (`_proxStopSec10`, cleared on day rollover, `-1` = before boot / no sensor). Same route, compact side-channel: the `.chart` series follows the configured cadence (10m/30m/60m) and a whole 10-min stop fits between two records, which is why the strip could not resolve it |
 | `/api/config?section=system` | GET | system name (`system_name`) for the default chart title |
 
 All three registered via `registerApiRoute` in `web_routes_proximity.cpp` (see also
@@ -417,6 +433,7 @@ No remaining hardcoded user-visible strings.
 | 6 | **`/api/proximity-chart-data` could time out (HTTP 000)** on slow SD: `chartHistoryStreamFloat32JsonImpl` scanned the .chart file one record per `file.read()` syscall and read it twice (count + strided store). Fixed (shared with RS232/MODBUS charts): the reader now pulls whole fixed-size records in **block-buffered reads** (~4 KB per SD read), cutting SD read syscalls by ~40× while byte-for-byte preserving the strided output (verified by `tests/native/test_chart_history_stream.cpp`). | Medium | Fixed in `chatgpt/src/chart_history.cpp:599-701`. |
 | 7 | **Micro-paragens invisíveis na timeline (pedido Nuno 2026-10-14):** a faixa T22 pintava 1 cor sólida por hora, por isso uma paragem de 10 min dentro de uma hora produtiva escondia-se atrás do verde. **Implementado (T23):** cada segmento horário divide-se em blocos de 10 min (`markStopSec()` puro — amostras `prox_ch<i>_in` do histórico + cauda live dos polls; `stopBinIsFuture()`; fallback à cor sólida da hora quando a célula não tem amostras). Paragem = vermelho em turno, âmbar em paragem planeada; futuro = cinzento; legenda com "(bloco = 10 min)". **Revisão 2026-10-15 (pedido Nuno — "20 minutos são dois blocos"):** as células passaram a 5 min (12/hora) contando os SEGUNDOS reais sem produção, pintadas a partir de metade da célula (150 s). **Revisão 2026-10-21 (pedido Nuno — "só coisas mínimo 10 minutos, máximo 6 quadrados por hora"):** voltou a **10 min por quadrado (6/hora)** e o limiar passou a ser o quadrado inteiro: `stopSquaresFromBins()` agrupa quadrados com ≥ 300 s, **descarta corridas < 10 min** (`STOP_CELL_SHOW_SEC`) e pinta `round(corrida/10 min)` quadrados a partir do início da corrida (10 min = 1, 15 = 2, 20 = 2, 45 = 5) — nunca há meios quadrados nem paragens abaixo de 10 min; um separador por quadrado. Buraco de dados > 20 min não credita tudo (evita dia todo vermelho após reboot). Sem mudança de firmware — só JS do asset + i18n. | Feature | `page_proximity_dashboard_asset.h` (`markStopSec`, `stopBinIsFuture`, `drawTimeline`, `timelineLegendHTML`), `lang_pt_ui.h`/`lang_en_ui.h` (`proxDashTlBin`), `test_proximity_dashboard.js` (testes T23 + casos de 10-min/limiar/6 quadrados). |
 | 8 | **Letras pequenas (pedido Nuno):** valores nas barras 10/11px e legenda da faixa `.pd-tl` 9px. **Aumentado:** valores 12/13px, legenda 12px com swatches 11px. **Depois:** faixa descida (gap 18→30px dos labels das horas, `padB` 56→68, faixa 10→12px) e legenda em caixa com fundo/borda iguais às caixas OEE do turno (`.pd-shift-box`). | Feature | `page_proximity_dashboard_asset.h` (CSS `.pd-tl`, font dos value labels + geometria `drawTimeline` em `drawChart24`). |
+| 9 | **Paragens ≥ 10 min não apareciam na faixa (dono, .29, 2026-10-24):** a faixa mostrava o dia todo verde. **Causa provada:** o `.chart` persistido segue o intervalo configurado (default **30 min**), por isso entre dois registos cabe a paragem inteira — o heurístico `markStopSec()` só vê o que está entre amostras, e a única zona com 1 min de detalhe é a cauda do anel PSRAM (~30 min). Simulação com a forma real do payload (30 min + anel): paragem de 35 min → 0 quadrados; com registos de 1/10 min → 3 quadrados. **Correção:** o firmware passa a medir os quadrados de 10 min em RAM ao minuto (`_proxStopSec10`, 144 blocos × canais, limpos na viragem do dia, `-1` = não vigiado) e serve-os em `?stops=1`; a página mapeia-os com `stopCellsFromBins()` para a grelha 24×6 e passa a preferi-los (`hd.srvBins \|\| hd.stopBins`). Sem ficheiro novo, sem escrita em flash (só RAM), payload ~80 B por canal. | High | Fixed: `data_sd_pipeline_impl.h` (`_proxStopBinsAdd`, `proxChartStopBinsJson`), `proximity_manager.h` (`proxStopBinFromClock`), `proximity_handler.cpp` + `rs232_history_handler.cpp` (`stops=1`), `page_proximity_dashboard_asset.h` (`stopCellsFromBins`, `loadStopBins`), `test_proximity_day_aligned.cpp` + `test_proximity_dashboard.js` (T24). |
 
 ---
 
@@ -428,6 +445,7 @@ No remaining hardcoded user-visible strings.
 | Page HTML/CSS/JS (PROGMEM) | `chatgpt/src/webpages/assets/page_proximity_dashboard_asset.h` |
 | Routes (WiFi + Ethernet) | `web_routes_proximity.cpp:195`, `ethernet_bootstrap_routes.h:238` |
 | Live/config/chart data | `handlers_unified/proximity_handler.cpp`, `proximity_manager.cpp` |
+| Chart/stop data (files + RAM) | `data_sd_pipeline_impl.h` (ring + `.chart` writer, `_proxStopBinsAdd`/`proxChartStopBinsJson`), `chart_ring_serve.h`, legacy WiFi route `handlers/rs232_history_handler.cpp` |
 | Home entry | `home_page_renderer.h:168` |
 | Self-test manifest | `test_manifest_handler.cpp:256` (`PAGE("/proximity-dashboard", ENABLE_PROXIMITY)`) |
 
