@@ -101,6 +101,10 @@ struct UnikonConfig {
     // Example ring: 23003379958 -> 23-3379958
     // Example chip: C9933525001 -> C9933525
     bool     officialFormat;
+    // Bench/manual serial: when true the module does NOT apply its own 9600 8N1
+    // profile and uses whatever is saved on the RS232 page instead (framing tests).
+    // Persisted as "manual_serial" in /config/unikon.json.
+    bool     manualSerial;
 };
 
 // ----- Public API -----

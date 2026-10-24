@@ -25,6 +25,11 @@
 #include "unikon_protocol.h"
 #endif
 
+#if ENABLE_BRICON==1
+#include <string.h>
+#include "bricon_protocol.h"   // BriconStatus / briconActiveModuleName() for the OLED line 3
+#endif
+
 #if ENABLE_MQ135==1
 #include "sensors/sensor_mq135.h"
 #endif
@@ -762,8 +767,19 @@ void ScreenManager::showStatusScreen() {
     const bool line3UnikonOnly = false;
 #endif
 
+#if ENABLE_BRICON==1
+    // Rambox: line 3 names the module that owns the RS232 port (Unikon RAMBOX or
+    // Bricon) and its arrival counters — only one module can be active at a time.
+    const bool line3BriconActive = (strcmp(briconActiveModuleName(), "bricon") == 0);
+#else
+    const bool line3BriconActive = false;
+#endif
+#if ENABLE_UNIKON==0 && ENABLE_BRICON==0
+    (void)line3BriconActive;   // no module line in this build
+#endif
+
 #if ENABLE_UNIKON==1
-    {
+    if (!line3BriconActive) {
         UnikonStatus us = unikonGetStatus();
         if (us.connected) {
             moduleLines[moduleCount++] = L(activeLang->screenUnikonPlus) + String(us.lastNewCount) +
@@ -771,6 +787,20 @@ void ScreenManager::showStatusScreen() {
                                          " reg " + String(us.registeredCount);
         } else {
             moduleLines[moduleCount++] = L(activeLang->screenUnikonOffline) + String(us.totalKnown);
+        }
+    }
+#endif
+
+#if ENABLE_BRICON==1
+    if (line3BriconActive) {
+        BriconStatus bs = briconGetStatus();
+        uint16_t briconTotal = briconGetArrivalCount();
+        if (bs.connected) {
+            moduleLines[moduleCount++] = L(activeLang->screenBriconPlus) + String(bs.lastNewCount) +
+                                         " total " + String(briconTotal) +
+                                         " reg " + String(briconGetRegistrationCount());
+        } else {
+            moduleLines[moduleCount++] = L(activeLang->screenBriconOffline) + String(briconTotal);
         }
     }
 #endif

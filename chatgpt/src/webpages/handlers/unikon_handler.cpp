@@ -33,6 +33,8 @@ void registerUnikonApiRoutes(AsyncWebServer& server, const WebRouteContext& cont
             cfg.passiveListen = request->getParam("passive", true)->value().toInt() != 0;
         if (request->hasParam("official_format", true))
             cfg.officialFormat = request->getParam("official_format", true)->value().toInt() != 0;
+        if (request->hasParam("manual", true))
+            cfg.manualSerial = request->getParam("manual", true)->value().toInt() != 0;
 
         unikonSetConfig(cfg);
         // Exclusive module rule (rambox XOR bricon): enabling Unikon disables Bricon.

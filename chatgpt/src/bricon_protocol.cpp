@@ -63,7 +63,7 @@ static uint32_t s_lastLogMs = 0;               // RX log throttle
 // ----- Config persistence (atomic .tmp -> rename, same pattern as Unikon) -----
 static void loadConfig() {
     s_cfg.enabled = false;
-    s_cfg.pollIntervalSec = 0;
+    s_cfg.pollIntervalSec = 180;              // default: 3 minutes (same as the Unikon side)
     s_cfg.baudrate = 9600;
     s_cfg.dataBits = 8;
     strlcpy(s_cfg.parity, "none", sizeof(s_cfg.parity));
@@ -72,6 +72,7 @@ static void loadConfig() {
     s_cfg.baAddress = 0;
     strlcpy(s_cfg.clubId, "0000", sizeof(s_cfg.clubId));
     strlcpy(s_cfg.flightId, "0000", sizeof(s_cfg.flightId));
+    s_cfg.manualSerial = false;              // default: apply the module's own 9600 8N2
     if (!littlefsBegin()) return;
     if (!LittleFS.exists(BRICON_CFG_PATH)) return;
     File f = LittleFS.open(BRICON_CFG_PATH, "r");
@@ -83,7 +84,7 @@ static void loadConfig() {
     if (deserializeJson(doc, f) != DeserializationError::Ok) { f.close(); return; }
     f.close();
     s_cfg.enabled         = doc["enabled"]  | false;
-    s_cfg.pollIntervalSec = doc["interval"] | (uint16_t)0;
+    s_cfg.pollIntervalSec = doc["interval"] | (uint16_t)180;   // missing key = 3 min
     s_cfg.baudrate        = doc["baud"]     | 9600;
     s_cfg.dataBits        = doc["data"]     | 8;
     const char* par       = doc["parity"]   | "none";
@@ -96,6 +97,7 @@ static void loadConfig() {
     const char* fl        = doc["flight"]   | "0000";
     strlcpy(s_cfg.clubId, cl, sizeof(s_cfg.clubId));
     strlcpy(s_cfg.flightId, fl, sizeof(s_cfg.flightId));
+    s_cfg.manualSerial    = doc["manual_serial"] | false;
 }
 
 static bool saveConfig() {
@@ -115,6 +117,7 @@ static bool saveConfig() {
     doc["ba"]       = s_cfg.baAddress;
     doc["club"]     = s_cfg.clubId;
     doc["flight"]   = s_cfg.flightId;
+    doc["manual_serial"] = s_cfg.manualSerial;
     String tmpPath = String(BRICON_CFG_PATH) + ".tmp";
     File f = LittleFS.open(tmpPath.c_str(), "w");
     if (!f) return false;
@@ -157,6 +160,29 @@ bool briconIsActive() {
 
 void briconApplySerialProfile() {
 #if ENABLE_RS232 == 1
+    if (s_cfg.manualSerial) {
+        // Bench mode: the user wants this module on the RS232 page settings
+        // (framing/baud under test). Only the RUNTIME globals are loaded from the
+        // RS232 section -- the module's own config (s_cfg) is never rewritten.
+        extern const int RS232_BAUDRATES[];
+        extern const int RS232_BAUDRATES_COUNT;
+        rs232_enabled = true;        // the module cannot run with the port closed
+        rs232_baudrate_index = configManager.getRs232BaudrateIndex();
+        if (rs232_baudrate_index < 0 || rs232_baudrate_index >= RS232_BAUDRATES_COUNT) rs232_baudrate_index = 3;
+        rs232_baudrate  = RS232_BAUDRATES[rs232_baudrate_index];
+        rs232_data_bits = configManager.getRs232DataBits();
+        {
+            String p = configManager.getRs232Parity();
+            p.toLowerCase();
+            if (p == "even" || p == "odd" || p == "none") rs232_parity = p;
+        }
+        rs232_stop_bits = configManager.getRs232StopBits();
+        rs232_invert_pins = configManager.getRs232InvertPins();
+        _pendingRS232Apply = true;   // applied on the main loop
+        sendVirtualMessage(F("[BRICON] RS232 profile: using the RS232 page settings (manual_serial)"),
+                           WARN, false, true);
+        return;
+    }
     extern const int RS232_BAUDRATES[];
     extern const int RS232_BAUDRATES_COUNT;
     rs232_baudrate = s_cfg.baudrate;
@@ -230,6 +256,7 @@ BriconStatus briconGetStatus() {
 
 void briconSetConfig(const BriconConfig& cfg) {
     bool wasOn = s_cfg.enabled;
+    bool wasManual = s_cfg.manualSerial;
     s_cfg = cfg;
     if (s_cfg.baudrate <= 0) s_cfg.baudrate = 9600;
     if (s_cfg.dataBits < 5 || s_cfg.dataBits > 8) s_cfg.dataBits = 8;
@@ -240,7 +267,9 @@ void briconSetConfig(const BriconConfig& cfg) {
     if (strlen(s_cfg.clubId) != 4)   strlcpy(s_cfg.clubId, "0000", sizeof(s_cfg.clubId));
     if (strlen(s_cfg.flightId) != 4) strlcpy(s_cfg.flightId, "0000", sizeof(s_cfg.flightId));
     if (!saveConfig()) s_configWritePending = true;
-    if (s_cfg.enabled && !wasOn) {
+    // Re-apply the profile when the module is enabled and either it just became
+    // active or the manual/bench serial switch changed (RS232 page vs own profile).
+    if (s_cfg.enabled && (!wasOn || s_cfg.manualSerial != wasManual)) {
         enforceExclusionOnEnable();
         briconApplySerialProfile();
     }
@@ -400,10 +429,13 @@ static void appendBriconRegistrationsSection(String& body) {
 // every row use the same widths — so the table is always aligned, whoever reads it.
 static void appendBriconArrivalSection(String& body, const char* title,
                                        bool trainingOnly, uint16_t fromIdx, uint16_t toIdx) {
-    const char* HDR[8] = { "No", rmbT("Anilha", "Ring"), "Chip", rmbT("Hora", "Time"),
-                           rmbT("Data", "Date"), rmbT("Prova", "Race"), "Pos", "Eval" };
-    uint8_t w[8];
-    for (uint8_t c = 0; c < 8; c++) w[c] = (uint8_t)strlen(HDR[c]);
+    // Phone-friendly table: No / Ring / Chip / Time only. Date, Race, Pos and Eval
+    // were dropped because the 8-column ASCII table wrapped and was unreadable on a
+    // smartphone (the race is already named in the header lines of the email).
+    const char* HDR[4] = { "No", rmbT("Anilha", "Ring"), "Chip", rmbT("Hora", "Time") };
+    uint8_t w[4];
+    for (uint8_t c = 0; c < 4; c++) w[c] = (uint8_t)strlen(HDR[c]);
+    if (w[1] < 6) w[1] = 6;
 
     // ---- pass 1: measure (header + every value that will be printed) ----
     for (uint16_t i = fromIdx; i < toIdx; i++) {
@@ -417,23 +449,15 @@ static void appendBriconArrivalSection(String& body, const char* title,
         n = s_arrivals[i].hasChip ? (int)strlen(s_arrivals[i].chip) : 0;
         if (n > (int)w[2]) w[2] = (uint8_t)n;
         if (w[3] < 8) w[3] = 8;                         // HH:MM:SS
-        if (w[4] < 8) w[4] = 8;                         // DD/MM/YY
-        n = (int)strlen(s_arrivals[i].race);
-        if (n > (int)w[5]) w[5] = (uint8_t)n;
-        n = (s_arrivals[i].posArriveClub > 0)
-            ? snprintf(b, sizeof(b), "%u", (unsigned)s_arrivals[i].posArriveClub) : 0;
-        if (n > (int)w[6]) w[6] = (uint8_t)n;
     }
     if (w[1] > 15) w[1] = 15;                           // sane caps
     if (w[2] > 11) w[2] = 11;
-    if (w[5] > 12) w[5] = 12;
-    if (w[6] < 3)  w[6] = 3;
 
     // ---- separator ----
     String sep;
-    sep.reserve(96);
+    sep.reserve(40);
     sep += '+';
-    for (uint8_t c = 0; c < 8; c++) {
+    for (uint8_t c = 0; c < 4; c++) {
         for (uint8_t k = 0; k < (uint8_t)(w[c] + 2); k++) sep += '-';
         sep += '+';
     }
@@ -441,13 +465,13 @@ static void appendBriconArrivalSection(String& body, const char* title,
 
     // ---- header ----
     String hdr;
-    hdr.reserve(96);
+    hdr.reserve(60);
     hdr += '|';
-    for (uint8_t c = 0; c < 8; c++) bkAppendCell(hdr, HDR[c], w[c]);
+    for (uint8_t c = 0; c < 4; c++) bkAppendCell(hdr, HDR[c], w[c]);
     hdr += '\n';
 
     String section;
-    section.reserve(220 + (uint16_t)(toIdx - fromIdx) * 96u);
+    section.reserve(120 + (uint16_t)(toIdx - fromIdx) * 52u);
     section += sep;
     section += hdr;
     section += sep;
@@ -462,29 +486,14 @@ static void appendBriconArrivalSection(String& body, const char* title,
         const char* t6 = s_arrivals[i].arrivalTime;
         snprintf(timeStr, sizeof(timeStr), "%c%c:%c%c:%c%c", t6[0], t6[1], t6[2], t6[3], t6[4], t6[5]);
 
-        char dateStr[10] = "";
-        const char* d = s_arrivals[i].arrivalDate;
-        size_t dl = strlen(d);
-        if (dl >= 6)      snprintf(dateStr, sizeof(dateStr), "%c%c/%c%c/%c%c", d[0], d[1], d[2], d[3], d[4], d[5]);
-        else if (dl >= 4) snprintf(dateStr, sizeof(dateStr), "%c%c/%c%c", d[0], d[1], d[2], d[3]);
-
         char noStr[10];
         snprintf(noStr, sizeof(noStr), "%u.", (unsigned)(i + 1));
-        char posStr[10] = "";
-        if (s_arrivals[i].posArriveClub > 0)
-            snprintf(posStr, sizeof(posStr), "%u", (unsigned)s_arrivals[i].posArriveClub);
-        char evalStr[3] = "";
-        if (s_arrivals[i].evaluation) { evalStr[0] = s_arrivals[i].evaluation; evalStr[1] = '\0'; }
 
         section += '|';
         bkAppendCell(section, noStr, w[0]);
         bkAppendCell(section, s_arrivals[i].ring, w[1]);
         bkAppendCell(section, s_arrivals[i].hasChip ? s_arrivals[i].chip : "", w[2]);
         bkAppendCell(section, timeStr, w[3]);
-        bkAppendCell(section, dateStr, w[4]);
-        bkAppendCell(section, s_arrivals[i].race, w[5]);
-        bkAppendCell(section, posStr, w[6]);
-        bkAppendCell(section, evalStr, w[7]);
         section += '\n';
     }
 

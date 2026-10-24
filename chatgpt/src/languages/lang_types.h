@@ -118,6 +118,8 @@ struct LangStrings {
     const char* screenGasNoInit;
     const char* screenUnikonPlus;
     const char* screenUnikonOffline;
+    const char* screenBriconPlus;
+    const char* screenBriconOffline;
     const char* screenSchedLabel;
 
     // --- API messages surfaced in the browser (JSON responses) ---

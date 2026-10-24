@@ -385,6 +385,7 @@ static void loadConfig() {
         s_cfg.pollIntervalSec = 180;
     s_cfg.passiveListen   = doc["passive"]   | false;
     s_cfg.officialFormat  = doc["official_format"] | true;
+    s_cfg.manualSerial    = doc["manual_serial"] | false;
     Serial.printf("[UNIKON] loadConfig: loaded enabled=%d interval=%u passive=%d official=%d\n",
                   (int)s_cfg.enabled, (unsigned)s_cfg.pollIntervalSec,
                   (int)s_cfg.passiveListen, (int)s_cfg.officialFormat);
@@ -452,6 +453,7 @@ static bool saveConfig() {
     doc["interval"] = s_cfg.pollIntervalSec;
     doc["passive"]  = s_cfg.passiveListen;
     doc["official_format"] = s_cfg.officialFormat;
+    doc["manual_serial"]   = s_cfg.manualSerial;
 
     JsonArray contestsArray = doc.createNestedArray("contests");
     for (uint16_t i = 0; i < s_contestCount; i++) {
@@ -994,10 +996,6 @@ static bool hasValidTime(const UnikonArrival& a) {
     return a.arrivalTime[0] != '\0' && memcmp(a.arrivalTime, "000000", 6) != 0;
 }
 
-static bool hasValidDate(const UnikonArrival& a) {
-    return a.arrivalDate[0] != '\0' && memcmp(a.arrivalDate, "0000", 4) != 0;
-}
-
 static void buildDisplayRing(const char* rawRing, char* out, size_t outSize) {
     if (s_cfg.officialFormat) {
         unikonFormatDisplayRing(rawRing, out, outSize);
@@ -1045,13 +1043,14 @@ static void ukAppendCell(String& out, const char* s, uint8_t width) {
 
 static void appendArrivalSectionEmail(String& body, const char* title, bool trainingOnly,
                                       uint16_t fromIdx, uint16_t toIdx) {
-    const char* HDR[8] = { "No", rmbT("Anilha", "Ring"), "Chip", rmbT("Hora", "Time"),
-                           rmbT("Data", "Date"), rmbT("Prova", "Race"), "Pos", "Eval" };
-    uint8_t w[8];
-    for (uint8_t c = 0; c < 8; c++) w[c] = (uint8_t)strlen(HDR[c]);
+    // Phone-friendly table: No / Ring / Chip / Time only. Date, Race, Pos and Eval
+    // were dropped because the 8-column ASCII table wrapped and was unreadable on a
+    // smartphone (the race is already named in the header lines of the email).
+    const char* HDR[4] = { "No", rmbT("Anilha", "Ring"), "Chip", rmbT("Hora", "Time") };
+    uint8_t w[4];
+    for (uint8_t c = 0; c < 4; c++) w[c] = (uint8_t)strlen(HDR[c]);
     if (w[1] < 11) w[1] = 11;                    // 11 digits is the normal ring
     if (w[3] < 8)  w[3] = 8;                     // HH:MM:SS
-    if (w[4] < 5)  w[4] = 5;                     // DD/MM
 
     // ---- pass 1: measure header + every value that will be printed ----
     for (uint16_t i = fromIdx; i < toIdx; i++) {
@@ -1072,32 +1071,28 @@ static void appendArrivalSectionEmail(String& body, const char* title, bool trai
             n = (int)strlen(chipDisplay);
         }
         if (n > (int)w[2]) w[2] = (uint8_t)n;
-
-        n = (int)strlen(s_arrivals[i].race);
-        if (n > (int)w[5]) w[5] = (uint8_t)n;
     }
     if (w[1] > 15) w[1] = 15;                    // sane caps
     if (w[2] > 11) w[2] = 11;
-    if (w[5] > 12) w[5] = 12;
 
     // ---- separator: '+' (width+2) '-' ... '+' ----
     String sep;
-    sep.reserve(80);
+    sep.reserve(40);
     sep += '+';
-    for (uint8_t c = 0; c < 8; c++) {
+    for (uint8_t c = 0; c < 4; c++) {
         for (uint8_t k = 0; k < (uint8_t)(w[c] + 2); k++) sep += '-';
         sep += '+';
     }
     sep += '\n';
 
     String hdr;
-    hdr.reserve(100);
+    hdr.reserve(60);
     hdr += '|';
-    for (uint8_t c = 0; c < 8; c++) ukAppendCell(hdr, HDR[c], w[c]);
+    for (uint8_t c = 0; c < 4; c++) ukAppendCell(hdr, HDR[c], w[c]);
     hdr += '\n';
 
     String section;
-    section.reserve(160 + (uint16_t)(toIdx - fromIdx) * 84u);
+    section.reserve(120 + (uint16_t)(toIdx - fromIdx) * 52u);
     section += sep;
     section += hdr;
     section += sep;
@@ -1115,13 +1110,6 @@ static void appendArrivalSectionEmail(String& body, const char* title, bool trai
                      t[0], t[1], t[2], t[3], t[4], t[5]);
         }
 
-        // Date: stored as "DDMM", displayed as "DD/MM" (5 chars).
-        char dateStr[8] = "     ";
-        if (hasValidDate(s_arrivals[i])) {
-            const char* d = s_arrivals[i].arrivalDate;
-            snprintf(dateStr, sizeof(dateStr), "%c%c/%c%c", d[0], d[1], d[2], d[3]);
-        }
-
         char ringDisplay[16];
         buildDisplayRing(s_arrivals[i].ring, ringDisplay, sizeof(ringDisplay));
 
@@ -1133,22 +1121,11 @@ static void appendArrivalSectionEmail(String& body, const char* title, bool trai
         char idxStr[10];
         snprintf(idxStr, sizeof(idxStr), "%u.", (unsigned)(i + 1));
 
-        char raceStr[13] = "";
-        if (s_arrivals[i].race[0] != '\0') {
-            size_t rlen = strlen(s_arrivals[i].race);
-            if (rlen > 12) rlen = 12;
-            memcpy(raceStr, s_arrivals[i].race, rlen);
-        }
-
         section += '|';
         ukAppendCell(section, idxStr, w[0]);
         ukAppendCell(section, ringDisplay, w[1]);
         ukAppendCell(section, chipStr, w[2]);
         ukAppendCell(section, timeStr, w[3]);
-        ukAppendCell(section, dateStr, w[4]);
-        ukAppendCell(section, raceStr, w[5]);
-        ukAppendCell(section, "", w[6]);   // Pos  (Unikon does not report it)
-        ukAppendCell(section, "", w[7]);   // Eval (Unikon does not report it)
         section += '\n';
     }
 
@@ -1727,6 +1704,29 @@ bool unikonIsEnabled() { return s_cfg.enabled; }
 // the port automatically, so each module owns its profile and applies it on enable.
 void unikonApplySerialProfile() {
 #if ENABLE_RS232 == 1
+    if (s_cfg.manualSerial) {
+        // Bench mode: use the RS232 page settings instead of the fixed 9600 8N1.
+        // Only the RUNTIME globals are loaded from the RS232 section -- the module's
+        // own config (s_cfg) is never rewritten.
+        extern const int RS232_BAUDRATES[];
+        extern const int RS232_BAUDRATES_COUNT;
+        rs232_enabled = true;        // the module cannot run with the port closed
+        rs232_baudrate_index = configManager.getRs232BaudrateIndex();
+        if (rs232_baudrate_index < 0 || rs232_baudrate_index >= RS232_BAUDRATES_COUNT) rs232_baudrate_index = 3;
+        rs232_baudrate  = RS232_BAUDRATES[rs232_baudrate_index];
+        rs232_data_bits = configManager.getRs232DataBits();
+        {
+            String p = configManager.getRs232Parity();
+            p.toLowerCase();
+            if (p == "even" || p == "odd" || p == "none") rs232_parity = p;
+        }
+        rs232_stop_bits = configManager.getRs232StopBits();
+        rs232_invert_pins = configManager.getRs232InvertPins();
+        _pendingRS232Apply = true;                // applied on the main loop
+        sendVirtualMessage(F("[UNIKON] RS232 profile: using the RS232 page settings (manual_serial)"),
+                           WARN, false, true);
+        return;
+    }
     extern const int RS232_BAUDRATES[];
     extern const int RS232_BAUDRATES_COUNT;
     rs232_baudrate = 9600;
@@ -3192,6 +3192,7 @@ bool unikonFlushPendingConfig() {
 
 void unikonSetConfig(const UnikonConfig& cfg) {
     bool wasOn = s_cfg.enabled;
+    bool wasManual = s_cfg.manualSerial;
     s_cfg = cfg;
     // Keep manual mode as 0 and migrate short intervals to the default (3 minutes).
     if (s_cfg.pollIntervalSec > 0 && s_cfg.pollIntervalSec < 60) {
@@ -3205,9 +3206,9 @@ void unikonSetConfig(const UnikonConfig& cfg) {
         s_configWritePending = false;
     }
     s_pollingActive = s_cfg.enabled && s_cfg.pollIntervalSec > 0;
-    if (s_cfg.enabled && !wasOn) {
-        // Selecting Unikon switches the RS232 port to the RAMBOX profile and
-        // releases the other module (Bricon needs a different framing).
+    if (s_cfg.enabled && (!wasOn || s_cfg.manualSerial != wasManual)) {
+        // Selecting Unikon switches the RS232 port to the RAMBOX profile (or to the
+        // RS232 page settings in manual/bench mode) and releases the other module.
         enforceBriconExclusion();
         unikonApplySerialProfile();
     }

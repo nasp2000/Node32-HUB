@@ -42,6 +42,10 @@ struct BriconConfig {
     // itself tolerates (it substitutes the requested ids when the clock echoes 0000).
     char     clubId[5];          // 4 chars, default "0000"
     char     flightId[5];        // 4 chars, default "0000"
+    // Bench/manual serial: when true the module does NOT apply its own 9600 8N2
+    // profile and uses whatever is saved on the RS232 page instead (framing tests).
+    // Persisted as "manual_serial" in /config/bricon.json.
+    bool     manualSerial;
 };
 
 // One arrival/registration record. Fields mirror what Bricon actually carries

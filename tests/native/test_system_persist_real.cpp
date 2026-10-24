@@ -71,3 +71,25 @@ TEST_CASE("system: mdns_enabled default true is kept when not persisted (variati
     CHECK(cm2.getMdnsEnabled() == true);
     CHECK(cm2.getSystemName() == "DEFAULT-NAME");
 }
+// ---- SMTP factory defaults (all packs): Gmail server/port + insecure TLS on,
+// ---- but the username/password stay EMPTY (they are site-specific).
+TEST_CASE("smtp: factory defaults are smtp.gmail.com:465 with insecure TLS on") {
+    nativeResetConfigStorage();
+    ConfigManager cm;
+    CHECK(cm.loadConfig());
+    CHECK(cm.getSmtpServer() == "smtp.gmail.com");
+    CHECK(cm.getSmtpPort() == 465);
+    CHECK(cm.getSmtpTlsInsecure() == true);
+    CHECK(cm.getSmtpUsername() == "");          // no account is shipped as default
+    CHECK(cm.getSmtpPassword() == "");
+}
+
+TEST_CASE("smtp: a configured account is never overwritten by the defaults (variation 2)") {
+    nativeResetConfigStorage();
+    ConfigManager cm;
+    CHECK(cm.loadConfig());
+    cm.setSmtpUsername("oficina@exemplo.pt");
+    cm.ensureAllFieldsExist();
+    CHECK(cm.getSmtpUsername() == "oficina@exemplo.pt");
+    CHECK(cm.getSmtpPort() == 465);
+}

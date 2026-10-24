@@ -19,7 +19,7 @@ void handleBriconStatusGet(HttpRequest& req, HttpResponse& res) {
     BriconConfig cc = briconGetConfig();
     BriconStatus st = briconGetStatus();
     uint32_t agoSec = (st.lastRxMs > 0) ? (millis() - st.lastRxMs) / 1000UL : 0;
-    char buf[640];
+    char buf[704];
     snprintf(buf, sizeof(buf),
         "{\"connected\":%s,\"hardwarePending\":%s,\"enabled\":%s,"
         "\"intervalSec\":%u,\"baud\":%d,\"dataBits\":%d,\"parity\":\"%s\",\"stopBits\":%d,"
@@ -27,7 +27,7 @@ void handleBriconStatusGet(HttpRequest& req, HttpResponse& res) {
         "\"fancierLic\":\"%s\",\"fancierName\":\"%s\","
         "\"baActiveAddress\":%u,\"lastNewCount\":%u,\"lastPollAgoSec\":%lu,"
         "\"lastRxAgoSec\":%lu,\"bytesRx\":%lu,\"framesSeen\":%u,"
-        "\"activeModule\":\"%s\"}",
+        "\"activeModule\":\"%s\",\"manualSerial\":%s}",
         st.connected ? "true" : "false",
         st.hardwarePending ? "true" : "false",
         cc.enabled ? "true" : "false",
@@ -40,7 +40,8 @@ void handleBriconStatusGet(HttpRequest& req, HttpResponse& res) {
         (unsigned long)agoSec,
         (unsigned long)st.bytesRx,
         (unsigned)st.framesSeen,
-        briconActiveModuleName());
+        briconActiveModuleName(),
+        cc.manualSerial ? "true" : "false");
     res.sendJson(String(buf));
 }
 
@@ -172,6 +173,10 @@ void handleBriconConfigPost(HttpRequest& req, HttpResponse& res) {
     {
         int ii = req.body.indexOf("interval=");
         if (ii >= 0) cfg.pollIntervalSec = (uint16_t)req.body.substring((size_t)ii + 9).toInt();
+    }
+    {
+        int mi = req.body.indexOf("manual=");
+        if (mi >= 0) cfg.manualSerial = req.body.substring((size_t)mi + 7).toInt() != 0;
     }
     {
         int bi = req.body.indexOf("baud=");

@@ -105,6 +105,8 @@ const LangStrings LANG_PT PROGMEM = {
     /* screenGasNoInit      */ "Gas: modulo sem init",
     /* screenUnikonPlus     */ "Unikon: +",
     /* screenUnikonOffline  */ "Unikon: offline total ",
+    /* screenBriconPlus     */ "Bricon: +",
+    /* screenBriconOffline  */ "Bricon: offline total ",
     /* screenSchedLabel     */ "Agend:",
 
     // --- API messages surfaced in the browser (JSON responses) ---
@@ -337,6 +339,8 @@ const LangStrings LANG_EN PROGMEM = {
     /* screenGasNoInit      */ "Gas: module not init",
     /* screenUnikonPlus     */ "Unikon: +",
     /* screenUnikonOffline  */ "Unikon: offline total ",
+    /* screenBriconPlus     */ "Bricon: +",
+    /* screenBriconOffline  */ "Bricon: offline total ",
     /* screenSchedLabel     */ "Sched:",
 
     // --- API messages surfaced in the browser (JSON responses) ---

@@ -29,7 +29,7 @@ the other and switches the RS232 profile automatically).
 
 | Item | Value |
 |---|---|
-| Page URL | `GET /bricon` |
+| Page URL | `GET /bricon` → `302 /rambox?dev=bricon` (the unified RAMBOX page owns this module's UI — see `PAGES/rambox.md`) |
 | Feature flag | `ENABLE_BRICON` (`config_defaults.h`, default `0`; enabled by `pack_rambox.h`) — page + all APIs gated (404 stubs when `0`) |
 | WiFi server | `web_routes_bricon.cpp` — chunked 3-segment stream (`buildPageFrame` + `PAGE_BRICON`), title "🕊 Bricon Rambox" |
 | Ethernet (W5500) | NOT mirrored (gap — see BRC-1) |
@@ -75,7 +75,7 @@ Tab switching: `bkSwitchTab(idx)` toggles `.active` on buttons + panels, persist
 | Input | ID / name | Type / range | Notes |
 |---|---|---|---|
 | Module active | `enabled` | checkbox | master enable; **enabling Bricon disables Unikon** (exclusive rule) |
-| Polling interval | `interval` | select (s): 0 Manual, 60, 180 (default), 300, 600, 900, 1200, 1800, 3600 | 0 = manual only |
+| Polling interval | `interval` | edited on `/rambox` as a **minute** selector: 1, 3, 5, 10, 15, 30, 60 (default **3 min** = 180 s); the firmware stores seconds and defaults a missing key to `180` | explicit `0` (manual) is still accepted by the API but no longer offered by the page |
 | Baud | `baud` | select: 1200–115200, default 9600 | stored in `/config/bricon.json`; applied via deferred `_pendingRS232Apply`. 38400 only matters for the firmware-update path |
 | Country (layout) | `country` | select PT/ES/FR/BE/NL/UK/HU/RO/PL, default **PT** | decides the record layout: `Utils::IsUKProtocol` / `GetPigeonCommand::HandleResponse`. PT ⇒ FedBand **14 B** (53-byte arrival) and **non-UK** fancier (104 B) |
 | Clock address | `ba` | select auto-scan / 0x82 Bricon·Little·DUO / 0x81 Benzing / 0x83 Tauris / 0x84 Tipes / 0x85 Unikon / 0x10 Master / 0x00 club, default **auto** | `Adresses` enum; auto = the recovered scan list `[0x10, 0x80..0x85, 0x00]` |
@@ -119,12 +119,18 @@ Handlers in `handlers_unified/bricon_handler.cpp` (WiFi, via `registerApiRoute`)
 ```json
 {"connected":false,"hardwarePending":true,"enabled":false,"intervalSec":180,
  "baud":9600,"dataBits":8,"parity":"none","stopBits":2,"country":"PT","baAddress":0,
- "lastRxAgoSec":0,"bytesRx":0,"framesSeen":0,"activeModule":"none"}
+ "lastRxAgoSec":0,"bytesRx":0,"framesSeen":0,"activeModule":"none","manualSerial":false}
 ```
 
-`connected` flips true on the first RX byte; `activeModule` is `rambox`|`bricon`|`none`.
+`connected` flips true on the first RX byte; `activeModule` is `rambox`|`bricon`|`none`;
+`manualSerial` = bench mode (the RS232 page settings are used and the stored 9600 8N2
+profile is left untouched).
 
 ### List endpoints
+
+The arrival email (same layout as the Unikon one) prints a **No / Ring / Chip / Time**
+table — Date, Race, Pos and Eval are not emitted (8 columns wrapped on a smartphone;
+the race is already in the header lines).
 
 Live PSRAM data (empty until first ingest):
 `GET /api/bricon-arrivals|registrations|contests|pombal`. Arrivals carry
@@ -155,7 +161,7 @@ All poll/sync/training POSTs refuse with the localized `apiBriconDisabled` messa
 Dedicated file **`/config/bricon.json`** (`bricon_protocol.cpp`), written atomically (`.tmp` → `bytes>0` check → remove original → rename):
 
 ```json
-{"enabled":false,"interval":0,"baud":9600,"parity":"none","data":8,"stop":2,"country":"PT","ba":0}
+{"enabled":false,"interval":180,"manual_serial":false,"baud":9600,"parity":"none","data":8,"stop":2,"country":"PT","ba":0}
 ```
 
 ---

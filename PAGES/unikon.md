@@ -42,7 +42,7 @@ actions are **non-blocking web requests** — they set flags consumed by
 
 | Item | Value |
 |---|---|
-| Page URL | `GET /unikon` |
+| Page URL | `GET /unikon` → `302 /rambox?dev=unikon` (the unified RAMBOX page owns this module's UI — see `PAGES/rambox.md`) |
 | Feature flag | `ENABLE_UNIKON` (`config_defaults.h:234`, default `0`; enabled by `pack_rambox.h:85`) — page + all APIs gated (routes no-op when `0`) |
 | WiFi server | `web_routes_unikon.cpp:30` — chunked 3-segment stream (`buildPageFrame` + `PAGE_UNIKON`), title "🦆 Unikon RAMBOX" |
 | Ethernet (W5500) | `ethernet_bootstrap_routes.h:409` → `streamSharedUnikonPage` (`web_shared_pages.cpp:239`) |
@@ -92,7 +92,7 @@ Configuration→`[sGuide, sConfig]`; default tab index 0.
 |---|---|---|---|
 | Module active | `enabled` | checkbox | master enable; when off, all POST poll/sync actions return `{"success":false,"message":"Unikon module is disabled."}` |
 | Official format | `official_format` | checkbox, default checked | `true` = ring `23003379958`→`23-3379958`, chip `C9933525001`→`C9933525`; also used for email body |
-| Polling interval | `interval` | select (s): 0 Manual, 60, 180 (default selected), 300, 600, 900, 1200, 1800, 2700, 3600, 7200 | 0 = manual only; server silently migrates 1–59 s to 180 (see UK-4) |
+| Polling interval | `interval` | edited on `/rambox` as a **minute** selector: 1, 3, 5, 10, 15, 30, 60 (default **3 min** = 180 s; the API still stores seconds) | the legacy `/unikon` page (0/60/180/…) redirects to `/rambox`; server silently migrates 1–59 s to 180 (see UK-4) |
 
 ---
 
@@ -136,13 +136,13 @@ Handlers in `handlers_unified/unikon_handler.cpp` (WiFi, via `registerApiRoute`)
  "trainingKnownCount":2,"lastNewCount":3,"registeredCount":120,"contestCount":8,
  "moduleId":"...","clubName":"...","soltaName":"...","clubCode":"...","fancierName":"...",
  "raceDate":"15.06","raceName":"CANAME","pushState":0,"pushActive":false,"pushAuto":false,
- "pushCode":0,"pushVersion":"...","enabled":true,"intervalSec":180,
+ "pushCode":0,"pushVersion":"...","enabled":true,"intervalSec":180,"activeModule":"rambox","manualSerial":false,
  "polling":true,"passiveListen":false,"officialFormat":true,"emailDest":"..."}
 ```
 
 `pushState`: 0 = off, 1 = active, 2 = rejected/unsupported. `pushCode`: 0 = ACK, 0x3f1 = NAK, 0x3ef = no answer. `pushVersion`: ident the push was negotiated with (empty until probed). Buffer widened to 1200 B for the extra fields.
 
-`emailDest` comes from `configManager.getEmailDestination()` (`:38`); `raceKnownCount`/`trainingKnownCount` recomputed by scanning arrivals with valid time (`:23-36`).
+`emailDest` comes from `configManager.getEmailDestination()` (`:38`); `raceKnownCount`/`trainingKnownCount` recomputed by scanning arrivals with valid time (`:23-36`). `activeModule` (`rambox`\|`bricon`\|`none`, from `briconActiveModuleName()`) tells the `/rambox` selector and the OLED status line 3 which clock owns the port.
 
 ### `GET /api/unikon-arrivals` (`:92`) / `GET /api/unikon-registrations` (`:133`) / `GET /api/unikon-pombal` (`:195`)
 
@@ -178,7 +178,7 @@ Reads urlencoded `enabled`, `interval`, `passive`, `official_format` (only `enab
 **Not** via `ConfigManager` — dedicated file **`/config/unikon.json`** (`unikon_protocol.cpp:66`), written atomically (`.tmp` → `bytes>0` check → remove original → rename, `:336-350`):
 
 ```json
-{"enabled":true,"interval":180,"passive":false,"official_format":true,
+{"enabled":true,"interval":180,"passive":false,"official_format":true,"manual_serial":false,
  "contests":[{"code":"001","date":"0703","name":"..."}],
  "registrations":[{"ring":"...","chip":"..."}]}
 ```
@@ -211,7 +211,7 @@ races: there is no "delete pigeon" in the captured protocol.
 - **Request flags** (non-blocking, consumed by `unikonUpdate`): `unikonRequestPoll/WOnlyPoll/IcOnlyPoll/XOnlyPoll/SendTraining/ClearTraining/Push` (`:2270-2290`); `unikonPollNow()` (`:1687`) is the blocking immediate variant.
 - **Push (automático, por aparelho, aditivo)**: o driver do fornecedor (`uniActivatePush()`/`uniDeactivatePush()`) envia as tramas **`P1`/`P0`**; `uniSetCallBack()`/`deSendMessageOnChange()` só ligam uma mensagem Windows — no fio é apenas esse par de comandos. **Não há botões**: `unikonPollNow()`, no fim de cada poll que identificou o RAMBOX, chama `pushProbe(true)` quando o estado ainda é `UNIKON_PUSH_OFF` — logo o `P1` sai **no primeiro poll, manual ou automático**. `pushCheckDevice()` (em todos os handshakes `v`) mantém o estado **agarrado ao aparelho** (ident = versão + série): enquanto o ident for o mesmo nada mais é enviado (nem `P1` repetido, nem um `NAK` repetido); ao aparecer **outro RAMBOX** o estado volta a `OFF` e o `P1` é pedido de novo. É **aditivo**: o poll automático configurado continua a correr como garantia e as tramas empurradas são lidas por `tryPassiveListen()` (que também corre com o push activo), por isso uma chegada pode aparecer **antes** do intervalo (ex. 5 min). Resultado em `unikonGetPushCode()` (0 = ACK, 0x3f1 = NAK, 0x3ef = sem resposta) e `unikonGetPushVersion()`. Não foi exercitado pelo software do fornecedor (0 `P1`/`P0` em 35 capturas; o `UNIKON_Manager.exe` nunca chama o push) — a resposta ACK/NAK é a única forma de saber se uma unidade o suporta.
 - **Training tag**: a W-phase frame `3` is classified as training when its **contest code (bytes [9..11])** equals the fixed `UNIKON_TRAINING_CODE` ("090" = literal `'0'` + race 90). The matcher also accepts the bare race number ("90") and a space-padded field (" 90"), so the tag survives whichever form the device echoes. The code is a **compiled constant** — no persistence needed, so a reboot mid-training still classifies correctly, and sending/clearing training writes nothing to flash. `arrival.race` falls back to the code when the frame carries no name, so the Prova column is never blank for short frames.
-- **State accessors**: `unikonGetStatus/Arrivals/Registrations/Contests/Config`, `unikonResetState` (full) vs `unikonResetArrivalsOnly` (keeps calendar+loft), `unikonFormatDisplayRing/Chip` (official format), `unikonQueuePombalSeasonEmail()` (fixed-width ASCII table via email pipeline). Arrival emails include a `Treino` section when `isTraining` arrivals exist (tagged by matching frame-`3` race name against the programmed training contest); totals show `N pombo(s) + M treino`.
+- **State accessors**: `unikonGetStatus/Arrivals/Registrations/Contests/Config`, `unikonResetState` (full) vs `unikonResetArrivalsOnly` (keeps calendar+loft), `unikonFormatDisplayRing/Chip` (official format), `unikonQueuePombalSeasonEmail()` (fixed-width ASCII table via email pipeline). The arrival-email table is **No / Ring / Chip / Time** only (Date/Race/Pos/Eval were removed for smartphone readability; the race stays in the header). Arrival emails include a `Treino` section when `isTraining` arrivals exist (tagged by matching frame-`3` race name against the programmed training contest); totals show `N pombo(s) + M treino`.
 - **Cross-links**: status fields feed `/api/status` (`system_status_payload.h:431-444`) and `feature_unikon` (`:544`); `[UNIKON]` log lines are never suppressed (`logger_impl.h:89`); home-page entry gated by `ENABLE_UNIKON==1` (`home_page_renderer.h:173`).
 
 ---

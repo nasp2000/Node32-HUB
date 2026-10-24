@@ -17,6 +17,22 @@
 #include "../../network_hybrid_manager.h"
 #include "../../network_saved_profiles.h"
 #include "../../web_shared_logic.h"
+#include "../../feature_flags.h"
+// Both modules can be enabled in the same build (pack RAMBOX), so both headers
+// are included independently — an #elif here left unikonGetConfig() undeclared.
+#if ENABLE_BRICON == 1
+#include "../../bricon_protocol.h"     // briconActiveModuleName(), briconGetConfig()
+#endif
+#if ENABLE_UNIKON == 1
+#include "../../unikon_protocol.h"     // unikonGetConfig(), unikonIsEnabled()
+#endif
+
+#if ENABLE_RS232 == 1
+// Runtime RS232 state (diagnostics_impl.h). commands.h brings the other globals.
+extern int rs232_data_bits;
+extern String rs232_parity;
+extern int rs232_stop_bits;
+#endif
 
 extern ConfigManager configManager;
 extern void syncGlobalVariables();
@@ -186,7 +202,42 @@ void handleConfigGet(HttpRequest& req, HttpResponse& res) {
     SpiRamJsonDocument doc(outCapacity);
     if (section == "wifi")         doc["wifi"] = full["wifi"];
     if (section == "email")        { doc["smtp"] = full["smtp"]; doc["email"] = full["email"]; }
-    if (section == "rs232")        { doc["rs232"] = full["rs232"]; doc["printer"] = full["printer"]; }
+    if (section == "rs232") {
+        doc["rs232"] = full["rs232"];
+        doc["printer"] = full["printer"];
+
+        // Which clock module owns the port right now ("rambox" | "bricon" | "none")
+        // and whether it is in manual/bench mode (uses the RS232 page settings).
+        const char* activeModule = "none";
+#if ENABLE_BRICON == 1
+        activeModule = briconActiveModuleName();
+#elif ENABLE_UNIKON == 1
+        activeModule = unikonIsEnabled() ? "rambox" : "none";
+#endif
+        bool manualSerial = false;
+#if ENABLE_BRICON == 1
+        if (strcmp(activeModule, "bricon") == 0) manualSerial = briconGetConfig().manualSerial;
+#endif
+#if ENABLE_UNIKON == 1
+        if (strcmp(activeModule, "rambox") == 0) manualSerial = unikonGetConfig().manualSerial;
+#endif
+        doc["active_module"]        = activeModule;
+        doc["active_module_manual"] = manualSerial;
+
+#if ENABLE_RS232 == 1
+        // Live values: while a module owns the port the runtime globals hold the
+        // profile actually in force, which is not what ConfigManager has stored.
+        // The page must always show what is active at that moment.
+        JsonObject live = doc["rs232"];
+        live["enabled"]        = rs232_enabled;
+        live["baudrate_index"] = rs232_baudrate_index;
+        live["baudrate"]       = rs232_baudrate;
+        live["data_bits"]      = rs232_data_bits;
+        live["parity"]         = rs232_parity;
+        live["stop_bits"]      = rs232_stop_bits;
+        live["invert_pins"]    = rs232_invert_pins;
+#endif
+    }
     if (section == "system")       { doc["system_name"] = configManager.getSystemName();
                                      doc["system_language"] = configManager.getSystemLanguage();
                                      doc["mdns_enabled"] = configManager.getMdnsEnabled();

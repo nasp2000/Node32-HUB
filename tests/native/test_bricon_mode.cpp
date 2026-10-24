@@ -102,6 +102,73 @@ TEST_CASE("briconProfile: explicit 1 stop bit honoured (probe fallback)") {
     CHECK(p.stop == 1);
 }
 
+// ====== Poll interval: fixed minute steps, 3 min default (page + loadConfig) ======
+// Mirror of the /rambox selector (rmIntervalOption) and of the firmware defaults
+// (unikon loadConfig 180; bricon loadConfig 180 since the 2026-10-24 request).
+static const int POLL_MIN[] = { 1, 3, 5, 10, 15, 30, 60 };
+
+static uint16_t pollIntervalDefaultSec(bool keyPresent, uint16_t stored) {
+    return keyPresent ? stored : (uint16_t)180;   // missing key => 3 minutes
+}
+
+static int pollOptionMin(int sec) {
+    if (sec <= 0) return 3;                       // 0/absent => 3 min
+    for (size_t i = 0; i < sizeof(POLL_MIN) / sizeof(POLL_MIN[0]); i++)
+        if (POLL_MIN[i] * 60 == sec) return POLL_MIN[i];
+    for (size_t i = 0; i < sizeof(POLL_MIN) / sizeof(POLL_MIN[0]); i++)
+        if (POLL_MIN[i] * 60 > sec) return POLL_MIN[i];
+    return POLL_MIN[sizeof(POLL_MIN) / sizeof(POLL_MIN[0]) - 1];
+}
+
+TEST_CASE("pollInterval: both clocks default to 3 minutes") {
+    CHECK(pollIntervalDefaultSec(false, 0) == 180);
+    CHECK(pollIntervalDefaultSec(true, 180) == 180);
+    CHECK(pollIntervalDefaultSec(true, 900) == 900);   // explicit value kept
+    CHECK(pollIntervalDefaultSec(true, 0) == 0);       // explicit manual kept
+}
+
+TEST_CASE("pollInterval: page selector maps seconds to 1/3/5/10/15/30/60 min") {
+    CHECK(pollOptionMin(0) == 3);         // manual/absent -> default
+    CHECK(pollOptionMin(60) == 1);
+    CHECK(pollOptionMin(180) == 3);
+    CHECK(pollOptionMin(120) == 3);       // legacy 2 min snaps up
+    CHECK(pollOptionMin(900) == 15);
+    CHECK(pollOptionMin(3600) == 60);
+    CHECK(pollOptionMin(7200) == 60);     // above the last step -> cap
+}
+
+// ====== Bench mode: the RS232 page profile vs the module's own profile ======
+// Mirror of the module apply logic: with manual_serial the runtime uses the page
+// settings; the module's stored profile (own) is never rewritten and comes back
+// as soon as manual mode is switched off.
+struct ModuleProfile { int baud; int data; const char* parity; int stop; };
+
+static ModuleProfile resolveActiveProfile(bool manualSerial, ModuleProfile own, ModuleProfile page) {
+    return manualSerial ? page : own;
+}
+
+TEST_CASE("benchMode: manual uses the RS232 page profile, own profile untouched") {
+    ModuleProfile own  = { 9600, 8, "none", 2 };   // Bricon default (8N2)
+    ModuleProfile page = { 19200, 8, "even", 1 };
+    ModuleProfile active = resolveActiveProfile(true, own, page);
+    CHECK(active.baud == 19200);
+    CHECK(active.stop == 1);
+    CHECK(active.parity == std::string("even"));
+    CHECK(own.baud == 9600);                       // default preserved
+    CHECK(own.stop == 2);
+    CHECK(own.parity == std::string("none"));
+}
+
+TEST_CASE("benchMode: leaving manual restores the module default") {
+    ModuleProfile own  = { 9600, 8, "none", 1 };   // Unikon default (8N1)
+    ModuleProfile page = { 38400, 7, "odd", 2 };
+    CHECK(resolveActiveProfile(false, own, page).baud == 9600);
+    CHECK(resolveActiveProfile(false, own, page).stop == 1);
+    CHECK(resolveActiveProfile(false, own, page).data == 8);
+    // and the page profile is still there for the next bench session
+    CHECK(page.baud == 38400);
+}
+
 TEST_CASE("briconLayout: country decides the FedBand (GetPigeonCommand)") {
     // Mirrors the firmware/simulator rule: PT/ES/NL/UA/PL/FR/KSA => 14 B, else 22 B.
     auto fed = [](const char* c) {
@@ -201,4 +268,93 @@ TEST_CASE("briconIngest: training updates empty slot, email counts split") {
     }
     CHECK(tr == 1);
     CHECK(ra == 1);
+}
+
+// ====== Arrival email table (phone-friendly: No / Ring / Chip / Time) ======
+// Mirror of appendBriconArrivalSection()/appendArrivalSectionEmail() width logic:
+// every line of the ASCII table must have the same length, otherwise it wraps on
+// a smartphone and becomes unreadable.
+#include <vector>
+
+struct EmailRow { std::string no, ring, chip, time; };
+
+static void emailCell(std::string& out, const std::string& s, size_t width) {
+    out += ' ';
+    std::string v = (s.size() > width) ? s.substr(0, width) : s;
+    out += v;
+    for (size_t i = v.size(); i < width; i++) out += ' ';
+    out += ' ';
+    out += '|';
+}
+
+static std::string buildArrivalEmailTable(const std::vector<EmailRow>& rows) {
+    const char* HDR[4] = { "No", "Ring", "Chip", "Time" };
+    size_t w[4];
+    for (int c = 0; c < 4; c++) w[c] = strlen(HDR[c]);
+    if (w[1] < 11) w[1] = 11;
+    if (w[3] < 8)  w[3] = 8;
+    for (size_t i = 0; i < rows.size(); i++) {
+        if (rows[i].no.size()   > w[0]) w[0] = rows[i].no.size();
+        if (rows[i].ring.size() > w[1]) w[1] = rows[i].ring.size();
+        if (rows[i].chip.size() > w[2]) w[2] = rows[i].chip.size();
+    }
+    if (w[1] > 15) w[1] = 15;
+    if (w[2] > 11) w[2] = 11;
+
+    std::string sep = "+";
+    for (int c = 0; c < 4; c++) {
+        for (size_t k = 0; k < w[c] + 2; k++) sep += '-';
+        sep += '+';
+    }
+    std::string hdr = "|";
+    for (int c = 0; c < 4; c++) emailCell(hdr, HDR[c], w[c]);
+
+    std::string out = sep + "\n" + hdr + "\n" + sep + "\n";
+    for (size_t i = 0; i < rows.size(); i++) {
+        std::string line = "|";
+        emailCell(line, rows[i].no,   w[0]);
+        emailCell(line, rows[i].ring, w[1]);
+        emailCell(line, rows[i].chip, w[2]);
+        emailCell(line, rows[i].time, w[3]);
+        out += line + "\n";
+    }
+    out += sep + "\n";
+    return out;
+}
+
+TEST_CASE("emailTable: only No/Ring/Chip/Time columns (phone-friendly)") {
+    std::vector<EmailRow> rows;
+    rows.push_back({ "1.", "23123450", "C54A7B9A", "14:25:00" });
+    rows.push_back({ "2.", "23123451", "C54A7B9B", "14:25:01" });
+    std::string t = buildArrivalEmailTable(rows);
+    CHECK(t.find("| No ") != std::string::npos);
+    bool hasRing = (t.find("| Ring ") != std::string::npos) || (t.find("Anilha") != std::string::npos);
+    CHECK(hasRing);
+    CHECK(t.find("| Chip ") != std::string::npos);
+    CHECK(t.find("| Time ") != std::string::npos);
+    CHECK(t.find("| Date ") == std::string::npos);
+    CHECK(t.find("| Race ") == std::string::npos);
+    CHECK(t.find("Pos") == std::string::npos);
+    CHECK(t.find("Eval") == std::string::npos);
+}
+
+TEST_CASE("emailTable: every line has the same width, even with a long chip") {
+    std::vector<EmailRow> rows;
+    rows.push_back({ "1.", "23123450", "C54A7B9AEXTRA", "14:25:00" });   // chip longer than header
+    rows.push_back({ "12.", "123456789012345678", "", "08:00:00" });     // ring above the cap
+    std::string t = buildArrivalEmailTable(rows);
+    size_t first = t.find('\n');
+    size_t width = first;
+    size_t pos = 0;
+    int lines = 0;
+    while (pos < t.size()) {
+        size_t eol = t.find('\n', pos);
+        if (eol == std::string::npos) eol = t.size();
+        if (eol > pos) {
+            CHECK((eol - pos) == width);
+            lines++;
+        }
+        pos = eol + 1;
+    }
+    CHECK(lines == 6);   // sep, header, sep, 2 rows, sep
 }

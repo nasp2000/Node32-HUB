@@ -6,6 +6,7 @@
 
 #include <Arduino.h>
 #include "../../unikon_protocol.h"
+#include "../../bricon_protocol.h"     // activeModule ("rambox"|"bricon"|"none")
 #include "../../ConfigManager.h"
 #include "../../psram_helpers.h"
 
@@ -37,7 +38,7 @@ void handleUnikonStatusGet(HttpRequest& req, HttpResponse& res) {
     }
 
     String emailDest = configManager.getEmailDestination();
-    char buf[1200];
+    char buf[1400];
     snprintf(buf, sizeof(buf),
         "{"
         "\"connected\":%s,"
@@ -62,6 +63,8 @@ void handleUnikonStatusGet(HttpRequest& req, HttpResponse& res) {
         "\"pushVersion\":\"%s\","
         "\"enabled\":%s,"
         "\"intervalSec\":%u,"
+        "\"activeModule\":\"%s\","
+        "\"manualSerial\":%s,"
         "\"polling\":%s,"
         "\"passiveListen\":%s,"
         "\"officialFormat\":%s,"
@@ -89,6 +92,12 @@ void handleUnikonStatusGet(HttpRequest& req, HttpResponse& res) {
         unikonGetPushVersion(),
         c.enabled            ? "true"  : "false",
         (unsigned)c.pollIntervalSec,
+#if ENABLE_BRICON == 1
+        briconActiveModuleName(),
+#else
+        (c.enabled ? "rambox" : "none"),
+#endif
+        c.manualSerial       ? "true"  : "false",
         (c.enabled && c.pollIntervalSec > 0) ? "true" : "false",
         c.passiveListen       ? "true"  : "false",
         c.officialFormat      ? "true"  : "false",

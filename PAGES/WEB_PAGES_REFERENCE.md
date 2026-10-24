@@ -43,14 +43,15 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/hub` | Camera hub/aggregator | local | 10 s | B | **A** | `ENABLE_CAMERA` |
 | `/cam/snapshot` · `/cam/stream` · `/cam/raw` · `/cam/playback` · `/cam/motion/diff` | JPEG/MJPEG/raw/motion/playback streams | stream | on demand / long-lived; raw +10 s status watchdog (CAM-63) | B | **A** (~) | `ENABLE_CAMERA` |
 | `/proximity` | Proximity config + OEE shift/day | local | 2 s | B | **A** | `ENABLE_PROXIMITY` |
-| `/proximity-dashboard` | OEE dashboard, donuts + shift table | local | 2 s + 3 s hist | B | **A** | `ENABLE_PROXIMITY` |
+| `/proximity-dashboard` | OEE dashboard, donuts + shift table + 10-min stop strip | local | 2 s + 3 s hist + 2 min stops | B | **A** | `ENABLE_PROXIMITY` |
 | `/modbus-rtu` · `/modbus-tcp` · `/modbus-live` | Modbus scan/monitor/live-viewer | local | 800 ms / 3–5 s | B | **A** | `ENABLE_MODBUS` (+RTU/TCP) |
 | `/can` | CAN bus monitor/trace | local | 2 s + 1 s frames | B | **A** | `ENABLE_CAN` |
 | `/radio-ui` | Radio/audio player | hybrid | setInterval | B | **A** | `ENABLE_UDA1334A` |
 | `/uda1334a` | Audio DAC/PCM test | static | manual | B | no | `ENABLE_UDA1334A` |
 | `/ipg-laser` | IPG laser control/monitor | local | 3 setInterval | B | **A** | `ENABLE_IPG_LASER` |
-| `/unikon` | Unikon device page | local | 8 s | B | **A** | `ENABLE_UNIKON` |
-| `/bricon` | Bricon module page (wire driver implemented from REA; exclusive with `/unikon` — the choice sets the RS232 profile: Bricon 9600 8N2, Unikon 9600 8N1; same 4-tab Unikon look) | local | 8 s | B | **A** | `ENABLE_BRICON` |
+| `/rambox` | Unified RAMBOX page: device selector (Unikon RAMBOX / Bricon) + 5 tabs (Config/Arrivals/Pigeons/Race/Status); first status load adopts `activeModule`; shared poll interval in minutes (1/3/5/10/15/30/60, default 3); bench mode (`manual_serial`) switches the module to the RS232 page settings | local | 5 s (arrivals/status tabs only) | B | **A** | `ENABLE_UNIKON` \|\| `ENABLE_BRICON` |
+| `/unikon` | Unikon device page — **302** to `/rambox?dev=unikon` | local | 5 s | B | **A** | `ENABLE_UNIKON` |
+| `/bricon` | Bricon module page — **302** to `/rambox?dev=bricon` (wire driver implemented from REA; exclusive with Unikon — the choice sets the RS232 profile: Bricon 9600 8N2, Unikon 9600 8N1) | local | 5 s | B | **A** | `ENABLE_BRICON` |
 | `/ecra` | Touch7 exact LCD framebuffer mirror + weather/location/status | hybrid | conditional RGB565 frame 0.25–2 fps; weather status on load and 1 s while updating | B | **A** | `PACK_S3_TOUCH7` |
 | `/falas` | Voice/audio page | static | manual | B | no | `PACK_S3_TOUCH7` |
 | `/dualfile` | Copy/write LittleFS↔SD | static | 30 s poll | B | **A** (*) | `ENABLE_DUALFILE` |
@@ -65,7 +66,7 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/recipients` | Email recipient groups | static | manual | B | no | `ENABLE_PAGE_RECIPIENTS` |
 | `/ftp` | FTP upload client + test + last-sends history (persisted `/config/ftp_status.json`, loaded once on page open) | static | manual | B | no | `ENABLE_FTP_CLIENT` + `ENABLE_PAGE_FTP` |
 | `/structures` | Custom fixtures page | static | manual | B | no | `ENABLE_STRUCTURES_PAGE` |
-| `/rs232` · `/lpt-db25` | RS232/LPT-DB25 config + pins | static | manual | B | no | `ENABLE_RS232` / `ENABLE_DB25` |
+| `/rs232` · `/lpt-db25` | RS232/LPT-DB25 config + pins; always shows the values **in force** (live runtime values, so a Rambox clock profile appears here) and stays editable — `active_module` / `active_module_manual` from `GET /api/config?section=rs232` | static | manual | B | no | `ENABLE_RS232` / `ENABLE_DB25` |
 | `/printer` · `/buzzer` · `/do` | Printer / buzzer test / outputs | static | manual | B | no | — / `ENABLE_BUZZER` / `BOARD_HAS_TCA9554_DO` |
 | `/sdcard` · `/files` | Storage config (SD/Flash/PSRAM) / browser, default+selector order SD → LittleFS → PSRAM | static | manual (`/sdcard` status 10 s poll in auto.js) | B (+V files) | no | `ENABLE_PAGE_SDCARD` / `ENABLE_PAGE_FILES` + `ENABLE_SDCARD` |
 | `/mq135-config` · `/hx711` · `/ina226` · `/sound` · `/max31865` | Sensor measure + calibration | static | manual POST | B | no | sensor flags |

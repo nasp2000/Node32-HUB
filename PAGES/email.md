@@ -54,9 +54,9 @@ main.page > div.wrap
 
 | Input | ID / name | Type | Notes |
 |---|---|---|---|
-| Server | `smtp_server` | text | pre-filled from `d.smtp.server` |
-| Port | `smtp_port` | number | no min/max client-side (see findings) |
-| Username | `smtp_user` | text | from `d.smtp.username` |
+| Server | `smtp_server` | text | pre-filled from `d.smtp.server`; factory default `smtp.gmail.com` |
+| Port | `smtp_port` | number | factory default `465`; no min/max client-side (see findings) |
+| Username | `smtp_user` | text | from `d.smtp.username`; **empty by default** (account is site-specific) |
 | Destination | `email_destination` | text | from `d.email.destination` |
 | Password | `smtp_pass` | password | never pre-filled; server masks as `********`, POST of the mask is skipped server-side |
 | TLS insecure | `smtp_tls_insecure` | checkbox | checked = allow self-signed certs; JS explicitly sends `'1'/'0'` because unchecked checkboxes don't serialize |

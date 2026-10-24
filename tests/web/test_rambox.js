@@ -23,7 +23,7 @@ win.__MOCK_API__ = {
     '/api/unikon-pombal': { count: 2, registrations: [{ ring: '23762610000', chip: '' },
                             { ring: '23762610137', chip: 'C9600222201' }] },
     '/api/unikon-contests': { count: 1, contests: [{ code: '090', date: '1910', name: 'T1910221' }] },
-    '/api/bricon-status': { enabled: true, connected: true, intervalSec: 2, baud: 9600, dataBits: 8,
+    '/api/bricon-status': { enabled: true, connected: true, intervalSec: 180, baud: 9600, dataBits: 8,
                             parity: 'none', stopBits: 2, country: 'PT', baActiveAddress: 130,
                             clubId: '1234', flightId: '0001', lastNewCount: 3, lastPollAgoSec: 1 },
     '/api/bricon-arrivals': { count: 1, arrivals: [{ ring: 'PORTUGAL123450', chip: 'C54A7B9A',
@@ -55,10 +55,36 @@ function lastPost(u) {
     setTimeout(function(){}, 0);
 
     // ---- Unikon actions ----
-    doc.getElementById('cfg_interval').value = '120';
+    // ---- poll interval: fixed minute steps, 3 min default ----
+    var ivSel = doc.getElementById('cfg_interval');
+    assert(ivSel && ivSel.tagName === 'SELECT', 'poll interval is a selector');
+    var ivOpts = [];
+    for (var oi = 0; oi < ivSel.options.length; oi++) ivOpts.push(ivSel.options[oi].value);
+    assert(ivOpts.join(',') === '1,3,5,10,15,30,60', 'interval options 1/3/5/10/15/30/60 min');
+    assert(ivSel.value === '3', 'interval defaults to 3 min (status 180 s)');
+    assert(win.rmIntervalOption(0) === '3', '0 s -> 3 min default');
+    assert(win.rmIntervalOption(120) === '3', '2 min snaps to 3 min');
+    assert(win.rmIntervalOption(900) === '15', '15 min kept');
+
+    doc.getElementById('cfg_interval').value = '5';
     btn('Guardar configura').click(); await sleep(40);
     var c = lastPost('/api/unikon-config');
-    assert(c && /interval=120/.test(c.body) && /official_format=1/.test(c.body), 'save unikon body');
+    assert(c && /interval=300/.test(c.body) && /official_format=1/.test(c.body), 'save unikon body (min -> s)');
+    assert(c && /manual=0/.test(c.body), 'own profile is the default (manual=0)');
+
+    // bench mode: module uses the RS232 page settings, own profile untouched
+    assert(doc.getElementById('cfg_manual') !== null, 'bench-mode checkbox present');
+    assert(doc.getElementById('cfg_manual').checked === false, 'bench mode off by default');
+    doc.getElementById('cfg_manual').checked = true;
+    btn('Guardar configura').click(); await sleep(40);
+    c = lastPost('/api/unikon-config');
+    assert(c && /manual=1/.test(c.body), 'bench mode saved (manual=1)');
+    doc.getElementById('cfg_manual').checked = false;
+
+    // one click back to the module's own profile
+    btn('Perfil do m').click(); await sleep(40);
+    c = lastPost('/api/unikon-config');
+    assert(c && /manual=0/.test(c.body), 'restore button leaves bench mode');
 
     btn('Poll agora').click(); await sleep(30);
     assert(lastPost('/api/unikon-poll'), 'poll unikon');
@@ -125,6 +151,14 @@ function lastPost(u) {
         win.rmTab(t);
         assert(doc.getElementById('rmp-' + t).style.display !== 'none', 'tab ' + t + ' visible');
     });
+
+    // ---- config pane follows the module that is actually enabled ----
+    win.rmAdopted = false;
+    win.rmStatus({ enabled: true, activeModule: 'rambox', intervalSec: 180 });
+    assert(doc.getElementById('rmDev').value === 'unikon', 'adopts the enabled RAMBOX module');
+    win.rmAdopted = false;
+    win.rmStatus({ enabled: true, activeModule: 'bricon', intervalSec: 180 });
+    assert(doc.getElementById('rmDev').value === 'bricon', 'adopts the enabled Bricon module');
 
     console.log('\nResults: ' + passed + '/' + (passed + failed) + ' passed, ' + failed + ' failed');
     process.exit(failed ? 1 : 0);

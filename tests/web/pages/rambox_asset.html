@@ -3,7 +3,7 @@
 <head>
   <meta charset='UTF-8'>
   <meta name='viewport' content='width=device-width,initial-scale=1'>
-  <title>rambox (Test)</title>
+  <title>RAMBOX (Test)</title>
 </head>
 <body>
 
@@ -88,9 +88,22 @@
         <label class='rm-chk'><input type='checkbox' id='cfg_enabled' data-i18n-title='rmbActiveTip'
                title='Rel&oacute;gio activo'><span data-i18n='rmbActive'>Rel&oacute;gio activo</span></label>
         <label class='rm-fld'><span data-i18n='rmbInterval' data-i18n-title='rmbIntervalTip'
-               title='Intervalo de poll'>Intervalo de poll (s)</span>
-            <input type='number' id='cfg_interval' min='0' max='3600' style='width:90px'
-                   data-i18n-title='rmbIntervalTip' title='Intervalo de poll'></label>
+               title='Intervalo de poll (minutos)'>Intervalo de poll (min)</span>
+            <select id='cfg_interval' class='rm-sel' data-i18n-title='rmbIntervalTip'
+                    title='Intervalo de poll (minutos)'>
+                <option value='1'>&#9201; 1 min</option>
+                <option value='3' selected>&#9201; 3 min</option>
+                <option value='5'>&#9201; 5 min</option>
+                <option value='10'>&#9201; 10 min</option>
+                <option value='15'>&#9201; 15 min</option>
+                <option value='30'>&#9201; 30 min</option>
+                <option value='60'>&#9201; 60 min</option>
+            </select></label>
+    </div>
+
+    <div class='rm-row'>
+        <label class='rm-chk'><input type='checkbox' id='cfg_manual' data-i18n-title='rmbManualTip'
+               title='Usar a configura&ccedil;&atilde;o da p&aacute;gina RS232'><span data-i18n='rmbManual'>Usar a configura&ccedil;&atilde;o da RS232</span></label>
     </div>
 
     <div id='cfgdev_unikon' class='rm-devcfg'>
@@ -222,6 +235,8 @@
 
 <div class='actions' style='margin:6px 0 26px'>
     <button onclick='rmSaveCfg()' data-i18n='rmbSave' data-i18n-title='rmbSaveTip' title='Guardar configura&ccedil;&atilde;o'>&#128190; Guardar configura&ccedil;&atilde;o</button>
+    <button onclick='rmRestoreProfile()' data-i18n='rmbRestoreProfile' data-i18n-title='rmbRestoreProfileTip'
+            title='Voltar ao perfil pr&oacute;prio do m&oacute;dulo'>&#8617; Perfil do m&oacute;dulo</button>
     <span id='cfgmsg' class='rm-muted'></span>
 </div>
 
@@ -307,6 +322,7 @@ var RM_DEV = {
 
 var rmDev = 'unikon', rmCurTab = 'config';
 var rmLastStatus = null;
+var rmAdopted = false;   // first status load already adopted the enabled module
 
 function rmd() { return RM_DEV[rmDev]; }
 function T(k, fb) { return (window._t ? window._t(k, fb) : fb); }
@@ -344,6 +360,32 @@ function rmPost(url, body, msgEl) {
         .catch(function(e){ rmMsg(msgEl, 'Erro: ' + e, false); });
 }
 
+/* ---- poll interval ----
+ * Fixed minute steps shared by both clocks (Unikon RAMBOX and Bricon): the
+ * hub stores/uses seconds, the page only offers 1/3/5/10/15/30/60 min, 3 min
+ * by default. A stored value outside the list snaps to the next larger step. */
+var RM_INTERVAL_MIN = [1, 3, 5, 10, 15, 30, 60];
+var RM_INTERVAL_DEFAULT_MIN = 3;
+
+function rmIntervalOption(sec) {
+    var s = Number(sec);
+    if (!isFinite(s) || s <= 0) return String(RM_INTERVAL_DEFAULT_MIN);   // 0/absent = 3 min
+    var i;
+    for (i = 0; i < RM_INTERVAL_MIN.length; i++) {
+        if (RM_INTERVAL_MIN[i] * 60 === s) return String(RM_INTERVAL_MIN[i]);
+    }
+    for (i = 0; i < RM_INTERVAL_MIN.length; i++) {
+        if (RM_INTERVAL_MIN[i] * 60 > s) return String(RM_INTERVAL_MIN[i]);
+    }
+    return String(RM_INTERVAL_MIN[RM_INTERVAL_MIN.length - 1]);
+}
+
+function rmIntervalSec() {
+    var m = parseInt(document.getElementById('cfg_interval').value, 10);
+    if (!isFinite(m) || m <= 0) m = RM_INTERVAL_DEFAULT_MIN;
+    return m * 60;
+}
+
 /* ---- selector / tabs ---- */
 function rmSelect() {
     rmDev = document.getElementById('rmDev').value;
@@ -355,6 +397,23 @@ function rmSelect() {
     document.getElementById('btnEmailPombal').style.display = rmd().emailPombal ? '' : 'none';
     document.getElementById('pushWrap').style.display = (rmDev === 'unikon') ? 'contents' : 'none';
     rmRefresh();
+}
+
+/* The Config pane must show the clock that is actually enabled on the hub.
+ * The first status load adopts activeModule ("rambox" | "bricon") over the
+ * remembered/URL choice, so the serial settings on screen are the ones the
+ * device is running. A later manual choice in the selector is left alone. */
+function rmAdoptActive(d) {
+    if (rmAdopted) return;
+    rmAdopted = true;
+    var am = d && d.activeModule;
+    if (am !== 'rambox' && am !== 'bricon') return;
+    var want = (am === 'bricon') ? 'bricon' : 'unikon';
+    if (want === rmDev) return;
+    rmDev = want;
+    document.getElementById('rmDev').value = want;
+    try { localStorage.setItem('rm_dev', want); } catch (e) {}
+    rmSelect();
 }
 
 function rmTab(t) {
@@ -415,6 +474,7 @@ function rmDate(s) {
 /* ---- status / badge / config ---- */
 function rmStatus(d) {
     rmLastStatus = d;
+    rmAdoptActive(d);
     var en = !!d.enabled;
     var b = document.getElementById('rmBadge');
     b.textContent = rmd().label + ' \u2014 ' + (en ? (T('rmbOnline','ligado')) : (T('rmbOffline','desligado'))) +
@@ -423,8 +483,9 @@ function rmStatus(d) {
     b.className = 'rm-badge ' + (en ? 'on' : 'off');
 
     document.getElementById('cfg_enabled').checked = en;
+    document.getElementById('cfg_manual').checked = !!d.manualSerial;
     var iv = rmPick(d, ['intervalSec','interval']);
-    if (iv !== '') document.getElementById('cfg_interval').value = iv;
+    if (iv !== '') document.getElementById('cfg_interval').value = rmIntervalOption(iv);
     if (rmDev === 'unikon') {
         document.getElementById('cfg_official').checked = d.officialFormat !== false;
         var ed = document.getElementById('rmEmailDest');
@@ -568,7 +629,8 @@ function rmAct(kind) {
 function rmSaveCfg() {
     var D = rmd(), el = document.getElementById('cfgmsg');
     var b = 'enabled=' + (document.getElementById('cfg_enabled').checked ? '1' : '0') +
-            '&interval=' + encodeURIComponent(document.getElementById('cfg_interval').value);
+            '&interval=' + rmIntervalSec() +
+            '&manual=' + (document.getElementById('cfg_manual').checked ? '1' : '0');
     if (rmDev === 'unikon') {
         b += '&official_format=' + (document.getElementById('cfg_official').checked ? '1' : '0');
     } else {
@@ -582,6 +644,15 @@ function rmSaveCfg() {
         b += '&flight=' + encodeURIComponent(document.getElementById('cfg_flight').value);
     }
     rmPost(D.config, b, el);
+}
+
+/* Back to the module's own serial profile (leaves bench mode). The profile stored
+ * in unikon.json / bricon.json was never touched by the RS232 page, so this simply
+ * re-applies it. */
+function rmRestoreProfile() {
+    var el = document.getElementById('cfgmsg');
+    document.getElementById('cfg_manual').checked = false;
+    rmPost(rmd().config, 'manual=0', el);
 }
 
 /* ---- training ---- */
