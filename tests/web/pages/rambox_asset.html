@@ -156,10 +156,6 @@
         <button onclick='rmAct("poll")' data-i18n='rmbPoll' data-i18n-title='rmbPollTip' title='Poll agora'>&#128225; Poll agora</button>
         <button onclick='rmAct("syncPombal")' data-i18n='rmbSyncPombal' data-i18n-title='rmbSyncPombalTip' title='Sincronizar pombal'>&#128038; Sincronizar pombal</button>
         <button onclick='rmAct("syncCalendar")' data-i18n='rmbSyncCalendar' data-i18n-title='rmbSyncCalendarTip' title='Sincronizar calend&aacute;rio'>&#127937; Sincronizar calend&aacute;rio</button>
-        <span id='pushWrap' style='display:contents'>
-            <button onclick='rmPush(1)' data-i18n='rmbPushOn' data-i18n-title='rmbPushOnTip' title='Push ON'>&#128225; Push ON</button>
-            <button onclick='rmPush(0)' data-i18n='rmbPushOff' data-i18n-title='rmbPushOffTip' title='Push OFF'>&#128225; Push OFF</button>
-        </span>
     </div>
     <div class='rm-row' id='rmStats' style='gap:8px'></div>
     <div class='rm-scroll'><table id='tblArr'><thead></thead><tbody></tbody></table></div>
@@ -180,7 +176,7 @@
   </div>
 </section>
 
-<!-- ================= RACE / TRAINING ================= -->
+<!-- ================= RACE (read-only: races read from the clock) ================= -->
 <section id='rmp-race' class='rm-pane' style='display:none'>
   <div class='rm-card'>
     <div class='rm-acts'>
@@ -189,37 +185,6 @@
     </div>
     <div class='rm-scroll'><table id='tblRace'><thead></thead><tbody></tbody></table></div>
     <p class='rm-muted' id='racemmsg'></p>
-  </div>
-
-  <div class='rm-card' id='rmTraining'>
-    <h3 style='margin:0 0 8px;color:#93c5fd;font-size:15px'
-        data-i18n='rmbTrainTitle' data-i18n-title='rmbTrainTitleTip' title='Enviar treino'>&#127937; Enviar treino</h3>
-
-    <div id='train_unikon'>
-        <div class='rm-row'>
-            <label class='rm-fld'><span data-i18n='rmbTrainMode' data-i18n-title='rmbTrainModeTip' title='Pombos'>Pombos:</span>
-                <select id='trMode' onchange='rmTrainMode()' data-i18n-title='rmbTrainModeTip' title='Pombos'>
-                    <option value='all'  data-i18n='rmbModeAll'>Pombal todo</option>
-                    <option value='list' data-i18n='rmbModeList'>S&oacute; os marcados</option>
-                    <option value='none' data-i18n='rmbModeNone'>S&oacute; a prova (sem pombos)</option>
-                </select></label>
-            <button onclick='rmSelAll(1)' data-i18n='rmbSelectAll' data-i18n-title='rmbSelectAllTip' title='Marcar todos'>Marcar todos</button>
-            <button onclick='rmSelAll(0)' data-i18n='rmbClearSel' data-i18n-title='rmbClearSelTip' title='Limpar selec&ccedil;&atilde;o'>Limpar selec&ccedil;&atilde;o</button>
-        </div>
-        <div class='rm-row' id='trRingsRow' style='display:none'>
-            <div id='trRings' class='rm-checks' data-i18n-title='rmbChecklistTip' title='Marque os pombos'></div>
-        </div>
-        <p class='rm-muted' data-i18n='rmbChecklistTip'>Marque um ou v&aacute;rios pombos para enviar no treino.</p>
-        <p class='rm-muted' data-i18n='rmbTrainHint'>No clube leva-se o m&oacute;dulo e os pombos dessa prova.</p>
-    </div>
-
-    <div id='train_bricon' class='rm-muted' style='display:none'
-         data-i18n='rmbTrainBricon'>Escreve a prova de treino no rel&oacute;gio Bricon.</div>
-
-    <div class='rm-acts'>
-        <button onclick='rmSendTraining()' data-i18n='rmbSendTraining' data-i18n-title='rmbSendTrainingTip' title='Enviar treino'>&#9654; Enviar treino</button>
-        <span id='trainmsg' class='rm-muted'></span>
-    </div>
   </div>
 </section>
 
@@ -295,9 +260,6 @@ var RM_DEV = {
         syncPombal:   '/api/unikon-sync-pombal',
         syncCalendar: '/api/unikon-sync-calendar',
         emailPombal:  '/api/unikon-email-pombal',
-        training:     '/api/unikon-send-training',
-        push:         '/api/unikon-push',
-        trainingMode: true,
         colsArr: 8,
         colsPom: 6
     },
@@ -312,9 +274,6 @@ var RM_DEV = {
         syncPombal:   '/api/bricon-sync-pombal',
         syncCalendar: '/api/bricon-sync-calendar',
         emailPombal:  null,
-        training:     '/api/bricon-send-training',
-        push:         null,
-        trainingMode: false,
         colsArr: 8,
         colsPom: 3
     }
@@ -392,10 +351,7 @@ function rmSelect() {
     try { localStorage.setItem('rm_dev', rmDev); } catch (e) {}
     document.getElementById('cfgdev_unikon').style.display = (rmDev === 'unikon') ? '' : 'none';
     document.getElementById('cfgdev_bricon').style.display = (rmDev === 'bricon') ? '' : 'none';
-    document.getElementById('train_unikon').style.display = rmd().trainingMode ? '' : 'none';
-    document.getElementById('train_bricon').style.display = rmd().trainingMode ? 'none' : '';
     document.getElementById('btnEmailPombal').style.display = rmd().emailPombal ? '' : 'none';
-    document.getElementById('pushWrap').style.display = (rmDev === 'unikon') ? 'contents' : 'none';
     rmRefresh();
 }
 
@@ -561,36 +517,6 @@ function rmPombal(d) {
     // (No / Anilha / Chip), que e o que o relogio devolve no X (ring + chip).
     rmTable('tblPom', [T('rmbNo','No'), T('rmbRing','Anilha'), T('rmbChip','Chip')], rows);
 
-    // Checklist do treino: uma CAIXA DE MARCACAO por anilha lida do relogio.
-    var box = document.getElementById('trRings');
-    var keep = {};
-    var old = box.querySelectorAll("input[type='checkbox']");
-    for (var k = 0; k < old.length; k++) if (old[k].checked) keep[old[k].value] = 1;
-    box.innerHTML = '';
-    var seen = {};
-    for (var m = 0; m < arr.length; m++) {
-        var ring = String(rmPick(arr[m], ['ring','anilha']) || '').trim();
-        if (ring.length !== 11 || seen[ring]) continue;
-        seen[ring] = 1;
-        var lab = document.createElement('label');
-        var cb  = document.createElement('input');
-        cb.type = 'checkbox'; cb.value = ring; cb.checked = !!keep[ring];
-        var sp  = document.createElement('span');
-        sp.textContent = ring;
-        lab.appendChild(cb); lab.appendChild(sp);
-        box.appendChild(lab);
-    }
-    if (!box.children.length) {
-        var em = document.createElement('span');
-        em.className = 'rm-muted';
-        em.textContent = T('rmbEmpty','sem dados');
-        box.appendChild(em);
-    }
-}
-
-function rmSelAll(on) {
-    var cbs = document.getElementById('trRings').querySelectorAll("input[type='checkbox']");
-    for (var i = 0; i < cbs.length; i++) cbs[i].checked = !!on;
 }
 
 function rmContests(d) {
@@ -614,9 +540,6 @@ function rmRefresh() {
     rmGet(D.contests).then(rmContests).catch(function(){});
 }
 
-function rmPush(on) {
-    rmPost(rmd().push, 'on=' + (on ? '1' : '0') + '&auto=1', document.getElementById('arrmsg'));
-}
 
 function rmAct(kind) {
     var el = {poll:'arrmsg', syncPombal:'pommsg', syncCalendar:'racemmsg'}[kind] || null;
@@ -653,30 +576,6 @@ function rmRestoreProfile() {
     var el = document.getElementById('cfgmsg');
     document.getElementById('cfg_manual').checked = false;
     rmPost(rmd().config, 'manual=0', el);
-}
-
-/* ---- training ---- */
-function rmTrainMode() {
-    var m = document.getElementById('trMode').value;
-    document.getElementById('trRingsRow').style.display = (m === 'list') ? '' : 'none';
-}
-
-function rmCheckedRings() {
-    var out = [];
-    var cbs = document.getElementById('trRings').querySelectorAll("input[type='checkbox']");
-    for (var i = 0; i < cbs.length; i++) if (cbs[i].checked) out.push(cbs[i].value);
-    return out;
-}
-
-function rmSendTraining() {
-    var D = rmd(), el = document.getElementById('trainmsg');
-    if (!D.trainingMode) { rmPost(D.training, null, el); return; }
-    var m = document.getElementById('trMode').value;
-    if (m === 'none') { rmPost(D.training, 'rings=-', el); return; }   /* "-" = so a prova */
-    if (m === 'all')  { rmPost(D.training, 'rings=*', el); return; }   /* "*" = pombal todo */
-    var rings = rmCheckedRings();
-    if (!rings.length) { rmMsg(el, T('rmbChecklistTip','Marque um ou vários pombos.'), false); return; }
-    rmPost(D.training, 'rings=' + encodeURIComponent(rings.join('\n')), el);
 }
 
 /* ---- boot ---- */

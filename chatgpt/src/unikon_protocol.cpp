@@ -73,7 +73,6 @@ extern ConfigManager configManager;
 #define UNIKON_NAK_RETRY_DELAY  80      // pause after NAK before retry — matched to rambox_read.ps1 (Start-Sleep 80ms)
 #define UNIKON_MAX_RETRIES      5       // NAK retry count — matched to rambox_read.ps1 (for loop 1..5)
 #define UNIKON_NO_DEVICE_BACKOFF_MS  60000UL  // back-off when no RAMBOX responds, to minimize RS232 lock time
-#define UNIKON_MAX_SFRAME_CONTENT 64    // S1/S2/S3 content bytes cached for training replay (ADDR+payload, no STX/ETX)
 // Maximum interval between successive Unikon email attempts.
 // Guarantees that pending arrivals are retried within this window even if the
 // email task was busy on the previous poll.
@@ -130,20 +129,8 @@ static volatile bool s_icPollPending = false;  // IC-only poll: calendar refresh
 static bool s_forceIcOnlyPoll = false;  // next poll cycle skips X/W and refreshes calendar only
 static volatile bool s_xPollPending = false;  // X-only poll: pombal refresh without W/IC phases
 static bool s_forceXOnlyPoll = false;  // next poll cycle skips W/IC and refreshes pombal only
-static volatile bool s_sendTrainingPending = false;  // write training session to RAMBOX
-static volatile bool s_clearTrainingPending = false; // clear training contest from RAMBOX
 static uint8_t s_prefetchedByte = 0;  // byte pre-read during X-frame step; consumed by readFrame
 static uint32_t s_noDeviceBackoffUntilMs = 0;  // if >0, skip polls until this timestamp (no RAMBOX found)
-
-// Last S1/S2/S3 frame contents seen on the wire (ADDR+payload, no STX/ETX/checks).
-// Replayed verbatim when programming a training session so the fictitious race
-// carries the same club/solta/fancier context (see captures 26/27: IC0+I+S+ZP).
-static uint8_t s_cachedS1[UNIKON_MAX_SFRAME_CONTENT];
-static uint8_t s_cachedS1Len = 0;
-static uint8_t s_cachedS2[UNIKON_MAX_SFRAME_CONTENT];
-static uint8_t s_cachedS2Len = 0;
-static uint8_t s_cachedS3[UNIKON_MAX_SFRAME_CONTENT];
-static uint8_t s_cachedS3Len = 0;
 
 // Contest name of the last programmed training session (e.g. "T26071430").
 // W-phase tags P-frames as training while the current frame-'3' race matches it.
@@ -158,26 +145,6 @@ static bool s_inTrainingRace = false;
 #define UNIKON_TRAINING_CODE "090"
 // Trailing digit of the name field (real builder: %-8s%01u). Programmed races in the
 // reference data carry '1'; a placeholder entry carried '0'. Not proven by the RE.
-#define UNIKON_I_TAIL_RACE  '1'
-#define UNIKON_I_TAIL_CLEAR '0'
-// Pigeon record form used when WRITING the entry list:
-//   1 = "ZP" + ring[11] + ' ' + chip[11]  (the form the RAMBOX itself emits on the X
-//       phase -- 30-byte frame; measured on every sniffer ZP record)
-//   0 = "P"  + ring[11] + ' ' + chip[11]  (the form the PC-side files carry -- 29-byte
-//       frame; the RAMBOX adds the 'Z' tag when it emits)
-// If the RAMBOX rejects the ZP write, flip this to 0.
-#define UNIKON_ZP_WRITE_PREFIX_Z 1
-// Entry-list selection sentinels (see setTrainingFilter()). They cannot collide with a
-// ring or an S4 line, so an empty list keeps its legacy meaning ("whole pombal").
-#define UNIKON_TRAIN_SEL_ALL  "*"
-#define UNIKON_TRAIN_SEL_NONE "-"
-// What the filter means: LIST = only the listed rings, ALL = whole pombal, NONE = no
-// pigeons at all (program the race alone).
-enum {
-    UNIKON_TRAIN_MODE_LIST = 0,
-    UNIKON_TRAIN_MODE_ALL  = 1,
-    UNIKON_TRAIN_MODE_NONE = 2
-};
 
 // Pure match on the contest code carried by frame '3' at bytes [9..11]
 // (see captures 9/17: "001"/"003" right after the 7-char solta block).
@@ -194,76 +161,9 @@ static bool isTrainingContestCode(const char* raceCode, const char* trainingCode
     return false;
 }
 
-// Training entry filter: which rings to program.
-//   empty text  -> UNIKON_TRAIN_MODE_ALL  (legacy: whole pombal)
-//   "*"         -> UNIKON_TRAIN_MODE_ALL  (explicit whole pombal)
-//   "-"         -> UNIKON_TRAIN_MODE_NONE (race only, no pigeons)
-//   otherwise   -> UNIKON_TRAIN_MODE_LIST (S4 lines / plain 11-digit rings)
-static char s_trainingFilter[UNIKON_MAX_ARRIVALS][12];
-// Anilhas efectivamente enviadas no treino (para o read-back do modo LIST).
-static char s_sentRings[UNIKON_MAX_ARRIVALS][12];
-static uint16_t s_trainingFilterCount = 0;
-static uint8_t  s_trainingMode = UNIKON_TRAIN_MODE_ALL;
-
-// Parse one entry-list line: full S4 record ("S4<10 contest>P<ring11>...")
-// or a plain 11-digit ring. True when a ring was extracted (11 chars + null).
-static bool parseTrainingEntryLine(const char* line, char* outRing) {
-    if (!line || !outRing) return false;
-    while (*line == ' ' || *line == '\t' || *line == '\r') line++;
-    if (line[0] == '\0' || line[0] == '\n') return false;
-    // Full S4 line: "S4" + 10 contest chars + 1 marker + 11-digit ring.
-    if (line[0] == 'S' && line[1] == '4') {
-        size_t len = strlen(line);
-        if (len < 24) return false;
-        for (int i = 0; i < 11; i++) {
-            char c = line[13 + i];
-            if (c < '0' || c > '9') return false;
-        }
-        memcpy(outRing, line + 13, 11);
-        outRing[11] = '\0';
-        return true;
-    }
-    // Plain 11-char ring. The module's registrations can be alphanumeric (a custom
-    // ring read from the pombal), so accept any printable non-space char -- requiring
-    // digits only made the filter silently select nothing for such rings.
-    int i = 0;
-    while (i < 11 && line[i] > ' ' && line[i] != '\r' && line[i] != '\n') {
-        outRing[i] = line[i];
-        i++;
-    }
-    if (i != 11) return false;
-    outRing[11] = '\0';
-    return true;
-}
-
-// Selection test for the entry list (see s_trainingMode).
-static bool trainingFilterAllows(const char* ring) {
-    if (s_trainingMode == UNIKON_TRAIN_MODE_ALL)  return true;
-    if (s_trainingMode == UNIKON_TRAIN_MODE_NONE) return false;
-    if (!ring) return false;
-    for (uint16_t i = 0; i < s_trainingFilterCount; i++) {
-        if (memcmp(s_trainingFilter[i], ring, 11) == 0) return true;
-    }
     return false;
 }
 
-// Remember one S-frame payload for later training replay. Only stores the
-// content bytes (ADDR first), capped at UNIKON_MAX_SFRAME_CONTENT.
-static void cacheSFrame(const uint8_t* f, uint8_t fLen) {
-    if (fLen < 6 || f[0] != UNIKON_STX || f[2] != 0x53) return;
-    uint8_t contentLen = (uint8_t)(fLen - 4);  // strip STX + CK1 + CK2 + ETX
-    if (contentLen == 0 || contentLen > UNIKON_MAX_SFRAME_CONTENT) return;
-    if (f[3] == 0x31) {
-        memcpy(s_cachedS1, f + 1, contentLen);
-        s_cachedS1Len = contentLen;
-    } else if (f[3] == 0x32) {
-        memcpy(s_cachedS2, f + 1, contentLen);
-        s_cachedS2Len = contentLen;
-    } else if (f[3] == 0x33) {
-        memcpy(s_cachedS3, f + 1, contentLen);
-        s_cachedS3Len = contentLen;
-    }
-}
 
 // Pending-email window: arrivals at s_arrivals[s_pendingEmailStart..s_arrivalCount-1]
 // have not yet been included in a successfully dispatched email.
@@ -516,40 +416,6 @@ static const uint8_t CONTENT_X[] = { UNIKON_ADDR, 0x58 };
 static const uint8_t CONTENT_W[] = { UNIKON_ADDR, 0x57 };
 // Frame IC0 (contest schedule): 02 81 49 43 30 3D 81 03
 static const uint8_t CONTENT_IC[] = { UNIKON_ADDR, 0x49, 0x43, 0x30 };
-// Push (device-initiated arrivals). The vendor driver's uniActivatePush()/uniDeactivatePush()
-// send exactly these two frames. The RAMBOX must be asked PER DEVICE, so the negotiated state
-// is bound to the identification string (version + serial) and re-armed when another one answers.
-static const uint8_t CONTENT_P1[] = { UNIKON_ADDR, 0x50, 0x31 };   // push ON  ("P1")
-static const uint8_t CONTENT_P0[] = { UNIKON_ADDR, 0x50, 0x30 };   // push OFF ("P0")
-
-enum { UNIKON_PUSH_OFF = 0, UNIKON_PUSH_ACTIVE = 1, UNIKON_PUSH_UNSUPPORTED = 2 };
-static uint8_t  s_pushState      = UNIKON_PUSH_OFF;
-static int8_t   s_pushPending    = -1;      // -1 idle, 0 = turn off, 1 = turn on
-// The push is tied to the polling: as soon as a RAMBOX is identified, the hub asks it for the
-// push once (per device) -- no user action. Harmless when unsupported (one NAK, logged).
-static bool     s_pushAuto       = true;
-static char     s_pushDevice[44] = {0};     // ident the push was negotiated with
-static char     s_pushVersion[44] = {0};    // ident captured by the last probe
-static uint16_t s_pushCode       = 0;       // last result: 0 = ACK, 0x3f1 = NAK, 0x3ef = timeout
-
-// Called on every successful identification (any session). If the RAMBOX is not the one the
-// push was negotiated with, the push state is dropped -- and re-armed when auto mode is on --
-// so plugging the hub into another RAMBOX asks again instead of assuming.
-static void pushCheckDevice(const char* ident) {
-    if (!ident || ident[0] == '\0') return;
-    if (s_pushDevice[0] != '\0' && strcmp(s_pushDevice, ident) == 0) return;   // same device
-    bool changed = (s_pushDevice[0] != '\0');
-    snprintf(s_pushDevice, sizeof(s_pushDevice), "%s", ident);
-    if (changed) {
-        s_pushState = UNIKON_PUSH_OFF;
-        s_pushCode  = 0;
-        sendVirtualMessage(F("[UNIKON] push: different RAMBOX detected — push state reset"), WARN, false, true);
-    }
-    // Nothing else here: the push is asked at the end of the poll that identified this device
-    // (see unikonPollNow()), so a device that answers is probed exactly once.
-}
-static void pushProbe(bool want);        // defined after sendAndWaitAck()
-
 // Send v-frame and wait for the RAMBOX ident frame response.
 // Protocol variants seen in the field:
 // - NAK, then retry, then ident frame (real RAMBOX units)
@@ -618,7 +484,6 @@ static bool sendVFrameAndReadIdent(char* moduleIdBuf, size_t bufLen) {
                                 memcpy(moduleIdBuf, frameBuf + payStart, copyLen);
                                 moduleIdBuf[copyLen] = '\0';
                                 sendVirtualMessage(String(F("[UNIKON] moduleId: ")) + String(moduleIdBuf), WARN, false, true);
-                                pushCheckDevice(moduleIdBuf);   // per-device push state
                             }
                         }
                         RS232.write(UNIKON_ACK);
@@ -678,39 +543,6 @@ static bool sendAndWaitAck(const uint8_t* content, uint8_t contentLen) {
         delay(UNIKON_NAK_RETRY_DELAY);
     }
     return false;
-}
-
-// Ask the RAMBOX to push ("P1") or stop pushing ("P0") and record the outcome.
-// Handshake first so the identification string (version + serial) is captured and the
-// push state stays bound to that specific device.
-// Result codes mirror the vendor driver: 0 = ACK, 0x3f1 = NAK, 0x3ef = no answer.
-static void pushProbe(bool want) {
-    char ident[44] = {0};
-    if (!sendVFrameAndReadIdent(ident, sizeof(ident))) {
-        s_pushState = UNIKON_PUSH_UNSUPPORTED;
-        s_pushCode  = 0x3ef;   // timeout / no RAMBOX
-        sendVirtualMessage(F("[UNIKON] push: handshake failed — no RAMBOX answered"), WARN, false, true);
-        return;
-    }
-    snprintf(s_pushVersion, sizeof(s_pushVersion), "%s", ident);
-    bool acked = sendAndWaitAck(want ? CONTENT_P1 : CONTENT_P0, want ? sizeof(CONTENT_P1) : sizeof(CONTENT_P0));
-    s_pushCode = acked ? 0 : 0x3f1;   // sendAndWaitAck() only returns true on ACK
-    if (want) {
-        s_pushState = acked ? UNIKON_PUSH_ACTIVE : UNIKON_PUSH_UNSUPPORTED;
-    } else {
-        s_pushState = UNIKON_PUSH_OFF;   // we asked to stop: OFF regardless of the reply
-    }
-    char msg[120];
-    snprintf(msg, sizeof(msg), "[UNIKON] push: %s %s (ident=%s)",
-             want ? "P1" : "P0",
-             acked ? "ACK" : (s_pushCode == 0x3f1 ? "NAK/rejected" : "no answer"),
-             s_pushVersion[0] ? s_pushVersion : "?");
-    sendVirtualMessage(String(msg), WARN, false, true);
-    if (want && acked) {
-        sendVirtualMessage(F("[UNIKON] push: active — pushed frames are read as they arrive (the auto-poll keeps running as the guarantee)"), WARN, false, true);
-    } else if (want) {
-        sendVirtualMessage(F("[UNIKON] push: not supported by this RAMBOX — polling keeps running as before"), WARN, false, true);
-    }
 }
 
 // Read one framed response from the RAMBOX (blocks up to UNIKON_TIMEOUT_MS).
@@ -1335,15 +1167,12 @@ static bool runWPhase() {
             // Some RAMBOX units include S1/S2/S3 metadata in W-phase as well.
             if (frameBuf[3] == 0x31) {
                 parseS1Frame(frameBuf, fLen, s_status.clubName, sizeof(s_status.clubName));
-                cacheSFrame(frameBuf, fLen);
             } else if (frameBuf[3] == 0x32) {
                 parseS2Frame(frameBuf, fLen, s_status.soltaName, sizeof(s_status.soltaName));
                 parseSClubCode(frameBuf, fLen, s_status.clubCode, sizeof(s_status.clubCode));
-                cacheSFrame(frameBuf, fLen);
             } else if (frameBuf[3] == 0x33) {
                 parseS3Frame(frameBuf, fLen, s_status.fancierName, sizeof(s_status.fancierName));
                 parseSClubCode(frameBuf, fLen, s_status.clubCode, sizeof(s_status.clubCode));
-                cacheSFrame(frameBuf, fLen);
             }
             char smsg[96];
             snprintf(smsg, sizeof(smsg), "[UNIKON] W S-frame type=%02X club='%.24s' code='%.7s' fancier='%.24s'",
@@ -1490,21 +1319,18 @@ static bool runXPhase() {
         } else if (fLen >= 4 && frameBuf[2] == 0x53) {
             if (frameBuf[3] == 0x31) {
                 parseS1Frame(frameBuf, fLen, s_status.clubName, sizeof(s_status.clubName));
-                cacheSFrame(frameBuf, fLen);
                 char smsg[48];
                 snprintf(smsg, sizeof(smsg), "[UNIKON] X S1-frame: club=%.24s", s_status.clubName);
                 sendVirtualMessage(String(smsg), WARN, false, true);
             } else if (frameBuf[3] == 0x32) {
                 parseS2Frame(frameBuf, fLen, s_status.soltaName, sizeof(s_status.soltaName));
                 parseSClubCode(frameBuf, fLen, s_status.clubCode, sizeof(s_status.clubCode));
-                cacheSFrame(frameBuf, fLen);
                 char smsg[48];
                 snprintf(smsg, sizeof(smsg), "[UNIKON] X S2-frame: solta=%.24s", s_status.soltaName);
                 sendVirtualMessage(String(smsg), WARN, false, true);
             } else if (frameBuf[3] == 0x33) {
                 parseS3Frame(frameBuf, fLen, s_status.fancierName, sizeof(s_status.fancierName));
                 parseSClubCode(frameBuf, fLen, s_status.clubCode, sizeof(s_status.clubCode));
-                cacheSFrame(frameBuf, fLen);
                 char smsg[64];
                 snprintf(smsg, sizeof(smsg), "[UNIKON] X S3-frame: fancier=%.31s", s_status.fancierName);
                 sendVirtualMessage(String(smsg), WARN, false, true);
@@ -1802,9 +1628,10 @@ void unikonBegin() {
 // Note: this is synchronous and short-circuits before readFrame() unless a RAMBOX frame
 // is confirmed. The 700 ms per-byte timeout in readFrame() only applies once inside a frame.
 static void tryPassiveListen() {
-    // Runs when passive listening is enabled in config, or whenever the push is active
-    // (the RAMBOX was explicitly asked to push, so the frames are expected).
-    if (!s_cfg.passiveListen && s_pushState != UNIKON_PUSH_ACTIVE) return;
+    // Runs only when passive listening is enabled in the config: the hub never asks the
+    // clock to push (P1/P0 removed 2026-10-25 - read-only), but if the device sends
+    // spontaneous frames they are still parsed.
+    if (!s_cfg.passiveListen) return;
     if (!_rs232PortInitialized) return;
     if (RS232.available() < 2) return;
 
@@ -1906,31 +1733,14 @@ static void tryPassiveListen() {
     }
 }
 
-static bool sendTrainingSession(const char* name);
-static bool clearTrainingSession();
-
 void unikonUpdate() {
     if (!s_cfg.enabled) return;
-
-    // Push mode (device-initiated arrivals): probe on request. While active, the periodic
-    // poll is skipped further below -- explicit poll/sync/training requests still run, so the
-    // buttons keep working with the push on.
-    if (s_pushPending >= 0) {
-        bool want = (s_pushPending == 1);
-        s_pushPending = -1;
-        s_pollInProgress = true;
-        pushProbe(want);
-        s_pollInProgress = false;
-        s_lastPollEndMs = 0;   // no blackout after a probe: pushed frames must not be flushed
-        return;
-    }
 
     // While the post-poll blackout is active, keep draining residual UART bytes.
     // The loop-level RS232 reader already stays blocked during this window, but if
     // we do not actively consume the tail bytes here they remain queued in the UART
     // FIFO and leak into bufferDados as soon as the blackout expires.
-    // Skipped while the push is active: those bytes are pushed frames, not leftovers.
-    if (!s_pollInProgress && s_lastPollEndMs != 0 && s_pushState != UNIKON_PUSH_ACTIVE) {
+    if (!s_pollInProgress && s_lastPollEndMs != 0) {
         unsigned long sincePollEnd = millis() - s_lastPollEndMs;
         if (sincePollEnd < UNIKON_POST_POLL_BLACKOUT_MS) {
             flushRx();
@@ -1972,64 +1782,18 @@ void unikonUpdate() {
         return;
     }
 
-    // Training management: the training IS a programmed race (UNIKON_TRAINING_CODE
-    // + pombal ZPs). Re-enabled 2026-10-17 — sends the fictitious race on
-    // explicit request only, never automatically.
-    // Process a pending training send request.
-    if (s_sendTrainingPending) {
-        s_sendTrainingPending = false;
-        if (s_cfg.enabled) {
-            s_pollInProgress = true;
-            char name[10];
-            memset(name, ' ', 9);
-            name[9] = '\0';
-            struct tm timeinfo;
-            if (getLocalTime(&timeinfo, 10)) {
-                // Training tag: TDDMMHHMM (I-frame name holds 9 chars).
-                snprintf(name, 10, "T%02d%02d%02d%02d",
-                         timeinfo.tm_mday, timeinfo.tm_mon + 1,
-                         timeinfo.tm_hour, timeinfo.tm_min);
-            } else {
-                memcpy(name, "TREINO_NO", 9);
-            }
-            sendTrainingSession(name);
-            s_pollInProgress = false;
-            s_lastPollEndMs = millis();
-        }
-        return;
-    }
-
-    // Process a pending clear-training request.
-    if (s_clearTrainingPending) {
-        s_clearTrainingPending = false;
-        if (s_cfg.enabled) {
-            s_pollInProgress = true;
-            clearTrainingSession();
-            s_pollInProgress = false;
-            s_lastPollEndMs = millis();
-        }
-        return;
-    }
-
-    // Auto-poll when interval is configured. The push is ADDITIVE: this poll stays the
-    // guarantee, while pushed frames land through the passive listener the moment the RAMBOX
-    // sends them -- so an arrival can show up well before the next poll (e.g. a 5-min interval).
-    if (!s_pollingActive || s_cfg.pollIntervalSec == 0) {
-        if (s_pushState == UNIKON_PUSH_ACTIVE) tryPassiveListen();   // still read pushed frames
-        return;
-    }
+    // Auto-poll when interval is configured (the only way arrivals are read: the hub never
+    // asks the clock to push).
+    if (!s_pollingActive || s_cfg.pollIntervalSec == 0) return;
     // If a previous poll found no RAMBOX, wait for the backoff to expire before retrying.
-    if (s_noDeviceBackoffUntilMs && millis() < s_noDeviceBackoffUntilMs) {
-        if (s_pushState == UNIKON_PUSH_ACTIVE) tryPassiveListen();
-        return;
-    }
+    if (s_noDeviceBackoffUntilMs && millis() < s_noDeviceBackoffUntilMs) return;
     if (millis() - s_lastPollMs >= (uint32_t)s_cfg.pollIntervalSec * 1000UL) {
         s_forceWOnlyPoll = true;
         unikonPollNow();
         return;
     }
 
-    // Passive listener: check for spontaneous RAMBOX frames while idle (always on with the push).
+    // Passive listener: parse spontaneous RAMBOX frames when passiveListen is enabled.
     tryPassiveListen();
 }
 
@@ -2392,21 +2156,18 @@ bool unikonPollNow() {
             // S1/S2/S3 frame — solta / club info.
             if (frameBuf[3] == 0x31) {
                 parseS1Frame(frameBuf, fLen, s_status.clubName, sizeof(s_status.clubName));
-                cacheSFrame(frameBuf, fLen);
                 char smsg[48];
                 snprintf(smsg, sizeof(smsg), "[UNIKON] X S1-frame: club=%.24s", s_status.clubName);
                 sendVirtualMessage(String(smsg), WARN, false, true);
             } else if (frameBuf[3] == 0x32) {
                 parseS2Frame(frameBuf, fLen, s_status.soltaName, sizeof(s_status.soltaName));
                 parseSClubCode(frameBuf, fLen, s_status.clubCode, sizeof(s_status.clubCode));
-                cacheSFrame(frameBuf, fLen);
                 char smsg[48];
                 snprintf(smsg, sizeof(smsg), "[UNIKON] X S2-frame: solta=%.24s", s_status.soltaName);
                 sendVirtualMessage(String(smsg), WARN, false, true);
             } else if (frameBuf[3] == 0x33) {
                 parseS3Frame(frameBuf, fLen, s_status.fancierName, sizeof(s_status.fancierName));
                 parseSClubCode(frameBuf, fLen, s_status.clubCode, sizeof(s_status.clubCode));
-                cacheSFrame(frameBuf, fLen);
                 char smsg[64];
                 snprintf(smsg, sizeof(smsg), "[UNIKON] X S3-frame: fancier=%.31s", s_status.fancierName);
                 sendVirtualMessage(String(smsg), WARN, false, true);
@@ -2612,9 +2373,6 @@ String raceName2 = (s_status.raceName[0]) ? String(s_status.raceName) : String(F
         }
     }
 #endif
-    // Push: this poll just identified the RAMBOX, so ask it for the push now -- once per device.
-    // Later polls that see the same ident send nothing extra (pushCheckDevice() binds the state).
-    if (s_pushAuto && s_pushState == UNIKON_PUSH_OFF) pushProbe(true);
     return true;
 }
 
@@ -2632,349 +2390,6 @@ void unikonRequestIcOnlyPoll() {
 
 void unikonRequestXOnlyPoll() {
     s_xPollPending = true;
-}
-
-void unikonRequestSendTraining() {
-    s_sendTrainingPending = true;
-}
-
-static uint16_t setTrainingFilter(const char* text);
-
-uint16_t unikonSetTrainingFilter(const char* text) {
-    return setTrainingFilter(text);
-}
-
-void unikonRequestClearTraining() {
-    s_clearTrainingPending = true;
-}
-
-// ----- Push (device-initiated arrivals) -----
-
-// Ask the RAMBOX to also push arrivals ("P1"), or to stop ("P0").
-// Non-blocking: sets a flag processed by unikonUpdate(). Handshakes first, so the push
-// state stays bound to the identified device (see pushCheckDevice()).
-void unikonRequestPush(bool on) {
-    s_pushPending = on ? 1 : 0;
-}
-
-// When enabled, the push is re-armed automatically on every newly seen RAMBOX, so plugging
-// the hub into another unit asks again instead of assuming the previous answer.
-void unikonSetPushAuto(bool on) {
-    s_pushAuto = on;
-    if (on && s_pushState != UNIKON_PUSH_ACTIVE) s_pushPending = 1;
-}
-
-bool        unikonIsPushAuto()     { return s_pushAuto; }
-bool        unikonIsPushActive()   { return s_pushState == UNIKON_PUSH_ACTIVE; }
-uint8_t     unikonGetPushState()   { return s_pushState; }
-uint16_t    unikonGetPushCode()    { return s_pushCode; }
-const char* unikonGetPushDevice()  { return s_pushDevice; }
-const char* unikonGetPushVersion() { return s_pushVersion; }
-
-// Send one I-frame (contest entry) to the RAMBOX.
-// Content: ADDR 'I' CODE[3] DDMM[4] NAME[8] N[1]  (18 bytes total; 22-byte frame).
-// Matches the original builder "I0%02u%02u%02u%-8s%01u": the name field is EIGHT
-// characters and the last byte is a digit (never a space).
-// Returns true when RAMBOX ACKs.
-static bool sendIFrame(const char* code, const char* date, const char* name, char tail) {
-    uint8_t content[18];
-    content[0] = UNIKON_ADDR;
-    content[1] = 0x49;
-    memcpy(content + 2, code, 3);
-    memcpy(content + 5, date, 4);
-    memset(content + 9, ' ', 8);               // NAME[8]
-    uint8_t nLen = (uint8_t)strlen(name);
-    if (nLen > 9) nLen = 9;
-    if (nLen == 9) {
-        // A 9-character tag (e.g. "TDDMMHHMM") fills NAME[8] + the N field; keep it as
-        // long as its last character really is a digit, otherwise fall back to tail.
-        memcpy(content + 9, name, 9);
-        if (content[17] < '0' || content[17] > '9') content[17] = (uint8_t)tail;
-    } else {
-        memcpy(content + 9, name, nLen);
-        content[17] = (uint8_t)tail;           // N[1] -- always a digit
-    }
-    return sendAndWaitAck(content, sizeof(content));
-}
-
-// Send one pigeon record to the RAMBOX as a POUL UPLOAD line.
-//
-// The vendor driver's uniUploadPoulData() prefixes EVERY data line with 'M' -- 'M' is NOT a
-// standalone command: unikonDrv.dll FUN_10005ee0 skips the command frame when cmd[0] == 'M'
-// and then builds "M" + <line> for each line of the file. Without the prefix the RAMBOX does
-// not store the record, so a programmed race has no entries and reports no arrivals.
-// (Evidence: rea-work/ucuk/artifacts/drv/COMMAND_MAP.md)
-//
-//   UNIKON_ZP_WRITE_PREFIX_Z=1 -> 'M' "ZP" + RING[11] + ' ' + CHIP[11]  (27 B, 31-B frame)
-//   UNIKON_ZP_WRITE_PREFIX_Z=0 -> 'M' "P"  + RING[11] + ' ' + CHIP[11]  (26 B, 30-B frame)
-// Returns true when RAMBOX ACKs.
-static bool sendZPFrame(const char* ring, const char* chip) {
-#if UNIKON_ZP_WRITE_PREFIX_Z
-    uint8_t content[27];
-    content[0] = UNIKON_ADDR;
-    content[1] = 0x4D;          // 'M' -- poul upload line prefix
-    content[2] = 0x5A;          // 'Z'
-    content[3] = 0x50;          // 'P'
-    memcpy(content + 4, ring, 11);
-    content[15] = 0x20;
-    memcpy(content + 16, chip, 11);
-#else
-    uint8_t content[26];
-    content[0] = UNIKON_ADDR;
-    content[1] = 0x4D;          // 'M' -- poul upload line prefix
-    content[2] = 0x50;          // 'P'
-    memcpy(content + 3, ring, 11);
-    content[14] = 0x20;
-    memcpy(content + 15, chip, 11);
-#endif
-    return sendAndWaitAck(content, sizeof(content));
-}
-
-// Replace the training entry filter from newline-separated text (S4 lines
-// or plain rings). Empty text clears the filter (= whole pombal).
-// Returns the number of rings accepted.
-static uint16_t setTrainingFilter(const char* text) {
-    s_trainingFilterCount = 0;
-    s_trainingMode = UNIKON_TRAIN_MODE_ALL;   // legacy default
-    if (!text || text[0] == '\0') return 0;   // empty -> whole pombal (unchanged)
-    if (strcmp(text, UNIKON_TRAIN_SEL_NONE) == 0) {   // "-" -> race only, no pigeons
-        s_trainingMode = UNIKON_TRAIN_MODE_NONE;
-        return 0;
-    }
-    if (strcmp(text, UNIKON_TRAIN_SEL_ALL) == 0) {    // "*" -> explicit whole pombal
-        s_trainingMode = UNIKON_TRAIN_MODE_ALL;
-        return 0;
-    }
-    s_trainingMode = UNIKON_TRAIN_MODE_LIST;
-    const char* p = text;
-    char line[64];
-    while (*p && s_trainingFilterCount < UNIKON_MAX_ARRIVALS) {
-        size_t n = 0;
-        while (p[n] && p[n] != '\n' && n < sizeof(line) - 1) {
-            line[n] = p[n];
-            n++;
-        }
-        line[n] = '\0';
-        p += n;
-        if (*p == '\n') p++;
-        char ring[12];
-        if (parseTrainingEntryLine(line, ring)) {
-            memcpy(s_trainingFilter[s_trainingFilterCount], ring, 12);
-            s_trainingFilterCount++;
-        }
-    }
-    return s_trainingFilterCount;
-}
-
-// Write a full training session to the RAMBOX (fictitious race UNIKON_TRAINING_CODE):
-//   1. V-frame handshake
-//   2. IC0 + I-frame (contest entry for today)
-//   3. S1/S2/S3 replay (club/solta/fancier context cached from X/W reads)
-//   4. Pigeon records for the selected entry list:
-//        s_trainingMode == ALL  -> every registered pigeon
-//        s_trainingMode == LIST -> only the listed rings
-//        s_trainingMode == NONE -> no pigeons at all (race only)
-// Mirrors the original software order (IC0+I+S+ZP).
-// Returns true when the RACE was programmed (I-frame ACKed), independently of how many
-// pigeon records were accepted, so "race only" and "race + pigeons" can be told apart.
-// Never touches the RAMBOX training state: the training IS the programmed race.
-// FNV-1a over the current pombal ring set. Used by the training read-back to compare what we
-// allocated with what the module actually reports, without keeping a second copy of the list.
-static uint32_t pombalRingHash() {
-    uint32_t h = 2166136261u;
-    for (uint16_t i = 0; i < s_registrationCount; i++) {
-        for (uint8_t k = 0; k < 11; k++) { h ^= (uint8_t)s_registrations[i].ring[k]; h *= 16777619u; }
-    }
-    return h;
-}
-
-static bool sendTrainingSession(const char* name) {
-    if (!unikonStorageReady()) {
-        sendVirtualMessage(F("[UNIKON] training: storage not ready"), WARN, false, true);
-        return false;
-    }
-    // Three modes, chosen on the page:
-    //   "-"  (UNIKON_TRAIN_MODE_NONE) -> RACE-ONLY test: no pigeon records at all
-    //   "*"  (UNIKON_TRAIN_MODE_ALL)  -> the WHOLE pombal (the normal run)
-    //   list (UNIKON_TRAIN_MODE_LIST) -> only the ticked pigeons (BENCH TEST ONLY: the poul
-    //        upload REPLACES the device's list, so a subset leaves the RAMBOX with fewer)
-    const bool raceOnly = (s_trainingMode == UNIKON_TRAIN_MODE_NONE);
-    const bool subset   = (s_trainingMode == UNIKON_TRAIN_MODE_LIST);
-
-    // A race is only usable when its pigeons are ALLOCATED to it: the races that come from
-    // the club arrive with their pigeons already assigned, so a race written alone does not
-    // open and reports no arrivals.
-    if (!raceOnly && s_registrationCount == 0) {
-        sendVirtualMessage(F("[UNIKON] training: no pombal registrations — sync the pombal first "
-                             "(the race needs its pigeons allocated)"), WARN, false, true);
-        return false;
-    }
-    if (raceOnly) {
-        sendVirtualMessage(F("[UNIKON] training: RACE ONLY (test) — no pigeon records are sent, "
-                             "the race is not expected to open"), WARN, false, true);
-    } else if (subset) {
-        char wmsg[96];
-        snprintf(wmsg, sizeof(wmsg),
-                 "[UNIKON] training: SUBSET (%u of %u pigeons) — WARNING: the write REPLACES the "
-                 "device's list", (unsigned)s_trainingFilterCount, (unsigned)s_registrationCount);
-        sendVirtualMessage(String(wmsg), WARN, false, true);
-    }
-    if (!raceOnly && !subset) {
-        char mmsg[72];
-        snprintf(mmsg, sizeof(mmsg), "[UNIKON] training: allocating the whole pombal (%u pigeons)",
-                 (unsigned)s_registrationCount);
-        sendVirtualMessage(String(mmsg), WARN, false, true);
-    }
-    char tmpModuleId[44];
-    if (!sendVFrameAndReadIdent(tmpModuleId, sizeof(tmpModuleId))) {
-        sendVirtualMessage(F("[UNIKON] training: handshake failed"), WARN, false, true);
-        return false;
-    }
-    if (!sendAndWaitAck(CONTENT_IC, sizeof(CONTENT_IC))) {
-        sendVirtualMessage(F("[UNIKON] training: IC0 failed"), WARN, false, true);
-        return false;
-    }
-    char dateStr[5] = "0101";
-    struct tm timeinfo;
-    if (getLocalTime(&timeinfo, 10)) {
-        snprintf(dateStr, sizeof(dateStr), "%02d%02d", timeinfo.tm_mday, timeinfo.tm_mon + 1);
-    }
-    if (!sendIFrame(UNIKON_TRAINING_CODE, dateStr, name, UNIKON_I_TAIL_RACE)) {
-        sendVirtualMessage(F("[UNIKON] training: I-frame failed"), WARN, false, true);
-        return false;
-    }
-    // Nothing to persist: the training tag is the fixed UNIKON_TRAINING_CODE
-    // constant, so a reboot still classifies this race's arrivals as training.
-    sendVirtualMessage(String(F("[UNIKON] training: tag=code ")) + String(UNIKON_TRAINING_CODE)
-                       + String(F(" date=")) + String(dateStr)
-                       + String(F(" name=")) + String(name), WARN, false, true);
-    // Replay club context. Skipped (with warning) when nothing was ever read.
-    const uint8_t* sFrames[3] = { s_cachedS1, s_cachedS2, s_cachedS3 };
-    const uint8_t sLens[3] = { s_cachedS1Len, s_cachedS2Len, s_cachedS3Len };
-    for (uint8_t i = 0; i < 3; i++) {
-        if (sLens[i] == 0) continue;
-        // Never replay an EMPTY context: S1/S2/S3 are a WRITE of the club/solta on the
-        // module (the sim proves it -- an empty S1 replaced the club id with spaces).
-        // Replaying a blank frame from a module that had no club would erase it.
-        bool anyContent = false;
-        for (uint8_t k = 3; k < sLens[i]; k++) {
-            if (sFrames[i][k] > ' ') { anyContent = true; break; }
-        }
-        if (!anyContent) {
-            char smsg[64];
-            snprintf(smsg, sizeof(smsg),
-                     "[UNIKON] training: S%u is empty on the module -- not replayed (would erase it)",
-                     (unsigned)(i + 1));
-            sendVirtualMessage(String(smsg), WARN, false, true);
-            continue;
-        }
-        char smsg[48];
-        snprintf(smsg, sizeof(smsg), "[UNIKON] training: replaying S%u (%u bytes)", (unsigned)(i + 1), (unsigned)sLens[i]);
-        sendVirtualMessage(String(smsg), WARN, false, true);
-        if (!sendAndWaitAck(sFrames[i], sLens[i])) {
-            sendVirtualMessage(F("[UNIKON] training: S-frame replay failed"), WARN, false, true);
-            return false;
-        }
-    }
-    // Allocation: one pigeon record per registration -- the whole pombal, or only the ticked
-    // ones in the subset test mode. Padded to 11 chars so a short/corrupt registration can
-    // never leak adjacent memory on the wire. Skipped entirely in the RACE-ONLY mode.
-    uint16_t okCount = 0, sentCount = 0;
-    for (uint16_t i = 0; !raceOnly && i < s_registrationCount; i++) {
-        if (subset && !trainingFilterAllows(s_registrations[i].ring)) continue;
-        char ring[12];
-        char chip[12];
-        memset(ring, '0', 11); ring[11] = '\0';
-        memset(chip, '0', 11); chip[11] = '\0';
-        size_t ringLen = strlen(s_registrations[i].ring);
-        if (ringLen > 11) ringLen = 11;
-        memcpy(ring, s_registrations[i].ring, ringLen);
-        if (s_registrations[i].hasChip) {
-            size_t chipLen = strlen(s_registrations[i].chip);
-            if (chipLen > 11) chipLen = 11;
-            memcpy(chip, s_registrations[i].chip, chipLen);
-        }
-        if (sendZPFrame(ring, chip)) okCount++;
-        if (sentCount < UNIKON_MAX_ARRIVALS) {
-            // Guardar a anilha enviada: no modo LIST o read-back verifica presenca
-            // (o modulo nao tem comando "apagar pombo", logo a lista dele e maior).
-            strlcpy(s_sentRings[sentCount], ring, sizeof(s_sentRings[0]));
-        }
-        sentCount++;
-        if (sentCount % 10 == 0) {
-            char pmsg[48];
-            snprintf(pmsg, sizeof(pmsg), "[UNIKON] training: ZP %u/%u (ok %u)",
-                     (unsigned)sentCount, (unsigned)s_registrationCount, (unsigned)okCount);
-            sendVirtualMessage(String(pmsg), WARN, false, true);
-        }
-    }
-    // Read-back (the DOS program's menu 4, "Receber dados ... do Unikon-Modulo"): re-read the
-    // pombal and compare it with what we just allocated. The ACK only proves the frame was
-    // accepted -- this is the only way to know the module really stored the records.
-    if (sentCount > 0 && subset) {
-        // Subconjunto: o protocolo capturado NAO tem "apagar pombo", por isso a RAMBOX
-        // fica com o pombal antigo + os que enviamos. Comparar o hash daria sempre
-        // MISMATCH; o que interessa e confirmar que TODAS as anilhas enviadas existem la.
-        if (runXPhase()) {
-            uint16_t present = 0;
-            for (uint16_t i = 0; i < sentCount && i < UNIKON_MAX_ARRIVALS; i++) {
-                if (isRegistered(s_sentRings[i])) present++;
-            }
-            char vmsg[128];
-            snprintf(vmsg, sizeof(vmsg),
-                     "[UNIKON] training: read-back (subset) — %u/%u anilhas enviadas presentes na RAMBOX — %s",
-                     (unsigned)present, (unsigned)sentCount,
-                     (present == sentCount) ? "OK" : "FALTAM");
-            sendVirtualMessage(String(vmsg), WARN, false, true);
-        } else {
-            sendVirtualMessage(F("[UNIKON] training: read-back failed (no ident/X answer)"), WARN, false, true);
-        }
-    } else if (sentCount > 0) {
-        uint32_t sentHash = pombalRingHash();
-        uint16_t sentTotal = s_registrationCount;
-        if (runXPhase()) {
-            uint32_t backHash = pombalRingHash();
-            uint16_t backTotal = s_registrationCount;
-            char vmsg[128];
-            snprintf(vmsg, sizeof(vmsg),
-                     "[UNIKON] training: read-back — sent %u (h=%08lX), module has %u (h=%08lX) — %s",
-                     (unsigned)sentTotal, (unsigned long)sentHash,
-                     (unsigned)backTotal, (unsigned long)backHash,
-                     (backHash == sentHash && backTotal == sentTotal) ? "MATCH" : "MISMATCH");
-            sendVirtualMessage(String(vmsg), WARN, false, true);
-        } else {
-            sendVirtualMessage(F("[UNIKON] training: read-back failed (no ident/X answer)"), WARN, false, true);
-        }
-    }
-    char donemsg[96];
-    snprintf(donemsg, sizeof(donemsg), "[UNIKON] training: done — contest=%s date=%s pigeons ok=%u/%u",
-             name, dateStr, (unsigned)okCount, (unsigned)sentCount);
-    sendVirtualMessage(String(donemsg), WARN, false, true);
-    // Success means the RACE was programmed; the pigeon count is reported separately so
-    // a "race only" run can be judged on its own.
-    return true;
-}
-
-// Clear the training contest (UNIKON_TRAINING_CODE) from the RAMBOX calendar.
-// Only writes an I-frame with invalid date — never touches ZP/pombal data.
-static bool clearTrainingSession() {
-    char tmpModuleId[44];
-    if (!sendVFrameAndReadIdent(tmpModuleId, sizeof(tmpModuleId))) {
-        sendVirtualMessage(F("[UNIKON] clear-training: handshake failed"), WARN, false, true);
-        return false;
-    }
-    if (!sendAndWaitAck(CONTENT_IC, sizeof(CONTENT_IC))) {
-        sendVirtualMessage(F("[UNIKON] clear-training: IC0 failed"), WARN, false, true);
-        return false;
-    }
-    if (!sendIFrame(UNIKON_TRAINING_CODE, "0000", "         ", UNIKON_I_TAIL_CLEAR)) {
-        sendVirtualMessage(F("[UNIKON] clear-training: I-frame failed"), WARN, false, true);
-        return false;
-    }
-    s_inTrainingRace = false;
-    sendVirtualMessage(String(F("[UNIKON] clear-training: done — contest "))
-                       + String(UNIKON_TRAINING_CODE) + String(F(" cleared")), WARN, false, true);
-    return true;
 }
 
 bool unikonIsPolling() {

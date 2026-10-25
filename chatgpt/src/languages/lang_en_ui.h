@@ -2978,27 +2978,8 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "rmbSyncCalendarTip": "Read the clock calendar races",
   "rmbEmailPombal": "✉ Loft email",
   "rmbEmailPombalTip": "Email the loft pigeon list",
-  "rmbPushOn": "📡 Push ON",
-  "rmbPushOnTip": "Ask the clock to push arrivals by itself (P1)",
-  "rmbPushOff": "📡 Push OFF",
-  "rmbPushOffTip": "Ask the clock to stop pushing (P0)",
   "rmbReadDevice": "📥 Read from clock",
   "rmbReadDeviceTip": "Re-read the clock loft",
-  "rmbTrainTitle": "🏁 Send training",
-  "rmbTrainTitleTip": "Write the training race (090) to the clock",
-  "rmbTrainMode": "Pigeons:",
-  "rmbTrainModeTip": "Which pigeons are allocated to the training race",
-  "rmbModeAll": "Whole loft",
-  "rmbModeList": "Only the ticked ones",
-  "rmbModeNone": "Race only (no pigeons)",
-  "rmbSelectAll": "Select all",
-  "rmbSelectAllTip": "Tick every pigeon in the list",
-  "rmbClearSel": "Clear selection",
-  "rmbClearSelTip": "Untick every pigeon",
-  "rmbChecklistTip": "Tick one or more pigeons to send in the training.",
-  "rmbSendTraining": "▶ Send training",
-  "rmbSendTrainingTip": "Send the race (and the ticked pigeons) to the clock",
-  "rmbTrainHint": "At the club you take the module and the pigeons for that race: the race is added to the module with its pigeons, and the module accumulates races.",
   "rmbNo": "No",
   "rmbRing": "Ring",
   "rmbChip": "Chip",
@@ -3017,8 +2998,6 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "rmbStatusTip": "Full clock status (protocol fields)",
   "rmbContests": "Races:",
   "rmbPigeons": "Pigeons:"
-,
-  "rmbTrainBricon": "Writes the training race to the Bricon clock."
 }
 )JSON";
 

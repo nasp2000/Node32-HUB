@@ -26,6 +26,12 @@ void registerUnikonApiRoutes(AsyncWebServer& server, const WebRouteContext& cont
         UnikonConfig cfg = unikonGetConfig();
         bool hasEnabled  = request->hasParam("enabled",  true);
         bool hasInterval = request->hasParam("interval", true);
+        // The "Module profile" button posts ONLY manual=0: that is a profile action,
+        // not a form save, so it gets its own answer (nothing of the form is stored).
+        const bool manualOnly = request->hasParam("manual", true)
+                                && !hasEnabled && !hasInterval
+                                && !request->hasParam("official_format", true)
+                                && !request->hasParam("passive", true);
         Serial.printf("[UNIKON] POST params: enabled=%d interval=%d\n", (int)hasEnabled, (int)hasInterval);
         if (hasEnabled)  cfg.enabled         = request->getParam("enabled",  true)->value().toInt() != 0;
         if (hasInterval) cfg.pollIntervalSec = (uint16_t)request->getParam("interval",true)->value().toInt();
@@ -53,6 +59,11 @@ void registerUnikonApiRoutes(AsyncWebServer& server, const WebRouteContext& cont
             directLogPrintln(F("[UNIKON] POST /api/unikon-config: save verification FAILED - file not found after save"));
             request->send(200, F("application/json"),
                 (String(F("{\"success\":false,\"message\":\"")) + L(activeLang->apiFileNotWritten) + "\"}"));
+            return;
+        }
+        if (manualOnly) {
+            request->send(200, F("application/json"),
+                (String(F("{\"success\":true,\"message\":\"")) + L(activeLang->apiProfileRestored) + "\"}"));
             return;
         }
         request->send(200, F("application/json"),

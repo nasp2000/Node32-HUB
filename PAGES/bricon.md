@@ -4,6 +4,10 @@
 > button/input, client logic, API endpoints, persistence and the firmware-side
 > engine. Twin of `/unikon`, slimmer.
 >
+> **SÓ LEITURA (2026-10-25):** o hub **não escreve** nada no relógio Bricon. As rotas
+> `/api/bricon-send-training` e `/api/bricon-clear-training` (stubs de "driver TBD") e o
+> botão *Designate* foram removidos; fica poll/sync/leituras e email.
+>
 > **WIRE DRIVER IMPLEMENTED (2026-10-19, from the REA capture):** framing + CK,
 > `ActivateMaster`/BA scan, the `FlightsReadOut` sequence
 > (`GetFancier` → `GetPigeon` chain → `GetTimer`), plus `GetFlightNames` and
@@ -34,7 +38,7 @@ the other and switches the RS232 profile automatically).
 | WiFi server | `web_routes_bricon.cpp` — chunked 3-segment stream (`buildPageFrame` + `PAGE_BRICON`), title "🕊 Bricon Rambox" |
 | Ethernet (W5500) | NOT mirrored (gap — see BRC-1) |
 | API (GET) | `/api/bricon-status`, `/api/bricon-arrivals`, `/api/bricon-registrations`, `/api/bricon-contests`, `/api/bricon-pombal` (live PSRAM data; empty until first ingest) |
-| API (POST) | `/api/bricon-config` (urlencoded `enabled`, `interval`, `baud`), `/api/bricon-poll`, `/api/bricon-sync-pombal`, `/api/bricon-sync-calendar`, `/api/bricon-reset`, `/api/bricon-send-training`, `/api/bricon-clear-training` |
+| API (POST) | `/api/bricon-config` (urlencoded `enabled`, `interval`, `baud`), `/api/bricon-poll`, `/api/bricon-sync-pombal`, `/api/bricon-sync-calendar`, `/api/bricon-reset` |
 | Auth | Basic auth (`ensureBasicAuth`) + HTML clients only (`allowHtmlClient`) |
 | Caching | `ETag` = `FIRMWARE_BUILD`, `Cache-Control: private, max-age=15, must-revalidate` |
 | Session exemption | Local processing — `window._localPagesNeverExpire=true` (same as unikon) |
@@ -51,7 +55,6 @@ main.page > div.wrap
 │   ├ [0] "📊 Status & Config"      → #bk-tab-0
 │   ├ [1] "🏁 Arrivals & Contests"  → #bk-tab-1
 │   ├ [2] "🕊 Pigeon Loft"          → #bk-tab-2
-│   └ [3] "🏋️ Training"            → #bk-tab-3
 ├ #bk-tab-0.uk-tab-panel.active
 │   ├ #bk-sec-status (H3 Status + #briconStatus + 4 .stat-cards #bkStatTotal/#bkStatContests/#bkStatPombal/#bkStatAgo + [Update] [Reset] + #bricon-poll-toast)
 │   └ #bk-sec-config (H3 Configuration + #bkRs232Info + form#briconForm: checkbox #briconEnabled, select #briconInterval, #briconBaud, #briconCountry, #briconBa, #briconData, #briconParity, #briconStop)
@@ -61,7 +64,6 @@ main.page > div.wrap
 ├ #bk-tab-2.uk-tab-panel
 │   └ #bk-sec-pombal (H3 Loft + [Sync Pigeon Loft → briconSyncPombal] + table > tbody#briconPombalBody + #bricon-pombal-toast)
 ├ #bk-tab-3.uk-tab-panel
-│   └ #bk-sec-training (H3 Designations + [Designate (SendDesignated)] + #bricon-training-toast)
 ├ .uk-savebar ([💾 Save Configuration → saveBriconConfig], common to all tabs)
 └ #bricon-config-status
 ```
@@ -93,7 +95,6 @@ Tab switching: `bkSwitchTab(idx)` toggles `.active` on buttons + panels, persist
 | 🔄 Reset Count | `briconReset()` → `POST /api/bricon-reset` → status refresh. Local counters only — there is no clock reset here (the ESP32 *is* the PC master, so `ResetMaster 10 67 00` does not apply) |
 | 🗓️ GetFlightNames | `briconSyncCalendar()` → `POST /api/bricon-sync-calendar`. Reads the contests with `GetFlightNames` (`FA 0C idx`, also chained) — the captured calendar read |
 | 🔄 GetFancier | `briconSyncPombal()` → `POST /api/bricon-sync-pombal`. Reads the loft with the `GetFancier` chain (`51\|C1`) — the captured registration read |
-| 📡 Designate (SendDesignated) | `briconSendTraining()` → `POST /api/bricon-send-training`. **Bricon has no Unikon-style training session**: `StartReadout`/`StartBasket`/`StartTempReadout` are unreferenced in BriconLib (proven). The captured way to allocate pigeons is `SendDesignated`. |
 | 💾 Save Configuration (savebar, all tabs) | `saveBriconConfig()` → urlencoded `POST /api/bricon-config` (`enabled`, `interval`, `baud`) → status reload |
 
 ---
@@ -105,7 +106,7 @@ Tab switching: `bkSwitchTab(idx)` toggles `.active` on buttons + panels, persist
 - **`bkTabs` (4 groups) / `bkSwitchTab(idx)` / `bkShowTab(idx)` alias / `bkBuildTabs()`** — 4 tab panels (`#bk-tab-0..3`), persisted in `localStorage['bk_tab']`; same pattern as Unikon `ukSwitchTab` but with Bricon-green active button.
 - **`loadBriconStatus()`** — `GET /api/bricon-status`; renders connected badge/module/pending/RX counters + stat cards (`#bkStatTotal/Contests/Pombal/Ago`); syncs `enabled`/`interval`/`baud` on first load; chains `loadBriconArrivals/Pombal/Contests/loadBkRs232Info`; auto-refresh every 8 s (same as Unikon).
 - **`briconRow(a, n)` / `briconCat(c)`** — same row formatting as Unikon (HHMMSS → HH:MM:SS, DDMMYY → DD/MM) plus Bricon `category`/`speed` columns.
-- **Actions** — `briconPoll/Reset/SyncCalendar/SyncPombal/SendTraining/saveBriconConfig` as above (`briconClearTraining` was removed — no captured equivalent); no arrow functions; no `customAlert` (toasts only).
+- **Actions** — `briconPoll/Reset/SyncCalendar/SyncPombal/saveBriconConfig` as above (no write to the clock) (`briconClearTraining` was removed — no captured equivalent); no arrow functions; no `customAlert` (toasts only).
 - **Web tests** (`tests/web/test_bricon.js`) cover `besc`, `bt`, 4-tab bar, panel show/hide, all section + stat-card IDs and function existence against `tests/web/pages/bricon_asset.html`.
 
 ---
@@ -149,8 +150,6 @@ provides natively and Unikon does not). Pombal returns raw ring/chip.
 | `/api/bricon-sync-pombal` | `briconRequestXOnlyPoll()` → schedules the **pombal** readout (`GetBandTable`) |
 | `/api/bricon-sync-calendar` | `briconRequestIcOnlyPoll()` → schedules the **calendar** readout (`GetFlightNames` chain) |
 | `/api/bricon-reset` | no-op success (no data yet) |
-| `/api/bricon-send-training` | pending message (driver TBD) |
-| `/api/bricon-clear-training` | pending message (driver TBD) |
 
 All poll/sync/training POSTs refuse with the localized `apiBriconDisabled` message when inactive; the pending-driver message is the localized `apiBriconPending` (both follow `system_language` via `L(activeLang->…)`).
 

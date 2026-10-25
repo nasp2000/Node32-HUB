@@ -185,44 +185,9 @@ bool unikonFlushPendingConfig();
 // Returns true when the email was accepted by the transport pipeline.
 bool unikonQueuePombalSeasonEmail(String& messageOut);
 
-// Request to send a training session to the RAMBOX: writes IC0 + I-frame (today's date)
-// plus cached S1/S2/S3 and pigeon records for the selected entry list, so the W-phase
-// returns arrivals.
-// Non-blocking — sets a flag for unikonUpdate().
-void unikonRequestSendTraining();
-
-// Set the training entry list. Accepted forms:
-//   "<ring>\n<ring>..."  or S4 lines  -> only those rings   (UNIKON_TRAIN_MODE_LIST)
-//   "*"                               -> whole pombal       (UNIKON_TRAIN_MODE_ALL)
-//   "-"                               -> no pigeons at all  (UNIKON_TRAIN_MODE_NONE)
-//   "" (empty)                        -> whole pombal       (legacy meaning, unchanged)
-// Returns the number of rings parsed (0 for "*", "-" and "").
-uint16_t unikonSetTrainingFilter(const char* text);
-
-// Request to clear the training contest (UNIKON_TRAINING_CODE) from the RAMBOX calendar.
-// Non-blocking — sets a flag for unikonUpdate().
-void unikonRequestClearTraining();
-
-// ----- Push (device-initiated arrivals) -----
-// The vendor driver's uniActivatePush()/uniDeactivatePush() send the frames "P1"/"P0".
-// The push is ADDITIVE and AUTOMATIC: the configured auto-poll keeps running as the
-// guarantee, and as soon as a RAMBOX is identified the hub asks it once for the push (per
-// device, see pushCheckDevice()). The pushed frames are read by the passive listener, so an
-// arrival can show up well before the next poll. Nothing is disabled by the push.
-
-// Ask the RAMBOX to push ("P1") or to stop ("P0") — normally not needed: the automatic
-// path does it on identification. Non-blocking — sets a flag for unikonUpdate().
-void unikonRequestPush(bool on);
-
-// Enable/disable the automatic per-device probe (default: enabled).
-void unikonSetPushAuto(bool on);
-
-bool        unikonIsPushAuto();
-bool        unikonIsPushActive();
-uint8_t     unikonGetPushState();    // 0 = off, 1 = active, 2 = unsupported/rejected
-uint16_t    unikonGetPushCode();     // 0 = ACK, 0x3f1 = NAK, 0x3ef = no answer
-const char* unikonGetPushDevice();   // ident the push was negotiated with
-const char* unikonGetPushVersion();  // ident captured by the last probe
+// ----- Push -----
+// Removed (2026-10-25): the hub is read-only and never sends P1/P0. The RAMBOX can still
+// send spontaneous frames, which tryPassiveListen() parses when passiveListen is enabled.
 
 // Force save of current contests/registrations to persistent config.
 // Called automatically after successful IC/X polls.

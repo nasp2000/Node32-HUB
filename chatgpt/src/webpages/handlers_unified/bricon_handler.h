@@ -11,5 +11,3 @@ void handleBriconPollPost(HttpRequest& req, HttpResponse& res);
 void handleBriconSyncPombalPost(HttpRequest& req, HttpResponse& res);
 void handleBriconSyncCalendarPost(HttpRequest& req, HttpResponse& res);
 void handleBriconResetPost(HttpRequest& req, HttpResponse& res);
-void handleBriconSendTrainingPost(HttpRequest& req, HttpResponse& res);
-void handleBriconClearTrainingPost(HttpRequest& req, HttpResponse& res);

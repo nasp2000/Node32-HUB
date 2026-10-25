@@ -9,6 +9,13 @@
 
 ## 1. Objective
 
+**Só leitura (2026-10-25): o hub não escreve nada nos relógios.** O caminho de escrita
+do treino/pombal do Unikon (`IC0`+I-frame+S1/S2/S3+`M ZP`) apagou o pombal de um RAMBOX
+num teste de bancada e foi **apagado** do firmware, com as rotas
+`/api/unikon-send-training`, `/api/unikon-clear-training`, `/api/bricon-send-training` e
+`/api/bricon-clear-training` e os respectivos botões. Tudo o resto (polls, chegadas,
+pombal, provas, email) é leitura.
+
 Configure and monitor the **clock connected to the hub's RS232 port** — Unikon
 RAMBOX or Bricon — without a second page per family: module enable, shared poll
 interval, serial/framing options, arrivals, loft pigeons, races/calendar,
@@ -46,10 +53,9 @@ main.page > div.wrap
 │     ├ #cfgdev_unikon: ☑ #cfg_official + email destino (#rmEmailDest) + nota 9600 8N1
 │     └ #cfgdev_bricon: baud/data/parity/stop/country + BA/club/voo + nota 9600 8N2
 ├ section#rmp-arrivals: Actualizar · Poll agora · Sincronizar pombal ·
-│                        Sincronizar calendário · Push ON/OFF + #rmStats + table#tblArr + #arrmsg
+│                        Sincronizar calendário + #rmStats + table#tblArr + #arrmsg
 ├ section#rmp-pombal:   Actualizar · Ler do relógio · Email do pombal + table#tblPom + #pommsg
-├ section#rmp-race:     Actualizar · Ler provas + table#tblRace + card "Enviar treino"
-│                        (#train_unikon: modo all/list/none + checklist #trRings · #train_bricon)
+├ section#rmp-race:     Actualizar · Ler provas + table#tblRace (só leitura)
 └ section#rmp-status:   Actualizar + table#tblStatus (todos os campos do status)
 div.actions (sticky-ish): 💾 Guardar configuração + #cfgmsg
 ```
@@ -86,9 +92,7 @@ A stored interval outside the list snaps to the **next larger** step
 | 📡 Poll agora | `POST <dev>-poll` (schedules the poll on the main loop) |
 | 🐦 Sincronizar pombal / 🏁 Sincronizar calendário | `POST <dev>-sync-pombal` / `<dev>-sync-calendar` |
 | ✉ Email do pombal | Unikon only; `POST /api/unikon-email-pombal` (`pombal=current`) |
-| 📡 Push ON / OFF | Unikon only; `POST /api/unikon-push` (`on=1|0&auto=1`) |
-| ▶ Enviar treino | Unikon: `rings=*` (loft), `rings=-` (race only) or the ticked rings; Bricon: `POST /api/bricon-send-training` (no body) |
-| ↩ Perfil do módulo | `rmRestoreProfile()` → `POST <dev>-config` with `manual=0`: leaves bench mode and re-applies the module's own stored profile (one click, no need to save the whole form) |
+| ↩ Perfil do módulo | `rmRestoreProfile()` → `POST <dev>-config` with **only** `manual=0`. It is a profile action, **not** a form save: the interval/format/baud fields on screen are not stored (unsaved edits stay unsaved), nothing else in the config changes — the firmware keeps the in-memory values, persists the file (SetConfig always writes) and, with the module enabled, re-applies its own stored serial profile. Reply: "Perfil do módulo re-aplicado" (`apiProfileRestored`) |
 
 ---
 
@@ -131,7 +135,7 @@ page only writes inline messages):
 | `/api/<dev>-arrivals` · `-pombal` · `-contests` | GET | live PSRAM data |
 | `/api/unikon-config` · `/api/bricon-config` | POST | `enabled`, `interval`, `manual` (bench mode), (+ bricon `baud/data/parity/stop/country/ba/club/flight`) |
 | `/api/<dev>-poll` · `-sync-pombal` · `-sync-calendar` | POST | schedule a readout on the main loop |
-| `/api/unikon-push` · `-email-pombal` · `-send-training` · `/api/bricon-send-training` | POST | device actions |
+| `/api/unikon-email-pombal` | POST | loft email. *No clock writes: the training and push (P1/P0) routes were removed (2026-10-25)* |
 
 Status payloads are additive: unknown keys are ignored by the page (`rmPick`).
 
@@ -188,11 +192,9 @@ All page text uses `rmb*` keys in `lang_en_ui.h` / `lang_pt_ui.h` (`rmbTitle`,
 `rmbActive(+Tip)`, `rmbInterval(+Tip)`, `rmbManual(+Tip)`, `rmbRestoreProfile(+Tip)`, `rmbOfficial`, `rmbSerialFixed`,
 `rmbBaud/Data/Parity/Stop/Country/Ba/Club/Flight(+Tip)`, `rmbSerialHint`,
 `rmbEmailLabel`, `rmbSave(+Tip)`, `rmbRefresh(+Tip)`, `rmbPoll(+Tip)`,
-`rmbSyncPombal(+Tip)`, `rmbSyncCalendar(+Tip)`, `rmbPushOn/Off(+Tip)`,
-`rmbReadDevice(+Tip)`, `rmbEmailPombal(+Tip)`, `rmbTrainTitle(+Tip)`,
-`rmbTrainMode(+Tip)`, `rmbModeAll/List/None`, `rmbSelectAll(+Tip)`,
-`rmbClearSel(+Tip)`, `rmbChecklistTip`, `rmbTrainHint`, `rmbTrainBricon`,
-`rmbSendTraining(+Tip)`, `rmbEmpty`, `rmbOnline/Offline`, `rmbNo`, `rmbRing`,
+`rmbSyncPombal(+Tip)`, `rmbSyncCalendar(+Tip)`,
+`rmbReadDevice(+Tip)`, `rmbEmailPombal(+Tip)`,
+`rmbEmpty`, `rmbOnline/Offline`, `rmbNo`, `rmbRing`,
 `rmbChip`, `rmbTime`, `rmbDate`, `rmbRace`, `rmbPos`, `rmbEval`, `rmbArrivals`,
 `rmbNew`, `rmbNoPoll`, `rmbPollAgo`). Dynamic strings go through `T()`/`window._t`.
 

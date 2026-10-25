@@ -14,12 +14,12 @@ assertEq(win.besc(null),'','besc null');
 assertEq(win.bt('briconTitle','Fallback'),'Bricon Rambox','bt resolves data-i18n element text');
 assertEq(win.bt('missingKey_xyz','Fallback'),'Fallback','bt falls back on unknown key');
 var bar=doc.getElementById('briconTabBar');
-assert(bar.querySelectorAll('button').length===4,'tab bar has 4 buttons (Status&Config, Arrivals&Contests, Loft, Training)');
-assertEq(win.bkTabs.length,4,'bkTabs has 4 groups');
+assert(bar.querySelectorAll('button').length===3,'tab bar has 3 buttons (Status&Config, Arrivals&Contests, Loft)');
+assertEq(win.bkTabs.length,3,'bkTabs has 3 groups');
 assert(doc.getElementById('bk-tab-0').classList.contains('active'),'tab panel 0 active by default');
-assert(!doc.getElementById('bk-tab-3').classList.contains('active'),'tab panel 3 hidden by default');
-win.bkShowTab(3);
-assert(doc.getElementById('bk-tab-3').classList.contains('active'),'tab panel 3 shows after select');
+assert(!doc.getElementById('bk-tab-2').classList.contains('active'),'tab panel 2 hidden by default');
+win.bkShowTab(2);
+assert(doc.getElementById('bk-tab-2').classList.contains('active'),'tab panel 2 shows after select');
 assert(!doc.getElementById('bk-tab-0').classList.contains('active'),'tab panel 0 hides after select');
 win.bkShowTab(0);
 assert(doc.getElementById('bk-tab-0').classList.contains('active'),'tab panel 0 shows again');
@@ -28,14 +28,16 @@ assert(doc.getElementById('bk-sec-config')!==null,'bk-sec-config exists (tab Sta
 assert(doc.getElementById('bk-sec-arrivals')!==null,'bk-sec-arrivals exists (tab Arrivals&Contests)');
 assert(doc.getElementById('bk-sec-contests')!==null,'bk-sec-contests exists (tab Arrivals&Contests)');
 assert(doc.getElementById('bk-sec-pombal')!==null,'bk-sec-pombal exists (tab Loft)');
-assert(doc.getElementById('bk-sec-training')!==null,'bk-sec-training exists (tab Training)');
+// WRITE-FREE (2026-10-25): the Bricon page is read-only -- no Training tab, no Designate.
+assert(doc.getElementById('bk-sec-training')===null,'bk-sec-training is gone (read-only)');
+assert(doc.getElementById('bk-tab-3')===null,'no training tab panel');
 assert(typeof win.bkSwitchTab==='function','bkSwitchTab is function');
 assert(typeof win.loadBriconStatus==='function','loadBriconStatus is function');
 assert(typeof win.briconPoll==='function','briconPoll is function');
 assert(typeof win.briconReset==='function','briconReset is function');
 assert(typeof win.briconSyncCalendar==='function','briconSyncCalendar is function');
 assert(typeof win.briconSyncPombal==='function','briconSyncPombal is function');
-assert(typeof win.briconSendTraining==='function','briconSendTraining is function');
+assert(typeof win.briconSendTraining==='undefined','briconSendTraining is gone (clock is read-only)');
 // briconClearTraining was removed: Bricon has no Unikon-style clear (no REA evidence).
 assert(typeof win.briconClearTraining==='undefined','briconClearTraining is gone');
 assert(typeof win.saveBriconConfig==='function','saveBriconConfig is function');

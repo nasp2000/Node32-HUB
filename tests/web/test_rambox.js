@@ -52,6 +52,10 @@ function lastPost(u) {
     assert(doc.querySelectorAll('[data-i18n-title]').length >= 30, 'tooltips on the controls');
     assert(doc.querySelector('#rmDev').getAttribute('class').indexOf('rm-sel') >= 0, 'compact device selector');
     assert(doc.querySelectorAll('#tblPom th').length === 3, 'pombal table has 3 columns (fits a phone)');
+    // WRITE-FREE (2026-10-25): the hub may only READ the clock -- no training/pombal write.
+    assert(btn('Enviar treino') === null, 'no "send training" button (clock is read-only)');
+    assert(doc.getElementById('trRings') === null, 'no pigeon allocation checklist');
+    assert(doc.getElementById('rmTraining') === null, 'no training card');
     setTimeout(function(){}, 0);
 
     // ---- Unikon actions ----
@@ -94,39 +98,13 @@ function lastPost(u) {
     assert(lastPost('/api/unikon-sync-calendar'), 'sync calendar unikon');
     btn('Email do pombal').click(); await sleep(30);
     assert(lastPost('/api/unikon-email-pombal'), 'loft email unikon');
-    btn('Push ON').click(); await sleep(30);
-    assert(/on=1/.test(lastPost('/api/unikon-push').body), 'push ON');
-    btn('Push OFF').click(); await sleep(30);
-    assert(/on=0/.test(lastPost('/api/unikon-push').body), 'push OFF');
-
-    // ---- training: checkbox list ----
-    var cbs = doc.querySelectorAll("#trRings input[type='checkbox']");
-    assert(cbs.length === 2, 'one checkbox per pigeon (' + cbs.length + ')');
-    var b = btn('Enviar treino');
-
-    doc.getElementById('trMode').value = 'all'; win.rmTrainMode(); b.click(); await sleep(30);
-    assert(lastPost('/api/unikon-send-training').body === 'rings=*', 'whole loft -> rings=*');
-    doc.getElementById('trMode').value = 'none'; win.rmTrainMode(); b.click(); await sleep(30);
-    assert(lastPost('/api/unikon-send-training').body === 'rings=-', 'race only -> rings=-');
-
-    doc.getElementById('trMode').value = 'list'; win.rmTrainMode();
-    win.rmSelAll(1);
-    cbs = doc.querySelectorAll("#trRings input[type='checkbox']");
-    assert(cbs[0].checked && cbs[1].checked, 'select all ticks every pigeon');
-    b.click(); await sleep(30);
-    assert(/rings=23762610000%0A23762610137/.test(lastPost('/api/unikon-send-training').body),
-           'ticked rings are sent');
-
-    win.rmSelAll(0);
-    var n0 = (win.__postBodies || []).length;
-    b.click(); await sleep(30);
-    assert((win.__postBodies || []).length === n0, 'nothing ticked -> nothing sent');
+    // READ-ONLY: the push request (P1/P0) was removed with its buttons.
+    assert(btn('Push ON') === null && btn('Push OFF') === null, 'no push buttons');
 
     // ---- Bricon ----
     doc.getElementById('rmDev').value = 'bricon'; win.rmSelect(); await sleep(150);
     assert(doc.getElementById('cfgdev_bricon').style.display !== 'none', 'bricon config visible');
     assert(doc.getElementById('cfgdev_unikon').style.display === 'none', 'unikon config hidden');
-    assert(doc.getElementById('pushWrap').style.display === 'none', 'push hidden on bricon');
     assert(btn('Email do pombal').style.display === 'none', 'loft email hidden on bricon');
     assert(doc.getElementById('cfg_ba').value === '130', 'BA address loaded');
 
@@ -142,10 +120,6 @@ function lastPost(u) {
     assert(lastPost('/api/bricon-sync-pombal'), 'sync pombal bricon');
     btn('Ler provas').click(); await sleep(30);
     assert(lastPost('/api/bricon-sync-calendar'), 'sync calendar bricon');
-    btn('Enviar treino').click(); await sleep(30);
-    c = lastPost('/api/bricon-send-training');
-    assert(c && (c.body === '' || c.body === null), 'bricon training without body');
-
     // ---- tabs ----
     ['config', 'arrivals', 'pombal', 'race', 'status'].forEach(function (t) {
         win.rmTab(t);

@@ -2978,27 +2978,8 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "rmbSyncCalendarTip": "Lê as provas do calendário do relógio",
   "rmbEmailPombal": "✉ Email do pombal",
   "rmbEmailPombalTip": "Envia por email a lista de pombos do pombal",
-  "rmbPushOn": "📡 Push ON",
-  "rmbPushOnTip": "Pede ao relógio para enviar as chegadas sozinho (P1)",
-  "rmbPushOff": "📡 Push OFF",
-  "rmbPushOffTip": "Pede ao relógio para parar de enviar (P0)",
   "rmbReadDevice": "📥 Ler do relógio",
   "rmbReadDeviceTip": "Volta a ler o pombal do relógio",
-  "rmbTrainTitle": "🏁 Enviar treino",
-  "rmbTrainTitleTip": "Escreve a prova de treino (090) no relógio",
-  "rmbTrainMode": "Pombos:",
-  "rmbTrainModeTip": "Que pombos são alocados à prova de treino",
-  "rmbModeAll": "Pombal todo",
-  "rmbModeList": "Só os marcados",
-  "rmbModeNone": "Só a prova (sem pombos)",
-  "rmbSelectAll": "Marcar todos",
-  "rmbSelectAllTip": "Marca todos os pombos da lista",
-  "rmbClearSel": "Limpar selecção",
-  "rmbClearSelTip": "Desmarca todos os pombos",
-  "rmbChecklistTip": "Marque um ou vários pombos para enviar no treino.",
-  "rmbSendTraining": "▶ Enviar treino",
-  "rmbSendTrainingTip": "Envia a prova (e os pombos marcados) para o relógio",
-  "rmbTrainHint": "No clube leva-se o módulo e os pombos dessa prova: a prova é acrescentada ao módulo com os seus pombos, e o módulo acumula provas.",
   "rmbNo": "No",
   "rmbRing": "Anilha",
   "rmbChip": "Chip",
@@ -3017,8 +2998,6 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "rmbStatusTip": "Estado completo do relógio (campos do protocolo)",
   "rmbContests": "Provas:",
   "rmbPigeons": "Pombos:"
-,
-  "rmbTrainBricon": "Escreve a prova de treino no relógio Bricon."
 }
 )JSON";
 

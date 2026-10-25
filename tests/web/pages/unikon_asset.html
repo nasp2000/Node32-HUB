@@ -3,7 +3,7 @@
 <head>
   <meta charset='UTF-8'>
   <meta name='viewport' content='width=device-width,initial-scale=1'>
-  <title>unikon_asset (Test)</title>
+  <title>Unikon (Test)</title>
 </head>
 <body>
 
@@ -12,11 +12,28 @@
             .stat-card{background:#1e293b;border-radius:8px;padding:12px 10px;text-align:center;border:1px solid #334155}
             .stat-label{font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
             .stat-value{font-size:22px;font-weight:700;color:#fbbf24}
+            .uk-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 14px}
+            .uk-tab-btn{background:#1e293b;border:1px solid #334155;color:#cbd5e1;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer}
+            .uk-tab-btn.active{background:#1d4ed8;border-color:#60a5fa;color:#fff}
+            .uk-tab-panel{display:none}
+            .uk-tab-panel.active{display:block}
+            .uk-savebar{position:sticky;bottom:0;background:#0f172a;border-top:1px solid #334155;padding:12px;text-align:center;margin-top:14px}
+            .checkbox-label{display:flex!important;align-items:center;gap:10px}
+            .checkbox-label input[type=checkbox]{flex:none;width:18px;height:18px;margin:0}
         </style>
         <div class='wrap'>
-            <div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome'>&#127968; In&iacute;cio</a></div>
+            <div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome' title='Go to home page' data-i18n-title='unikonTipHome'>&#127968; Home</a></div>
             <h1>&#128330; Unikon RAMBOX</h1>
 
+            <!-- Tabs (save bar at the bottom is common to all tabs) -->
+            <div class='uk-tabs' id='ukTabs'>
+                <button type='button' class='uk-tab-btn active' onclick='ukSwitchTab(0)' title='Connection status, RAMBOX identity and race arrivals' data-i18n-title='unikonTipTabStatus' data-i18n='ukTab1'>📊 Status & Race Arrivals</button>
+                <button type='button' class='uk-tab-btn' onclick='ukSwitchTab(1)' title='Race calendar and the pigeon loft read from the RAMBOX (read-only)' data-i18n-title='unikonTipTabCalendar' data-i18n='ukTab2'>📅 Calendar & Pigeon Loft</button>
+                <button type='button' class='uk-tab-btn' onclick='ukSwitchTab(2)' title='RS-232 link, official format and polling interval' data-i18n-title='unikonTipTabConfig' data-i18n='ukTab4'>🔌 Connection & Configuration</button>
+            </div>
+
+            <!-- Tab 1: Status + Race Arrivals -->
+            <div class='uk-tab-panel active' id='uk-tab-0'>
             <!-- Section 1: Status -->
             <div id='uk-sec-status' class='section'>
                 <h3>&#128200; <span data-i18n='ukStatus'>Status</span></h3>
@@ -28,14 +45,13 @@
                     <div class='stat-card'><div class='stat-label' data-i18n='ukStatLastPoll'>Last poll arrivals</div><div class='stat-value' id='statAgo'>--</div></div>
                 </div>
                 <div style='display:flex;gap:8px;flex-wrap:wrap'>
-                    <button onclick='pollNow()' class='btn' style='flex:1;min-width:160px' data-i18n='ukBtnPollArrivals'>&#128270; Update Arrivals (W)</button>
-                    <button onclick='resetState()' class='btn' style='flex:1;min-width:160px;background:#374151;border-color:#374151' data-i18n='ukBtnResetCount'>&#128256; Reset Count</button>
+                    <button onclick='pollNow()' class='btn' title='Poll arrivals from RAMBOX' data-i18n-title='unikonTipPoll' style='flex:1;min-width:160px' data-i18n='ukBtnPollArrivals'>&#128270; Update Arrivals (W)</button>
+                    <button onclick='resetState()' class='btn' title='Reset arrival counters' data-i18n-title='unikonTipReset' style='flex:1;min-width:160px;background:#374151;border-color:#374151' data-i18n='ukBtnResetCount'>&#128256; Reset Count</button>
                 </div>
                 <div id='poll-toast' style='display:none;margin-top:10px;padding:10px 14px;background:#1e3a8a;border-left:4px solid #3b82f6;border-radius:6px;font-size:13px;color:#e0e7ff'></div>
                 <div style='margin-top:14px;padding:12px 14px;background:#1e293b;border-left:4px solid #a855f7;border-radius:6px'>
                     <div style='font-size:13px;color:#c4b5fd;font-weight:600;margin-bottom:6px' data-i18n='ukPushTitle'>Arrival push (faster than polling)</div>
                     <div style='font-size:12px;color:#94a3b8;margin-bottom:8px' data-i18n='ukPushHint'>Asked automatically per RAMBOX: the auto-poll keeps running as the guarantee, so an arrival can show up before the next poll.</div>
-                    <div id='push-state' style='font-size:12px;color:#a5b4fc' data-i18n='ukPushOff'>Push off</div>
                 </div>
             </div>
 
@@ -51,18 +67,21 @@
                             <th style='text-align:left;padding:8px 10px;border-bottom:1px solid #1e40af;color:#60a5fa' data-i18n='ukColChip'>Chip ETS</th>
                             <th style='text-align:left;padding:8px 10px;border-bottom:1px solid #1e40af;color:#60a5fa' data-i18n='ukColTime'>Time</th>
                             <th style='text-align:left;padding:8px 10px;border-bottom:1px solid #1e40af;color:#60a5fa' data-i18n='ukColDate'>Date</th>
-                            <th style='text-align:left;padding:8px 10px;border-bottom:1px solid #1e40af;color:#60a5fa' data-i18n='ukColRace'>Prova</th>
+                            <th style='text-align:left;padding:8px 10px;border-bottom:1px solid #1e40af;color:#60a5fa' data-i18n='ukColRace'>Race</th>
                         </tr></thead>
                         <tbody id='raceArrivalsBody'><tr><td colspan='6' style='padding:12px;color:#4b5563;text-align:center' data-i18n='ukNoArrivals'>No race arrivals</td></tr></tbody>
                     </table>
                 </div>
             </div>
+            </div><!-- /uk-tab-0 -->
 
+            <!-- Tab 2: Sync Calendar + Season Pigeon Loft -->
+            <div class='uk-tab-panel' id='uk-tab-1'>
             <!-- Section 3: Contest schedule (calendar) -->
             <div id='uk-sec-contests' class='section'>
                 <div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px'>
                     <h3 style='margin:0'>📅 <span data-i18n='ukContests'>Annual Contest Calendar (IC)</span></h3>
-                    <button onclick='syncCalendar()' class='btn' style='background:#1e3a8a;border-color:#1d4ed8;padding:8px 16px;font-size:12px' data-i18n='ukBtnSyncCalendar'>🗓️ Sync Calendar</button>
+                    <button onclick='syncCalendar()' class='btn' title='Sync contest calendar from RAMBOX' data-i18n-title='unikonTipSyncCal' style='background:#1e3a8a;border-color:#1d4ed8;padding:8px 16px;font-size:12px' data-i18n='ukBtnSyncCalendar'>🗓️ Sync Calendar (IC0)</button>
                 </div>
                 <p style='font-size:13px;color:#94a3b8;margin:0 0 12px 0' data-i18n='ukContestsHint'>Read from session IC0/I of the original RAMBOX (this data only).</p>
                 <div class='table-wrapper'>
@@ -84,8 +103,8 @@
                 <div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px'>
                     <h3 style='margin:0' data-i18n='ukPombalTitle'>🐦 Season Pigeon Loft (X-phase)</h3>
                     <div style='display:flex;gap:8px;flex-wrap:wrap'>
-                        <button onclick='syncPombal()' class='btn' style='background:#16a34a;border-color:#15803d;padding:8px 16px;font-size:12px' data-i18n='ukBtnSyncPombal'>🔄 Sync Pigeon Loft</button>
-                        <button id='btnEmailPombal' onclick='emailPombal()' class='btn' style='background:#0ea5e9;border-color:#0284c7;padding:8px 16px;font-size:12px' data-i18n='ukBtnEmailPombal'>✉️ Email Pigeon Loft</button>
+                        <button onclick='syncPombal()' class='btn' title='Sync pigeon loft registrations' data-i18n-title='unikonTipSyncPombal' style='background:linear-gradient(180deg,#22c55e,#16a34a);border-color:#4ade80;color:#fff;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.55);padding:8px 16px;font-size:12px' data-i18n='ukBtnSyncPombal'>🔄 Sync Pigeon Loft (X)</button>
+                        <button id='btnEmailPombal' onclick='emailPombal()' class='btn' title='Email pigeon loft data' data-i18n-title='unikonTipEmailPombal' style='background:linear-gradient(180deg,#38bdf8,#0284c7);border-color:#7dd3fc;color:#fff;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,.55);padding:8px 16px;font-size:12px' data-i18n='ukBtnEmailPombal'>✉️ Email Pigeon Loft</button>
                     </div>
                 </div>
                 <p style='font-size:13px;color:#94a3b8;margin:0 0 12px 0' data-i18n='ukPombalHint'>Registered pigeons (ring + chip) read from session X (ZP frames) of the RAMBOX.</p>
@@ -103,14 +122,12 @@
                     </div>
                 </details>
                 <div id='pombal-toast' style='display:none;margin-top:10px;padding:10px 14px;background:#16a34a;border-left:4px solid #22c55e;border-radius:6px;font-size:13px;color:#dcfce7'></div>
-                <div>
-                    <label><input type='radio' name='trainingMode' value='none'>none</label>
-                    <label><input type='radio' name='trainingMode' value='all' checked>all</label>
-                    <label><input type='radio' name='trainingMode' value='list'>list</label>
-                </div>
-                <div id='trainingPombalSelect'></div>
             </div>
+            </div><!-- /uk-tab-1 -->
 
+
+            <!-- Tab 3: Connection + Configuration -->
+            <div class='uk-tab-panel' id='uk-tab-2'>
             <!-- Section 3.5: Connection Recommendation -->
             <div id='uk-sec-guide' class='section'>
                 <h3 data-i18n='ukConnTitle'>&#9432; Connection Recommendation</h3>
@@ -127,13 +144,13 @@
                 <form id='unikonForm'>
                     <div style='display:flex;gap:15px;align-items:center;flex-wrap:wrap;margin-bottom:16px'>
                         <label class='checkbox-label' style='background:#1e3a8a'>
-                            <input type='checkbox' id='enabled' name='enabled'>
+                            <input type='checkbox' id='enabled' name='enabled' title='Enable Unikon module' data-i18n-title='unikonTipEnabled'>
                             <span><strong data-i18n='ukModuleActive'>Module active — connects RS-232 to RAMBOX</strong></span>
                         </label>
                     </div>
                     <div style='display:flex;gap:15px;align-items:center;flex-wrap:wrap;margin-bottom:16px'>
                         <label class='checkbox-label'>
-                            <input type='checkbox' id='official_format' name='official_format' checked>
+                            <input type='checkbox' id='official_format' name='official_format' checked title='Show ring/chip in official format' data-i18n-title='unikonTipOfficial'>
                             <span><strong data-i18n='ukOfficialFormat'>Columbophilia format — shows ring/chip in official format and sends the same via email</strong></span>
                         </label>
                     </div>
@@ -144,7 +161,7 @@
                     </div>
                     <div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px'>
                         <label style='font-size:13px;color:#94a3b8;white-space:nowrap' data-i18n='ukPollingInterval'>&#9200; Polling Interval:</label>
-                        <select id='interval' name='interval' style='max-width:150px'>
+                        <select id='interval' name='interval' title='Polling interval' data-i18n-title='unikonTipInterval' style='max-width:150px'>
                             <option value='0' data-i18n='ukPollingManual'>Manual</option>
                             <option value='60' data-i18n='ukPolling1min'>1 minute</option>
                             <option value='180' selected data-i18n='ukPolling3min'>3 minutes</option>
@@ -159,9 +176,14 @@
                         </select>
                     </div>
                     <div style='text-align:center'>
-                        <button type='button' onclick='saveUnikonConfig()' class='btn' style='padding:10px 24px' data-i18n='ukBtnSaveConfig'>&#128190; Save Configuration</button>
                     </div>
                 </form>
+            </div>
+            </div><!-- /uk-tab-2 -->
+
+            <!-- Common save bar (all tabs) -->
+            <div class='uk-savebar'>
+                <button type='button' onclick='saveUnikonConfig()' class='btn' title='Save Unikon config' data-i18n-title='unikonTipSave' style='padding:10px 24px' data-i18n='ukBtnSaveConfig'>&#128190; Save Configuration</button>
             </div>
 
             <div id='status' style='margin-top:15px;padding:12px;border-radius:6px;display:none'></div>
@@ -175,6 +197,10 @@
   window.fetch = function(url, opts) {
     var u = typeof url === 'string' ? url : (url && url.url ? url.url : '');
     var MOCKS = typeof window.__MOCK_API__ !== 'undefined' ? window.__MOCK_API__ : {};
+    if (opts && opts.method && opts.method !== 'GET') {
+      window.__postBodies = window.__postBodies || [];
+      window.__postBodies.push({ url: u, method: opts.method, body: opts.body || '' });
+    }
     var mock = MOCKS[u];
     if (!mock) {
       for (var k in MOCKS) {
@@ -198,112 +224,21 @@
   // Feature flags used by some pages (default: off)
   window._rs232Enabled = false;
   window._modbusEnabled = false;
-
-// ===== TEST HOOKS (inside page IIFE scope) =====
-window.__test__ = {};
-// Spy mechanism
-window.__spy__ = {};
-window.__spy__.calls = {};
-window.__spy__.reset = function() { window.__spy__.calls = {}; };
-window.__spy__.wrap = function(name, fn) {
-  return function() {
-    window.__spy__.calls[name] = window.__spy__.calls[name] || [];
-    window.__spy__.calls[name].push(Array.prototype.slice.call(arguments));
-    return fn.apply(this, arguments);
-  };
-};
-// Wrap key functions for spying
-if (typeof postSend !== 'undefined') postSend = window.__spy__.wrap('postSend', postSend);
-if (typeof showAlert !== 'undefined') showAlert = window.__spy__.wrap('showAlert', showAlert);
-// Helper: reset IIFE-local state vars (P, C, SH, RP used by radio page)
-window.__test__._reset = function(p, c, sh, rp) {
-  try { if (p !== undefined) { var _a=p; P.length=0; for(var _i=0;_i<_a.length;_i++)P.push(_a[_i]); } } catch(e) {}
-  try { if (c !== undefined) C = c; } catch(e) {}
-  try { if (sh !== undefined) SH = sh; } catch(e) {}
-  try { if (rp !== undefined) RP = rp; } catch(e) {}
-};
-// Expose functions via eval (runs in outer IIFE scope)
-var _testNames = [
-  // Recipients page
-  'rt','rowHTML','addRow','updateNameHint','saveSlot','saveDontCopy','preload',
-  'switchTab',
-  // Commands page
-  'esc','readLangCache','t','templateOptions','unitSelect','daysSelect',
-  'tplSelect','addRow','attachRow','saveSlot','attachSaveAll','rowHTML',
-  // DateTime Commands page
-  'e','t','to','r','addRow','attachRow','init','lt','ls','la','tt','ss','attachSaveAll',
-  // Sidebar / dock
-  'renderWidgetSidebar','moveWidgetUp','moveWidgetDown','moveWidgetToSide',
-  'toggleWidgetVis','applyTheme','readUiPrefs','saveUiPrefs','saveDockLayout',
-  'restoreDockLayout','saveWidgetPrefs','restoreWidgetPrefs','initLeftPanel',
-  'byId','qsa','localStorage','state',
-  // Utility
-  'fmtEta','fmtLagMs','fmtGcodeNum','normalizeZStepValue',
-  'setXyStepFromPreset','syncMainStepFromSelectors','updateXyStepButtons',
-  'sanitizeFileName','formatFileSize','ensureAllowedUploadPath',
-  'recentErrorMeta','clamp',
-  // Jog
-  'runJog','runJogXY','quickUnlock','quickHome','quickZeroWcs','quickReset','quickStatus',
-  // Job
-  'startFileStream','pauseStream','resumeStream','cancelStream',
-  'sendManualCommand','applyPollInterval','applyUsbLineCoding',
-  // Frame
-  'runFrameFromPreview','updateFrameInfo',
-  'getPreviewFrameBounds','setCommandMode',
-  // Override (scoped inside bindEvents)
-  // 'sendOverrideFeed','sendOverrideSpin','applyOverrides','stepOverride',
-  // Probe
-  'runAutoProbeZZero',
-  // Macros
-  'defaultMacros','getMacroEntry','runMacro','loadMacrosToForm','saveMacrosFromForm',
-  // Console
-  'ingestConsoleEvents','logLine','clearConsole','toggleConsoleFullscreen',
-  // Workspace / DRO
-  'extractDroFromStatus','renderDro','fmtDro','hasValidDroValue',
-  'parseNumber3','parsePosTriplet','firstNumber3',
-  // USB / Connection
-  'selectedSlot','normalizeUsbSlots','renderSlots',
-  'syncSelectedUsbBaud','ensureUsbBaudOption','usbBaudPrefId',
-  'getPreferredUsbBaud','savePreferredUsbBaud',
-  // SD Card
-  'sdFileNameFromPath','sdParentDir','formatSdSize','normalizeSdEntry',
-  'isPreviewSizeBlocked','isPreviewAutoRenderHeavy',
-  // PSRAM
-  'refreshPsramFileStatus',
-  // 3D / Preview utilities (pure functions)
-  'project3dPoint','computeProjectedBounds','computeToolpathBounds',
-  'formatMmLabel','classifyStartPlacement',
-  'extractAxisValue','extractAxisInMm','appendLinear',
-  'formatScaleHudMm','get3dPreviewMode','resolve3dPreviewMode',
-  // Critical confirm
-  'runWithCriticalConfirm','requireAxesAtZero',
-  // Render
-  'renderStatus','applyRuntimeControls','applyStatusSnapshot',
-  // 3D helpers
-  'getEffectiveCurrentLine','get3dMaxLineFromSegments','getSegmentExecNo',
-  'getActiveExecNo','update3dScrubUi',
-  // Light preview (inner functions may not resolve)
-  'simplifyPolylineLight',
-  // Radio UI (IIFE-scoped)
-  'T','AP','APJ','BN','sw','onSearch','addPlay','playToggle',
-  'radioStop','radioNext','radioPrev','playUrl','updUI','setVol',
-  'togSh','togRp','loadFav','addFav','favPlay','favDel',
-  'syncQ','rQ','rmQ','savePl','loadPls','loadPl','delPl','loadQ','loadSt','fh',
-];
-_testNames.forEach(function(n) {
-  try { window.__test__[n] = eval(n); } catch(e) { window.__test__[n] = null; }
-});
-
-})();</script>
+  window.__test__ = {};  // ensure window.__test__ exists even on non-IIFE pages
+})();
+</script>
 
 <script>
     var configLoaded = false;
     var emailPombalPending = false;
 
-    function t(key) {
+    function t(key, fb) {
+        try {
+            if (window._lang && window._lang[key] !== undefined) return window._lang[key];
+        } catch (e) {}
         var el = document.querySelector('[data-i18n="' + key + '"]');
         if (el) return el.textContent || key;
-        return key;
+        return (fb !== undefined) ? fb : key;
     }
 
     function escapeHtml(value) {
@@ -316,7 +251,7 @@ _testNames.forEach(function(n) {
     }
 
     function loadStatus() {
-        fetch('/api/unikon-status')
+        fetch('/api/unikon-status',{cache:'no-store'})
             .then(function(r) { return r.json(); })
             .then(function(d) {
                 var el = document.getElementById('unikonStatus');
@@ -402,14 +337,15 @@ _testNames.forEach(function(n) {
     }
 
     function loadArrivals() {
-        fetch('/api/unikon-arrivals')
+        fetch('/api/unikon-arrivals',{cache:'no-store'})
             .then(function(r) { return r.json(); })
             .then(function(d) {
                 var arr = (d && d.arrivals && d.arrivals.length) ? d.arrivals : [];
                 var parts = splitArrivals(arr);
                 var html = buildArrivalsRows(parts.race, t('ukNoArrivals'));
                 if (parts.training.length > 0) {
-                    html += '<tr><td colspan="6">' + escapeHtml(t('ukTrainingTitle', 'Treino')) + '</td></tr>'
+                    html += '<tr><td colspan="6" style="padding:8px 10px;color:#93c5fd;font-weight:bold;background:#1e3a8a">'
+                        + escapeHtml(t('ukTrainingTitle', 'Treino')) + '</td></tr>'
                         + buildArrivalsRows(parts.training, '');
                 }
                 var raceBody = document.getElementById('raceArrivalsBody');
@@ -419,7 +355,7 @@ _testNames.forEach(function(n) {
     }
 
     function loadContests() {
-        fetch('/api/unikon-contests')
+        fetch('/api/unikon-contests',{cache:'no-store'})
             .then(function(r) { return r.json(); })
             .then(function(d) {
                 var tbody = document.getElementById('contestsBody');
@@ -487,7 +423,7 @@ _testNames.forEach(function(n) {
     }
 
     function loadPombal() {
-        fetch('/api/unikon-pombal')
+        fetch('/api/unikon-pombal',{cache:'no-store'})
             .then(function(r) { return r.json(); })
             .then(function(d) {
                 var tbody = document.getElementById('pombalBody');
@@ -571,8 +507,22 @@ _testNames.forEach(function(n) {
         });
     }
 
+
+    // Push (device-initiated arrivals) is automatic: the firmware asks the RAMBOX once per
+    // device, at the end of the first poll that identifies it. The page only shows the state.
+
     function _alert(msg) {
         customAlert(msg);
+    }
+
+    function ukSwitchTab(idx) {
+        var btns = document.querySelectorAll('#ukTabs .uk-tab-btn');
+        for (var i = 0; i < btns.length; i++) btns[i].classList.toggle('active', i === idx);
+        for (var p = 0; p < 3; p++) {
+            var el = document.getElementById('uk-tab-' + p);
+            if (el) el.classList.toggle('active', p === idx);
+        }
+        try { localStorage.setItem('uk_tab', String(idx)); } catch (e) {}
     }
 
     function saveUnikonConfig() {
@@ -607,8 +557,8 @@ _testNames.forEach(function(n) {
                 var par = (sc.parity || 'none').charAt(0).toUpperCase();
                 var sb = sc.stop_bits || 1;
                 var status = sc.enabled
-                    ? '<span style="color:#4ade80">&#9679; active</span>'
-                    : '<span style="color:#f87171">&#9679; inactive</span>';
+                    ? '<span style="color:#4ade80">&#9679; ' + escapeHtml(t('statusActive')) + '</span>'
+                    : '<span style="color:#f87171">&#9679; ' + escapeHtml(t('statusInactive')) + '</span>';
                 el.innerHTML = '<strong style="color:#e0e7ff">' + baud + ' baud &middot; ' + db + par + sb + '</strong> &mdash; ' + status;
             })
             .catch(function() {});
@@ -621,42 +571,156 @@ _testNames.forEach(function(n) {
     setInterval(function() { loadStatus(); loadArrivals(); }, 8000);
     loadPombal();
     setInterval(function() { loadPombal(); }, 8000);
-
-    // Training (mirror of page_unikon_asset.h sendTraining): 3 modes --
-    // none -> "-", all -> "*", list -> the ticked rings. Deleting the race is done on the RAMBOX.
-    var trainingPending = false;
-    function trainingMode() {
-        var r = document.querySelectorAll("input[name='trainingMode']");
-        for (var i = 0; i < r.length; i++) if (r[i].checked) return r[i].value;
-        return 'all';
-    }
-    function selectedTrainingRings(box) {
-        var out = [];
-        if (!box || !box.querySelectorAll) return out;
-        var checked = box.querySelectorAll('input[type="checkbox"]:checked');
-        for (var i = 0; i < checked.length; i++) out.push(checked[i].value);
-        return out;
-    }
-    function trainingCheckAll(on) {
-        var box = document.getElementById('trainingPombalSelect');
-        if (box) {
-            var boxes = box.querySelectorAll('input[type="checkbox"]');
-            for (var i = 0; i < boxes.length; i++) boxes[i].checked = !!on;
-        }
-        return false;
-    }
-    function sendTraining() {
-        if (trainingPending) return;
-        var m = trainingMode();
-        var rings = (m === 'list') ? selectedTrainingRings(document.getElementById('trainingPombalSelect')) : [];
-        var payload = (m === 'none') ? '-' : (m === 'list') ? rings.join('\n') : '*';
-        trainingPending = true;
-        fetch('/api/unikon-send-training', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'rings=' + encodeURIComponent(payload) });
-        trainingPending = false;
-    }
-    // Push (device-initiated arrivals) is automatic: asked once per RAMBOX at the end of the
-    // first poll that identifies it. The page only displays the state (#push-state).
+    setInterval(function() { loadRs232Info(); }, 8000);
+    try { var _ukTab = parseInt(localStorage.getItem('uk_tab'), 10); if (_ukTab >= 0 && _ukTab < 4) ukSwitchTab(_ukTab); } catch (e) {}
     </script>
+
+<script>
+
+// ===== TEST HOOKS (standalone — no IIFE found) =====
+// Preserve hooks the page already installed (e.g. page_ecra_asset sets
+// window.__test__.* at the end of its script); only fill missing ones below.
+window.__test__ = window.__test__ || {};
+// Spy mechanism
+window.__spy__ = {};
+window.__spy__.calls = {};
+window.__spy__.reset = function() { window.__spy__.calls = {}; };
+window.__spy__.wrap = function(name, fn) {
+  return function() {
+    window.__spy__.calls[name] = window.__spy__.calls[name] || [];
+    window.__spy__.calls[name].push(Array.prototype.slice.call(arguments));
+    return fn.apply(this, arguments);
+  };
+};
+// Wrap key functions for spying
+if (typeof postSend !== 'undefined') postSend = window.__spy__.wrap('postSend', postSend);
+if (typeof showAlert !== 'undefined') showAlert = window.__spy__.wrap('showAlert', showAlert);
+// Helper: reset IIFE-local state vars (P, C, SH, RP used by radio page)
+window.__test__._reset = function(p, c, sh, rp) {
+  try { if (p !== undefined) { var _a=p; P.length=0; for(var _i=0;_i<_a.length;_i++)P.push(_a[_i]); } } catch(e) {}
+  try { if (c !== undefined) C = c; } catch(e) {}
+  try { if (sh !== undefined) SH = sh; } catch(e) {}
+  try { if (rp !== undefined) RP = rp; } catch(e) {}
+};
+// Expose functions via eval (runs in outer IIFE scope)
+var _testNames = [
+  // Recipients page
+  'rt','rowHTML','addRow','updateNameHint','saveSlot','saveDontCopy','preload',
+  'removeRow',
+  'switchTab',
+  // Proximity page (status + config + shifts)
+  'render','renderCfg','fetchData','resetCh','resetAll','_lockOutFields',
+  'renderShiftSlots','loadShiftCfg','loadShiftdayEmails','saveAll','loadCfg',
+  '_applyVisFilter','onVisChChange','applyTemplate',
+  // Commands page
+  'esc','readLangCache','t','templateOptions','unitSelect','daysSelect',
+  'tplSelect','addRow','attachRow','saveSlot','attachSaveAll','rowHTML','removeRow',
+  // DateTime Commands page
+  'e','t','to','r','addRow','attachRow','init','lt','ls','la','tt','ss','attachSaveAll','rm',
+  // Sidebar / dock
+  'renderWidgetSidebar','moveWidgetUp','moveWidgetDown','moveWidgetToSide',
+  'toggleWidgetVis','applyTheme','readUiPrefs','saveUiPrefs','saveDockLayout',
+  'restoreDockLayout','saveWidgetPrefs','restoreWidgetPrefs','initLeftPanel',
+  'byId','qsa','localStorage','state',
+  // Utility
+  'fmtEta','fmtLagMs','fmtGcodeNum','normalizeZStepValue',
+  'setXyStepFromPreset','syncMainStepFromSelectors','updateXyStepButtons',
+  'sanitizeFileName','formatFileSize','ensureAllowedUploadPath',
+  'recentErrorMeta','clamp',
+  // Jog
+  'runJog','runJogXY','runJogXYCenter','quickUnlock','quickHome','quickZeroWcs','quickReset','quickStatus',
+  // Job
+  'startFileStream','pauseStream','resumeStream','cancelStream',
+  'sendManualCommand','applyPollInterval','applyUsbLineCoding',
+  'postActionOnce','postAction','refreshStatus','saveMacros',
+  // Frame
+  'runFrameFromPreview','updateFrameInfo',
+  'getPreviewFrameBounds','setCommandMode',
+  // Override (scoped inside bindEvents)
+  // 'sendOverrideFeed','sendOverrideSpin','applyOverrides','stepOverride',
+  // Probe
+  'runAutoProbeZZero',
+  // Macros
+  'defaultMacros','getMacroEntry','runMacro','loadMacrosToForm','saveMacrosFromForm',
+  // Console
+  'ingestConsoleEvents','logLine','clearConsole','toggleConsoleFullscreen',
+  // Workspace / DRO
+  'extractDroFromStatus','renderDro','fmtDro','hasValidDroValue',
+  'parseNumber3','parsePosTriplet','firstNumber3',
+  // USB / Connection
+  'selectedSlot','normalizeUsbSlots','renderSlots',
+  'syncSelectedUsbBaud','ensureUsbBaudOption','usbBaudPrefId',
+  'getPreferredUsbBaud','savePreferredUsbBaud',
+  // SD Card
+  'sdFileNameFromPath','sdParentDir','formatSdSize','normalizeSdEntry',
+  'isPreviewSizeBlocked','isPreviewAutoRenderHeavy',
+  // PSRAM
+  'refreshPsramFileStatus',
+  // Preview utilities (pure functions)
+  'extractAxisValue','extractAxisInMm','appendLinear',
+  'quickWireframe','applyWireframePreview',
+  'parseToolpath3dAsync',
+  // Critical confirm
+  'runWithCriticalConfirm','requireAxesAtZero',
+  // Render
+  'renderStatus','applyRuntimeControls','applyStatusSnapshot',
+  // Job helpers
+  'getSegmentExecNo','getActiveExecNo',
+  // Light preview (inner functions may not resolve)
+  'simplifyPolylineLight',
+  // Contour selection (GRBL light preview)
+  'filterContoursPreserveCoords',
+  'buildLightPreview','buildLightPieceContoursFromGcode',
+  'buildPieceContoursFromSegments','_syncContoursFromSegments',
+  '_toggleContourSelect','_undoContourToggle','_updateContourSelectInfo',
+  '_navContourHighlight','_spaceToggleHighlighted',
+  '_handleCanvasContourClick','_screenToMachine','_minDistToContour','_computeTopTransformPx',
+  '_distToSegment','_pointInPolygon','_lightPreviewScalePx',
+  'renderPreviewFromText','_computeBounds','_drawTopView','_drawIsoView',
+  'applyLightPreviewFromText','applyLightPreviewFromBounds','_keepDerivedContours',
+  '_drawPreviewNow','_drawContourOverlay','_drawCrosshair',
+  'bindPreviewInteractions',
+  // MQ135 sensor page
+  't','uiLocale','trendArrow','aqiInfo','pickReadableTextColor',
+  'applySensorValueTheme','mqTone','showStatus',
+  // Sensor config page
+  'updateStatistics',
+  // HX711 page
+  'UNIT_LABELS','t','uiLocale','updateDisplay','showStatus','performTare',
+  // INA226 page
+  't','uiLocale','updateDisplay','showStatus',
+  // Sound page
+  't','uiLocale','updateDisplay','showStatus',
+  // MAX31865 page
+  't','uiLocale','updateDisplay','showStatus',
+  // Sensor charts page
+  'numericSeries','hasSeriesData','calcTrend','metricColor',
+  'calcDew','calcHeat','calcAlt','fmtVal',
+  'isRS232Metric','isModbusMetric','isProximityMetric',
+  'getMetricMeta','getData','seriesValues','pickData',
+  'updateMaxVisibleOptions','setPointStrideAutoValue',
+  'mkOpts','fmtTs','trim','mkGradient','registerChartPlugins',
+  'mkChart','updChart','saveAllCharts',
+  'getY2Key','yPad','yPadNeg','hasNeg',
+  'setChartCenterBadge','updStats','setStatRow','calcSt','calcAdv',
+  'getMetricAdapter','metricPointCount','showSts','setTheme',
+  'fetchChartJson','waitChartRetry','isRetryableChartStatus',
+  'TH','currentTheme',
+  'prodDayBoundary','prodDayDates','dayBoundaryTs','ensureDayBoundary',
+  'dayProdData','_dayBoundary','_dayBoundaryLoading',
+  'loadRS232Data','loadModbusData','loadProximityData','loadData','syncPresetRange',
+  'T','AP','APJ','BN','sw','onSearch','addPlay','playToggle',
+  'radioStop','radioNext','radioPrev','playUrl','updUI','setVol',
+  'togSh','togRp','loadFav','addFav','favPlay','favDel',
+  'touchActivity','IDLE_T','NAV_DEF','NAV_N','NAV_OFF','NAV_ICON','NAV_LABEL','PNL_ALL',
+  'syncQ','rQ','rmQ','savePl','loadPls','loadPl','delPl','loadQ','loadSt','fh',
+  'isSup','chkSup','loadResume','renderResume','saveResume','resumeToggle','resumeTargetToggle','RESUME_A','RESUME_F',
+];
+_testNames.forEach(function(n) {
+  try { window.__test__[n] = eval(n); } catch(e) { window.__test__[n] = null; }
+});
+
+</script>
 
 <script>
 (function() {

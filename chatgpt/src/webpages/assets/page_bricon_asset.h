@@ -31,7 +31,6 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
                 <button type='button' class='uk-tab-btn active' onclick='bkSwitchTab(0)'><span title='Bricon status and configuration' data-i18n-title='briconTipTabStatus' data-i18n='briconTab1'>📊 Status & Config</span></button>
                 <button type='button' class='uk-tab-btn' onclick='bkSwitchTab(1)'><span title='Arrivals and contest list read from the Bricon' data-i18n-title='briconTipTabArrivals' data-i18n='briconTab2'>🏁 Arrivals & Contests</span></button>
                 <button type='button' class='uk-tab-btn' onclick='bkSwitchTab(2)'><span title='Pigeon loft read from the Bricon (read-only)' data-i18n-title='briconTipTabLoft' data-i18n='briconTab3'>🐦 Pigeon Loft</span></button>
-                <button type='button' class='uk-tab-btn' onclick='bkSwitchTab(3)'><span title='Write a training race to the Bricon' data-i18n-title='briconTipTabTraining' data-i18n='briconTab4'>🏋️ Training</span></button>
             </div>
 
             <!-- Tab 1: Status + Configuration -->
@@ -203,19 +202,6 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
             </div>
             </div><!-- /bk-tab-2 -->
 
-            <!-- Tab 4: Training -->
-            <div class='uk-tab-panel' id='bk-tab-3'>
-            <div id='bk-sec-training' class='section'>
-                <div style='display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px'>
-                    <h3 style='margin:0' data-i18n='briconTraining'>🏋️ Training Session</h3>
-                    <div style='display:flex;gap:8px;flex-wrap:wrap'>
-                        <button onclick='briconSendTraining()' class='btn' style='background:#2563eb;border-color:#1d4ed8;padding:8px 16px;font-size:12px' title='SendDesignated: designate pigeons for the race (the captured Bricon write for allocating pigeons)' data-i18n-title='briconTipSendTraining' data-i18n='briconBtnSendTraining'>📡 Designate (SendDesignated)</button>
-                    </div>
-                </div>
-                <p style='font-size:13px;color:#94a3b8;margin:0 0 12px 0' data-i18n='briconTrainingHint'>Bricon has no Unikon-style training session: StartReadout/StartBasket/StartTempReadout are unreferenced in BriconLib. The captured way to allocate pigeons is SendDesignated.</p>
-                <div id='bricon-training-toast' style='display:none;margin-top:10px;padding:10px 14px;background:#1e3a8a;border-left:4px solid #2563eb;border-radius:6px;font-size:13px;color:#bfdbfe'></div>
-            </div>
-            </div><!-- /bk-tab-3 -->
 
             <!-- Common save bar (all tabs) -->
             <div class='uk-savebar'>
@@ -230,12 +216,12 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
     function bt(s, fb) { try { if (window._lang && window._lang[s] !== undefined) return window._lang[s]; var el = document.querySelector("[data-i18n='" + s + "']"); if (el && el.textContent && el.textContent.trim().length > 0 && el.textContent !== s) return el.textContent; } catch (e) {} return fb; }
     function besc(s) { s = (s === null || s === undefined) ? '' : String(s); return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
-    var bkTabs = [['bk-tab-0', 'Status & Config'], ['bk-tab-1', 'Arrivals & Contests'], ['bk-tab-2', 'Pigeon Loft'], ['bk-tab-3', 'Training']];
-    var bkTabGroups = [['bk-sec-status', 'bk-sec-config'], ['bk-sec-arrivals', 'bk-sec-contests'], ['bk-sec-pombal'], ['bk-sec-training']];
+    var bkTabs = [['bk-tab-0', 'Status & Config'], ['bk-tab-1', 'Arrivals & Contests'], ['bk-tab-2', 'Pigeon Loft']];
+    var bkTabGroups = [['bk-sec-status', 'bk-sec-config'], ['bk-sec-arrivals', 'bk-sec-contests'], ['bk-sec-pombal']];
     function bkSwitchTab(idx) {
         var btns = document.querySelectorAll('#briconTabBar .uk-tab-btn');
         for (var i = 0; i < btns.length; i++) btns[i].classList.toggle('active', i === idx);
-        for (var p = 0; p < 4; p++) {
+        for (var p = 0; p < 3; p++) {
             var el = document.getElementById('bk-tab-' + p);
             if (el) el.classList.toggle('active', p === idx);
         }
@@ -245,7 +231,7 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
     function bkBuildTabs() {
         try {
             var s = parseInt(localStorage.getItem('bk_tab'), 10);
-            if (s >= 0 && s < 4) bkSwitchTab(s);
+            if (s >= 0 && s < 3) bkSwitchTab(s);
         } catch (e) {}
     }
 
@@ -421,15 +407,6 @@ static const char PAGE_BRICON[] PROGMEM = R"rawliteral(
         fetch('/api/bricon-reset', { method: 'POST' })
             .then(function(r) { return r.json(); })
             .then(function() { setTimeout(loadBriconStatus, 1000); })
-            .catch(function() {});
-    }
-    function briconSendTraining() {
-        fetch('/api/bricon-send-training', { method: 'POST' })
-            .then(function(r) { return r.json(); })
-            .then(function(d) {
-                var el = document.getElementById('bricon-training-toast');
-                if (el) { el.style.display = 'block'; el.textContent = (d && d.message) || ''; }
-            })
             .catch(function() {});
     }
     function saveBriconConfig() {

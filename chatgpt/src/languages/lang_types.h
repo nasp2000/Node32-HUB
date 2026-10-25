@@ -207,6 +207,7 @@ struct LangStrings {
     const char* apiBriconDisabled;
     const char* apiBriconPending;
     const char* apiBriconNothingReset;
+    const char* apiProfileRestored;   // "Module profile applied again" (bench-mode restore)
     const char* apiJsonInvalid;
     const char* apiCfgSaved;
     const char* apiEmailDisabled;

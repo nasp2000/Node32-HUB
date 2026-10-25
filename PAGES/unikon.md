@@ -4,7 +4,14 @@
 > button/input, client logic, API endpoints, persistence and the firmware-side
 > RS-232 RAMBOX protocol engine. Written for both humans and AI agents.
 >
-> **TRAINING (2026-10-19):** a secção Training Session (`#uk-sec-training`) tem
+> **SÓ LEITURA (2026-10-25):** o hub **não escreve** nada no relógio. O caminho
+> de escrita (treino `IC0`+I-frame+S1/S2/S3+`M ZP`, e o "clear training") foi
+> **apagado** — numa prova de bancada apagou o pombal do RAMBOX. Rotas
+> `/api/unikon-send-training` e `/api/unikon-clear-training` e os botões
+> correspondentes já não existem. Fica tudo o que é leitura: polls W/X/IC,
+> chegadas, pombal, calendário, push e email.
+>
+> **TRAINING (histórico, 2026-10-19):** a secção Training Session (`#uk-sec-training`) tinha
 > o botão `Send Training` + **3 modos** de alocação (radio `trainingMode`):
 > **só a prova** (`rings=-`, sem registos de pombos — teste), **pombal todo**
 > (`rings=*`, por omissão) e **só os marcados** (`#trainingPombalSelect`, que só
@@ -31,7 +38,7 @@ the RS232 page's saved settings are not restored over it.
 Configure and monitor a **Unikon RAMBOX pigeon-racing terminal** over RS-232
 (9600 8N1): connection status + club/fancier/race identity, race arrivals
 (W-phase P-frames), annual contest calendar (IC0/I session), season pigeon loft
-registrations (X-phase ZP-frames), training-session write/clear, and module
+registrations (X-phase ZP-frames) and module
 config (enable, official ring/chip format, auto-poll interval). All poll/sync
 actions are **non-blocking web requests** — they set flags consumed by
 `unikonUpdate()` in the main loop.
@@ -47,7 +54,7 @@ actions are **non-blocking web requests** — they set flags consumed by
 | WiFi server | `web_routes_unikon.cpp:30` — chunked 3-segment stream (`buildPageFrame` + `PAGE_UNIKON`), title "🦆 Unikon RAMBOX" |
 | Ethernet (W5500) | `ethernet_bootstrap_routes.h:409` → `streamSharedUnikonPage` (`web_shared_pages.cpp:239`) |
 | API (GET) | `/api/unikon-status`, `/api/unikon-arrivals`, `/api/unikon-registrations`, `/api/unikon-contests`, `/api/unikon-pombal` (`web_routes_unikon.cpp:14-18`) |
-| API (POST) | `/api/unikon-config` (manual body-params route), `/api/unikon-sync-pombal`, `/api/unikon-email-pombal`, `/api/unikon-poll`, `/api/unikon-sync-zp`, `/api/unikon-poll-w`, `/api/unikon-sync-calendar`, `/api/unikon-reset`, `/api/unikon-send-training`, `/api/unikon-clear-training` (`:19-27`) |
+| API (POST) | `/api/unikon-config` (manual body-params route), `/api/unikon-sync-pombal`, `/api/unikon-email-pombal`, `/api/unikon-poll`, `/api/unikon-sync-zp`, `/api/unikon-poll-w`, `/api/unikon-sync-calendar`, `/api/unikon-reset` (`:19-27`); *the training write endpoints were removed (read-only, 2026-10-25)* |
 | Ethernet API gap | Only `POST /api/unikon-config` mirrored (`ethernet_bootstrap_routes.h:724`); all other Unikon APIs have Ethernet handler functions but no route dispatch (see UK-2) |
 | Auth | Basic auth (`ensureBasicAuth`) + HTML clients only (`allowHtmlClient`) (`web_routes_unikon.cpp:31-33`) |
 | Caching | `ETag` = `FIRMWARE_BUILD`, `Cache-Control: private, max-age=15, must-revalidate` (`:54-55`) |
@@ -74,7 +81,7 @@ main.page > div.wrap
  ├ #uk-sec-arrivals    (TAB Arrivals: table > tbody#raceArrivalsBody, cols #/Ring/Chip ETS/Time/Date/Race)
  ├ #uk-sec-contests    (TAB Contests: [Sync Calendar] + table > tbody#contestsBody + #calendar-toast)
  ├ #uk-sec-pombal      (TAB Loft: [Sync Pigeon Loft] [#btnEmailPombal] + details#pombalListToggle > tbody#pombalBody + #pombal-toast)
- ├ #uk-sec-training    (TAB Loft, grouped with pombal: [Send Training] + #training-toast — sem lista de pombos e sem botão de apagar)
+ ├ ~~#uk-sec-training~~ (removido 2026-10-25 — o hub não escreve no relógio)
  ├ #uk-sec-guide       (TAB Configuration, grouped with config: jumper pin 9→5, 9600 8N1)
  └ #uk-sec-config      (TAB Configuration: #rs232Info/#rs232InfoText + form#unikonForm + #status)
      └ form#unikonForm: checkbox #enabled, checkbox #official_format, select #interval, [Save Configuration]
@@ -106,8 +113,8 @@ Configuration→`[sGuide, sConfig]`; default tab index 0.
 | 🗓️ Sync Calendar | `syncCalendar()` → `customConfirm(ukConfirmCalendar)` → `POST /api/unikon-sync-calendar` → toast, reload contests+status after 2 s |
 | 🔄 Sync Pigeon Loft | `syncPombal()` → `customConfirm(ukConfirmPombal)` → `POST /api/unikon-sync-pombal` → toast, reload pombal+status |
 | ✉️ Email Pigeon Loft (`#btnEmailPombal`) | `emailPombal()` → `customConfirm(ukConfirmEmailPombal)` → `POST /api/unikon-email-pombal`; re-entrancy guard `emailPombalPending`, button disabled while sending |
-| 📡 Send Training | `sendTraining()` → `customConfirm(ukConfirmTraining + ' — ' + modo)` → `POST /api/unikon-send-training` com **3 modos** (radio `trainingMode`): **`none`** → `rings=-` (só a prova, sem registos de pombos), **`all`** (por omissão) → `rings=*` (pombal todo), **`list`** → a lista de anilhas marcadas em `#trainingPombalSelect` (a lista e os atalhos Todos/Nenhum só aparecem nesse modo). Guard `trainingPending`. Escreve a prova de treino — os dois "F7 Transmitir dados" do programa DOS: `IC0` + `I…` (a prova) e `M` + linha do pombo (os pombos) — e no fim faz **leitura de volta** e compara (`read-back … MATCH/MISMATCH`). **Não há botão de apagar** (a prova apaga-se na RAMBOX). |
-| 🗑️ ~~Clear Training~~ | **Removido (2026-10-19)** — a prova apaga-se **na RAMBOX**, é mais seguro. A rota `POST /api/unikon-clear-training` mantém-se apenas como **diagnóstico manual** (sem botão na página). |
+| ~~📡 Send Training~~ | **APAGADO (2026-10-25)** — escrevia a prova (`IC0` + I-frame + S1/S2/S3 + `M ZP` por pombo) e **apagou o pombal do relógio** numa prova de bancada. O hub é só-leitura. |
+| ~~🗑️ Clear Training~~ | **APAGADO (2026-10-25)** com a rota e o handler (era diagnóstico manual). |
 | 💾 Save Configuration | `saveUnikonConfig()` → urlencoded `POST /api/unikon-config` (`enabled`, `official_format`, `interval`) → `customAlert` + `showSavedCard()`; sets `configLoaded=false` to re-sync |
 
 ---
@@ -135,12 +142,11 @@ Handlers in `handlers_unified/unikon_handler.cpp` (WiFi, via `registerApiRoute`)
 {"connected":true,"lastPollAgoSec":12,"totalKnown":42,"raceKnownCount":40,
  "trainingKnownCount":2,"lastNewCount":3,"registeredCount":120,"contestCount":8,
  "moduleId":"...","clubName":"...","soltaName":"...","clubCode":"...","fancierName":"...",
- "raceDate":"15.06","raceName":"CANAME","pushState":0,"pushActive":false,"pushAuto":false,
- "pushCode":0,"pushVersion":"...","enabled":true,"intervalSec":180,"activeModule":"rambox","manualSerial":false,
+ "raceDate":"15.06","raceName":"CANAME","enabled":true,"intervalSec":180,"activeModule":"rambox","manualSerial":false,
  "polling":true,"passiveListen":false,"officialFormat":true,"emailDest":"..."}
 ```
 
-`pushState`: 0 = off, 1 = active, 2 = rejected/unsupported. `pushCode`: 0 = ACK, 0x3f1 = NAK, 0x3ef = no answer. `pushVersion`: ident the push was negotiated with (empty until probed). Buffer widened to 1200 B for the extra fields.
+`push*` fields were removed with the P1/P0 request (2026-10-25, read-only): the hub no longer asks the clock to push.
 
 `emailDest` comes from `configManager.getEmailDestination()` (`:38`); `raceKnownCount`/`trainingKnownCount` recomputed by scanning arrivals with valid time (`:23-36`). `activeModule` (`rambox`\|`bricon`\|`none`, from `briconActiveModuleName()`) tells the `/rambox` selector and the OLED status line 3 which clock owns the port.
 
@@ -163,9 +169,9 @@ Handlers in `handlers_unified/unikon_handler.cpp` (WiFi, via `registerApiRoute`)
 | `/api/unikon-sync-pombal` | `unikonRequestXOnlyPoll()` (X registrations) |
 | `/api/unikon-email-pombal` | `unikonQueuePombalSeasonEmail(msg)` (no disabled-guard; always attempts queue) |
 | `/api/unikon-reset` | `unikonResetArrivalsOnly()` (keeps contests+registrations; no disabled-guard) |
-| `/api/unikon-send-training` | `unikonSetTrainingFilter(rings)` + `unikonRequestSendTraining()`. **3 modos**: `rings=-` → `UNIKON_TRAIN_MODE_NONE` (só a prova, sem registos), `rings=*` → `UNIKON_TRAIN_MODE_ALL` (pombal todo), lista de anilhas → `UNIKON_TRAIN_MODE_LIST` (só as marcadas). No fim faz **leitura de volta** (X) e compara (`read-back`). |
-| `/api/unikon-clear-training` | `unikonRequestClearTraining()` (remove o concurso de treino `UNIKON_TRAINING_CODE`). **Diagnóstico manual apenas** — a página já não tem botão: a prova apaga-se **na RAMBOX**. |
-| `/api/unikon-push` | **Diagnóstico/manual** (sem botão na página — o push é automático). Body `on=1` → `unikonRequestPush(true)` (envia **`P1`**), `on=0` → `unikonRequestPush(false)` (envia **`P0`**); optional `auto=1|0` → `unikonSetPushAuto()` (por omissão já ligado). O probe faz handshake e guarda o resultado (`unikonGetPushCode()`: 0 = ACK, 0x3f1 = NAK, 0x3ef = sem resposta) e o ident (`unikonGetPushVersion()`). |
+| ~~`/api/unikon-send-training`~~ | **Removido (2026-10-25)** com a escrita no relógio. |
+| ~~`/api/unikon-clear-training`~~ | **Removido (2026-10-25)** com a escrita no relógio. |
+| ~~`/api/unikon-push`~~ | **Removido (2026-10-25)** com o push `P1`/`P0` — o hub é só leitura. |
 
 ### `POST /api/unikon-config` (`handlers/unikon_handler.cpp:15`)
 
@@ -233,7 +239,7 @@ MISSING from both dictionaries: none — the 8 JS-only training keys (`ukTrainin
 | # | Finding | Severity | Suggested fix |
 |---|---|---|---|
 | UK-1 | ~~Training-section i18n keys do not exist~~ **RESOLVIDO 2026-10-17:** as 12 chaves (`ukTrainingTitle/Hint`, `ukBtnSendTraining/ClearTraining`, `ukTrainingSending/Sent/Error`, `ukTrainingClearing/Cleared/ClearError`, `ukConfirmTraining/ClearTraining`) foram adicionadas a `lang_en_ui.h`/`lang_pt_ui.h`. | Done | Add the 12 keys to both language files and extend local `t()` to `t(key, fallback)`. |
-| UK-2 | **Route-coverage gaps.** Ethernet dispatches only `GET /unikon` and `POST /api/unikon-config` (`ethernet_bootstrap_routes.h:409,724`) — the Ethernet `ethernetHandleUnikonStatus/Arrivals/Registrations/Contests/Poll/Sync*/EmailPombal/Reset` functions (`ethernet_bootstrap_handlers.h:2530-2733`) are unreachable, so the page's auto-refresh is dead over W5500. Separately, `route_registry_api.cpp:391-398` omits `POST /api/unikon-send-training` and `/api/unikon-clear-training` from the manifest/registry. | Medium | Wire the missing Ethernet GET/POST dispatches; add the two training POSTs to `route_registry_api.cpp`. |
+| UK-2 | **Route-coverage gaps.** Ethernet dispatches only `GET /unikon` and `POST /api/unikon-config` (`ethernet_bootstrap_routes.h:409,724`) — the Ethernet `ethernetHandleUnikonStatus/Arrivals/Registrations/Contests/Poll/Sync*/EmailPombal/Reset` functions (`ethernet_bootstrap_handlers.h:2530-2733`) are unreachable, so the page's auto-refresh is dead over W5500. The training write routes no longer exist (removed 2026-10-25). | Medium | Wire the missing Ethernet GET/POST dispatches; add the two training POSTs to `route_registry_api.cpp`. |
 | UK-3 | **Hardcoded Portuguese API strings.** WiFi `POST /api/unikon-config` returns `"Ficheiro não gravado no LittleFS. Tente novamente."` (`handlers/unikon_handler.cpp:45`) and `"✅ Configuração Unikon guardada!"` (`:49`) regardless of UI language (Ethernet twin at least uses English). | Low | Return stable codes/keys and let the page resolve `ukToastConfigSaved/ukToastFileNotWritten`. |
 | UK-7 | ~~**Training I-frame malformed.**~~ **RESOLVIDO 2026-10-18:** o código era `"990"`, mas o builder original é `I0%02u%02u%02u%-8s%01u` — o `0` logo a seguir a `I` é **literal**, logo o código tem de ser `'0'` + nº de prova de 2 dígitos (`"090"`), e o último byte do nome é um **dígito** (`N[1]`), não um espaço. Corrigido: `UNIKON_TRAINING_CODE "090"`, `sendIFrame()` escreve `NAME[8]` + `UNIKON_I_TAIL_RACE/CLEAR`, e o matcher aceita `"90"`/`" 90"`. | Done | — |
 | UK-8 | **"Sem prova" aparece como "desligado".** `connected` = "last full poll succeeded", logo um RAMBOX presente mas **sem prova programada** (fica em silêncio total — provado em `docs/Unikon Sniffer/16.txt`: três `v`-frames sem resposta) é reportado como `Disconnected`, indistinguível de cabo/aparelho ausente. | Medium | Estado `noRace` distinto de `noDevice` (silêncio no `v`-frame vs porta/eco ausente) e mostrar isso no badge + texto `ukStatusDisconnected`. |

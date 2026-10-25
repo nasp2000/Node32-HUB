@@ -230,6 +230,13 @@ void handleBriconConfigPost(HttpRequest& req, HttpResponse& res) {
     briconSetConfig(cfg);
     if (cfg.enabled) briconSetEnabled(true);
     else briconSetEnabled(false);
+    // The "Module profile" button posts ONLY manual=0 (bench mode off): answer as a
+    // profile action, not as a config save.
+    if (req.body.indexOf("manual=") >= 0 && req.body.indexOf("enabled=") < 0 &&
+        req.body.indexOf("interval=") < 0 && req.body.indexOf("baud=") < 0) {
+        res.sendJson(String(F("{\"success\":true,\"message\":\"")) + L(activeLang->apiProfileRestored) + F("\"}"));
+        return;
+    }
     if (cfg.enabled)
         res.sendJson(String(F("{\"success\":true,\"message\":\"")) + L(activeLang->apiBriconCfgActive) + F("\"}"));
     else
@@ -271,24 +278,6 @@ void handleBriconResetPost(HttpRequest& req, HttpResponse& res) {
     res.sendJson(String(F("{\"success\":true,\"message\":\"")) + L(activeLang->apiBriconNothingReset) + F("\"}"));
 }
 
-void handleBriconSendTrainingPost(HttpRequest& req, HttpResponse& res) {
-    (void)req;
-    if (!briconIsActive()) {
-        res.sendJson(String(F("{\"success\":false,\"message\":\"")) + L(activeLang->apiBriconDisabled) + F("\"}"));
-        return;
-    }
-    briconScheduledJson(res);
-}
-
-void handleBriconClearTrainingPost(HttpRequest& req, HttpResponse& res) {
-    (void)req;
-    if (!briconIsActive()) {
-        res.sendJson(String(F("{\"success\":false,\"message\":\"")) + L(activeLang->apiBriconDisabled) + F("\"}"));
-        return;
-    }
-    briconScheduledJson(res);
-}
-
 #else
 
 #include "../http_abstraction.h"
@@ -308,7 +297,5 @@ void handleBriconPollPost(HttpRequest& req, HttpResponse& res) { (void)req; stub
 void handleBriconSyncPombalPost(HttpRequest& req, HttpResponse& res) { (void)req; stubNotFound(res); }
 void handleBriconSyncCalendarPost(HttpRequest& req, HttpResponse& res) { (void)req; stubNotFound(res); }
 void handleBriconResetPost(HttpRequest& req, HttpResponse& res) { (void)req; stubNotFound(res); }
-void handleBriconSendTrainingPost(HttpRequest& req, HttpResponse& res) { (void)req; stubNotFound(res); }
-void handleBriconClearTrainingPost(HttpRequest& req, HttpResponse& res) { (void)req; stubNotFound(res); }
 
 #endif
