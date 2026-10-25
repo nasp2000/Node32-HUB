@@ -161,9 +161,6 @@ static bool isTrainingContestCode(const char* raceCode, const char* trainingCode
     return false;
 }
 
-    return false;
-}
-
 
 // Pending-email window: arrivals at s_arrivals[s_pendingEmailStart..s_arrivalCount-1]
 // have not yet been included in a successfully dispatched email.
