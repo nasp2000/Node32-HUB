@@ -1,0 +1,256 @@
+name: Release firmware
+
+# Manual release: build one pack variant, package it with the compliance bundle
+# and publish the zip as a GitHub Release in the variant's target repository
+# (e.g. CAM_S3 -> nasp2000/Cam-M). The pack -> repo mapping lives in
+# .github/release_targets.json.
+#
+# Requirements:
+#   - secret RELEASE_TOKEN: fine-grained PAT (or GitHub App token) with
+#     "Contents: Read and write" on every target repo in the manifest.
+#   - secret OTA_PRIVATE_PEM: contents of chatgpt/ota_private.pem (OTA signing).
+#   - environment "release" (optional): add required reviewers to gate publishing.
+#
+# The firmware version is NOT bumped here: it is read from
+# FIRMWARE_VERSION_STR and validated. Bump manually before dispatching.
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "Pack variant to build and publish"
+        required: true
+        type: choice
+        options:
+          - CAM_S3
+          # - CAM_P4   # same repo (Cam-M), tag gets the -p4 suffix
+      version:
+        description: "Version (default: FIRMWARE_VERSION_STR)"
+        required: false
+        type: string
+      since:
+        description: "Notes base ref (default: last release/<variant>/v* tag)"
+        required: false
+        type: string
+      notes:
+        description: "Extra release notes (optional)"
+        required: false
+        type: string
+      overwrite:
+        description: "Overwrite an existing release with the same tag"
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: "Build and package only (do not publish)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.variant }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release ${{ inputs.variant }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install system deps
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq g++ make ccache
+
+      - name: Install PlatformIO
+        run: pip install --quiet platformio cryptography
+
+      - name: Cache PlatformIO packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.platformio
+          key: ${{ runner.os }}-pio-${{ inputs.variant }}-${{ hashFiles('chatgpt/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-${{ inputs.variant }}-
+            ${{ runner.os }}-pio-
+
+      - name: Cache ccache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ccache
+          key: ${{ runner.os }}-ccache-${{ inputs.variant }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-${{ inputs.variant }}-
+
+      - name: Resolve target
+        id: target
+        env:
+          VARIANT: ${{ inputs.variant }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          python - <<'PY'
+          import json, os, re
+
+          key = os.environ["VARIANT"]
+          with open(".github/release_targets.json", encoding="utf-8") as f:
+              variants = json.load(f)["variants"]
+          if key not in variants:
+              raise SystemExit(f"unknown variant {key!r}")
+          v = variants[key]
+
+          version = os.environ.get("INPUT_VERSION", "").strip()
+          if not version:
+              with open("chatgpt/src/smtp_core_impl.h", encoding="utf-8", errors="ignore") as f:
+                  for line in f:
+                      m = re.search(r'#define\s+FIRMWARE_VERSION_STR\s+"([^"]+)"', line)
+                      if m:
+                          version = m.group(1).strip()
+                          break
+          if not version:
+              raise SystemExit("cannot determine firmware version")
+          if not version.startswith("v"):
+              version = "v" + version
+
+          out = {
+              "env": v["env"],
+              "pack": v["pack"],
+              "flags": v["flags"],
+              "repo": v["repo"],
+              "tag": f"{version}{v.get('tag_suffix', '')}",
+              "title": f"{v['product']} {version}{v.get('title_suffix', '')}",
+              "version": version,
+              "product": v["product"],
+              "variant_label": v["variant"],
+          }
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              for k, val in out.items():
+                  f.write(f"{k}={val}\n")
+          print(json.dumps(out, indent=2))
+          PY
+
+      - name: Validate version
+        run: python chatgpt/scripts/validate_version.py --expect "${{ steps.target.outputs.version }}"
+
+      - name: Release gate (version, native tests, i18n, third-party compliance)
+        run: ./release_check.sh --no-hw --no-web
+
+      - name: Prepare OTA signing key
+        if: ${{ !inputs.dry_run }}
+        env:
+          OTA_PRIVATE_PEM: ${{ secrets.OTA_PRIVATE_PEM }}
+        run: |
+          if [ -z "$OTA_PRIVATE_PEM" ]; then
+            echo "::error::secret OTA_PRIVATE_PEM is not set — refusing to publish an unsigned firmware."
+            exit 1
+          fi
+          printf '%s\n' "$OTA_PRIVATE_PEM" > chatgpt/ota_private.pem
+          chmod 600 chatgpt/ota_private.pem
+
+      - name: Build
+        env:
+          PLATFORMIO_BUILD_FLAGS: ${{ steps.target.outputs.flags }}
+          SKIP_NATIVE_TESTS: "1"   # already run by release_check.sh
+        run: pio run --project-dir chatgpt -e "${{ steps.target.outputs.env }}"
+
+      - name: Collect artifacts
+        working-directory: chatgpt
+        env:
+          DIST_THIRD_PARTY: "1"
+          DIST_LGPL_MATERIALS: "1"
+        run: python rename_firmware.py --copy --env "${{ steps.target.outputs.env }}" --pack "${{ steps.target.outputs.pack }}"
+
+      - name: Package release zip
+        id: package
+        run: |
+          ZIP=$(python chatgpt/scripts/make_release_zip.py \
+                  --env "${{ steps.target.outputs.env }}" \
+                  --pack "${{ steps.target.outputs.pack }}" --print-path)
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+          ls -lh "$ZIP"
+
+      - name: Generate release notes
+        env:
+          VARIANT: ${{ inputs.variant }}
+          VERSION: ${{ steps.target.outputs.version }}
+          SINCE: ${{ inputs.since }}
+          EXTRA: ${{ inputs.notes }}
+        run: |
+          args=(--variant "$VARIANT" --version "$VERSION" --out release_notes.md)
+          [ -n "$SINCE" ] && args+=(--since "$SINCE")
+          [ -n "$EXTRA" ] && args+=(--extra-notes "$EXTRA")
+          python chatgpt/scripts/release_notes.py "${args[@]}"
+          echo "----- release notes -----"
+          cat release_notes.md
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ inputs.variant }}-${{ steps.target.outputs.tag }}
+          path: ${{ steps.package.outputs.zip }}
+          retention-days: 14
+
+      - name: Publish release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          REPO: ${{ steps.target.outputs.repo }}
+          TAG: ${{ steps.target.outputs.tag }}
+          TITLE: ${{ steps.target.outputs.title }}
+          ZIP: ${{ steps.package.outputs.zip }}
+          OVERWRITE: ${{ inputs.overwrite }}
+        run: |
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            if [ "$OVERWRITE" != "true" ]; then
+              echo "::error::release $TAG already exists in $REPO (set overwrite=true to replace it)"
+              exit 1
+            fi
+            echo ">>> release $TAG exists — replacing asset and notes"
+            gh release upload "$TAG" "$ZIP" --repo "$REPO" --clobber
+            gh release edit "$TAG" --repo "$REPO" --title "$TITLE" --notes-file release_notes.md
+          else
+            gh release create "$TAG" "$ZIP" --repo "$REPO" --title "$TITLE" --notes-file release_notes.md
+          fi
+          echo ">>> https://github.com/$REPO/releases/tag/$TAG"
+
+      - name: Tag provenance in Node32-HUB
+        if: ${{ !inputs.dry_run }}
+        env:
+          VARIANT: ${{ inputs.variant }}
+          VERSION: ${{ steps.target.outputs.version }}
+        run: |
+          TAG="release/${VARIANT,,}/$VERSION"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo ">>> tag $TAG already exists, leaving it"
+          else
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: Summary
+        if: always()
+        env:
+          REPO: ${{ steps.target.outputs.repo }}
+          TAG: ${{ steps.target.outputs.tag }}
+          ZIP: ${{ steps.package.outputs.zip }}
+          DRY: ${{ inputs.dry_run }}
+        run: |
+          {
+            echo "### Release ${{ inputs.variant }}"
+            echo "- target: \`$REPO\`"
+            echo "- tag: \`$TAG\`"
+            echo "- asset: \`$(basename "${ZIP:-none}")\`"
+            echo "- dry run: \`$DRY\`"
+          } >> "$GITHUB_STEP_SUMMARY"

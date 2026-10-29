@@ -1,0 +1,41 @@
+{
+  "_comment": "Release targets: variant -> existing GitHub repo. A target repo may host several variants (e.g. Cam-M: S3 + P4); each variant needs its own tag_suffix so the release tags/assets do not collide. After adding a variant here, also list it in .github/workflows/release.yml -> inputs.variant.options.",
+  "variants": {
+    "CAM_S3": {
+      "repo": "nasp2000/Cam-M",
+      "product": "Cam-M",
+      "variant": "ESP32-S3 N16R8",
+      "env": "n16r8",
+      "pack": "CAM",
+      "flags": "-DSELECTED_PACK=PACK_CAM -DTARGET_BOARD_S3_CAM=1",
+      "tag_suffix": "",
+      "title_suffix": "",
+      "scopes": ["cam", "camera", "cam-m", "cam_m", "mjpeg"],
+      "paths": [
+        "chatgpt/packs/pack_cam.h",
+        "chatgpt/src/camera_*",
+        "chatgpt/src/interfaces/ICameraController.h",
+        "chatgpt/src/webpages/**/*camera*",
+        "PAGES/camera.md"
+      ]
+    },
+    "CAM_P4": {
+      "repo": "nasp2000/Cam-M",
+      "product": "Cam-M",
+      "variant": "ESP32-P4",
+      "env": "esp32p4cam",
+      "pack": "CAM_P4",
+      "flags": "-DSELECTED_PACK=PACK_CAM_P4",
+      "tag_suffix": "-p4",
+      "title_suffix": " (ESP32-P4)",
+      "scopes": ["cam", "camera", "cam-p4", "cam_p4", "mjpeg"],
+      "paths": [
+        "chatgpt/packs/pack_cam_p4.h",
+        "chatgpt/src/camera_*",
+        "chatgpt/src/interfaces/ICameraController.h",
+        "chatgpt/src/webpages/**/*camera*",
+        "PAGES/camera.md"
+      ]
+    }
+  }
+}

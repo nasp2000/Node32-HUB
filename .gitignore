@@ -131,6 +131,7 @@ ehthumbs.db
 .github/workflows/*
 !.github/workflows/build.yml
 !.github/workflows/codeql.yml
+!.github/workflows/release.yml
 
 # LGPL compliance materials — generated on demand by chatgpt/scripts/package_third_party.py
 third-party/
