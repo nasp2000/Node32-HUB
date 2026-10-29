@@ -67,21 +67,23 @@ PY
 echo ">>> variant $VARIANT -> $TARGET_REPO"
 
 # --- preflight: secrets exist -------------------------------------------------
-secrets=$(gh secret list --repo "$REPO" 2>/dev/null | awk '{print $1}')
-missing=()
-echo "$secrets" | grep -qx "RELEASE_TOKEN" || missing+=("RELEASE_TOKEN")
-if [ "$DRY_RUN" = "0" ]; then
+if [ "$DRY_RUN" = "1" ]; then
+  echo ">>> dry-run: skipping secret checks (no publish, no OTA signing)"
+else
+  secrets=$(gh secret list --repo "$REPO" 2>/dev/null | awk '{print $1}')
+  missing=()
+  echo "$secrets" | grep -qx "RELEASE_TOKEN" || missing+=("RELEASE_TOKEN")
   echo "$secrets" | grep -qx "OTA_PRIVATE_PEM" || missing+=("OTA_PRIVATE_PEM")
-fi
-if [ ${#missing[@]} -gt 0 ]; then
-  echo "ERROR: missing repo secret(s) on $REPO: ${missing[*]}" >&2
-  for s in "${missing[@]}"; do
-    case "$s" in
-      RELEASE_TOKEN) echo "  gh secret set RELEASE_TOKEN --repo $REPO" >&2 ;;
-      OTA_PRIVATE_PEM) echo "  gh secret set OTA_PRIVATE_PEM --repo $REPO < chatgpt/ota_private.pem" >&2 ;;
-    esac
-  done
-  exit 1
+  if [ ${#missing[@]} -gt 0 ]; then
+    echo "ERROR: missing repo secret(s) on $REPO: ${missing[*]}" >&2
+    for s in "${missing[@]}"; do
+      case "$s" in
+        RELEASE_TOKEN) echo "  gh secret set RELEASE_TOKEN --repo $REPO" >&2 ;;
+        OTA_PRIVATE_PEM) echo "  gh secret set OTA_PRIVATE_PEM --repo $REPO < chatgpt/ota_private.pem" >&2 ;;
+      esac
+    done
+    exit 1
+  fi
 fi
 
 # --- dispatch -----------------------------------------------------------------

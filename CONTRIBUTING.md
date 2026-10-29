@@ -116,6 +116,36 @@ python chatgpt/scripts/scan_secrets.py
 
 The P4 env excludes Xtensa/x86 assembly via `remove_arm_asm.py` (`extra_scripts` in `platformio.ini`). Native tests run automatically on build unless `SKIP_NATIVE_TESTS=1`.
 
+## Signing & publishing releases
+
+**Building from source needs no tokens.** OTA updates, however, are RSA-signed and the
+device only accepts firmware signed with the matching private key. `chatgpt/ota_private.pem`
+is **git-ignored and never shipped**, so a fresh clone builds an unsigned image:
+
+- USB flash → works (the bootloader does not verify the signature).
+- OTA → rejected by the device.
+
+To do OTA on your own hardware, generate your own keypair with
+`python chatgpt/scripts/ota_keygen.py` and rebuild (the public half lives in
+`chatgpt/src/ota_pubkey.h`). Never commit the private key.
+
+**Publishing a release** is one command, but it needs two **repository secrets** on the
+publishing repo (they are not cloned and cannot be read back):
+
+```bash
+gh secret set RELEASE_TOKEN --repo <owner>/<repo>       # fine-grained PAT, Contents: Read and write on the target repos
+gh secret set OTA_PRIVATE_PEM --repo <owner>/<repo> < chatgpt/ota_private.pem
+```
+
+```bash
+./release.sh CAM_S3            # build + package + publish to the variant's repo
+./release.sh CAM_S3 --dry-run  # build + package only (no secrets needed)
+```
+
+The variant → target repo mapping is [`.github/release_targets.json`](.github/release_targets.json);
+the workflow is [`.github/workflows/release.yml`](.github/workflows/release.yml). The firmware
+version is read from `FIRMWARE_VERSION_STR` and validated — bump it manually when needed.
+
 ## Questions?
 
 Open an issue or refer to `AGENTS.md` (the comprehensive agent guide) and `.github/instructions/` (per-module rules).

@@ -78,6 +78,17 @@ jobs:
       - name: Install PlatformIO
         run: pip install --quiet platformio cryptography
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tests/web/package-lock.json
+
+      - name: Install web test deps
+        working-directory: tests/web
+        run: npm ci
+
       - name: Cache PlatformIO packages
         uses: actions/cache@v6
         with:
@@ -160,8 +171,8 @@ jobs:
           fi
           echo ">>> token OK for $REPO"
 
-      - name: Release gate (version, native tests, i18n, third-party compliance)
-        run: ./release_check.sh --no-hw --no-web
+      - name: Release gate (version, native + web tests, i18n, third-party compliance)
+        run: ./release_check.sh --no-hw
 
       - name: Prepare OTA signing key
         if: ${{ !inputs.dry_run }}
@@ -196,6 +207,10 @@ jobs:
                   --pack "${{ steps.target.outputs.pack }}" --print-path)
           echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
           ls -lh "$ZIP"
+          if unzip -l "$ZIP" | grep -q 'ota_private.pem'; then
+            echo "::error::OTA private key leaked into the release zip"
+            exit 1
+          fi
 
       - name: Generate release notes
         env:
@@ -217,6 +232,10 @@ jobs:
           name: release-${{ inputs.variant }}-${{ steps.target.outputs.tag }}
           path: ${{ steps.package.outputs.zip }}
           retention-days: 14
+
+      - name: Remove OTA signing key from the workspace
+        if: always()
+        run: rm -f chatgpt/ota_private.pem
 
       - name: Publish release
         if: ${{ !inputs.dry_run }}
