@@ -42,27 +42,32 @@ def log(msg, quiet):
 
 
 def newest_build_dir(pack):
+    """Newest folder under build/ that holds exactly one firmware .bin.
+
+    The layout is build/<board>/<pack>/<version>/<timestamp>/, but the depth
+    varies (P4 CAM also uses build/esp32p4/CAM_P4/...), so walk the tree
+    instead of assuming a fixed number of levels.
+    """
     if not os.path.isdir(BUILD_ROOT):
         return None
     cands = []
-    for board in os.listdir(BUILD_ROOT):
-        bdir = os.path.join(BUILD_ROOT, board)
-        if not os.path.isdir(bdir):
-            continue
-        for ver in os.listdir(bdir):
-            vdir = os.path.join(bdir, ver)
-            if not os.path.isdir(vdir):
-                continue
-            for ts in os.listdir(vdir):
-                d = os.path.join(vdir, ts)
-                if os.path.isdir(d):
-                    cands.append((os.path.getmtime(d), d))
+    for root, dirs, files in os.walk(BUILD_ROOT):
+        # never descend into the compliance bundle (large, no firmware inside)
+        dirs[:] = [d for d in dirs if d != "third-party"]
+        bins = [f for f in files if f.lower().endswith(".bin") and f not in SKIP_BINS]
+        if len(bins) == 1:
+            cands.append((os.path.getmtime(root), root))
     if not cands:
         return None
     if pack:
-        pref = [c for c in cands if pack.lower() in c[1].lower()]
-        if pref:
-            cands = pref
+        # Match the pack directory component exactly first (CAM vs CAM_P4 are
+        # different variants that may both exist locally).
+        want = pack.lower()
+        exact = [
+            c for c in cands
+            if want in [p.lower() for p in c[1].replace("\\", "/").split("/")]
+        ]
+        cands = exact or [c for c in cands if want in c[1].lower()] or cands
     cands.sort(reverse=True)
     return cands[0][1]
 
