@@ -224,6 +224,8 @@ def run_tests() -> int:
 
     # ---- Run tests ----
     log("[native-tests] Running tests...")
+    skipped = _read_skipped()
+    skipped_count = 0
     failures = 0
     passed = 0
     for bin_name in TEST_BINS:
@@ -231,6 +233,10 @@ def run_tests() -> int:
         if os.name == "nt":
             bin_path += ".exe"
         if not os.path.isfile(bin_path):
+            if bin_name in skipped:
+                log(f"[native-tests]  {bin_name}: SKIP (needs .pio libdeps: ArduinoJson)")
+                skipped_count += 1
+                continue
             log(f"[native-tests]  {bin_name}: binary not found")
             failures += 1
             continue
@@ -253,7 +259,8 @@ def run_tests() -> int:
     total = passed + failures
     log("")
     log("--- Summary ---")
-    log(f"{passed}/{total} suites passed")
+    log(f"{passed}/{total} suites passed"
+        + (f", {skipped_count} skipped (run a build first to include them)" if skipped_count else ""))
     if failures:
         log(f"[native-tests] FAIL: {failures} test(s) failed")
         _write_log_file(log_lines)
@@ -261,6 +268,16 @@ def run_tests() -> int:
     log("[native-tests] All tests passed")
     _write_log_file(log_lines)
     return 0
+
+
+def _read_skipped() -> set:
+    """Suites the Makefile deliberately skipped (missing .pio libdeps headers)."""
+    marker = os.path.join(TESTS_DIR, ".skipped-tests")
+    try:
+        with open(marker, "r", encoding="utf-8") as f:
+            return {line.strip() for line in f if line.strip()}
+    except OSError:
+        return set()
 
 
 def _write_log_file(lines: list):
@@ -300,4 +317,9 @@ def main():
     return run_tests()
 
 
-main()
+# Propagate the result to the shell / SCons. Without this the script always
+# exited 0, so a failing native build was reported as a pass by the release gate.
+# Only a non-zero code raises, so `pio run` keeps going when the tests pass.
+_rc = main()
+if _rc:
+    raise SystemExit(_rc)

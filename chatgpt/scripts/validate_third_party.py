@@ -12,6 +12,8 @@ Runs as a `pio run` pre-script (registered in platformio.ini) and standalone:
 
 Non-fatal by default (warnings only, exit 0) so builds keep working.
 Set STRICT=1 (or pass --strict) to fail on drift — use before a release.
+The missing `third-party/` bundle is only fatal with --bundle-required
+(REQUIRE_BUNDLE=1), because it is generated during the release build.
 """
 
 import os
@@ -111,6 +113,11 @@ def parse_notice():
 
 def main():
     strict = "--strict" in sys.argv or os.environ.get("STRICT", "0").strip().lower() in ("1", "true", "yes", "on")
+    # The bundle is generated *during* a release build (rename_firmware.py), so
+    # its absence is only fatal when explicitly required (after the build, or in
+    # a local pre-release check where it must already exist).
+    bundle_required = ("--bundle-required" in sys.argv
+                       or os.environ.get("REQUIRE_BUNDLE", "0").strip().lower() in ("1", "true", "yes", "on"))
     libs = scan_libs()
     notice = parse_notice()
     warnings = []
@@ -125,9 +132,14 @@ def main():
             if v and v not in cell:
                 warnings.append(f"version drift '{name}': installed {v}, notices say '{cell}'")
 
-    if not os.path.isdir(BUNDLE):
-        warnings.append("third-party/ bundle missing — run "
-                        "`python chatgpt/scripts/package_third_party.py --env <board>`")
+    bundle_missing = not os.path.isdir(BUNDLE)
+    if bundle_missing:
+        note = ("third-party/ bundle missing — run "
+                "`chatgpt/scripts/package_third_party.py --env <board>`")
+        if bundle_required:
+            warnings.append(note)
+        else:
+            print(f"[third-party] note: {note} (not built yet)")
 
     if warnings:
         print("[third-party] SBOM/notices may be out of date:")

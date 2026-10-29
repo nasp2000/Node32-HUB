@@ -106,6 +106,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-ccache-${{ inputs.variant }}-
 
+      - name: Fetch PlatformIO dependencies (real ArduinoJson for the native suite)
+        run: pio pkg install --project-dir chatgpt -e waveshare_8di8do
+
       - name: Resolve target
         id: target
         env:
@@ -220,6 +223,10 @@ jobs:
             echo "::error::OTA private key leaked into the release zip"
             exit 1
           fi
+          if ! unzip -l "$ZIP" | grep -q 'third-party.zip'; then
+            echo "::error::release zip is missing the third-party compliance bundle"
+            exit 1
+          fi
 
       - name: Verify OTA signature (the device rejects unsigned firmware)
         env:
@@ -300,6 +307,17 @@ jobs:
             git tag "$TAG"
             git push origin "$TAG"
           fi
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-logs-${{ inputs.variant }}
+          path: |
+            chatgpt/logs/
+            /tmp/release_*.log
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Summary
         if: always()

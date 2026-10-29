@@ -32,6 +32,24 @@ INCLUDES  := -I$(STUBS_DIR) -I$(SRC_DIR)
 TEST_SRCS := test_modbus_crc test_charset test_string_utils test_recipient_matching test_unikon_checksum test_unikon_training test_grbl_parser test_grbl_resume test_email_builder test_config_utils test_config_validator test_pack_validator test_ftp_client test_probe_grid test_grbl_sender test_proximity_debounce test_proximity_oee test_proximity_goal_do test_proximity_persist test_dualfile_utils test_atomic_write test_storage_default test_bricon_mode test_config_registry test_config_parse test_littlefs_store test_route_registry test_auth test_alert_pipeline test_scheduler_commands test_day_report_fallback test_sensor_config_cycle test_config_defaults test_handler_json test_sensor_base_persist test_handler_post_persist test_radio_redirect test_radio_browser test_i2c_scan_logic test_radio_schedule_core test_radio_elapsed test_upnp_didl test_audio_i2s_poc test_audio_mp3_decoder test_audio_flac_decoder test_audio_source_buffer test_adts_parser test_wav_parser test_audio_limiter test_radio_favicon test_audio_timing test_audio_rolling_buffer test_audio_mp3_eof test_icy_demux test_audio_ring test_do_config test_shift_window test_email_body_format test_proximity_chart test_proximity_inactivity test_proximity_setup_routing test_alerts_save_safe test_chart_history_stream test_eth_config_mac test_usb_chip_table test_usb_ch340_divisor test_usb_ch340_init_seq test_proximity_day_aligned test_proximity_oee_csv test_proximity_day_oee test_proximity_oee_alerts test_proximity_shiftbase test_alerts_persist_real test_system_persist_real test_ntp_persist_real test_camera_stream test_camera_api test_camera_motion test_camera_stream_fps test_camera_sensor test_camera_autostart test_camera_initguard test_camera_p4_h264 test_camera_p4_vision test_camera_record_naming test_camera_record_error test_camera_motion_uyvy test_camera_p4_perf test_camera_psram_ring test_camera_resolution test_touch7_logic test_touch7_geo test_sd_layout test_sensor_history_sources test_sensor_rtc_tail test_proximity_csv_restore test_rtc_state_util test_reboot_anchor_logic test_nvs_write_guard test_chart_ring_serve test_email_day_dedupe test_ogg_parser test_opus_head test_stb_vorbis_decode test_sensor_day_report test_email_body_archive test_lfs_mutex_guard test_email_flash_rpc test_usbip_protocol test_email_recipients test_email_event_fields test_ftp_status_store
 TEST_BINS := $(addsuffix $(BIN_EXT),$(TEST_SRCS))
 
+# --- optional real ArduinoJson headers (PlatformIO libdeps) ------------------
+# A few suites compile the REAL ConfigManager/NvsStore/ConfigValidator against
+# the ArduinoJson 6 headers that PlatformIO downloads into .pio/libdeps
+# (git-ignored). On a fresh clone they do not exist yet, so those suites are
+# skipped with a visible marker instead of breaking the whole build.
+REAL_AJ_DIR     := ../../chatgpt/.pio/libdeps/waveshare_8di8do/ArduinoJson/src
+REAL_DEPS_TESTS := test_alerts_persist_real test_ntp_persist_real test_system_persist_real
+
+ifneq ($(wildcard $(REAL_AJ_DIR)/ArduinoJson.h),)
+  REAL_INCLUDES := -I$(REAL_AJ_DIR) $(INCLUDES)
+  BUILD_BINS    := $(TEST_BINS)
+  SKIPPED_BINS  :=
+else
+  REAL_INCLUDES := $(INCLUDES)
+  BUILD_BINS    := $(filter-out $(addsuffix $(BIN_EXT),$(REAL_DEPS_TESTS)),$(TEST_BINS))
+  SKIPPED_BINS  := $(REAL_DEPS_TESTS)
+endif
+
 CHARSET_SRC := $(SRC_DIR)/charset_conversion.cpp
 CHARSET_OBJ := charset_conversion$(OBJ_TAG).o
 
@@ -39,7 +57,8 @@ CHARSET_OBJ := charset_conversion$(OBJ_TAG).o
 
 .PHONY: all clean test
 
-all: $(TEST_BINS)
+all: $(BUILD_BINS)
+	@printf '%s\n' $(SKIPPED_BINS) > .skipped-tests
 
 # --- modbus_crc: standalone (no prod .cpp needed) ---
 test_modbus_crc$(BIN_EXT): test_modbus_crc.cpp $(SRC_DIR)/modbus_crc.h
@@ -191,13 +210,13 @@ test_littlefs_store$(BIN_EXT): test_littlefs_store.cpp $(LITTLEFS_STORE_OBJ)
 #     USER_CONFIG_H_ROOT skips user_config.h/feature_flags (no packs), FILESYSTEM_PROVIDER=1
 #     plus ENABLE_FILESYSTEM=1 keep the LittleFS code paths active, and the mandatory
 #     PACK_* macros are provided explicitly (ConfigManager.cpp:87 / :211 / :495).
-REAL_AJ_DIR  := ../../chatgpt/.pio/libdeps/waveshare_8di8do/ArduinoJson/src
 REAL_AJ_FLAGS := -DARDUINOJSON_ENABLE_ARDUINO_STRING=1 \
  -DARDUINOJSON_ENABLE_ARDUINO_STREAM=1 -DARDUINOJSON_ENABLE_ARDUINO_PRINT=1
 REAL_CM_FLAGS := -DUSER_CONFIG_H_ROOT=1 -DFILESYSTEM_PROVIDER=1 -DENABLE_FILESYSTEM=1 \
  -DENABLE_SCHEDULER=0 -DENABLE_MODBUS=0 \
  -DPACK_EMAIL_SUBJECT=\"Node32-HUB\" -DPACK_SYSTEM_NAME=\"Node32-HUB\"
-REAL_INCLUDES := -I$(REAL_AJ_DIR) $(INCLUDES)
+# REAL_INCLUDES is chosen at the top of this file (adds the real ArduinoJson
+# headers only when the .pio libdeps copy is present).
 
 CONFIGMGR_SRC  := $(SRC_DIR)/ConfigManager.cpp
 CONFIGMGR_STUB := config_manager_stub.cpp
@@ -548,7 +567,7 @@ test_usbip_protocol$(BIN_EXT): test_usbip_protocol.cpp
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ test_usbip_protocol.cpp
 
 # --- run all ---
-test: $(TEST_BINS)
+test: $(BUILD_BINS)
 	$(info Run each test binary individually from the CI script.)
 
 clean:
@@ -561,6 +580,7 @@ clean:
 	$(RM) ntp_manager*.o ntp_manager_harness*.o ntp_manager_linux.cpp
 	$(RM) sensor_config_base_stub.h
 	$(RM) *.gcda *.gcno *.gcov *.d
+	$(RM) .skipped-tests
 
 # --- sd_layout: central SD path convention (all packs) ---
 test_sd_layout$(BIN_EXT): test_sd_layout.cpp
