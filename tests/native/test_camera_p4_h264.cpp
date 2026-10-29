@@ -264,6 +264,25 @@ TEST_CASE("pack YUYV (software encoder): U/V bytes swapped inside each pair") {
     CHECK(dst[6] == 81); CHECK(dst[7] == 71);
 }
 
+TEST_CASE("pack YUYV: 4x2 frame fills exactly w*h*2 bytes (no overrun)") {
+    // Regression: the SW path used to loop w*h times and write twice the
+    // destination size, smashing the caller's heap (P4 software encoder).
+    uint8_t src[4 * 2 * 2];
+    for (unsigned i = 0; i < sizeof(src); i++) src[i] = (uint8_t)(i + 1);
+    uint8_t dst[4 * 2 * 2 + 4];
+    memset(dst, 0xEE, sizeof(dst));
+    cameraH264PackUyvy(src, 4, 2, 4, dst, CAM_H264_FMT_SW);
+    for (unsigned i = 0; i < 4; i++) {
+        CHECK(dst[i * 4]     == src[i * 4 + 1]);   // Y0
+        CHECK(dst[i * 4 + 1] == src[i * 4]);       // U
+        CHECK(dst[i * 4 + 2] == src[i * 4 + 3]);   // Y1
+        CHECK(dst[i * 4 + 3] == src[i * 4 + 2]);   // V
+    }
+    // Canary: the 16-byte YUYV frame is the whole destination.
+    CHECK(dst[16] == 0xEE); CHECK(dst[17] == 0xEE);
+    CHECK(dst[18] == 0xEE); CHECK(dst[19] == 0xEE);
+}
+
 TEST_CASE("pack guards: null/zero arguments are no-ops, never writes") {
     uint8_t dst[8];
     memset(dst, 0xAB, sizeof(dst));

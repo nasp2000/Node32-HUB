@@ -111,11 +111,14 @@ static inline void cameraH264PackUyvy(const uint8_t* src, uint16_t w, uint16_t h
                                       uint16_t aw, uint8_t* dst, uint8_t fmt) {
     if (!src || !dst || !w || !h || !aw) return;
     if (fmt == CAM_H264_FMT_SW) {
-        for (uint32_t i = 0; i < (uint32_t)w * h; i++) {
-            dst[i * 2]     = src[i * 2 + 1];  // Y0
-            dst[i * 2 + 1] = src[i * 2];      // U
-            dst[i * 2 + 2] = src[i * 2 + 3];  // Y1
-            dst[i * 2 + 3] = src[i * 2 + 2];  // V
+        // YUYV: 2 px per 4-byte group (Y0 U0 Y1 V0), i.e. 2 bytes per pixel.
+        // Iterating w*h times would write twice the destination size.
+        const uint32_t groups = (uint32_t)w * h / 2u;
+        for (uint32_t i = 0; i < groups; i++) {
+            dst[i * 4]     = src[i * 4 + 1];  // Y0
+            dst[i * 4 + 1] = src[i * 4];      // U
+            dst[i * 4 + 2] = src[i * 4 + 3];  // Y1
+            dst[i * 4 + 3] = src[i * 4 + 2];  // V
         }
         return;
     }
