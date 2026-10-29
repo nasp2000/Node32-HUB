@@ -165,21 +165,30 @@ jobs:
             echo "::error::secret RELEASE_TOKEN is not set."
             exit 1
           fi
-          if ! gh api "repos/$REPO" --jq '.permissions.push // false' | grep -qx true; then
-            echo "::error::RELEASE_TOKEN has no write access to $REPO (expired or wrong repo/permissions)."
+          if ! perms=$(gh api "repos/$REPO" --jq '.permissions.push // "unknown"' 2>&1); then
+            echo "::error::RELEASE_TOKEN cannot access $REPO: $perms"
             exit 1
           fi
-          echo ">>> token OK for $REPO"
+          case "$perms" in
+            true)  echo ">>> token OK for $REPO (write access)" ;;
+            false) echo "::error::RELEASE_TOKEN has no write access to $REPO (needs Contents: Read and write)."
+                   exit 1 ;;
+            *)     echo "::warning::could not verify write access to $REPO; the publish step will confirm." ;;
+          esac
 
       - name: Release gate (version, native + web tests, i18n, third-party compliance)
         run: ./release_check.sh --no-hw
 
       - name: Prepare OTA signing key
-        if: ${{ !inputs.dry_run }}
         env:
           OTA_PRIVATE_PEM: ${{ secrets.OTA_PRIVATE_PEM }}
+          DRY: ${{ inputs.dry_run }}
         run: |
           if [ -z "$OTA_PRIVATE_PEM" ]; then
+            if [ "$DRY" = "true" ]; then
+              echo "::warning::OTA_PRIVATE_PEM is not set — this dry run builds an unsigned binary."
+              exit 0
+            fi
             echo "::error::secret OTA_PRIVATE_PEM is not set — refusing to publish an unsigned firmware."
             exit 1
           fi
@@ -211,6 +220,24 @@ jobs:
             echo "::error::OTA private key leaked into the release zip"
             exit 1
           fi
+
+      - name: Verify OTA signature (the device rejects unsigned firmware)
+        env:
+          ENV_NAME: ${{ steps.target.outputs.env }}
+          ZIP: ${{ steps.package.outputs.zip }}
+          DRY: ${{ inputs.dry_run }}
+        run: |
+          chip="S3__"
+          case "$ENV_NAME" in *p4*) chip="P4__" ;; esac
+          if python chatgpt/scripts/verify_ota_signature.py --zip "$ZIP" --chip "$chip"; then
+            exit 0
+          fi
+          if [ "$DRY" = "true" ]; then
+            echo "::warning::dry run: firmware is not signed with the release key (fine, nothing is published)."
+            exit 0
+          fi
+          echo "::error::refusing to publish a firmware the device would reject over OTA."
+          exit 1
 
       - name: Generate release notes
         env:
