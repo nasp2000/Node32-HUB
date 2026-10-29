@@ -144,6 +144,22 @@ jobs:
       - name: Validate version
         run: python chatgpt/scripts/validate_version.py --expect "${{ steps.target.outputs.version }}"
 
+      - name: Preflight target access (fail fast on missing/expired token)
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          REPO: ${{ steps.target.outputs.repo }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::secret RELEASE_TOKEN is not set."
+            exit 1
+          fi
+          if ! gh api "repos/$REPO" --jq '.permissions.push // false' | grep -qx true; then
+            echo "::error::RELEASE_TOKEN has no write access to $REPO (expired or wrong repo/permissions)."
+            exit 1
+          fi
+          echo ">>> token OK for $REPO"
+
       - name: Release gate (version, native tests, i18n, third-party compliance)
         run: ./release_check.sh --no-hw --no-web
 
