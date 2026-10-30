@@ -47,9 +47,14 @@ CONVENTIONAL = re.compile(r"^(?P<type>[a-zA-Z]+)(?:\((?P<scope>[^)]*)\))?!?:\s*(
 
 
 def _git(*args):
-    return subprocess.run(
+    res = subprocess.run(
         ["git", *args], cwd=PROJECT_ROOT, capture_output=True, text=True, check=False
-    ).stdout
+    )
+    if res.returncode != 0:
+        head = (res.stderr or "").strip().splitlines()[:1]
+        print(f"WARNING: git {' '.join(args)} failed: {head[0] if head else '?'}",
+              file=sys.stderr)
+    return res.stdout
 
 
 def read_version():
@@ -131,6 +136,14 @@ def _tag_exists(ref):
     return r.returncode == 0
 
 
+def _rev_exists(ref):
+    r = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+        cwd=PROJECT_ROOT, capture_output=True, text=True, check=False,
+    )
+    return r.returncode == 0
+
+
 def last_release_tag(key):
     prefix = f"release/{key.lower()}/v"
     tags = [t for t in _git("tag", "--list", f"{prefix}*", "--sort=-v:refname").splitlines() if t]
@@ -198,16 +211,23 @@ def pick_base(args, variant, target_tag):
     return ""
 
 
-def render(key, variant, version, since, extra_notes):
+def render(key, variant, version, since, extra_notes, include_non_conventional=False):
     rev_range = f"{since}..HEAD" if since else "HEAD"
     commits = collect_commits(rev_range)
 
     grouped = {}
     seen = set()
+    omitted = 0
     for _sha, subject, files in commits:
         if not belongs(subject, files, variant):
             continue
         ctype, text = parse(subject)
+        if ctype not in SECTION_TITLES and not include_non_conventional:
+            # Release notes are English-only: a commit without a conventional
+            # subject (type(scope): text) is not included — legacy free-form
+            # subjects are often in another language.
+            omitted += 1
+            continue
         section = SECTION_TITLES.get(ctype, OTHER)
         dedupe = (section, text.lower())
         if dedupe in seen:
@@ -236,6 +256,10 @@ def render(key, variant, version, since, extra_notes):
             lines.extend(f"- {item}" for item in items)
             lines.append("")
 
+    if omitted:
+        lines.append(f"_{omitted} commit(s) without a conventional English subject were omitted._")
+        lines.append("")
+
     if extra_notes:
         lines.extend([extra_notes.strip(), ""])
 
@@ -255,9 +279,13 @@ def main():
     ap.add_argument("--since", default="", help="base ref (default: last release/<variant>/v* tag)")
     ap.add_argument("--extra-notes", default="", help="extra markdown appended to the notes")
     ap.add_argument("--out", default="", help="write to this file instead of stdout")
+    ap.add_argument("--include-non-conventional", action="store_true",
+                    help="also list commits whose subject is not `type(scope): text`")
     args = ap.parse_args()
 
     variant = load_variant(args.variant)
+    if args.since and not _tag_exists(args.since) and not _rev_exists(args.since):
+        raise SystemExit(f"ERROR: --since {args.since!r} is not a tag/commit in this repository")
     target_tag = target_repo_last_tag(variant, args.version)
     since = pick_base(args, variant, target_tag)
     if since:
@@ -266,7 +294,8 @@ def main():
         print(f">>> notes base: none (bounded window) — the target repo's last release is "
               f"{target_tag} but there is no local tag to compare against; "
               f"pass --since to pin the range.", file=sys.stderr)
-    notes = render(args.variant, variant, args.version, since, args.extra_notes)
+    notes = render(args.variant, variant, args.version, since, args.extra_notes,
+                   args.include_non_conventional)
 
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
