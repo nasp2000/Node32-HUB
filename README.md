@@ -40,8 +40,6 @@ Pre-built firmware binaries are published in dedicated per-board repositories, e
 | [**Cam-M**](https://github.com/nasp2000/Cam-M) | Camera companion board (MJPEG stream, snapshots, AVI/motion). |
 | [**Node32-OEE**](https://github.com/nasp2000/Node32-OEE) | Production counting & OEE terminal (8DI8DO, shifts + CSV, A×P×Q, email). |
 
-Building from source and publishing releases (OTA signing key, `RELEASE_TOKEN`, `./release.sh`) are covered in [CONTRIBUTING.md](CONTRIBUTING.md#signing--publishing-releases).
-
 ## License
 
 This project is licensed under the **MIT License** — you may freely use, copy, modify, merge, publish, distribute, sublicense, and sell the software (source code and pre-compiled binaries) for any purpose, commercial or non-commercial, provided the copyright notice is retained. Complete pre-built binaries are made available in dedicated per-board repositories (see the Releases section).
