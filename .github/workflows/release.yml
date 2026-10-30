@@ -238,6 +238,29 @@ jobs:
           fi
           echo ">>> release zip: $size bytes"
 
+      - name: Build LGPL compliance bundle (separate asset)
+        id: bundle
+        env:
+          ENV_NAME: ${{ steps.target.outputs.env }}
+          ZIP: ${{ steps.package.outputs.zip }}
+        run: |
+          python chatgpt/scripts/package_third_party.py --env "$ENV_NAME"
+          python chatgpt/scripts/package_release.py --dir chatgpt/build
+          base=$(basename "$ZIP" .zip)
+          out="chatgpt/build/${base}_third-party.zip"
+          mv chatgpt/build/third-party.zip "$out"
+          size=$(stat -c%s "$out")
+          if [ "$size" -lt 5000000 ]; then
+            echo "::error::LGPL bundle looks incomplete ($size bytes) — refusing to publish a bare binary"
+            exit 1
+          fi
+          if ! unzip -l "$out" | grep -q 'lgpl-sources/'; then
+            echo "::error::LGPL bundle has no lgpl-sources/ — refusing to publish a bare binary"
+            exit 1
+          fi
+          echo "bundle=$out" >> "$GITHUB_OUTPUT"
+          echo ">>> compliance bundle: $out ($(du -h "$out" | cut -f1))"
+
       - name: Verify OTA signature (the device rejects unsigned firmware)
         env:
           ENV_NAME: ${{ steps.target.outputs.env }}
@@ -274,7 +297,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: release-${{ inputs.variant }}-${{ steps.target.outputs.tag }}
-          path: ${{ steps.package.outputs.zip }}
+          path: |
+            ${{ steps.package.outputs.zip }}
+            ${{ steps.bundle.outputs.bundle }}
           retention-days: 14
 
       - name: Remove OTA signing key from the workspace
@@ -289,6 +314,7 @@ jobs:
           TAG: ${{ steps.target.outputs.tag }}
           TITLE: ${{ steps.target.outputs.title }}
           ZIP: ${{ steps.package.outputs.zip }}
+          BUNDLE: ${{ steps.bundle.outputs.bundle }}
           OVERWRITE: ${{ inputs.overwrite }}
         run: |
           if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
@@ -297,10 +323,10 @@ jobs:
               exit 1
             fi
             echo ">>> release $TAG exists — replacing asset and notes"
-            gh release upload "$TAG" "$ZIP" --repo "$REPO" --clobber
+            gh release upload "$TAG" "$ZIP" "$BUNDLE" --repo "$REPO" --clobber
             gh release edit "$TAG" --repo "$REPO" --title "$TITLE" --notes-file release_notes.md
           else
-            gh release create "$TAG" "$ZIP" --repo "$REPO" --title "$TITLE" --notes-file release_notes.md
+            gh release create "$TAG" "$ZIP" "$BUNDLE" --repo "$REPO" --title "$TITLE" --notes-file release_notes.md
           fi
           echo ">>> https://github.com/$REPO/releases/tag/$TAG"
 
@@ -335,6 +361,7 @@ jobs:
           REPO: ${{ steps.target.outputs.repo }}
           TAG: ${{ steps.target.outputs.tag }}
           ZIP: ${{ steps.package.outputs.zip }}
+          BUNDLE: ${{ steps.bundle.outputs.bundle }}
           DRY: ${{ inputs.dry_run }}
         run: |
           {
@@ -342,5 +369,6 @@ jobs:
             echo "- target: \`$REPO\`"
             echo "- tag: \`$TAG\`"
             echo "- asset: \`$(basename "${ZIP:-none}")\`"
+            echo "- compliance: \`$(basename "${BUNDLE:-none}")\`"
             echo "- dry run: \`$DRY\`"
           } >> "$GITHUB_STEP_SUMMARY"
