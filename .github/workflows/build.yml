@@ -136,6 +136,11 @@ jobs:
         env:
           PLATFORMIO_BUILD_FLAGS: ${{ matrix.flags }}
         run: pio run --project-dir chatgpt -e ${{ matrix.env }}
+      - name: Third-party compliance (strict)
+        # libdeps for this env exist now: catch SBOM/notices drift on every push
+        # instead of on release day (a transitive `>=` dep can pull a newer version).
+        if: env.MATRIX_ENV == '' || env.MATRIX_ENV == matrix.env
+        run: python chatgpt/scripts/validate_third_party.py --strict
       - name: Collect firmware artifacts
         if: env.MATRIX_ENV == '' || env.MATRIX_ENV == matrix.env
         working-directory: chatgpt

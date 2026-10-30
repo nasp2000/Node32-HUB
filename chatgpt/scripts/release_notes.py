@@ -73,6 +73,64 @@ def load_variant(key):
     return variants[key]
 
 
+def _version_tuple(text):
+    m = re.fullmatch(r"v(\d+)\.(\d+)", (text or "").strip())
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def target_repo_last_tag(variant, current=""):
+    """Highest release tag already published in the variant's target repo.
+
+    Using the target repo as the base keeps the notes correct even if a release
+    was deleted or the provenance tags were lost; only tags carrying this
+    variant's suffix are considered (Cam-M: v1.120 vs v1.120-p4).
+    """
+    repo = variant.get("repo")
+    suffix = variant.get("tag_suffix", "") or ""
+    if not repo:
+        return None
+    res = subprocess.run(
+        ["gh", "release", "list", "--repo", repo, "--limit", "60", "--json", "tagName"],
+        cwd=PROJECT_ROOT, capture_output=True, text=True, check=False,
+    )
+    if res.returncode != 0:
+        return None
+    try:
+        tags = [t.get("tagName", "") for t in json.loads(res.stdout or "[]")]
+    except json.JSONDecodeError:
+        return None
+
+    ceiling = _version_tuple(current)
+    scored = []
+    for t in tags:
+        if suffix:
+            if not t.endswith(suffix):
+                continue
+            base = t[: -len(suffix)]
+        else:
+            base = t
+        v = _version_tuple(base)
+        if not v:
+            continue
+        if ceiling and v >= ceiling:
+            continue
+        scored.append((v, t))
+    if not scored:
+        return None
+    scored.sort()
+    return scored[-1][1]
+
+
+def _tag_exists(ref):
+    if not ref:
+        return False
+    r = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", f"refs/tags/{ref}"],
+        cwd=PROJECT_ROOT, capture_output=True, text=True, check=False,
+    )
+    return r.returncode == 0
+
+
 def last_release_tag(key):
     prefix = f"release/{key.lower()}/v"
     tags = [t for t in _git("tag", "--list", f"{prefix}*", "--sort=-v:refname").splitlines() if t]
@@ -116,6 +174,28 @@ def parse(subject):
     if not m:
         return None, subject.strip()
     return m.group("type").lower(), m.group("text").strip()
+
+
+def pick_base(args, variant, target_tag):
+    """Pick a ref that bounds the git log range for this variant.
+
+    Order: explicit --since, the provenance tag for the version the target repo
+    last published, that same version tag if it exists locally, the newest
+    provenance tag, else "" (bounded window).
+    """
+    if args.since:
+        return args.since
+    key = args.variant
+    if target_tag:
+        prov = f"release/{key.lower()}/{target_tag}"
+        if _tag_exists(prov):
+            return prov
+        if _tag_exists(target_tag):
+            return target_tag
+    prov = last_release_tag(key)
+    if prov:
+        return prov
+    return ""
 
 
 def render(key, variant, version, since, extra_notes):
@@ -178,7 +258,14 @@ def main():
     args = ap.parse_args()
 
     variant = load_variant(args.variant)
-    since = args.since or last_release_tag(args.variant) or ""
+    target_tag = target_repo_last_tag(variant, args.version)
+    since = pick_base(args, variant, target_tag)
+    if since:
+        print(f">>> notes base: {since}", file=sys.stderr)
+    elif target_tag:
+        print(f">>> notes base: none (bounded window) — the target repo's last release is "
+              f"{target_tag} but there is no local tag to compare against; "
+              f"pass --since to pin the range.", file=sys.stderr)
     notes = render(args.variant, variant, args.version, since, args.extra_notes)
 
     if args.out:

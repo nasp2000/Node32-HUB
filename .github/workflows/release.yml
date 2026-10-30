@@ -9,7 +9,9 @@ name: Release firmware
 #   - secret RELEASE_TOKEN: fine-grained PAT (or GitHub App token) with
 #     "Contents: Read and write" on every target repo in the manifest.
 #   - secret OTA_PRIVATE_PEM: contents of chatgpt/ota_private.pem (OTA signing).
-#   - environment "release" (optional): add required reviewers to gate publishing.
+# To require a manual approval before publishing, create the "release" environment
+# in Settings -> Environments with required reviewers and add `environment: release`
+# to the job (it is intentionally NOT set: an unprotected environment is not a gate).
 #
 # The firmware version is NOT bumped here: it is read from
 # FIRMWARE_VERSION_STR and validated. Bump manually before dispatching.
@@ -66,7 +68,6 @@ jobs:
     name: Release ${{ inputs.variant }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    environment: release
 
     steps:
       - name: Checkout
@@ -170,6 +171,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           REPO: ${{ steps.target.outputs.repo }}
+          TAG: ${{ steps.target.outputs.tag }}
+          OVERWRITE: ${{ inputs.overwrite }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
             echo "::error::secret RELEASE_TOKEN is not set."
@@ -185,6 +188,11 @@ jobs:
                    exit 1 ;;
             *)     echo "::warning::could not verify write access to $REPO; the publish step will confirm." ;;
           esac
+          if [ "$OVERWRITE" != "true" ] && gh api "repos/$REPO/git/refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::$REPO already has a release tag $TAG — bump FIRMWARE_VERSION_STR or dispatch with overwrite=true."
+            exit 1
+          fi
+          echo ">>> tag $TAG is free in $REPO"
 
       - name: Release gate (version, native + web tests, i18n, third-party compliance)
         run: ./release_check.sh --no-hw
@@ -288,6 +296,7 @@ jobs:
 
       - name: Generate release notes
         env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}   # gh release list -> notes base
           VARIANT: ${{ inputs.variant }}
           VERSION: ${{ steps.target.outputs.version }}
           SINCE: ${{ inputs.since }}
