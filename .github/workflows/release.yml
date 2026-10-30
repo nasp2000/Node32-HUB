@@ -23,6 +23,9 @@ on:
         type: choice
         options:
           - CAM_S3
+          - RAMBOX
+          - RADIO
+          - P4_CNC
           # - CAM_P4   # same repo (Cam-M), tag gets the -p4 suffix
       version:
         description: "Version (default: FIRMWARE_VERSION_STR)"

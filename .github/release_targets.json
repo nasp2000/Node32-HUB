@@ -1,5 +1,5 @@
 {
-  "_comment": "Release targets: variant -> existing GitHub repo. A target repo may host several variants (e.g. Cam-M: S3 + P4); each variant needs its own tag_suffix so the release tags/assets do not collide. After adding a variant here, also list it in .github/workflows/release.yml -> inputs.variant.options.",
+  "_comment": "Release targets: variant -> existing GitHub repo. A target repo may host several variants (e.g. Cam-M: S3 + P4); each variant needs its own tag_suffix so the release tags/assets do not collide. After adding a variant here, also list it in .github/workflows/release.yml -> inputs.variant.options. Tags must not be reused across versions: if a repo already has a release with the version you are publishing, bump FIRMWARE_VERSION_STR or pass overwrite=true.",
   "variants": {
     "CAM_S3": {
       "repo": "nasp2000/Cam-M",
@@ -35,6 +35,71 @@
         "chatgpt/src/interfaces/ICameraController.h",
         "chatgpt/src/webpages/**/*camera*",
         "PAGES/camera.md"
+      ]
+    },
+    "RAMBOX": {
+      "repo": "nasp2000/Rambox32",
+      "product": "Rambox32",
+      "variant": "ESP32-S3 N16R8",
+      "env": "n16r8",
+      "pack": "RAMBOX",
+      "flags": "-DSELECTED_PACK=PACK_RAMBOX",
+      "tag_suffix": "",
+      "title_suffix": "",
+      "scopes": ["rambox", "rs232", "modbus", "unikon", "bricon", "lpt"],
+      "paths": [
+        "chatgpt/packs/pack_rambox.h",
+        "chatgpt/src/rs232_*",
+        "chatgpt/src/modbus*",
+        "chatgpt/src/rambox_*",
+        "chatgpt/src/unikon_*",
+        "chatgpt/src/bricon_*",
+        "chatgpt/src/lpt_*",
+        "chatgpt/src/webpages/**/*rambox*",
+        "PAGES/rambox.md",
+        "PAGES/rs232.md",
+        "PAGES/bricon.md",
+        "PAGES/lpt_db25.md"
+      ]
+    },
+    "RADIO": {
+      "repo": "nasp2000/Harmonica-BOX",
+      "product": "Harmonica Box",
+      "variant": "ESP32-S3 N16R8",
+      "env": "n16r8",
+      "pack": "RADIO",
+      "flags": "-DSELECTED_PACK=PACK_RADIO",
+      "tag_suffix": "",
+      "title_suffix": "",
+      "scopes": ["radio", "audio", "harmonica", "i2s", "upnp", "icy", "mp3", "flac"],
+      "paths": [
+        "chatgpt/packs/pack_radio.h",
+        "chatgpt/src/audio_*",
+        "chatgpt/src/radio_*",
+        "chatgpt/src/upnp_*",
+        "chatgpt/src/icy_*",
+        "chatgpt/src/webpages/**/*radio*",
+        "PAGES/radio_ui.md"
+      ]
+    },
+    "P4_CNC": {
+      "repo": "nasp2000/GcodeSender",
+      "product": "GcodeSender",
+      "variant": "ESP32-P4",
+      "env": "esp32p4",
+      "pack": "P4_CNC",
+      "flags": "-DSELECTED_PACK=PACK_P4_CNC",
+      "tag_suffix": "",
+      "title_suffix": "",
+      "scopes": ["grbl", "p4-cnc", "p4_cnc", "gcode", "usb"],
+      "paths": [
+        "chatgpt/packs/pack_p4_cnc.h",
+        "chatgpt/src/grbl_*",
+        "chatgpt/src/usb_*",
+        "chatgpt/src/cnc_*",
+        "chatgpt/src/webpages/**/*gcode*",
+        "PAGES/grbl_controller.md",
+        "PAGES/ipg_laser.md"
       ]
     }
   }
