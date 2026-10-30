@@ -1,5 +1,5 @@
 {
-  "_comment": "Release targets: variant -> existing GitHub repo. A target repo may host several variants (e.g. Cam-M: S3 + P4); each variant needs its own tag_suffix so the release tags/assets do not collide. After adding a variant here, also list it in .github/workflows/release.yml -> inputs.variant.options. Tags must not be reused across versions: if a repo already has a release with the version you are publishing, bump FIRMWARE_VERSION_STR or pass overwrite=true.",
+  "_comment": "Release targets: variant -> existing GitHub repo. Only variants listed in .github/workflows/release.yml -> inputs.variant.options can be dispatched; entries here that are commented out there are prepared but disabled. A target repo may host several variants (Cam-M: S3 + P4, GcodeSender: P4 + S3) — each variant needs its own tag_suffix so tags/assets do not collide. Node32-OEE (pack WAVESHARE) intentionally has NO release target.",
   "variants": {
     "CAM_S3": {
       "repo": "nasp2000/Cam-M",
@@ -10,7 +10,13 @@
       "flags": "-DSELECTED_PACK=PACK_CAM -DTARGET_BOARD_S3_CAM=1",
       "tag_suffix": "",
       "title_suffix": "",
-      "scopes": ["cam", "camera", "cam-m", "cam_m", "mjpeg"],
+      "scopes": [
+        "cam",
+        "camera",
+        "cam-m",
+        "cam_m",
+        "mjpeg"
+      ],
       "paths": [
         "chatgpt/packs/pack_cam.h",
         "chatgpt/src/camera_*",
@@ -28,7 +34,13 @@
       "flags": "-DSELECTED_PACK=PACK_CAM_P4",
       "tag_suffix": "-p4",
       "title_suffix": " (ESP32-P4)",
-      "scopes": ["cam", "camera", "cam-p4", "cam_p4", "mjpeg"],
+      "scopes": [
+        "cam",
+        "camera",
+        "cam-p4",
+        "cam_p4",
+        "mjpeg"
+      ],
       "paths": [
         "chatgpt/packs/pack_cam_p4.h",
         "chatgpt/src/camera_*",
@@ -46,7 +58,14 @@
       "flags": "-DSELECTED_PACK=PACK_RAMBOX",
       "tag_suffix": "",
       "title_suffix": "",
-      "scopes": ["rambox", "rs232", "modbus", "unikon", "bricon", "lpt"],
+      "scopes": [
+        "rambox",
+        "rs232",
+        "modbus",
+        "unikon",
+        "bricon",
+        "lpt"
+      ],
       "paths": [
         "chatgpt/packs/pack_rambox.h",
         "chatgpt/src/rs232_*",
@@ -71,7 +90,16 @@
       "flags": "-DSELECTED_PACK=PACK_RADIO",
       "tag_suffix": "",
       "title_suffix": "",
-      "scopes": ["radio", "audio", "harmonica", "i2s", "upnp", "icy", "mp3", "flac"],
+      "scopes": [
+        "radio",
+        "audio",
+        "harmonica",
+        "i2s",
+        "upnp",
+        "icy",
+        "mp3",
+        "flac"
+      ],
       "paths": [
         "chatgpt/packs/pack_radio.h",
         "chatgpt/src/audio_*",
@@ -91,7 +119,13 @@
       "flags": "-DSELECTED_PACK=PACK_P4_CNC",
       "tag_suffix": "",
       "title_suffix": "",
-      "scopes": ["grbl", "p4-cnc", "p4_cnc", "gcode", "usb"],
+      "scopes": [
+        "grbl",
+        "p4-cnc",
+        "p4_cnc",
+        "gcode",
+        "usb"
+      ],
       "paths": [
         "chatgpt/packs/pack_p4_cnc.h",
         "chatgpt/src/grbl_*",
@@ -100,6 +134,30 @@
         "chatgpt/src/webpages/**/*gcode*",
         "PAGES/grbl_controller.md",
         "PAGES/ipg_laser.md"
+      ]
+    },
+    "S3_CNC": {
+      "repo": "nasp2000/GcodeSender",
+      "product": "GcodeSender S3",
+      "variant": "ESP32-S3 N16R8",
+      "env": "n16r8",
+      "pack": "S3_CNC",
+      "flags": "-DSELECTED_PACK=PACK_S3_CNC",
+      "tag_suffix": "-s3",
+      "title_suffix": " (ESP32-S3)",
+      "scopes": [
+        "grbl",
+        "s3-cnc",
+        "s3_cnc",
+        "gcode",
+        "usb"
+      ],
+      "paths": [
+        "chatgpt/packs/pack_s3_cnc_usb.h",
+        "chatgpt/src/grbl_*",
+        "chatgpt/src/usb_*",
+        "chatgpt/src/webpages/**/*gcode*",
+        "PAGES/grbl_controller.md"
       ]
     }
   }
