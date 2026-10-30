@@ -72,7 +72,13 @@ def newest_build_dir(pack):
     return cands[0][1]
 
 
-def ensure_third_party_zip(folder, quiet):
+def ensure_third_party_zip(folder, quiet, required=False):
+    """Pack a loose third-party/ tree, if one is present.
+
+    The LGPL bundle is opt-in in `build_firmware.sh --thirdparty`, so its absence
+    is the normal case: the release asset is just the build folder. Pass
+    --require-third-party (or REQUIRE_THIRD_PARTY=1) when the bundle must ship.
+    """
     tp_dir = os.path.join(folder, "third-party")
     tp_zip = os.path.join(folder, "third-party.zip")
     if os.path.isdir(tp_dir):
@@ -84,7 +90,11 @@ def ensure_third_party_zip(folder, quiet):
             stdout=subprocess.DEVNULL if quiet else None,
         )
     elif not os.path.isfile(tp_zip):
-        log("WARNING: no third-party.zip and no third-party/ folder (compliance bundle missing)", quiet)
+        if required:
+            raise SystemExit(
+                "ERROR: third-party.zip/third-party/ missing and --require-third-party was given"
+            )
+        log(">>> no third-party bundle in this folder (opt-in, not shipped)", quiet)
     return tp_zip
 
 
@@ -119,6 +129,8 @@ def main():
     ap.add_argument("--env", default="", help="(informational) environment name")
     ap.add_argument("--pack", default="", help="pack label, e.g. CAM")
     ap.add_argument("--print-path", action="store_true", help="print only the zip path")
+    ap.add_argument("--require-third-party", action="store_true",
+                    help="fail when the LGPL bundle is missing (default: it is optional)")
     args = ap.parse_args()
 
     folder = args.dir or newest_build_dir(args.pack)
@@ -129,7 +141,8 @@ def main():
         raise SystemExit(f"ERROR: not a folder: {folder}")
 
     quiet = args.print_path
-    ensure_third_party_zip(folder, quiet)
+    required = args.require_third_party or os.environ.get("REQUIRE_THIRD_PARTY", "0").strip().lower() in ("1", "true", "yes", "on")
+    ensure_third_party_zip(folder, quiet, required)
 
     fw = find_firmware_bin(folder)
     out = os.path.join(folder, os.path.splitext(fw)[0] + ".zip")

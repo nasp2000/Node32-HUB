@@ -207,8 +207,12 @@ jobs:
       - name: Collect artifacts
         working-directory: chatgpt
         env:
-          DIST_THIRD_PARTY: "1"
-          DIST_LGPL_MATERIALS: "1"
+          # Same output as `./build_firmware.sh` with the defaults: the build
+          # folder with the firmware, bootloader/partitions, flash instructions
+          # and licence notices — no LGPL bundle, no .elf/.map.
+          DIST_THIRD_PARTY: "0"
+          DIST_LGPL_MATERIALS: "0"
+          EXPORT_ELF_MAP: "0"
         run: python rename_firmware.py --copy --env "${{ steps.target.outputs.env }}" --pack "${{ steps.target.outputs.pack }}"
 
       - name: Package release zip
@@ -223,10 +227,16 @@ jobs:
             echo "::error::OTA private key leaked into the release zip"
             exit 1
           fi
-          if ! unzip -l "$ZIP" | grep -q 'third-party.zip'; then
-            echo "::error::release zip is missing the third-party compliance bundle"
+          if ! unzip -l "$ZIP" | grep -q 'flash_command.txt'; then
+            echo "::error::release zip does not look like a rename_firmware.py build folder"
             exit 1
           fi
+          size=$(stat -c%s "$ZIP")
+          if [ "$size" -gt 5000000 ]; then
+            echo "::error::release zip is $size bytes — the LGPL bundle must stay out of the release asset"
+            exit 1
+          fi
+          echo ">>> release zip: $size bytes"
 
       - name: Verify OTA signature (the device rejects unsigned firmware)
         env:
