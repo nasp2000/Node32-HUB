@@ -1,5 +1,5 @@
 {
-  "_comment": "Release targets: variant -> existing GitHub repo. Only variants listed in .github/workflows/release.yml -> inputs.variant.options can be dispatched; entries here that are commented out there are prepared but disabled. A target repo may host several variants (Cam-M: S3 + P4, GcodeSender: P4 + S3) — each variant needs its own tag_suffix so tags/assets do not collide. Node32-OEE (pack WAVESHARE) intentionally has NO release target.",
+  "_comment": "Release targets: variant -> existing GitHub repo. Only variants listed in .github/workflows/release.yml -> inputs.variant.options can be dispatched; entries here that are commented out there are prepared but disabled. A target repo may host several variants (Cam-M: S3 + P4, GcodeSender: P4 + S3) — each variant needs its own tag_suffix so tags/assets do not collide. Deliberately NOT release targets: Node32-OEE (pack WAVESHARE, published by hand) and S3 Touch7 (pack S3_TOUCH7, still too vanilla).",
   "variants": {
     "CAM_S3": {
       "repo": "nasp2000/Cam-M",

@@ -29,7 +29,8 @@ on:
           # --- prepared, disabled for now -------------------------------
           # - CAM_P4   # Cam-M P4 (same repo, tag gets the -p4 suffix)
           # - S3_CNC   # GcodeSender S3 / USB CH340 (same repo, tag gets -s3)
-          # Node32-OEE (pack WAVESHARE) is intentionally NOT a release target.
+          # Not release targets (by decision): Node32-OEE / pack WAVESHARE
+          # (published by hand) and S3 Touch7 / pack S3_TOUCH7 (still too vanilla).
       version:
         description: "Version (default: FIRMWARE_VERSION_STR)"
         required: false
