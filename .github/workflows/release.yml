@@ -38,7 +38,7 @@ on:
         required: false
         type: string
       since:
-        description: "Notes base ref (default: last release/<variant>/v* tag)"
+        description: "Notes base ref (default: commit of the previous release)"
         required: false
         type: string
       notes:
@@ -345,28 +345,6 @@ jobs:
             gh release create "$TAG" "$ZIP" "$BUNDLE" --repo "$REPO" --title "$TITLE" --notes-file release_notes.md
           fi
           echo ">>> https://github.com/$REPO/releases/tag/$TAG"
-
-      - name: Tag provenance in Node32-HUB
-        # Best effort: the publish already happened. A tag pointing at a commit
-        # that contains workflow files needs the `workflows` scope, which the
-        # built-in GITHUB_TOKEN does not have — hence RELEASE_TOKEN + gh api.
-        if: ${{ !inputs.dry_run }}
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          VARIANT: ${{ inputs.variant }}
-          VERSION: ${{ steps.target.outputs.version }}
-        run: |
-          TAG="release/${VARIANT,,}/$VERSION"
-          if gh api "repos/$GITHUB_REPOSITORY/git/refs/tags/$TAG" >/dev/null 2>&1; then
-            echo ">>> tag $TAG already exists, leaving it"
-            exit 0
-          fi
-          if gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-               -f "ref=refs/tags/$TAG" -f "sha=$GITHUB_SHA" >/dev/null 2>&1; then
-            echo ">>> created tag $TAG at $GITHUB_SHA"
-          else
-            echo "::warning::could not create provenance tag $TAG — the release itself is published"
-          fi
 
       - name: Upload logs on failure
         if: failure()

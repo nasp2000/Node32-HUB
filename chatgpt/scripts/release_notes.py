@@ -126,6 +126,31 @@ def target_repo_last_tag(variant, current=""):
     return scored[-1][1]
 
 
+def previous_release_sha(variant, current=""):
+    """Commit recorded in the footer of the previous release ("built from <sha>").
+
+    This replaces the old provenance tags: the release body is the anchor, so no
+    tag has to exist in the source repo (which is what generated the source-code
+    zips on the tags page).
+    """
+    repo = variant.get("repo")
+    tag = target_repo_last_tag(variant, current)
+    if not repo or not tag:
+        return None
+    res = subprocess.run(
+        ["gh", "release", "view", tag, "--repo", repo, "--json", "body"],
+        cwd=PROJECT_ROOT, capture_output=True, text=True, check=False,
+    )
+    if res.returncode != 0:
+        return None
+    try:
+        body = json.loads(res.stdout or "{}").get("body", "") or ""
+    except json.JSONDecodeError:
+        return None
+    m = re.search(r"built from `([0-9a-f]{7,40})`", body)
+    return m.group(1) if m else None
+
+
 def _tag_exists(ref):
     if not ref:
         return False
@@ -189,15 +214,18 @@ def parse(subject):
     return m.group("type").lower(), m.group("text").strip()
 
 
-def pick_base(args, variant, target_tag):
+def pick_base(args, variant, target_tag, version=""):
     """Pick a ref that bounds the git log range for this variant.
 
-    Order: explicit --since, the provenance tag for the version the target repo
-    last published, that same version tag if it exists locally, the newest
-    provenance tag, else "" (bounded window).
+    Order: explicit --since, the commit recorded by the previous release in the
+    target repo, the legacy provenance tag, a local version tag, else ""
+    (bounded window).
     """
     if args.since:
         return args.since
+    anchor = previous_release_sha(variant, version)
+    if anchor and _rev_exists(anchor):
+        return anchor
     key = args.variant
     if target_tag:
         prov = f"release/{key.lower()}/{target_tag}"
@@ -276,7 +304,7 @@ def main():
     ap = argparse.ArgumentParser(description="generate per-variant release notes")
     ap.add_argument("--variant", required=True, help="variant key from .github/release_targets.json")
     ap.add_argument("--version", default="", help="version label (default: FIRMWARE_VERSION_STR)")
-    ap.add_argument("--since", default="", help="base ref (default: last release/<variant>/v* tag)")
+    ap.add_argument("--since", default="", help="base ref (default: commit of the previous release in the target repo)")
     ap.add_argument("--extra-notes", default="", help="extra markdown appended to the notes")
     ap.add_argument("--out", default="", help="write to this file instead of stdout")
     ap.add_argument("--include-non-conventional", action="store_true",
@@ -287,13 +315,13 @@ def main():
     if args.since and not _tag_exists(args.since) and not _rev_exists(args.since):
         raise SystemExit(f"ERROR: --since {args.since!r} is not a tag/commit in this repository")
     target_tag = target_repo_last_tag(variant, args.version)
-    since = pick_base(args, variant, target_tag)
+    since = pick_base(args, variant, target_tag, args.version)
     if since:
         print(f">>> notes base: {since}", file=sys.stderr)
     elif target_tag:
-        print(f">>> notes base: none (bounded window) — the target repo's last release is "
-              f"{target_tag} but there is no local tag to compare against; "
-              f"pass --since to pin the range.", file=sys.stderr)
+        print(f">>> notes base: none (bounded window) — could not map the target repo's last "
+              f"release ({target_tag}) to a local commit; pass --since to pin the range.",
+              file=sys.stderr)
     notes = render(args.variant, variant, args.version, since, args.extra_notes,
                    args.include_non_conventional)
 
