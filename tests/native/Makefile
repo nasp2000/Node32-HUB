@@ -514,8 +514,8 @@ test_camera_autostart$(BIN_EXT): test_camera_autostart.cpp
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ test_camera_autostart.cpp
 
 # --- proximity_oee_csv: standalone reimpl of weekly OEE CSV pure helpers ---
-test_proximity_oee_csv$(BIN_EXT): test_proximity_oee_csv.cpp
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ test_proximity_oee_csv.cpp
+test_proximity_oee_csv$(BIN_EXT): test_proximity_oee_csv.cpp $(STUBS_DIR)/Arduino.h $(STUBS_DIR)/ArduinoJson.h $(SRC_DIR)/sensors/proximity_manager.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_proximity_oee_csv.cpp
 
 # --- proximity_shiftbase: standalone reimpl of shift-baseline restore guard ---
 test_proximity_shiftbase$(BIN_EXT): test_proximity_shiftbase.cpp

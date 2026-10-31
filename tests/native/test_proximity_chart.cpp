@@ -30,6 +30,7 @@ struct ChartState {
     long prevIn;
     int  prevHour;
     long hourVal[24];
+    uint32_t gapMask;   // bit per hour = the delta spanned a missing tick
 };
 
 // Mirrors proximityBuildHourlyChart's inner loop for a single line.
@@ -79,6 +80,14 @@ static void parseLine(ChartState& st, const char* line, int startHour = 0, int d
                             }
                             if (st.hourVal[attrHour] < 0) st.hourVal[attrHour] = 0;
                             st.hourVal[attrHour] += delta;
+                            int span = (hour - attrHour + 24) % 24;
+                            if (span > 1) {   // a tick is missing inside: mixed hour
+                                int hh = attrHour;
+                                for (int g = 0; g < 24 && hh != hour; g++) {
+                                    st.gapMask |= (1u << hh);
+                                    hh = (hh + 1) % 24;
+                                }
+                            }
                         }
                         st.prevIn = ch0;
                         if (hour >= 0 && hour <= 23) st.prevHour = hour;
@@ -603,4 +612,32 @@ TEST_CASE("proxPinHourlyTotal: exact sum is untouched, empty/negative are safe")
     hv3[6] = 1000;
     proxPinHourlyTotal(hv3, 6, 2, 1200);
     CHECK(hv3[7] == 200);
+}
+
+// ===== 2026-10-31: hours with a missing tick are flagged (never interpolated) =====
+TEST_CASE("gap flag: a normal 30-min tick does not flag the hour") {
+    ChartState st;
+    memset(&st, 0, sizeof(st));
+    st.prevIn = -1; st.prevHour = -1;
+    for (int h = 0; h < 24; h++) st.hourVal[h] = -1;
+    parseLine(st, "2026-10-30 10:00:00,tick,,1000,0,0.0,0,0,0", 6, 8);
+    parseLine(st, "2026-10-30 10:30:00,tick,,2000,0,0.0,0,0,0", 6, 8);
+    parseLine(st, "2026-10-30 11:00:00,tick,,3000,0,0.0,0,0,0", 6, 8);
+    CHECK(st.gapMask == 0u);
+    CHECK(st.hourVal[10] == 2000);   // 10:00-11:00
+}
+
+TEST_CASE("gap flag: a missing tick flags the credited hour and the skipped ones") {
+    ChartState st;
+    memset(&st, 0, sizeof(st));
+    st.prevIn = -1; st.prevHour = -1;
+    for (int h = 0; h < 24; h++) st.hourVal[h] = -1;
+    // 11:00 and 11:30 rows lost on the SD: the 10:00->12:00 delta is dumped
+    // whole on hour 10 (no interpolation, owner rule) and must be flagged.
+    parseLine(st, "2026-10-30 10:00:00,tick,,1000,0,0.0,0,0,0", 6, 8);
+    parseLine(st, "2026-10-30 12:00:00,tick,,9000,0,0.0,0,0,0", 6, 8);
+    CHECK(st.hourVal[10] == 8000);   // 2 h of pieces on one column
+    CHECK((st.gapMask & (1u << 10)) != 0);   // the credited hour is mixed
+    CHECK((st.gapMask & (1u << 11)) != 0);   // the skipped hour was not measured
+    CHECK((st.gapMask & (1u << 12)) == 0);
 }

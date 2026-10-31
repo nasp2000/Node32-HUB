@@ -1141,6 +1141,18 @@ void saveProximityCounters() {
     }
 }
 
+// Exact counter snapshot for a graceful reboot: refresh the RTC mirror AND the
+// LittleFS counters before the reset. Both are otherwise refreshed on slower
+// events (mirror every 1-min inject tick, file on shift-end/6 h edges), so a
+// scheduled reboot could drop the pulses made since the last snapshot —
+// measured on the .29 for 28-31/10: exactly 10 pcs per daily 22:00 reboot, the
+// only reason the day's shift sum was 10 short of the absolute counter span.
+// Called by safeReboot() before littlefsEnd()/sdcardUnmount().
+void proximitySaveBeforeReboot() {
+    _proxRtcSave(millis());
+    saveProximityCounters();
+}
+
 void loadProximityCounters() {
     if (!littlefsBegin()) return;
     File f = LittleFS.open(PROX_CNT_PATH, "r");
@@ -2024,7 +2036,8 @@ static bool _proxHourInWindow(int h, int startHour, int durHours) {
 // chart total (sum of hourVal over the shift window). Returns false on open/read
 // failure (no usable data). Shared by the ASCII chart and the weekly OEE CSV.
 static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durHours,
-                                  long hourVal[24], uint32_t* chartTotalOut) {
+                                  long hourVal[24], uint32_t* chartTotalOut,
+                                  uint32_t* gapMaskOut = nullptr) {
 #if ENABLE_SDCARD==1
     // Source 1: SD card. FTP holds the SD exclusively during its cycle
     // (HISTORIC #57): short lock timeout, then fail the read (the caller
@@ -2130,6 +2143,24 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
                                     }
                                     if (hourVal[attrHour] < 0) hourVal[attrHour] = 0;
                                     hourVal[attrHour] += delta;
+                                    // A delta that spans more than one clock hour
+                                    // means at least one tick is missing from the
+                                    // CSV (SD append dropped, reboot). The pieces
+                                    // are real but the hour is MIXED — never
+                                    // interpolated (owner rule) — so flag it: the
+                                    // email marks the bar with "~" and the weekly
+                                    // CSV writes gap=1 instead of pretending the
+                                    // hour was measured cleanly.
+                                    if (gapMaskOut) {
+                                        int span = (hour - attrHour + 24) % 24;
+                                        if (span > 1) {
+                                            int hh = attrHour;
+                                            for (int guard = 0; guard < 24 && hh != hour; guard++) {
+                                                *gapMaskOut |= (1u << hh);
+                                                hh = (hh + 1) % 24;
+                                            }
+                                        }
+                                    }
                                 }
                                 prevIn = ch0;
                                 prevHour = (hour >= 0 && hour <= 23) ? hour : prevHour;
@@ -2199,8 +2230,14 @@ static void _proxWriteWeeklyOee(int8_t endedShift, int startHour, int durHours,
     proximityWeeklyOeeFileName(week, wkName, sizeof(wkName));
     String filePathS = rootDir + "/" + wkName;
 
-    // Weekly header (shared by both sinks — keep identical).
+    // Weekly header (shared by both sinks — keep identical). The first 18 columns
+    // are frozen; shift_date/ppm_meas/gap (2026-10-31) are only written to files
+    // created by this build — an existing file keeps the layout its header
+    // declares, otherwise every column would shift for Excel readers.
     static const char kWkHeader[] = "date,shift,hour,count_hour,total,scrap,setup,a,p,q,oee,good,run_sec,plan_sec,unplanned_sec,elapsed_sec,ppm,weekday";
+    char wkHeader[256];
+    snprintf(wkHeader, sizeof(wkHeader), "%s,shift_date,ppm_meas,gap", kWkHeader);
+    bool newCols = true;   // a brand-new file is born with the current schema
 
     File f;
     size_t proxWkStart = 0;
@@ -2209,12 +2246,33 @@ static void _proxWriteWeeklyOee(int8_t endedShift, int startHour, int durHours,
         // timeout then skip this weekly write rather than interleave with the scan.
         if (!sdMutexLock(pdMS_TO_TICKS(1500))) return;
 
+        // Follow the schema of an existing file (read-only peek before the
+        // append open: an "a"-mode handle cannot be read back).
+        if (SD_MMC.exists(filePathS.c_str())) {
+            File rf = SD_MMC.open(filePathS.c_str(), FILE_READ);
+            char hdr[256] = {0};
+            if (rf) { rf.readBytesUntil('\n', hdr, sizeof(hdr) - 1); rf.close(); }
+            if (hdr[0]) newCols = proximityWeeklyHeaderHasExtras(hdr);
+        }
         if (!SD_MMC.exists(rootDir.c_str())) SD_MMC.mkdir(rootDir.c_str());
         f = SD_MMC.open(filePathS.c_str(), FILE_APPEND);
         if (!f) { sdMutexUnlock(); return; }
         proxWkStart = f.size();
         if (f.size() == 0) {
-            f.println(kWkHeader);
+            newCols = true;
+            f.println(wkHeader);
+        }
+    } else {
+        // Flash sink (no SD): the same rule — follow the header of the file that
+        // is already there (flashFbFindFile maps /SDNAME/wkNN-oee.csv to the
+        // /oee mirror, and is a no-op stub without a filesystem), so an old week
+        // keeps its 18 columns.
+        String flashWkPath;
+        if (flashFbFindFile(filePathS, flashWkPath)) {
+            File rf = LittleFS.open(flashWkPath.c_str(), FILE_READ);
+            char hdr[256] = {0};
+            if (rf) { rf.readBytesUntil('\n', hdr, sizeof(hdr) - 1); rf.close(); }
+            if (hdr[0]) newCols = proximityWeeklyHeaderHasExtras(hdr);
         }
     }
 
@@ -2228,7 +2286,8 @@ static void _proxWriteWeeklyOee(int8_t endedShift, int startHour, int durHours,
 
     long hourVal[24];
     for (int h = 0; h < 24; h++) hourVal[h] = -1;
-    bool hourlyOk = _proxReadHourlyCounts(csvPath, startHour, durHours, hourVal, nullptr);
+    uint32_t gapMask = 0;   // bit per hour = delta spanned a missing tick
+    bool hourlyOk = _proxReadHourlyCounts(csvPath, startHour, durHours, hourVal, nullptr, &gapMask);
     // Unpinned CSV sum FIRST: the caller cross-checks it against the live counter
     // delta to detect a mid-shift reboot with lost baselines, so it must see the
     // real CSV total (the pin below would always make them equal).
@@ -2260,16 +2319,22 @@ static void _proxWriteWeeklyOee(int8_t endedShift, int startHour, int durHours,
         time_t t = now - (time_t)back * 3600;
         localtime_r(&t, &rt);
         rt.tm_hour = hour; // pin the reported hour (independent of wall-clock alignment)
-        char row[200];
+        // ppm_meas = pieces per minute actually made in THIS hour (the nominal
+        // target already has its own `ppm` column); gap = the hour holds a delta
+        // that spanned a missing tick (mixed, not a clean measure).
+        const float ppmMeas = (float)countHour / 60.0f;
+        const int gapFlag = ((gapMask >> dataHour) & 1u) ? 1 : 0;
+        char row[240];
         proximityFormatOeeRow(row, sizeof(row), rt, turnNum, hour,
                               countHour, total, shiftScrapDI1, shiftSetupDI1,
                               shiftAvailDI1, shiftPerfDI1, shiftQualDI1, shiftOeeDI1,
                               shiftGoodDI1, shiftRunSec, shiftPlannedSec,
-                              unplannedSec, shiftElapsedSec, shiftTargetPpm);
+                              unplannedSec, shiftElapsedSec, shiftTargetPpm,
+                              newCols ? dateSuf : nullptr, ppmMeas, gapFlag);
         if (!useFlash) {
             f.println(row);
         } else {
-            flashOeeAppend(String(wkName), kWkHeader, row);
+            flashOeeAppend(String(wkName), wkHeader, row);
         }
     }
     if (!useFlash) {
@@ -2312,7 +2377,8 @@ String proximityBuildHourlyChart(const String& csvPath, int startHour, int durHo
     long hourVal[24];
     for (int h = 0; h < 24; h++) hourVal[h] = -1; // -1 = no sample for that hour
     uint32_t chartTotal = 0;
-    if (!_proxReadHourlyCounts(csvPath, startHour, durHours, hourVal, &chartTotal)) return chart;
+    uint32_t gapMask = 0;   // bit per hour = delta spanned a missing tick
+    if (!_proxReadHourlyCounts(csvPath, startHour, durHours, hourVal, &chartTotal, &gapMask)) return chart;
     // Owner rule (2026-10-31): the columns of a turn MUST add up to the turn
     // total — pin the residual (a few pcs of boundary/reboot anchoring) on the
     // last hour instead of showing a breakdown that does not sum to `pieces`.
@@ -2408,6 +2474,11 @@ String proximityBuildHourlyChart(const String& csvPath, int startHour, int durHo
         }
         n = snprintf(o, room, "]");
         o += n; room -= (size_t)n;
+        // Mixed hour (a tick is missing inside it): mark the bar instead of
+        // pretending the number is a clean hourly measure ("07H 1234 pcs [...] ~").
+        if (((gapMask >> h) & 1u) != 0 && room > 3) {
+            *o++ = ' '; *o++ = '~'; room -= 2;
+        }
         if (room > 1) { *o++ = '\n'; room--; }
     }
     *o = '\0';

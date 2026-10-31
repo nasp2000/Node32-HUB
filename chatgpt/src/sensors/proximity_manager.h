@@ -395,6 +395,17 @@ static inline void proximityWeeklyOeeFileName(int week, char* out, size_t cap) {
 // (weekday is per-hour and can change at midnight). `hour` is the END hour
 // (the hour the count is taken), same convention as the shift email chart
 // and the web dashboard: shift 6H-14H writes hours 7..14.
+// One weekly-OEE CSV line. The first 18 columns are frozen (files created
+// before 2026-10-31 keep exactly this layout); the three extras are appended
+// only when `shiftDate` is given, i.e. when the target file was created by a
+// build that knows them (the writer follows the file's own header):
+//   shift_date — DD-MM-YYYY of the PRODUCTION day the turn belongs to (same
+//                label as the day folder/CSV), so a 22H-06H turn is no longer
+//                split across two calendar dates when filtered in Excel;
+//   ppm_meas   — pieces per minute actually made in that hour (count/60),
+//                next to the nominal target in `ppm`;
+//   gap        — 1 when that hour holds a delta that spanned a missing tick
+//                (mixed measure, never interpolated), else 0.
 static inline int proximityFormatOeeRow(char* out, size_t cap, const struct tm& ti,
                                         int shift, int hour, uint32_t countHour,
                                         uint32_t total, uint32_t scrap, uint32_t setup,
@@ -402,8 +413,11 @@ static inline int proximityFormatOeeRow(char* out, size_t cap, const struct tm& 
                                         float oee,
                                         uint32_t good, uint32_t runSec, uint32_t planSec,
                                         uint32_t unplannedSec, uint32_t elapsedSec,
-                                        float ppm) {
-    return snprintf(out, cap, "%02d-%02d-%04d,%d,%d,%lu,%lu,%lu,%lu,%.2f,%.2f,%.2f,%.2f,%lu,%lu,%lu,%lu,%lu,%.2f,%d",
+                                        float ppm,
+                                        const char* shiftDate = nullptr,
+                                        float ppmMeas = 0.0f,
+                                        int gapFlag = 0) {
+    int n = snprintf(out, cap, "%02d-%02d-%04d,%d,%d,%lu,%lu,%lu,%lu,%.2f,%.2f,%.2f,%.2f,%lu,%lu,%lu,%lu,%lu,%.2f,%d",
                     ti.tm_mday, ti.tm_mon + 1, ti.tm_year + 1900,
                     shift, hour,
                     (unsigned long)countHour, (unsigned long)total,
@@ -413,6 +427,20 @@ static inline int proximityFormatOeeRow(char* out, size_t cap, const struct tm& 
                     (unsigned long)planSec, (unsigned long)unplannedSec,
                     (unsigned long)elapsedSec, (double)ppm,
                     (ti.tm_wday < 0 ? 0 : ti.tm_wday));
+    if (n < 0 || (size_t)n >= cap) return n;
+    if (shiftDate && shiftDate[0]) {
+        int m = snprintf(out + n, cap - (size_t)n, ",%s,%.1f,%d",
+                         shiftDate, (double)ppmMeas, gapFlag);
+        if (m > 0) n += m;
+    }
+    return n;
+}
+
+// True when a weekly OEE file's header line already carries the 2026-10-31
+// columns. Used to keep an EXISTING file on the layout it was born with: mixing
+// schemas inside one file would shift every column for Excel readers.
+static inline bool proximityWeeklyHeaderHasExtras(const char* firstLine) {
+    return firstLine != nullptr && strstr(firstLine, "shift_date") != nullptr;
 }
 
 // Per-channel runtime state.
@@ -520,6 +548,11 @@ void saveProximityCounters();
 
 // Restore count_in / count_out from NVS. Called automatically by proximityBegin().
 void loadProximityCounters();
+
+// Exact snapshot for a graceful reboot (RTC mirror + LittleFS counters), so the
+// restore does not drop the pulses made since the last periodic refresh.
+// Called from safeReboot() before the filesystems are unmounted.
+void proximitySaveBeforeReboot();
 
 // --- Shift management (Phase 4) ---
 

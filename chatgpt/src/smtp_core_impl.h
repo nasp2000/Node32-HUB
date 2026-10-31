@@ -1465,6 +1465,15 @@ void safeReboot(const char* reason = "UNKNOWN") {
     // 1. Save NVS/Flash storage stats (critical for counters)
     saveStorageStatsToNVS();
 
+    // 1b. Exact proximity counter snapshot: the RTC mirror is refreshed on the
+    // 1-min inject tick, so a graceful reboot would otherwise lose the pulses
+    // made since then (measured 10 pcs per daily reboot, 28-31/10/2026). Must
+    // run BEFORE littlefsEnd()/sdcardUnmount() below.
+#if ENABLE_PROXIMITY == 1
+    extern void proximitySaveBeforeReboot();
+    proximitySaveBeforeReboot();
+#endif
+
     // 2. Flush sensor history to SD (or PSRAM if SD absent) and save sensor config to LittleFS
     #if (ENABLE_AHT20_BMP280==1 && ENABLE_SENSOR_CONFIG_PAGE==1) || ENABLE_MQ135==1
     Serial.println("[REBOOT] Flushing sensor history...");

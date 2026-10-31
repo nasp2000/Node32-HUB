@@ -228,6 +228,8 @@ Counters survive a reboot through three layers, least-to-most flash wear:
 
 Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power-cut only) SD CSV tail override before the first boot CSV row so all outputs reflect the restored values.
 
+**Graceful reboot = exact snapshot (2026-10-31):** `safeReboot()` calls `proximitySaveBeforeReboot()` (RTC mirror + LittleFS counters) **before** `littlefsEnd()`/`sdcardUnmount()`. Without it the restore used a mirror up to 60 s old — measured on the .29 for 28-31/10: exactly **10 pcs lost per daily 22:00 reboot**, which was the only reason the day's shift sum was 10 short of the absolute counter span (`sum(shifts) = span` now).
+
 ---
 
 ## 9. Runtime engine (firmware side)
@@ -288,7 +290,8 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
   ninguém usava.
   then the hourly "Pcs por hora" chart **using the same production-bar blocks**
   (`▓` DARK SHADE filled / `░` LIGHT SHADE track, `proximityBuildHourlyChart()`),
-  e.g. `21H  446 pcs  [▓░░░░░░░░░]` — each part separated by one blank
+  e.g. `21H  446 pcs  [▓░░░░░░░░░]` (a trailing `~` marks an hour whose count holds a
+  delta that spanned a missing CSV tick — mixed, not a clean hourly measure) — each part separated by one blank
   line. The count is `" pcs"`-suffixed and right-aligned to the widest value of the
   shift (`%02dH %*d pcs`), so every row's bar opens at the same column. The chart bar is **10 cells** (owner pick 2026-10-15: phone-width body,
   one row per shift hour), down from 20. Chart columns cover the ACTUAL shift hours `[start, end)` from
@@ -511,7 +514,14 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
   shift window), `unplanned_sec` (`elapsed − plan − run`, floor 0), `elapsed_sec`
   (shift length), `ppm` (target PM, the same source the OEE P uses) and `weekday`
   (0=Sunday..6=Saturday from `tm_wday`, per-hour so a midnight-crossing shift reports
-  both days). Written by `_proxWriteWeeklyOee()` from the
+  both days). **Appended 2026-10-31** (only on files whose header declares them, so an
+  existing week keeps its 18-column layout and Excel alignment): `shift_date`
+  (DD-MM-YYYY of the **production day** the turn belongs to, same label as the day
+  folder — a 22H-06H turn no longer splits across two calendar dates when filtered),
+  `ppm_meas` (pieces/minute actually made in that hour = `count_hour/60`, next to the
+  nominal `ppm` target) and `gap` (1 = that hour holds a delta that spanned a missing
+  tick — mixed measure, never interpolated; the shift email marks the same bar with `~`).
+  Written by `_proxWriteWeeklyOee()` from the
   shift-end block (after the DI1 snapshot, before auto-reset). Pure helpers
   (`proximityIsoWeek`, `proximityWeeklyOeeFileName`, `proximityFormatOeeRow`) live
   in `proximity_manager.h` and are native-tested by `test_proximity_oee_csv`.
