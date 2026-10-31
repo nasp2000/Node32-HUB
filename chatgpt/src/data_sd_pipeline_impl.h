@@ -997,10 +997,16 @@ static unsigned long _proxChartRingLastMs = 0;
 // when the production day changes and _PROX_STOP_UNKNOWN marks blocks the
 // board did not watch (before boot / no sensor), so the page keeps its own
 // fallback there instead of painting them as production.
+// Window: RAM only would be enough on a normal day (the daily 22:00 reboot is
+// the day rollover), but a mid-day reboot/OTA would blank the strip for the
+// hours before it. So the day's bins are ALSO written to a small per-day file at
+// every shift close (3 writes/day, same SD/LittleFS sinks as the OEE files) and
+// merged back here where the RAM copy is UNKNOWN.
 #define _PROX_STOP_BIN_SEC      600                  // 10 min per square
 #define _PROX_STOP_BINS         144                  // squares per production day
-#define _PROX_STOP_UNKNOWN      0xFFFF
+#define _PROX_STOP_UNKNOWN      PROX_STOP_UNKNOWN    // shared with the file codec
 #define _PROX_STOP_MAX_CH       (CHART_HISTORY_PROXIMITY_MAX_COLUMNS / 3)
+#define _PROX_STOP_FILE_MAX     (8 * 1024)           // per-day file read buffer
 static uint16_t _proxStopSec10[_PROX_STOP_MAX_CH][_PROX_STOP_BINS];
 static uint32_t _proxStopLastIn[_PROX_STOP_MAX_CH];
 static uint32_t _proxStopLastTick[_PROX_STOP_MAX_CH];
@@ -1176,6 +1182,158 @@ static void _proxStopBinsAdd(uint8_t nCh, const uint32_t* chIn, time_t now) {
     }
 }
 
+// Per-day persisted stop bins. Same day label as the OEE files (production day)
+// so the strip can be rebuilt after a reboot; SD keeps it in the system folder,
+// the LittleFS mirror uses /oee (both covered by the existing cleanup).
+static void _proxStopBinsPath(char* out, size_t cap, time_t now, bool flash) {
+    if (!out || cap == 0) return;
+    struct tm ti;
+    localtime_r(&now, &ti);
+    proximityShiftDayAlignedDate(now, &ti);
+    if (flash) {
+        snprintf(out, cap, "/oee/stopbins_%02d-%02d-%04d.csv",
+                 ti.tm_mday, ti.tm_mon + 1, ti.tm_year + 1900);
+    } else {
+        String sys = configManager.getSdcardName();
+        if (sys.isEmpty()) sys = "SD_LOG";
+        snprintf(out, cap, "/%s/stopbins_%02d-%02d-%04d.csv", sys.c_str(),
+                 ti.tm_mday, ti.tm_mon + 1, ti.tm_year + 1900);
+    }
+}
+
+// Persist the day's 10-min stop bins (called at every shift close). Writes one
+// "ch,v,v,..." line per channel that was watched today, plus a header carrying
+// day_start/bins so a stale file (other day, config change) is rejected on read.
+// Overwrites the same per-day file (no growth): 3 writes/day, no new sink.
+// `ctxNow` is the shift-end context time (just BEFORE the boundary), so a close
+// at the 22:00 day rollover still names/persists the ENDED day (same rule the
+// weekly OEE writer uses); <=0 falls back to now.
+void proxChartStopBinsSaveDay(time_t ctxNow) {
+    time_t now = (ctxNow > 1000000000L) ? ctxNow : time(nullptr);
+    if (!sd_layout::clockReady(now)) return;
+    if (_proxStopDayStart == 0) return;
+    const bool useFlash = !sdcardShouldUseSD();
+
+    char path[96];
+    _proxStopBinsPath(path, sizeof(path), now, useFlash);
+
+    char line[((_PROX_STOP_BINS * 5) + 8)];
+    char hdr[80];
+    snprintf(hdr, sizeof(hdr), "# stopbins v1 day_start=%lu bins=%d",
+             (unsigned long)_proxStopDayStart, _PROX_STOP_BINS);
+
+    size_t written = 0;
+    if (!useFlash) {
+        if (!sdMutexLock(pdMS_TO_TICKS(1500))) return;   // FTP owns the SD
+        String rootDir = String("/") + (configManager.getSdcardName().isEmpty()
+                                        ? String("SD_LOG") : configManager.getSdcardName());
+        if (!SD_MMC.exists(rootDir.c_str())) SD_MMC.mkdir(rootDir.c_str());
+        File f = SD_MMC.open(path, FILE_WRITE);
+        if (f) {
+            written += f.println(hdr);
+            for (uint8_t i = 0; i < _PROX_STOP_MAX_CH; i++) {
+                if (_proxStopLastIn[i] == 0) continue;   // channel never saw production
+                int n = proxStopBinsEncodeLine(line, sizeof(line), i, _proxStopSec10[i],
+                                               _PROX_STOP_BINS);
+                if (n > 0) written += f.println(line);
+            }
+            f.close();
+            storNoteSdWrite(written);
+        }
+        sdMutexUnlock();
+    } else {
+#if ENABLE_FILESYSTEM==1
+        extern bool lfsMutexLock(TickType_t timeoutTicks);
+        extern void lfsMutexUnlock();
+        if (!lfsMutexLock(pdMS_TO_TICKS(3000))) return;
+        if (littlefsBegin() && littlefsMounted() && littlefsFreeBytes() >= (512ULL * 1024ULL)) {
+            if (!LittleFS.exists("/oee")) LittleFS.mkdir("/oee");
+            File f = LittleFS.open(path, FILE_WRITE);
+            if (f) {
+                written += f.print(hdr); written += f.print("\n");
+                for (uint8_t i = 0; i < _PROX_STOP_MAX_CH; i++) {
+                    if (_proxStopLastIn[i] == 0) continue;
+                    int n = proxStopBinsEncodeLine(line, sizeof(line), i,
+                                                   _proxStopSec10[i], _PROX_STOP_BINS);
+                    if (n > 0) { written += f.print(line); written += f.print("\n"); }
+                }
+                f.close();
+                storNoteLfsWrite(written);
+            }
+        }
+        lfsMutexUnlock();
+#endif
+    }
+}
+
+// Read the persisted per-day bins into RAM: only the UNKNOWN blocks are filled
+// (RAM is the live measurement of this boot) and only when the file header says
+// it belongs to the SAME production day. Returns the number of blocks recovered.
+static uint16_t _proxStopBinsLoadSaved(const char* path, bool useFlash, uint32_t dayStart) {
+    if (!path || path[0] == '\0' || dayStart == 0) return 0;
+    char* buf = nullptr;
+    File f;
+    if (!useFlash) {
+        if (!sdMutexLock(pdMS_TO_TICKS(1500))) return 0;   // FTP owns the SD
+        if (SD_MMC.exists(path)) f = SD_MMC.open(path, FILE_READ);
+    } else {
+#if ENABLE_FILESYSTEM==1
+        if (littlefsBegin() && littlefsMounted()) f = LittleFS.open(path, FILE_READ);
+#endif
+    }
+    if (f) {
+        size_t sz = (size_t)f.size();
+        if (sz > 0 && sz <= _PROX_STOP_FILE_MAX) {
+            char* b = (char*)heap_caps_malloc(sz + 1,
+                psramFound() ? MALLOC_CAP_SPIRAM : (MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL));
+            if (b) {
+                size_t rd = f.read((uint8_t*)b, sz);
+                if (rd == sz) { b[sz] = '\0'; buf = b; }
+                else heap_caps_free(b);
+            }
+        }
+        f.close();
+    }
+    if (!useFlash) sdMutexUnlock();
+    if (!buf) return 0;
+
+    // Header first: reject a file from another production day (config/day change).
+    bool dayOk = false;
+    for (const char* q = buf; *q; ) {
+        if (*q == '#') {
+            const char* ds = strstr(q, "day_start=");
+            if (ds) dayOk = ((uint32_t)strtoul(ds + 10, nullptr, 10) == dayStart);
+            break;
+        }
+        const char* nl = strchr(q, '\n');
+        if (!nl) break;
+        q = nl + 1;
+    }
+    uint16_t got = 0;
+    uint16_t tmp[_PROX_STOP_BINS];
+    char* line = buf;
+    while (dayOk && line && *line) {
+        char* nl = strchr(line, '\n');
+        if (nl) *nl = '\0';
+        char* p = line;
+        while (*p == ' ' || *p == '\r') p++;
+        if (*p && *p != '#') {
+            uint8_t ch = 255;
+            if (proxStopBinsDecodeLine(p, &ch, tmp, _PROX_STOP_BINS) && ch < _PROX_STOP_MAX_CH) {
+                for (int i = 0; i < _PROX_STOP_BINS; i++) {
+                    if (_proxStopSec10[ch][i] == _PROX_STOP_UNKNOWN && tmp[i] != _PROX_STOP_UNKNOWN) {
+                        _proxStopSec10[ch][i] = tmp[i];
+                        got++;
+                    }
+                }
+            }
+        }
+        line = nl ? (nl + 1) : nullptr;
+    }
+    heap_caps_free(buf);
+    return got;
+}
+
 // Stops payload for the OEE timeline strip (GET /api/proximity-chart-data?stops=1):
 // {"day_start":<epoch of block 0>,"bin_sec":600,"bins":144,
 //  "stops":{"<ch>":[144 x seconds | -1 = not watched]}} — RAM only, one entry
@@ -1189,6 +1347,13 @@ bool proxChartStopBinsJson(Print& out) {
     uint32_t dayStart = 0;
     (void)proxStopBinFromClock(ti.tm_hour, ti.tm_min, ti.tm_sec,
                                proximityShiftDayBoundaryHour(), now, &dayStart);
+    // A reboot blanks the RAM bins for the hours before it, so pull the day's
+    // persisted copy first (RAM only gets the blocks it does not know yet).
+    {
+        char sbPath[96];
+        _proxStopBinsPath(sbPath, sizeof(sbPath), now, !sdcardShouldUseSD());
+        _proxStopBinsLoadSaved(sbPath, !sdcardShouldUseSD(), dayStart);
+    }
     out.print("{\"day_start\":");
     out.print((unsigned long)dayStart);
     out.print(",\"bin_sec\":");

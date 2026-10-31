@@ -489,6 +489,16 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
     found on SD" when the aligned date differs from the calendar date)
   - `sdcard.cpp` (`sdcardWriteData`, `sdcardGetTodayFolder`) for the Waveshare
     build only.
+- **Stop bins per day (`/{sys}/stopbins_<DD-MM-YYYY>.csv`, 2026-10-31)**: the OEE
+  timeline squares (10-min seconds without production, measured in RAM every
+  minute) are written at every shift close — header `# stopbins v1 day_start=<epoch>
+  bins=144` + one `ch,v,v,…` line per watched channel. LittleFS mirror at
+  `/oee/stopbins_<DD-MM-YYYY>.csv` (both roots are covered by the existing cleanup).
+  Overwritten in place (3 writes/day, no growth, `storNote*` counted). Read back by
+  `/api/proximity-chart-data?stops=1`, which merges it only into the blocks the RAM
+  copy still reports as unknown (a mid-day reboot/OTA blanks them; the daily 22:00
+  reboot is the day rollover, so nothing is lost on a normal day). A file whose
+  header `day_start` differs from today is ignored.
 - **Weekly OEE CSV (single file per ISO week, additive)**: at every shift-end the
   board appends **one row per hour of the ended shift** to a single per-week file
   `/SDNAME/wk<NN>-oee.csv` (NN = ISO 8601 week number, from `proximityIsoWeek()`

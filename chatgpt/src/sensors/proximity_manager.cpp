@@ -3121,6 +3121,15 @@ static void _proxShiftTick(uint32_t nowMs) {    ProximityShiftConfig sc = proxim
         int wkStartHour = 0, wkDurHours = 0;
         proximityGetShiftWindow(endedShift, wkStartHour, wkDurHours, false);
         uint32_t csvShiftTotal = 0;
+        // Persist the OEE timeline squares for this production day (10-min stop
+        // seconds, RAM-measured): 3 tiny writes/day so the strip survives a
+        // mid-day reboot/OTA — the RAM copy alone is blanked by any restart.
+#if ENABLE_PROXIMITY_CHARTS==1
+        {
+            extern void proxChartStopBinsSaveDay(time_t ctxNow);
+            proxChartStopBinsSaveDay(shiftDayCtx);
+        }
+#endif
         _proxWriteWeeklyOee(endedShift, wkStartHour, wkDurHours,
                             shiftPiecesDI1, shiftAvailDI1, shiftPerfDI1, shiftQualDI1,
                             shiftOeeDI1, shiftScrapDI1, shiftSetupDI1,

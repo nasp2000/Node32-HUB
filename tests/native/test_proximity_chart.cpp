@@ -641,3 +641,45 @@ TEST_CASE("gap flag: a missing tick flags the credited hour and the skipped ones
     CHECK((st.gapMask & (1u << 11)) != 0);   // the skipped hour was not measured
     CHECK((st.gapMask & (1u << 12)) == 0);
 }
+
+// ===== 2026-10-31: persisted stop bins (survive a mid-day reboot) =====
+TEST_CASE("stop bins codec: encode/decode round-trip with unknown blocks") {
+    uint16_t bins[8] = {0, 600, PROX_STOP_UNKNOWN, 179, PROX_STOP_UNKNOWN, 300, 0, 600};
+    char line[64];
+    int n = proxStopBinsEncodeLine(line, sizeof(line), 3, bins, 8);
+    CHECK(n > 0);
+    CHECK(strcmp(line, "3,0,600,-1,179,-1,300,0,600") == 0);
+    uint8_t ch = 255;
+    uint16_t back[8];
+    CHECK(proxStopBinsDecodeLine(line, &ch, back, 8) == true);
+    CHECK(ch == 3);
+    for (int i = 0; i < 8; i++) CHECK(back[i] == bins[i]);
+}
+
+TEST_CASE("stop bins codec: tolerant decode (clamp, garbage, short line)") {
+    uint16_t bins[6];
+    uint8_t ch = 255;
+    // 999 clamps to the block size; a short line leaves the rest unknown.
+    CHECK(proxStopBinsDecodeLine("1,600,999,abc", &ch, bins, 6) == true);
+    CHECK(ch == 1);
+    CHECK(bins[0] == 600);
+    CHECK(bins[1] == 600);
+    CHECK(bins[2] == PROX_STOP_UNKNOWN);
+    CHECK(bins[5] == PROX_STOP_UNKNOWN);
+    // No usable channel field -> rejected (caller skips the line).
+    CHECK(proxStopBinsDecodeLine("xx,1,2", &ch, bins, 6) == false);
+    CHECK(proxStopBinsDecodeLine("", &ch, bins, 6) == false);
+    CHECK(proxStopBinsDecodeLine(nullptr, &ch, bins, 6) == false);
+}
+
+TEST_CASE("stop bins merge: RAM wins, persisted copy only fills unknown blocks") {
+    uint16_t ram[6]   = {PROX_STOP_UNKNOWN, 600, PROX_STOP_UNKNOWN, 0, PROX_STOP_UNKNOWN, PROX_STOP_UNKNOWN};
+    uint16_t saved[6] = {120, 600, 300, 600, PROX_STOP_UNKNOWN, 179};
+    proxStopBinsMerge(ram, saved, 6);
+    CHECK(ram[0] == 120);                     // unknown -> recovered
+    CHECK(ram[1] == 600);                     // RAM wins
+    CHECK(ram[2] == 300);
+    CHECK(ram[3] == 0);                       // a measured 0 is NOT overwritten
+    CHECK(ram[4] == PROX_STOP_UNKNOWN);       // unknown in both stays unknown
+    CHECK(ram[5] == 179);
+}

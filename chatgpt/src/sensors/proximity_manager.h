@@ -649,6 +649,66 @@ static inline void proxPinHourlyTotal(long hourVal[24], int startHour, int durHo
     hourVal[lastHour] = (last < 0) ? 0 : last;
 }
 
+// --- OEE timeline stop bins: persisted copy (survives a mid-day reboot) -----
+// The 10-min "seconds without production" buckets are measured in RAM (no flash
+// wear), which is fine on a normal day: the daily 22:00 reboot coincides with the
+// production-day rollover, so the buffer is cleared exactly when the day turns.
+// A mid-day reboot (OTA/manual/WDT) used to lose the strip for the hours before
+// it, so the day's bins are also written to a small per-day file at every shift
+// close (3 writes/day) and merged back where the RAM copy is UNKNOWN.
+// Wire/file format, one line per channel: "<ch>,<v>,<v>,..." with -1 = unknown.
+#define PROX_STOP_UNKNOWN  0xFFFF
+
+// Serialise one channel: "ch,v,v,..." (compact CSV, -1 = unknown). Pure.
+static inline int proxStopBinsEncodeLine(char* out, size_t cap, uint8_t ch,
+                                         const uint16_t* bins, int n) {
+    if (!out || cap < 8 || !bins || n <= 0) return 0;
+    int w = snprintf(out, cap, "%u", (unsigned)ch);
+    for (int i = 0; i < n && w > 0 && (size_t)w < cap; i++) {
+        int m = (bins[i] == PROX_STOP_UNKNOWN)
+            ? snprintf(out + w, cap - (size_t)w, ",-1")
+            : snprintf(out + w, cap - (size_t)w, ",%u", (unsigned)bins[i]);
+        if (m <= 0) break;
+        w += m;
+    }
+    return w;
+}
+
+// Parse that line back into `bins` (n entries, all PROX_STOP_UNKNOWN first).
+// Tolerant: malformed/absent fields stay unknown, out-of-range clamps to the
+// block size (600 s). Returns false when the channel field is unusable. Pure.
+static inline bool proxStopBinsDecodeLine(const char* line, uint8_t* chOut,
+                                          uint16_t* bins, int n) {
+    if (!line || !bins || n <= 0) return false;
+    for (int i = 0; i < n; i++) bins[i] = PROX_STOP_UNKNOWN;
+    const char* p = line;
+    char* end = nullptr;
+    long ch = strtol(p, &end, 10);
+    if (end == p || ch < 0 || ch > 255) return false;
+    if (chOut) *chOut = (uint8_t)ch;
+    p = end;
+    int i = 0;
+    while (*p && i < n) {
+        if (*p == ',') p++;
+        if (!*p) break;
+        long v = strtol(p, &end, 10);
+        if (end == p) break;              // garbage: stop, keep the rest unknown
+        bins[i++] = (v < 0) ? PROX_STOP_UNKNOWN
+                            : (uint16_t)((v > 600) ? 600 : v);
+        p = end;
+    }
+    return true;
+}
+
+// Fill the RAM copy's gaps (unknown blocks) from the persisted one. RAM always
+// wins: it is the live measurement of this boot. Pure.
+static inline void proxStopBinsMerge(uint16_t* ram, const uint16_t* saved, int n) {
+    if (!ram || !saved || n <= 0) return;
+    for (int i = 0; i < n; i++) {
+        if (ram[i] == PROX_STOP_UNKNOWN && saved[i] != PROX_STOP_UNKNOWN) ram[i] = saved[i];
+    }
+}
+
 // 10-min block of the production day that holds a given local clock time, plus
 // the epoch of that day's start. The block index runs 0..143 from the
 // day-boundary hour (same ordering as the .chart columns and the OEE timeline
