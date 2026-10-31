@@ -590,6 +590,32 @@ static inline uint32_t proxShiftDayStartFromCivilMidnight(uint32_t civilMidnight
     return (civilMidnightTs > backSec) ? (civilMidnightTs - backSec) : 0;
 }
 
+// Pin the hourly breakdown to the shift's REAL total. Owner rule: the 8 hour
+// counts of a turn must add up to the turn total (and the first count is the
+// hour after the turn start, the last one the turn-end hour). The live delta
+// (RAM shift baselines) and the CSV rows (absolute snapshots) are anchored a
+// few pulses apart — shift-boundary rounding and the daily 22:00 reboot
+// restoring the counter ~10 pcs low — so the columns can miss the total by a
+// handful of pieces. The residual goes to the LAST hour (the same row whose
+// `total` column is pinned to the live total), so no count is invented or lost.
+// Pure — mutates hourVal; native-tested (test_proximity_chart.cpp).
+static inline void proxPinHourlyTotal(long hourVal[24], int startHour, int durHours,
+                                      uint32_t pieces) {
+    if (!hourVal || durHours <= 0 || pieces == 0) return;
+    long sum = 0;
+    for (int k = 0; k < durHours; k++) {
+        int h = (startHour + k) % 24;
+        if (h < 0 || h > 23) return;
+        if (hourVal[h] > 0) sum += hourVal[h];
+    }
+    long diff = (long)pieces - sum;
+    if (diff == 0) return;
+    const int lastHour = (startHour + durHours - 1) % 24;
+    long last = (hourVal[lastHour] > 0) ? hourVal[lastHour] : 0;
+    last += diff;
+    hourVal[lastHour] = (last < 0) ? 0 : last;
+}
+
 // 10-min block of the production day that holds a given local clock time, plus
 // the epoch of that day's start. The block index runs 0..143 from the
 // day-boundary hour (same ordering as the .chart columns and the OEE timeline

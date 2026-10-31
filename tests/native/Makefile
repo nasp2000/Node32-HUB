@@ -521,8 +521,8 @@ test_proximity_oee_csv$(BIN_EXT): test_proximity_oee_csv.cpp
 test_proximity_shiftbase$(BIN_EXT): test_proximity_shiftbase.cpp
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ test_proximity_shiftbase.cpp
 
-test_proximity_chart$(BIN_EXT): test_proximity_chart.cpp
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ test_proximity_chart.cpp
+test_proximity_chart$(BIN_EXT): test_proximity_chart.cpp $(STUBS_DIR)/Arduino.h $(STUBS_DIR)/ArduinoJson.h $(SRC_DIR)/sensors/proximity_manager.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_proximity_chart.cpp
 test_proximity_inactivity$(BIN_EXT): test_proximity_inactivity.cpp
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ test_proximity_inactivity.cpp
 # --- proximity_setup_routing: standalone reimpl (gate-OFF pulses -> setup_count) ---

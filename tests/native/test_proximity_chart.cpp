@@ -5,6 +5,14 @@
 #include <cstring>
 #include <cstdlib>
 
+// The hourly-total pin is tested against the REAL header (pure helper), so the
+// "the 8 counts of a turn add up to the turn total" rule cannot drift from a
+// local copy (HISTORIC 31-10-2026).
+#define ENABLE_PROXIMITY 1
+#include "Arduino.h"
+#include "ArduinoJson.h"
+#include "sensors/proximity_manager.h"
+
 // Standalone reimpl of proximityBuildHourlyChart's CSV row parsing + per-hour
 // accumulation, used to verify Bug 1 fix (last hour filled) AND Bug 2 fix
 // (delta attributed to the PREVIOUS sample's hour, not the current tick's hour,
@@ -56,6 +64,11 @@ static void parseLine(ChartState& st, const char* line, int startHour = 0, int d
                     if (isTick || isBoundary) {
                         long ch0 = strtol(c3 + 1, nullptr, 10);
                         int hour = (p[11] - '0') * 10 + (p[12] - '0');
+                        // Same rule as the firmware: the boundary snapshot that
+                        // OPENS the window (stamped :59 of the hour before the
+                        // turn) counts in the turn's first hour; the closing one
+                        // stays where it is stamped.
+                        if (isBoundary && hour == (startHour + 23) % 24) hour = startHour;
                         if (hour >= 0 && hour <= 23 && st.prevIn >= 0 && st.prevHour >= 0) {
                             long delta = ch0 - st.prevIn;
                             int attrHour = st.prevHour;
@@ -513,4 +526,81 @@ TEST_CASE("Bug2+: triple tick at shift-end hour stays in last hour") {
     CHECK(st.hourVal[22] == 17500);
     // Hour 21 keeps its own production (21:00->21:30 delta = 17500).
     CHECK(st.hourVal[21] > 0);
+}
+
+// ===== 31-10-2026: first bucket of a turn + the 8 counts must add up =====
+// Owner rule: for a turn 15H-23H the first hourly count is 16H (production
+// 15:00-16:00) and the last is 23H (22:00-23:00), and the 8 counts add up to
+// the turn total.
+TEST_CASE("turn start: the opening shift_boundary credits the FIRST hour (15H-23H -> 16H)") {
+    ChartState st;
+    memset(&st, 0, sizeof(st));
+    st.prevIn = -1; st.prevHour = -1;
+    for (int h = 0; h < 24; h++) st.hourVal[h] = -1;
+
+    // Turn 15H-23H: previous turn closes at 14:59 (boundary snapshot), then the
+    // first tick of the new turn at 15:30 and the next at 16:00.
+    parseLine(st, "2026-10-30 14:59:00,shift_boundary,,1000,0,0.0,0,0,0", 15, 8);
+    parseLine(st, "2026-10-30 15:30:00,tick,,5000,0,0.0,0,0,0", 15, 8);
+    parseLine(st, "2026-10-30 16:00:00,tick,,6000,0,0.0,0,0,0", 15, 8);
+    // 15:00-16:00 = 4000 + 1000 -> column 16H (hour 15). Before the fix this
+    // whole delta landed on hour 14 (outside the window) and vanished.
+    CHECK(st.hourVal[15] == 5000);
+    CHECK(st.hourVal[14] == -1);
+    CHECK(st.prevHour == 16);   // last parsed sample (16:00 tick)
+}
+
+TEST_CASE("turn end: the closing shift_boundary stays in the turn's LAST hour") {
+    ChartState st;
+    memset(&st, 0, sizeof(st));
+    st.prevIn = 4000; st.prevHour = 22;
+    for (int h = 0; h < 24; h++) st.hourVal[h] = -1;
+
+    // 22:59 closing boundary of a 22H-06H turn: hour 5 is the last window hour,
+    // so it must NOT be bumped to 6 (that would leave 06H empty).
+    parseLine(st, "2026-10-30 05:59:00,shift_boundary,,9000,0,0.0,0,0,0", 22, 8);
+    CHECK(st.hourVal[22] == 5000);   // delta 9000-4000 on the previous hour
+    CHECK(st.hourVal[5] == -1);
+    CHECK(st.prevHour == 5);
+}
+
+TEST_CASE("proxPinHourlyTotal: residual goes to the LAST hour, sum == total") {
+    long hv[24];
+    for (int h = 0; h < 24; h++) hv[h] = -1;
+    // Turn 15H-23H (columns 16H..23H = hours 15..22): 30-10 turn 3 measured.
+    // The turn total is 88 190 while the columns add to 88 180 (reboot/boundary
+    // anchoring): the +10 must land on 23H, never be spread or lost.
+    const long cols[8] = {9040, 14660, 10300, 13750, 13180, 7910, 3930, 15410};
+    long base = 0;
+    for (int k = 0; k < 8; k++) { hv[15 + k] = cols[k]; base += cols[k]; }
+    CHECK(base == 88180);
+    proxPinHourlyTotal(hv, 15, 8, 88190);
+    CHECK(hv[22] == 15410 + 10);                   // last hour absorbs it
+    long sum = 0;
+    for (int k = 0; k < 8; k++) sum += hv[15 + k];
+    CHECK(sum == 88190);
+}
+
+TEST_CASE("proxPinHourlyTotal: exact sum is untouched, empty/negative are safe") {
+    long hv[24];
+    for (int h = 0; h < 24; h++) hv[h] = -1;
+    hv[6] = 12010; hv[7] = 16000;
+    proxPinHourlyTotal(hv, 6, 2, 28010);           // already exact
+    CHECK(hv[6] == 12010);
+    CHECK(hv[7] == 16000);
+    proxPinHourlyTotal(hv, 6, 2, 0);               // no total = no-op
+    CHECK(hv[7] == 16000);
+    // Residual larger than the last column (a wholly missed hour) never goes
+    // negative: the column clamps at 0.
+    long hv2[24];
+    for (int h = 0; h < 24; h++) hv2[h] = -1;
+    hv2[6] = 100;
+    proxPinHourlyTotal(hv2, 6, 2, 50);
+    CHECK(hv2[7] == 0);
+    // -1 (no sample) counts as 0 when summing.
+    long hv3[24];
+    for (int h = 0; h < 24; h++) hv3[h] = -1;
+    hv3[6] = 1000;
+    proxPinHourlyTotal(hv3, 6, 2, 1200);
+    CHECK(hv3[7] == 200);
 }

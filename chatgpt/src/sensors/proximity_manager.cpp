@@ -2077,13 +2077,6 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
 
     long prevIn = -1;
     int  prevHour = -1;
-    long prevPrevIn = -1;   // ch0 of the tick BEFORE the last one (for closing the last hour)
-    int  prevPrevHour = -1; // hour of the tick BEFORE the last one
-    long lastCh0 = -1;   // ch0 of the most recent tick (for closing the last hour)
-    int  lastHour = -1;  // hour of the most recent tick
-    long boundaryDelta = -1;  // delta that crosses into lastShiftHour (for double-tick fix)
-    int  boundaryFromHour = -1; // hour the boundary delta was attributed to
-    int lastShiftHour = (startHour + durHours - 1) % 24;
     char* line = buf;
     while (line && *line) {
         char* nl = strchr(line, '\n');
@@ -2107,6 +2100,18 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
                             if (isTick || isBoundary) {
                                 long ch0 = strtol(c3 + 1, nullptr, 10);
                                 int hour = (p[11] - '0') * 10 + (p[12] - '0');
+                                // The shift_boundary snapshot that OPENS this
+                                // window is stamped one minute before the turn
+                                // (14:59 for the 15H-23H turn) and marks the
+                                // START of the turn, so it counts in the turn's
+                                // first hour. Without this the delta that follows
+                                // (14:59 -> 15:30) is credited to the PREVIOUS
+                                // hour — outside the window — and the turn's
+                                // first bucket (16H) silently lost the whole
+                                // first hour (HISTORIC 31-10-2026: -4.2k to
+                                // -6.4k pcs per turn). A boundary stamped like
+                                // the closing one (05:59 for 22H-06H) stays put.
+                                if (isBoundary && hour == (startHour + 23) % 24) hour = startHour;
                                 if (hour >= 0 && hour <= 23 && prevIn >= 0 && prevHour >= 0) {
                                     long delta = ch0 - prevIn;
                                     int attrHour = prevHour;
@@ -2118,26 +2123,16 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
                                         // the previous row's hour when charted, else
                                         // to the current row's hour, so the first
                                         // partial hour after a reset is counted
-                                        // instead of silently dropped. A reset flush
-                                        // is already in its final hour: it is NOT
-                                        // recorded for the close-last-hour move below
-                                        // (hourVal[prevHour] never held it).
+                                        // instead of silently dropped.
                                         delta = ch0;
                                         attrHour = _proxHourInWindow(prevHour, startHour, durHours)
                                             ? prevHour : hour;
-                                    } else if (hour == lastShiftHour && prevHour != lastShiftHour && prevHour >= 0) {
-                                        boundaryDelta = delta;
-                                        boundaryFromHour = prevHour;
                                     }
                                     if (hourVal[attrHour] < 0) hourVal[attrHour] = 0;
                                     hourVal[attrHour] += delta;
                                 }
-                                prevPrevIn = prevIn;
-                                prevPrevHour = prevHour;
                                 prevIn = ch0;
                                 prevHour = (hour >= 0 && hour <= 23) ? hour : prevHour;
-                                lastCh0 = ch0;
-                                lastHour = (hour >= 0 && hour <= 23) ? hour : lastHour;
                             }
                         }
                     }
@@ -2145,37 +2140,6 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
             }
         }
         line = nl ? (nl + 1) : nullptr;
-    }
-    // Close the last hour correctly (shift-end flush re-credited to the last
-    // shift hour so it is never reported as 0). Skipped when the final pair
-    // spanned several buckets: the gap-aware distribution above already
-    // credited every hour it covered, so moving it again would double-count.
-    if (lastHour >= 0 && prevPrevHour >= 0) {
-        if (boundaryDelta >= 0 && boundaryFromHour >= 0
-                && boundaryFromHour != lastShiftHour) {
-            int hourDiff = (lastShiftHour - boundaryFromHour + 24) % 24;
-            if (hourDiff == 1) {
-                if (hourVal[boundaryFromHour] >= boundaryDelta) hourVal[boundaryFromHour] -= boundaryDelta;
-                else hourVal[boundaryFromHour] = 0;
-                if (hourVal[lastShiftHour] < 0) hourVal[lastShiftHour] = 0;
-                hourVal[lastShiftHour] += boundaryDelta;
-            }
-        }
-        if (prevPrevIn >= 0 && lastCh0 >= 0) {
-            long delta = lastCh0 - prevPrevIn;
-            if (delta < 0) delta = 0;
-            if (prevPrevHour != lastShiftHour && delta > 0) {
-                bool alreadyMoved = (boundaryDelta >= 0
-                                     && prevPrevHour == boundaryFromHour
-                                     && delta == boundaryDelta);
-                if (!alreadyMoved) {
-                    if (hourVal[prevPrevHour] >= delta) hourVal[prevPrevHour] -= delta;
-                    else hourVal[prevPrevHour] = 0;
-                    if (hourVal[lastShiftHour] < 0) hourVal[lastShiftHour] = 0;
-                    hourVal[lastShiftHour] += delta;
-                }
-            }
-        }
     }
     heap_caps_free(buf);
 
@@ -2264,7 +2228,18 @@ static void _proxWriteWeeklyOee(int8_t endedShift, int startHour, int durHours,
 
     long hourVal[24];
     for (int h = 0; h < 24; h++) hourVal[h] = -1;
-    _proxReadHourlyCounts(csvPath, startHour, durHours, hourVal, nullptr);
+    bool hourlyOk = _proxReadHourlyCounts(csvPath, startHour, durHours, hourVal, nullptr);
+    // Unpinned CSV sum FIRST: the caller cross-checks it against the live counter
+    // delta to detect a mid-shift reboot with lost baselines, so it must see the
+    // real CSV total (the pin below would always make them equal).
+    uint32_t csvRawTotal = 0;
+    for (int k = 0; k < durHours; k++) {
+        int h = (startHour + k) % 24;
+        if (hourVal[h] > 0) csvRawTotal += (uint32_t)hourVal[h];
+    }
+    // Owner rule: the 8 hour counts of the turn add up to the turn total (same
+    // pin as the shift email) — the residual goes to the turn-end hour.
+    if (hourlyOk) proxPinHourlyTotal(hourVal, startHour, durHours, shiftPiecesDI1);
 
     // Turn number rotated so the day-boundary turn is Turno 1 (same as the
     // shift-end CSV marker and the frontend label).
@@ -2303,10 +2278,10 @@ static void _proxWriteWeeklyOee(int8_t endedShift, int startHour, int durHours,
         storNoteSdWrite(proxWkEnd > proxWkStart ? proxWkEnd - proxWkStart : 0);
         sdMutexUnlock();
     }
-    // CSV-derived shift total (unpinned hourly sum, same source as the email
+    // CSV-derived shift total (UNPINNED hourly sum, same source as the email
     // chart): the caller cross-checks it against the live counter delta to
     // detect a mid-shift reboot with lost baselines.
-    if (csvTotalOut) *csvTotalOut = runningTotal;
+    if (csvTotalOut) *csvTotalOut = csvRawTotal;
 #else
     (void)endedShift; (void)startHour; (void)durHours;
     (void)shiftPiecesDI1; (void)shiftAvailDI1; (void)shiftPerfDI1; (void)shiftQualDI1;
@@ -2338,6 +2313,15 @@ String proximityBuildHourlyChart(const String& csvPath, int startHour, int durHo
     for (int h = 0; h < 24; h++) hourVal[h] = -1; // -1 = no sample for that hour
     uint32_t chartTotal = 0;
     if (!_proxReadHourlyCounts(csvPath, startHour, durHours, hourVal, &chartTotal)) return chart;
+    // Owner rule (2026-10-31): the columns of a turn MUST add up to the turn
+    // total — pin the residual (a few pcs of boundary/reboot anchoring) on the
+    // last hour instead of showing a breakdown that does not sum to `pieces`.
+    proxPinHourlyTotal(hourVal, startHour, durHours, totalPieces);
+    chartTotal = 0;
+    for (int k = 0; k < durHours; k++) {
+        int h = (startHour + k) % 24;
+        if (hourVal[h] > 0) chartTotal += (uint32_t)hourVal[h];
+    }
     if (chartTotalOut) *chartTotalOut = chartTotal;
 
     int nCols = durHours > 24 ? 24 : durHours;

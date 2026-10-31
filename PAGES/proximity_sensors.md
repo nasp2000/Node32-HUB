@@ -306,8 +306,22 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
   tick-to-tick delta means the counter was reset (shift auto-reset, manual
   reset, reboot without restore): `ch0` is then counted as production since the
   reset (previous charted hour, else current hour) instead of clamped to 0, so
-  the first partial hour after a reset is no longer silently dropped. At shift
-  end the live counter delta is cross-checked against the CSV hourly sum
+  the first partial hour after a reset is no longer silently dropped. The
+  `shift_boundary` snapshot that **opens** the window is stamped one minute
+  before the turn (`14:59` for the `15H–23H` turn) and counts in the turn's
+  **first hour**, so the first column really holds that hour (owner rule
+  2026-10-31: first count = 16H for a 15H–23H turn, last = 23H). Before that it
+  was credited to the previous hour — outside the window — and the turn silently
+  lost its whole first hour (measured 31-10-2026: −4 260 / −4 250 pcs per turn,
+  07H showed 6 730 instead of 12 010). The old "boundary double-tick" re-credit
+  was removed with it: with exact attribution there is nothing to move, and it
+  was shifting one already-correct delta from 21H to 22H (21H 2 650 vs 3 930 on
+  30-10). **The 8 columns of a turn add up to the turn total** (owner rule): the
+  residual between the CSV columns and the live counter delta (boundary
+  rounding, the daily 22:00 reboot restoring the counter a few pulses low) is
+  pinned on the turn-end column by `proxPinHourlyTotal()` instead of leaving a
+  breakdown that does not sum. At shift end the live counter delta is
+  cross-checked against the CSV hourly sum
   (`_proxWriteWeeklyOee()` out-param): CSV higher by >10%+500 pcs ⇒ WARN on
   Serial/monitor + a `NOTE:` line in the email body (mid-shift reboot with lost
   baselines — header numbers partial, chart already full). **No interpolation
@@ -485,6 +499,9 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
   writes hours 7..14),
   `count_hour` is the pieces attributed to that hour (parsed by the shared
   `_proxReadHourlyCounts()` from the daily CSV — same source as the email chart),
+  and the **8 rows of a turn add up to the turn total**: the residual between the
+  CSV columns and the live delta is pinned on the turn-end row by
+  `proxPinHourlyTotal()` (owner rule 2026-10-31),
   `total` accumulates across the shift hours and the last row is pinned to the
   real shift-end total (`shiftPiecesDI1`), `scrap`/`setup`/`a`/`p`/`q`/`oee` are the shift-end
   snapshot values (availability/performance/quality/oee) repeated per hour, and the
