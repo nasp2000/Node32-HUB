@@ -483,13 +483,13 @@ R"GRBL(
         return apiGet(url)
           .then(function(data) {
             if (!data || data.success !== true) {
-              if (!silent) showAlert('&#10060; ' + wtSafe('grblStatusFail', 'Failed to fetch status.'));
+              if (!silent) showAlert('❌ ' + wtSafe('grblStatusFail', 'Failed to fetch status.'));
               return;
             }
             renderStatus(data);
           })
           .catch(function(err) {
-            if (!silent) showAlert('&#10060; ' + wtSafe('grblStatusConnFail', 'Connection to GRBL lost.'));
+            if (!silent) showAlert('❌ ' + wtSafe('grblStatusConnFail', 'Connection to GRBL lost.'));
           });
       }
 

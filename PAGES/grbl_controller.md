@@ -291,8 +291,8 @@ missing from both files** (fall back to English) — see findings.
 
 | # | Finding | Severity | Suggested fix |
 |---|---|---|---|
-| 1 | **Mojibake fallbacks**: `'âœ…'` (✅) and `'â€œ'` (❌) in `wtSafe` fallbacks / `showAlert` prefixes (visible when the i18n key is missing). | Medium | Fix the corrupted UTF-8 in `grbl_actions.h:250,276,437,447,458,461`, `grbl_light.h:390`. |
-| 2 | **`\u{…}` escapes in HTML** (e.g. `\u{1F4F1}`) render literally until `data-i18n` replaces text; the rotate-warning emoji (line 4 of `grbl_html_shell.h`) has **no** `data-i18n` and always shows the raw escape. | Low | Use real emoji literals or escape properly. |
+| 1 | **Mojibake fallbacks** (✅/❌ appearing as `âœ…`/`â€œ`) in `wtSafe` fallbacks / `showAlert` prefixes. | Fixed (2026-11-01) | Real UTF-8 emoji restored in `grbl_actions.h`, `grbl_light.h`. |
+| 2 | **`\u{…}` and `&#…;` escapes shown literally**: numeric entities in `grbl_*.h` (`&#128202; Preview`, `&#9654; Start`, …) and `\u{1F4F1}` in HTML rendered as raw text; the rotate-warning emoji had no `data-i18n` to replace it. | Fixed (2026-11-01) | All 130 numeric entities replaced by real UTF-8; the 7 HTML-context `\u{…}` escapes replaced by emoji (`grbl_html_shell.h`). `auto_js.h` now decodes numeric entities (≥ U+2000) in i18n strings, so a stale `ui_lang_cache` can no longer show `&#…;` as text. |
 | 3 | **28 i18n keys missing from both lang files** (`grbl2dCapped`, `grbl2dEmpty`, `grblHeightMap*`, `grblPreview*`, `grblSdLoadWorkspace`, `grblToolChangeLbl`, `grblUploadFile`, `grblViewMode*`, `grblTip*`, …). | Low | Add to `lang_en_ui.h`/`lang_pt_ui.h` (kept in sync). |
 | 4 | **Dead DOM refs / orphaned controls**: `grbl_poll_ms`, `btn_apply_poll`+`applyPollInterval()`, `grbl_step`, `grbl_sent`/`grbl_received`, `btn_backplot_toggle`, `btn_3d_proj`/`btn_3d_motion`, `grbl_local_file` — the UI was rewritten (queue/poll/backplot controls removed) but handlers remain. | Low | Remove or re-wire. |
 | 5 | **Registered-but-unused APIs**: `/api/grbl/queue-start`, `queue-stop`, `events` (SSE), `auto-detect-baud`, `probe-grid` GET, `height-map` GET, `debug` — no UI caller. | Low | Keep for external clients or drop. |

@@ -218,7 +218,7 @@ R"GRBL(
                 if (result) {
                   _doRunFrameWithBounds(result);
                 } else {
-                  showAlert('&#9888;&#65039; ' + wtSafe('grblFrameNoPath', 'No local path loaded to calculate frame.'));
+                  showAlert('⚠️ ' + wtSafe('grblFrameNoPath', 'No local path loaded to calculate frame.'));
                 }
               });
               return; // async, will call _doRunFrameWithBounds when done
@@ -229,7 +229,7 @@ R"GRBL(
         }
 
         if (!b) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblFrameNoPath', 'No local path loaded to calculate frame.'));
+          showAlert('⚠️ ' + wtSafe('grblFrameNoPath', 'No local path loaded to calculate frame.'));
           return;
         }
         _doRunFrameWithBounds(b);
@@ -281,7 +281,7 @@ R"GRBL(
 
         waitMachineIdle(15000, function(ok) {
           if (!ok) {
-            showAlert('&#9888;&#65039; ' + wtSafe('grblFrameNotIdle', 'Machine is not idle. Frame aborted.'));
+            showAlert('⚠️ ' + wtSafe('grblFrameNotIdle', 'Machine is not idle. Frame aborted.'));
             return;
           }
           postBatch([
@@ -298,7 +298,7 @@ R"GRBL(
           ], 'FRAME').finally(function() {
             waitMachineIdle(600000, function(ok2) {
               if (!ok2) {
-                showAlert('&#9888;&#65039; ' + wtSafe('grblFrameReturnTimeout', 'Frame finished but the machine did not return to idle. Return to center skipped.'));
+                showAlert('⚠️ ' + wtSafe('grblFrameReturnTimeout', 'Frame finished but the machine did not return to idle. Return to center skipped.'));
                 return;
               }
               _jogWithToolOff('G90 G21 G1 X' + centerX + ' Y' + centerY + ' F' + feedStr, 'FRAME CENTER');
@@ -392,7 +392,7 @@ R"GRBL(
           if (typeof showSavedCard === 'function') showSavedCard();
           logLine('MACROS SAVED');
         } catch (e) {
-          showAlert('&#10060; ' + wtSafe('grblMacroSaveFailed', 'Failed to save macro.'));
+          showAlert('❌ ' + wtSafe('grblMacroSaveFailed', 'Failed to save macro.'));
           logLine('MACRO SAVE ERR');
         }
       }

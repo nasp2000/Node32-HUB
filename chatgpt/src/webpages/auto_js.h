@@ -910,6 +910,13 @@ function initSdcardPage(){
             return parsed&&typeof parsed==='object'?parsed:null;
         }catch(e){ return null; }
     }
+    // Decode numeric HTML entities (>= U+2000 only: emoji/symbols). Old firmware
+    // and stale localStorage caches stored them as text, which showed up
+    // literally on the page (e.g. "&#128202; Preview").
+    function decEnt(v){
+        if(typeof v!=='string'||v.indexOf('&#')<0) return v;
+        return v.replace(/&#(\d+);/g,function(m,n){var c=parseInt(n,10);return (c>=8192)?String.fromCodePoint(c):m;});
+    }
     function applyI18nMap(strings,langCode){
         if(!strings) return false;
         window._lang = strings;
@@ -917,12 +924,13 @@ function initSdcardPage(){
 document.querySelectorAll('[data-i18n],[data-i18n-html]').forEach(function(el){
             var k=el.getAttribute('data-i18n')||el.getAttribute('data-i18n-html');
             if(strings[k]===undefined) return;
-            if(el.hasAttribute('data-i18n-html')) el.innerHTML=strings[k];
-            else el.textContent=strings[k];
+            var val=decEnt(strings[k]);
+            if(el.hasAttribute('data-i18n-html')) el.innerHTML=val;
+            else el.textContent=val;
         });
         document.querySelectorAll('[data-i18n-title]').forEach(function(el){
             var k=el.getAttribute('data-i18n-title');
-            if(k && strings[k]!==undefined) el.setAttribute('title',strings[k]);
+            if(k && strings[k]!==undefined) el.setAttribute('title',decEnt(strings[k]));
         });
         setI18nReady(true);
         return true;

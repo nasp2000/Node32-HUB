@@ -18,12 +18,12 @@ R"GRBL(
             } else if (msg === 'line_coding_transfer_failed' || msg === 'line_coding_submit_failed' || msg === 'line_coding_sync_failed' || msg === 'line_coding_device_unmounted' || msg === 'line_coding_device_inactive' || msg === 'line_coding_lock_timeout' || msg === 'line_coding_lock_missing' || msg === 'line_coding_failed') {
               shownMsg = wtSafe('grblUsbErrApplyFailed', 'Failed to apply USB-CDC baud on this adapter.');
             }
-            if (!silent) showAlert('&#10060; ' + shownMsg);
+            if (!silent) showAlert('❌ ' + shownMsg);
             logLine('ERR ' + url + ' ' + msg);
             return false;
           })
           .catch(function() {
-            if (!silent) showAlert('&#10060; ' + wtSafe('grblConnFailed', 'Connection failed.'));
+            if (!silent) showAlert('❌ ' + wtSafe('grblConnFailed', 'Connection failed.'));
             logLine('ERR ' + url);
             return false;
           });
@@ -44,7 +44,7 @@ R"GRBL(
               logLine('token expired, refreshing...');
               return fetchControlToken().then(function(ok) {
                 if (!ok) {
-                  if (!silent) showAlert('&#10060; ' + wtSafe('grblTokenExpired', 'Control token expired. Reconnect and try again.'));
+                  if (!silent) showAlert('❌ ' + wtSafe('grblTokenExpired', 'Control token expired. Reconnect and try again.'));
                   return false;
                 }
                 return postActionOnce(url, payload, onOkLog, silent);
@@ -60,12 +60,12 @@ R"GRBL(
             } else if (msg === 'line_coding_transfer_failed' || msg === 'line_coding_submit_failed' || msg === 'line_coding_sync_failed' || msg === 'line_coding_device_unmounted' || msg === 'line_coding_device_inactive' || msg === 'line_coding_lock_timeout' || msg === 'line_coding_lock_missing' || msg === 'line_coding_failed') {
               shownMsg = wtSafe('grblUsbErrApplyFailed', 'Failed to apply USB-CDC baud on this adapter.');
             }
-            if (!silent) showAlert('&#10060; ' + shownMsg);
+            if (!silent) showAlert('❌ ' + shownMsg);
             logLine('ERR ' + url + ' ' + msg);
             return false;
           })
           .catch(function() {
-            if (!silent) showAlert('&#10060; ' + wtSafe('grblConnFailed', 'Connection failed.'));
+            if (!silent) showAlert('❌ ' + wtSafe('grblConnFailed', 'Connection failed.'));
             logLine('ERR ' + url);
             return false;
           });
@@ -117,7 +117,7 @@ R"GRBL(
         }
 
         if (!cmd) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblEmptyCmd', 'Enter a command to send.'));
+          showAlert('⚠️ ' + wtSafe('grblEmptyCmd', 'Enter a command to send.'));
           return;
         }
         setCommandMode('manual');
@@ -131,11 +131,11 @@ R"GRBL(
         var path = String(state.selectedSdPath || '').trim();
         path = path.trim();
         if (!path) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblSdPickFileFirst', 'Select a G-code file first.'));
+          showAlert('⚠️ ' + wtSafe('grblSdPickFileFirst', 'Select a G-code file first.'));
           return;
         }
         if (state.selectedSdType === 'dir') {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblSdPickFileFirst', 'Select a G-code file first.'));
+          showAlert('⚠️ ' + wtSafe('grblSdPickFileFirst', 'Select a G-code file first.'));
           return;
         }
 
@@ -177,7 +177,7 @@ R"GRBL(
             var ranges = (pv.lightPreview && pv.lightPreview.contourRanges) || [];
             var src = String(state.workspaceText || '');
             if (!src) {
-              showAlert('&#9888;&#65039; ' + wtSafe('grblSdLoadWorkspace', 'Load a file to the workspace first.'));
+              showAlert('⚠️ ' + wtSafe('grblSdLoadWorkspace', 'Load a file to the workspace first.'));
               return;
             }
             var anyEnabled = false;
@@ -185,7 +185,7 @@ R"GRBL(
               if (!disabled[ai]) { anyEnabled = true; break; }
             }
             if (!anyEnabled) {
-              showAlert('&#9888;&#65039; ' + (wtSafe('grblContourAllDisabled', 'All contours are disabled. Nothing to run.') || 'All contours are disabled. Nothing to run.'));
+              showAlert('⚠️ ' + (wtSafe('grblContourAllDisabled', 'All contours are disabled. Nothing to run.') || 'All contours are disabled. Nothing to run.'));
               return;
             }
             var filteredText = filterContoursPreserveCoords(src, ranges, disabled);
@@ -256,7 +256,7 @@ R"GRBL(
         var baudRaw = byId('grbl_usb_baud') ? byId('grbl_usb_baud').value : '115200';
         var baud = parseInt(baudRaw || '0', 10);
         if (isNaN(baud) || baud <= 0) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblUsbBaudInvalid', 'Invalid baud.'));
+          showAlert('⚠️ ' + wtSafe('grblUsbBaudInvalid', 'Invalid baud.'));
           return;
         }
 
@@ -295,11 +295,11 @@ R"GRBL(
         var step = parseFloat(stepRaw);
         var feed = parseInt(feedRaw, 10);
         if (isNaN(step) || step <= 0) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblInvalidJogStep', 'Invalid jog step value.'));
+          showAlert('⚠️ ' + wtSafe('grblInvalidJogStep', 'Invalid jog step value.'));
           return;
         }
         if (isNaN(feed) || feed <= 0) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblInvalidFeed', 'Invalid feed rate.'));
+          showAlert('⚠️ ' + wtSafe('grblInvalidFeed', 'Invalid feed rate.'));
           return;
         }
 
@@ -315,11 +315,11 @@ R"GRBL(
         var step = parseFloat(stepRaw);
         var feed = parseInt(feedRaw, 10);
         if (isNaN(step) || step <= 0) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblInvalidJogStep', 'Invalid jog step value.'));
+          showAlert('⚠️ ' + wtSafe('grblInvalidJogStep', 'Invalid jog step value.'));
           return;
         }
         if (isNaN(feed) || feed <= 0) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblInvalidFeed', 'Invalid feed rate.'));
+          showAlert('⚠️ ' + wtSafe('grblInvalidFeed', 'Invalid feed rate.'));
           return;
         }
         var xs = (xDir < 0 ? '-' : '') + String(step);
@@ -332,7 +332,7 @@ R"GRBL(
         var feedRaw = byId('grbl_feed') ? byId('grbl_feed').value : '0';
         var feed = parseInt(feedRaw, 10);
         if (isNaN(feed) || feed <= 0) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblInvalidFeed', 'Invalid feed rate.'));
+          showAlert('⚠️ ' + wtSafe('grblInvalidFeed', 'Invalid feed rate.'));
           return;
         }
         var mt = state.maxTravel || {};
@@ -392,7 +392,7 @@ R"GRBL(
       function runAutoProbeZZero() {
         var data = state.lastStatus || {};
         if (data && data.probe_triggered) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblProbeAlreadyTriggered', 'Probe is already triggered. Check connection/plate before starting.'));
+          showAlert('⚠️ ' + wtSafe('grblProbeAlreadyTriggered', 'Probe is already triggered. Check connection/plate before starting.'));
           return;
         }
 
@@ -404,27 +404,27 @@ R"GRBL(
         var slowDist = parseFloat(byId('grbl_probe_slow_dist') ? byId('grbl_probe_slow_dist').value : '0');
 
         if (!isFinite(plate) || plate <= 0 || plate > 50) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblProbeInvalidPlate', 'Invalid plate thickness.'));
+          showAlert('⚠️ ' + wtSafe('grblProbeInvalidPlate', 'Invalid plate thickness.'));
           return;
         }
         if (!isFinite(retract) || retract <= 0 || retract > 20) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblProbeInvalidRetract', 'Invalid retract.'));
+          showAlert('⚠️ ' + wtSafe('grblProbeInvalidRetract', 'Invalid retract.'));
           return;
         }
         if (!isFinite(fastFeed) || fastFeed < 20 || fastFeed > 2000) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblProbeInvalidFastFeed', 'Invalid fast feed.'));
+          showAlert('⚠️ ' + wtSafe('grblProbeInvalidFastFeed', 'Invalid fast feed.'));
           return;
         }
         if (!isFinite(slowFeed) || slowFeed < 5 || slowFeed > 600) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblProbeInvalidSlowFeed', 'Invalid slow feed.'));
+          showAlert('⚠️ ' + wtSafe('grblProbeInvalidSlowFeed', 'Invalid slow feed.'));
           return;
         }
         if (!isFinite(fastDist) || fastDist <= 0 || fastDist > 100) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblProbeInvalidFastDist', 'Invalid fast travel.'));
+          showAlert('⚠️ ' + wtSafe('grblProbeInvalidFastDist', 'Invalid fast travel.'));
           return;
         }
         if (!isFinite(slowDist) || slowDist <= 0 || slowDist > 20) {
-          showAlert('&#9888;&#65039; ' + wtSafe('grblProbeInvalidSlowDist', 'Invalid slow travel.'));
+          showAlert('⚠️ ' + wtSafe('grblProbeInvalidSlowDist', 'Invalid slow travel.'));
           return;
         }
 
