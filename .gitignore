@@ -127,11 +127,12 @@ tests/web/__pycache__/
 $RECYCLE.BIN/
 ehthumbs.db
 
-# GitHub Actions (disabled via .gitignore)
+# GitHub Actions (testes nativos + builds sempre no remoto, ordem Nuno 2026-11)
 .github/workflows/*
 !.github/workflows/build.yml
 !.github/workflows/codeql.yml
 !.github/workflows/release.yml
+!.github/workflows/test.yml
 
 # LGPL compliance materials — generated on demand by chatgpt/scripts/package_third_party.py
 third-party/
