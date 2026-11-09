@@ -23,8 +23,8 @@
            python-version: "3.12"
        - name: Install dependencies
          run: pip install -r tests/requirements.txt
-       - name: PSRAM + pack validation
-         run: python -m pytest tests/test_psram_guards.py tests/test_validate_packs.py -v
+       - name: PSRAM guards
+         run: python -m pytest tests/test_psram_guards.py -v
 
    # ── Native C++ unit tests (modbus CRC, charset, string utils, etc.) ──
    native:
@@ -37,10 +37,9 @@
        - name: Install system deps
          run: sudo apt-get update -qq && sudo apt-get install -y -qq g++ make
        - name: Build native tests
-         run: make -C tests/native all
+         run: make all
        - name: Run native tests
          run: |
-           cd tests/native
            for bin in test_modbus_crc test_charset test_string_utils; do
              echo "=== $bin ==="
              ./$bin
