@@ -151,7 +151,7 @@ static const char MQ135_CONFIG_PAGE[] PROGMEM = R"rawliteral(
                     <div>
                         <label style='font-size:13px;color:#94a3b8;display:block;margin-bottom:4px' data-i18n='mq135R0Label'>R0 — Clean Air Resistance (Ohm)</label>
                         <div style='display:flex;gap:6px'>
-                            <input type='number' id='r0Value' class='offset-input' style='max-width:120px;text-align:left;padding:6px' step='0.01' min='0.01' value='76.63' title='Clean air calibration reference (Ro)' data-i18n-title='mq135TipRo'>
+                            <input type='number' id='r0Value' class='offset-input' style='max-width:120px;text-align:left;padding:6px' step='1' min='1000' value='10400' title='Clean air calibration reference (Ro, Ohm)' data-i18n-title='mq135TipRo'>
                             <button id='btnCalibrateR0' class='btn' style='padding:6px 10px;font-size:12px;background:#7c3aed;border-color:#7c3aed;white-space:nowrap' data-i18n='mq135MeasureR0Btn' title='Calibrate Ro in clean air' data-i18n-title='mq135TipCalibrate'>📐 Measure Current R0</button>
                         </div>
                         <div style='font-size:11px;color:#94a3b8;margin-top:4px' data-i18n='mq135R0Hint'>Place the sensor in clean outdoor air for 24h+ before calibrating.</div>

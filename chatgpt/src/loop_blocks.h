@@ -239,6 +239,7 @@ static void handleSdRotationAndWebCleanup() {
     // Email queue processed by dedicated background task (Core 0)
     #endif
     flashAutoCleanupIfNeeded(); // LittleFS fallback cleanup (only acts without SD)
+    littlefsUsageTick();        // refresh cached FS usage (never from an HTTP handler)
     healthModuleAlive(HEALTH_ID_CONFIG);
 }
 

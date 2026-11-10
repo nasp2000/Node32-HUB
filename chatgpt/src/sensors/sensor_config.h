@@ -646,6 +646,41 @@ struct SensorHistory {
             fsp->mkdir(subDirPath);
         }
 
+        // Resume from the newest row already in today's file. Without this,
+        // every reboot re-appended the whole in-RAM ring to the same day file
+        // (last_periodic_flush_ts starts at 0, and the ring is seeded with the
+        // pre-reboot tail), so the day file accumulated duplicates.
+        if (last_periodic_flush_ts < dayStartTs) {
+            File rf = fsp->open(filename, FILE_READ);
+            if (rf && rf.size() > 40) {
+                const size_t sz = rf.size();
+                const size_t startAt = (sz > 192) ? (sz - 192) : 0;
+                rf.seek(startAt);
+                char tail[200];
+                size_t n = rf.read((uint8_t*)tail, sizeof(tail) - 1);
+                tail[n] = 0;
+                char* nl = strrchr(tail, '\n');
+                if (nl) {
+                    *nl = 0;
+                    char* line = strrchr(tail, '\n');
+                    line = line ? (line + 1) : tail;
+                    int Y = 0, M = 0, D = 0, hh = 0, mm = 0, ss = 0;
+                    if (sscanf(line, "%d-%d-%d %d:%d:%d", &Y, &M, &D, &hh, &mm, &ss) == 6) {
+                        struct tm lt;
+                        memset(&lt, 0, sizeof(lt));
+                        lt.tm_year = Y - 1900; lt.tm_mon = M - 1; lt.tm_mday = D;
+                        lt.tm_hour = hh; lt.tm_min = mm; lt.tm_sec = ss;
+                        lt.tm_isdst = -1;
+                        time_t t = mktime(&lt);
+                        if (t > 1000000000 && (uint32_t)t > last_periodic_flush_ts) {
+                            last_periodic_flush_ts = (uint32_t)t;
+                        }
+                    }
+                }
+            }
+            if (rf) rf.close();
+        }
+
         File file = fsp->open(filename, FILE_APPEND);
         if (!file) {
             Serial.printf("[SENSOR_HISTORY] periodicFlushToSD: cannot open %s\n", filename);
@@ -700,7 +735,12 @@ struct SensorHistory {
         uint32_t newestWritten = last_periodic_flush_ts;
         for (uint16_t i = 0; i < count; i++) {
             const HistoryPoint &pt = getPoint(i);
-            if (pt.timestamp > last_periodic_flush_ts) {
+            // Only points that belong to THIS day's file. After the 00:00 daily
+            // reboot the ring is seeded with pre-reboot samples and
+            // last_periodic_flush_ts is 0, so without the date gate the whole
+            // ring (~39 h) was appended to the new day's file and every daily
+            // file ended up spanning two days.
+            if (pt.timestamp > last_periodic_flush_ts && pt.timestamp >= dayStartTs) {
                 // Build CSV row with only enabled columns
                 char row[256];  // Extra size for up to 8 extra slot values
                 char *p = row;
@@ -1129,6 +1169,25 @@ struct SensorHistory {
     String listDailyFiles() const {
 #if ENABLE_SDCARD==1
         if (!sdcardShouldUseSD()) return buildFlashMergedDateList();
+        // Fast path: the deferred walk (sdcardLoop) already enumerated
+        // /sensor_history and collected the day folders, so this endpoint never
+        // scans the card (~2.3 s, blocked the whole web task).
+        {
+            int n = sdcardHistoryDateCount();
+            if (n > 0) {
+                String result = "[";
+                for (int i = 0; i < n; i++) {
+                    const char* d = sdcardHistoryDateAt(i);
+                    if (!d) continue;
+                    if (result.length() > 1) result += ',';
+                    result += '"';
+                    result += d;
+                    result += '"';
+                }
+                result += "]";
+                return result;
+            }
+        }
         if (!SD_MMC.exists("/sensor_history")) return buildBufferDateList();
 
         File root = SD_MMC.open("/sensor_history");

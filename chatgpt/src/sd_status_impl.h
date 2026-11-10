@@ -359,6 +359,13 @@ static void sdcardRefreshUsedBytesIfNeeded(bool force = false) {
     _sdLastUsedRefreshMs = now;
 }
 
+// Folder/file counter definitions live further down this file; forward-declare
+// so the main loop can drive them.
+void sdcardCountStart();
+void sdcardCountTick(unsigned long budgetMs);
+bool sdcardCountRunning();
+bool sdcardCountValid();
+
 void sdcardLoop() {
     static unsigned long lastMetricsUpdate = 0;
     static unsigned long lastAutoMountCheck = 0;
@@ -373,6 +380,23 @@ void sdcardLoop() {
         sdcardRefreshTotalBytesIfNeeded(false);
         sdcardRefreshUsedBytesIfNeeded(false);
         lastMetricsUpdate = now;
+    }
+
+    // Deferred folder/file count: resumable walk, 100 ms per second, restarted
+    // every 10 min. Keeps the ~20 s SD walk out of the HTTP task entirely.
+    static unsigned long lastCountStart = 0;
+    static unsigned long lastCountTick  = 0;
+    if (_sdMounted) {
+        const bool neverDone = !sdcardCountValid();
+        const bool expired   = (lastCountStart != 0) && (now - lastCountStart >= 600000UL);
+        if (!sdcardCountRunning() && (neverDone || expired)) {
+            sdcardCountStart();
+            lastCountStart = now;
+        }
+        if (sdcardCountRunning() && (now - lastCountTick >= 1000UL)) {
+            lastCountTick = now;
+            sdcardCountTick(100);
+        }
     }
     
     // 🔌 Hot-plug detection: check for card insertion every 30s (if enabled and not mounted)
@@ -601,4 +625,182 @@ void sdcardCountFoldersAndFiles(int &folderCount, int &fileCount, const char* pa
     sdcardCountUnlocked(folderCount, fileCount, path);
     sdMutexUnlock();
 }
+
+// ---------------------------------------------------------------------------
+// Deferred folder/file counter.
+//
+// The recursive walk above takes ~20 s on the live .24 card (251 dirs + 348
+// files, ~33 ms per SDMMC directory entry). Running it from /api/status froze
+// the whole web server (async_tcp) for that long every 2 min and held the SD
+// mutex, stalling logging too.
+//
+// This variant is resumable: each call advances at most `budgetMs` and locks
+// the SD mutex per entry, so the HTTP task never sees it and the SD stays
+// available to writers. It runs from sdcardLoop().
+// ---------------------------------------------------------------------------
+namespace sd_count_ns {
+
+constexpr int  PATH_LEN    = 72;
+constexpr long MAX_ENTRIES = 20000;   // pathological-card guard
+constexpr long MAX_PER_DIR = 4000;    // per-directory guard
+constexpr int  STACK_CAP   = 1024;    // pending directories (PSRAM, ~74 KB)
+
+struct WalkState {
+    // The pending list is a real stack: /sensor_history alone holds 106 day
+    // folders, so a small fixed array silently dropped every sibling past the
+    // cap (file counts came out ~10x low).
+    char (*stack)[PATH_LEN] = nullptr;
+    int  depth   = 0;
+    long entries = 0;
+    int  folders = 0;
+    int  files   = 0;
+    bool running = false;
+};
+
+// Day folders under /sensor_history, collected by the same walk so
+// /api/sensor-history-files does not have to scan the card per request
+// (that scan blocked the web task for ~2.3 s).
+constexpr int MAX_DATES = 400;
+static char histDates[MAX_DATES][11];      // published (last completed walk)
+static int  histDateCount = 0;
+static char buildDates[MAX_DATES][11];     // being collected by the running walk
+static int  buildDateCount = 0;
+
+
+static WalkState walk;
+static int  pubFolders = 0;
+static int  pubFiles   = 0;
+static bool pubValid   = false;
+
+static void finish() {
+    walk.running = false;
+    walk.depth = 0;
+    pubFolders = walk.folders;
+    pubFiles   = walk.files;
+    // Publish the date list atomically: readers keep the previous snapshot
+    // while a walk is in progress (a partial list would hide day files).
+    memcpy(histDates, buildDates, sizeof(char) * 11 * buildDateCount);
+    histDateCount = buildDateCount;
+    pubValid   = true;
+}
+
+static bool pushDir(const char* parent, const char* name) {
+    if (!walk.stack || walk.depth >= STACK_CAP) return false;
+    int n = snprintf(walk.stack[walk.depth], PATH_LEN, "%s%s%s",
+                     parent, (parent[0] && parent[strlen(parent) - 1] == '/') ? "" : "/", name);
+    if (n <= 0 || n >= PATH_LEN) return false;
+    walk.depth++;
+    return true;
+}
+
+// Advance the walk. One directory is always enumerated to completion (they are
+// small: a day folder holds 2-3 files) and the budget is checked between
+// directories, so no directory handle stays open across loop iterations — that
+// variant undercounted (openNextFile() state was lost between ticks).
+static bool step(unsigned long budgetMs) {
+    if (!walk.running) return false;
+    const unsigned long t0 = millis();
+
+    while (walk.running && (millis() - t0) < budgetMs) {
+        if (!_sdMounted) { finish(); return false; }
+        if (walk.depth == 0) { finish(); return false; }
+
+        // Take the SD lock BEFORE popping: if the card is busy (history flush,
+        // logging) the path must stay on the stack, otherwise that whole
+        // subtree is silently skipped and the counts come out short.
+        if (!sdMutexLock(pdMS_TO_TICKS(1000))) return true;  // busy: retry next tick
+        walk.depth--;
+        char curPath[PATH_LEN];
+        strncpy(curPath, walk.stack[walk.depth], PATH_LEN - 1);
+        curPath[PATH_LEN - 1] = 0;
+
+        File dir = SD_MMC.open(curPath);
+        if (!dir || !dir.isDirectory()) {
+            if (dir) dir.close();
+            sdMutexUnlock();
+            continue;
+        }
+
+        long perDir = 0;
+        while (perDir < MAX_PER_DIR) {
+            File entry = dir.openNextFile();
+            if (!entry) break;
+            bool isDir = entry.isDirectory();
+            String nm = entry.name();
+            int slash = nm.lastIndexOf('/');
+            String base = (slash >= 0) ? nm.substring(slash + 1) : nm;
+            entry.close();
+
+            walk.entries++;
+            perDir++;
+            if (isDir) {
+                walk.folders++;
+                if (!strcmp(curPath, "/sensor_history") && base.length() == 10 &&
+                    buildDateCount < MAX_DATES && base[4] == '-' && base[7] == '-') {
+                    strncpy(buildDates[buildDateCount], base.c_str(), 10);
+                    buildDates[buildDateCount][10] = 0;
+                    buildDateCount++;
+                }
+                pushDir(curPath, base.c_str());   // overflow: count only, do not descend
+            } else {
+                walk.files++;
+            }
+            if (walk.entries >= MAX_ENTRIES) break;
+        }
+        dir.close();
+        sdMutexUnlock();
+
+        if (walk.entries >= MAX_ENTRIES) { finish(); return false; }
+    }
+    return true;
+}
+
+} // namespace sd_count_ns
+
+// Start a fresh count (safe to call at any time; restarts if one is running).
+void sdcardCountStart() {
+    using namespace sd_count_ns;
+    if (!walk.stack) {
+        walk.stack = (char (*)[PATH_LEN])heap_caps_malloc((size_t)STACK_CAP * PATH_LEN, MALLOC_CAP_SPIRAM);
+        if (!walk.stack) {
+            // No PSRAM: skip the count rather than report wrong numbers.
+            walk.running = false;
+            return;
+        }
+    }
+    walk.depth = 0;
+    walk.entries = 0;
+    walk.folders = 0;
+    walk.files = 0;
+    buildDateCount = 0;   // rebuilt by this pass
+    if (!_sdMounted) { walk.running = false; return; }
+    pushDir("/", "");   // stack[0] = "/"
+    walk.running = true;
+}
+
+// Advance the background count. Call from the main loop (never from a handler).
+void sdcardCountTick(unsigned long budgetMs) {
+    sd_count_ns::step(budgetMs);
+}
+
+bool sdcardCountRunning() { return sd_count_ns::walk.running; }
+
+// Published (last completed) counts. Zero until the first walk completes.
+void sdcardCountGet(int &folderCount, int &fileCount) {
+    folderCount = sd_count_ns::pubFolders;
+    fileCount   = sd_count_ns::pubFiles;
+}
+
+bool sdcardCountValid() { return sd_count_ns::pubValid; }
+
+// Day folders collected during the last completed walk (see listDailyFiles).
+int sdcardHistoryDateCount() {
+    return sd_count_ns::pubValid ? sd_count_ns::histDateCount : 0;
+}
+
+const char* sdcardHistoryDateAt(int i) {
+    if (i < 0 || i >= sd_count_ns::histDateCount) return nullptr;
+    return sd_count_ns::histDates[i];
+}
+
 

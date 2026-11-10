@@ -50,7 +50,7 @@ const char PAGE_SDCARD[] PROGMEM = R"HTML(
         <h1 data-i18n='sdPageTitle'>&#128190; Configurar Armazenamento</h1>
         
         <div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:16px'>
-          <div id='sd_info' class='info-item mono' data-i18n='sdGettingStatus'>Getting status...</div>
+          <div id='sd_info' class='info-item mono'>Getting status...</div>
           <div style='margin-top:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;max-width:400px;margin-left:auto;margin-right:auto'>
                 <button type='button' class='btn' id='sd_mount' style='background:#2563eb;color:white;padding:10px 16px;font-size:13px;border:1px solid #2563eb;white-space:nowrap' data-i18n='sdMountBtn' title='Mount SD card' data-i18n-title='sdTipMount'>&#128194; Mount</button>
                 <button type='button' class='btn' id='sd_unmount' style='background:#1e40af;color:white;padding:10px 16px;font-size:13px;border:1px solid #1e40af;white-space:nowrap' data-i18n='sdUnmountBtn' title='Unmount SD card' data-i18n-title='sdTipUnmount'>&#128228; Unmount</button>
@@ -132,74 +132,114 @@ const char PAGE_SDCARD_PART2[] PROGMEM = R"HTML(
 function t(k,fb){try{if(typeof window._t==='function')return window._t(k,fb);var raw=localStorage.getItem('ui_lang_cache');if(raw){var p=JSON.parse(raw);if(p&&p[k]!==undefined)return p[k];}}catch(e){}return fb!==undefined?fb:k;}
 function initSdcardPage() {
   function byId(id) { return document.getElementById(id); }
+  function jget(url) {
+    return fetch(url, {cache: 'no-store', credentials: 'same-origin'}).then(function(r) {
+      return r.ok ? r.json() : null;
+    });
+  }
+  function jpost(url, obj) {
+    var body = Object.keys(obj).map(function(k) {
+      return encodeURIComponent(k) + '=' + encodeURIComponent(obj[k]);
+    }).join('&');
+    return fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: body,
+      credentials: 'same-origin'
+    }).then(function(r) { return r.json().catch(function() { return {success: false}; }); });
+  }
+  // flush_interval comes back as "10m"/"30m"/"60m"; the select uses ms.
+  function flushMsToValue(v) {
+    if (v === undefined || v === null || v === '') return undefined;
+    var s = String(v).trim().toLowerCase();
+    var n = parseInt(s, 10);
+    if (isNaN(n)) return undefined;
+    if (s.indexOf('h') >= 0) return String(n * 3600000);
+    if (s.indexOf('m') >= 0) return String(n * 60000);
+    return String(n);
+  }
+  function flushValueToInterval(v) {
+    var n = parseInt(v, 10);
+    if (isNaN(n)) return '30m';
+    if (n >= 3600000) return '60m';
+    if (n <= 600000) return '10m';
+    return '30m';
+  }
+  // Status from /api/sd-status; settings from /api/sdcard-config.
+  // (The old code used a page-local apiGet()/apiPost() that never existed ->
+  // ReferenceError, so #sd_info stayed on "Getting status..." forever, and
+  // Save/Mount/Unmount silently did nothing.)
   function refreshStatus() {
-    return apiGet('/api/sdcard-config')
-      .then(function(data) {
-        if (!data || data.success !== true) return;
-        var info = byId('sd_info');
-        if (info) {
-          var parts = [];
-          function fmtMB(b){return (b/1024/1024).toFixed(1)+' MB';}
-          if (data.storage_mode !== undefined) parts.push(data.storage_mode);
-          if (data.mounted !== undefined) parts.push(t('sdMounted','Mounted: ') + (data.mounted ? t('sdYes','Yes') : t('sdNo','No')));
-          if (data.total_mb !== undefined) parts.push(t('sdTotal','Total: ') + data.total_mb + ' MB');
-          if (data.free_mb !== undefined) parts.push(t('sdFree','Free: ') + data.free_mb + ' MB');
-          if (data.flash_total_bytes !== undefined) parts.push('Flash: ' + fmtMB(data.flash_used_bytes) + '/' + fmtMB(data.flash_total_bytes));
-          info.textContent = parts.join(' | ');
-        }
-        function setVal(id, val) {
-          var el = byId(id);
-          if (el && val !== undefined) el.value = String(val);
-        }
-        setVal('sd_write_pause_ms', data.write_pause_ms);
-        setVal('sd_active', data.active);
-        setVal('sd_format', data.format);
-        setVal('sd_email', data.email);
-        setVal('sd_cleanup_threshold', data.cleanup_threshold);
-        setVal('sd_keep_days', data.keep_days);
-      })
-      .catch(function() {});
+    var pStatus = jget('/api/sd-status').then(function(s) {
+      var info = byId('sd_info');
+      if (!info || !s) return;
+      function fmtMB(b) { return (b / 1048576).toFixed(1) + ' MB'; }
+      var parts = [];
+      if (s.storage_mode !== undefined) parts.push(s.storage_mode);
+      if (s.mounted !== undefined) parts.push(t('sdMounted', 'Mounted: ') + (s.mounted ? t('sdYes', 'Yes') : t('sdNo', 'No')));
+      if (s.total_bytes !== undefined) parts.push(t('sdTotal', 'Total: ') + fmtMB(s.total_bytes));
+      if (s.used_bytes !== undefined) parts.push(t('sdUsed', 'Used: ') + fmtMB(s.used_bytes));
+      if (s.flash_total_bytes !== undefined) parts.push('Flash: ' + fmtMB(s.flash_used_bytes) + '/' + fmtMB(s.flash_total_bytes));
+      info.textContent = parts.join(' | ');
+    }).catch(function() {});
+    var pCfg = jget('/api/sdcard-config').then(function(c) {
+      if (!c) return;
+      function setVal(id, val) {
+        var el = byId(id);
+        if (el && val !== undefined && val !== null) el.value = String(val);
+      }
+      setVal('sd_write_pause_ms', flushMsToValue(c.flush_interval));
+      setVal('sd_active', (c.enabled === true || c.enabled === 1) ? '1' : '0');
+      setVal('sd_format', c.format);
+      setVal('sd_email', (c.email_send === true || c.email_send === 1) ? '1' : '0');
+      setVal('sd_cleanup_threshold', c.cleanup_threshold);
+      setVal('sd_keep_days', c.keep_days);
+    }).catch(function() {});
+    return Promise.all([pStatus, pCfg]);
   }
   bindClick('sd_refresh', function() { refreshStatus(); });
   bindClick('sd_mount', function() {
-    apiPost('/api/sdcard-config-save', { mount: 1 })
+    jpost('/api/sd-action', { action: 'mount' })
       .then(function(data) {
-        if (data && data.success) customAlert('✅ ' + (data.message || t('sdMountedStatus','Mounted')));
-        else customAlert('❌ ' + (data && data.message ? data.message : t('sdErrGeneric','Error')));
+        if (data && (data.status === 'ok' || data.success)) customAlert('✅ ' + (data.message || t('sdMountedStatus', 'Mounted')));
+        else customAlert('❌ ' + (data && data.message ? data.message : t('sdErrGeneric', 'Error')));
         refreshStatus();
       })
-      .catch(function() { customAlert('❌ ' + t('sdErrMount','Error mounting')); });
+      .catch(function() { customAlert('❌ ' + t('sdErrMount', 'Error mounting')); });
   });
   bindClick('sd_unmount', function() {
     customConfirm(t('sdUnmountConfirm', 'Unmount the SD card?')).then(function(ok) {
       if (!ok) return;
-      apiPost('/api/sdcard-config-save', { unmount: 1 })
+      jpost('/api/sd-action', { action: 'unmount' })
         .then(function(data) {
-          if (data && data.success) customAlert('✅ ' + (data.message || t('sdUnmounted','Unmounted')));
-          else customAlert('❌ ' + (data && data.message ? data.message : t('sdErrGeneric','Error')));
+          if (data && (data.status === 'ok' || data.success)) customAlert('✅ ' + (data.message || t('sdUnmounted', 'Unmounted')));
+          else customAlert('❌ ' + (data && data.message ? data.message : t('sdErrGeneric', 'Error')));
           refreshStatus();
         })
-        .catch(function() { customAlert('❌ ' + t('sdErrUnmount','Error unmounting')); });
+        .catch(function() { customAlert('❌ ' + t('sdErrUnmount', 'Error unmounting')); });
     });
   });
   bindClick('sd_save', function() {
-    var btn=this;disableBtn(btn);showLoading();
+    var btn = this; disableBtn(btn); showLoading();
     var payload = {
-      write_pause_ms: byId('sd_write_pause_ms') ? byId('sd_write_pause_ms').value : '1800000',
-      active: byId('sd_active') ? byId('sd_active').value : '1',
+      // Keys must match handleSdcardConfigSavePost (flush_interval/enabled/
+      // email_send). The old write_pause_ms/active/email keys were ignored, so
+      // "Save" silently did nothing.
+      flush_interval: flushValueToInterval(byId('sd_write_pause_ms') ? byId('sd_write_pause_ms').value : ''),
+      enabled: byId('sd_active') ? byId('sd_active').value : '1',
       format: byId('sd_format') ? byId('sd_format').value : 'csv',
-      email: byId('sd_email') ? byId('sd_email').value : '1',
+      email_send: byId('sd_email') ? byId('sd_email').value : '1',
       cleanup_threshold: byId('sd_cleanup_threshold') ? byId('sd_cleanup_threshold').value : '70',
       keep_days: byId('sd_keep_days') ? byId('sd_keep_days').value : '0'
     };
-    apiPost('/api/sdcard-config-save', payload)
+    jpost('/api/sdcard-config-save', payload)
       .then(function(data) {
-        if (data && data.success) customAlert('✅ ' + t('sdConfigSaved','Configuration saved!'));
-        else customAlert('❌ ' + (data && data.message ? data.message : t('sdErrGeneric','Error')));
+        if (data && (data.success === true || data.status === 'ok')) customAlert('✅ ' + t('sdConfigSaved', 'Configuration saved!'));
+        else customAlert('❌ ' + (data && data.message ? data.message : t('sdErrGeneric', 'Error')));
         if (typeof showSavedCard === 'function') showSavedCard();
       })
-      .catch(function() { customAlert('❌ ' + t('sdErrSaving','Error saving')); })
-      .finally(function(){hideLoading();enableBtn(btn);});
+      .catch(function() { customAlert('❌ ' + t('sdErrSaving', 'Error saving')); })
+      .finally(function() { hideLoading(); enableBtn(btn); });
   });
   refreshStatus();
 }

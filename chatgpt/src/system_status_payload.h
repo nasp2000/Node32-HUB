@@ -434,17 +434,14 @@ inline void fillSystemStatusJson(JsonDocument& out, SystemStatusPayloadState& st
         out["sd_avg_writes_day"] = (unsigned long)(writeCountTotal / (uint64_t)storDaysTracked());
         out["sd_avg_bytes_day"] = (unsigned long)((bytesWrittenTotal / (uint64_t)storDaysTracked()));
 
-        // Cache SD folder/file counts — directory scan is expensive (10ms per entry).
-        // Rebuild at most once every 2 minutes to avoid blocking the HTTP task.
-        static int s_sdFolderCount = 0;
-        static int s_sdFileCount = 0;
-        static unsigned long s_sdCountCacheMs = 0;
-        if (millis() - s_sdCountCacheMs > 120000UL) {
-            sdcardCountFoldersAndFiles(s_sdFolderCount, s_sdFileCount);
-            s_sdCountCacheMs = millis();
-        }
-        out["sd_folder_count"] = s_sdFolderCount;
-        out["sd_file_count"] = s_sdFileCount;
+        // Folder/file counts come from the deferred walk (sdcardCountTick in
+        // sdcardLoop). Never scan the card here: the recursive walk blocked the
+        // web task ~20 s every 2 min on live .24.
+        int sdFolders = 0, sdFiles = 0;
+        sdcardCountGet(sdFolders, sdFiles);
+        out["sd_folder_count"] = sdFolders;
+        out["sd_file_count"] = sdFiles;
+        out["sd_count_ready"] = sdcardCountValid();
 
         out["sd_push_mutex_fail_count_rs232"] = getSdcardPushMutexFailCountRs232();
         out["sd_push_pointer_null_count_rs232"] = getSdcardPushPointerNullCountRs232();

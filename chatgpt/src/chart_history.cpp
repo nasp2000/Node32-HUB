@@ -615,10 +615,13 @@ void chartHistoryWriteSensorJson(Print &out, const ChartSensorJsonSet &set) {
 
     writeSeries("temp_aht20", set.tempAht20);
     writeSeries("temp_bmp280", set.tempBmp280);
-    writeSeries("temperature", set.temperature);
+    // Legacy aliases: only when the canonical column is missing (older day
+    // files). Emitting both doubled ~2.4 KB per day payload for nothing — every
+    // client already falls back (d.temperature||d.temp_avg).
+    if (set.tempAvg.empty()) writeSeries("temperature", set.temperature);
     writeSeries("temp_avg", set.tempAvg);
     writeSeries("humidity", set.humidity);
-    writeSeries("pressure", set.pressure);
+    if (set.pressureHpa.empty()) writeSeries("pressure", set.pressure);
     writeSeries("pressure_hpa", set.pressureHpa);
     writeSeries("pressure_mmhg", set.pressureMmhg);
     writeSeries("dew_point", set.dewPoint);

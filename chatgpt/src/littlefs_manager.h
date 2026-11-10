@@ -35,6 +35,10 @@ uint64_t littlefsUsedBytes();
 // Get free bytes
 uint64_t littlefsFreeBytes();
 
+// Refresh the cached used-bytes value (free-list walk, ~500 ms).
+// MUST be called from the main loop only — never from an HTTP handler.
+void littlefsUsageTick();
+
 // Format the filesystem (destructive — use only for factory reset)
 bool littlefsFormat();
 
@@ -62,6 +66,7 @@ inline bool littlefsMounted() { return false; }
 inline uint64_t littlefsTotalBytes() { return 0ULL; }
 inline uint64_t littlefsUsedBytes() { return 0ULL; }
 inline uint64_t littlefsFreeBytes() { return 0ULL; }
+inline void littlefsUsageTick() {}
 inline bool littlefsFormat() { return false; }
 // Warning: calling getLittleFS() when disabled will cause compilation error or undefined behavior if used.
 // It's better to guard calls with #if ENABLE_FILESYSTEM

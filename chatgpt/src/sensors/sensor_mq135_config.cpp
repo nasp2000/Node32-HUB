@@ -296,6 +296,11 @@ bool MQ135ConfigManager::updateFromJson(const String &json) {
     if (doc.containsKey("sensor_enabled"))       _config.sensor_enabled       = doc["sensor_enabled"];
     if (doc.containsKey("adc_pin"))              _config.adc_pin              = doc["adc_pin"].as<int>();
     if (doc.containsKey("r0"))                   _config.r0                   = doc["r0"].as<float>();
+    // Migration: configs written before the kOhm->Ohm fix stored the datasheet
+    // value in kOhm (e.g. 76.63) while computeRs() works in Ohms, so every gas
+    // curve returned 0.0 ppm. Any R0 below 1 kOhm is not physical for an MQ-135
+    // with RL=10k — replace it with the calibrated default.
+    if (!(_config.r0 >= 1000.0f))                _config.r0                   = MQ135_R0_DEFAULT;
     if (doc.containsKey("rl"))                   _config.rl                   = doc["rl"].as<float>();
     if (doc.containsKey("read_interval_sec"))    _config.read_interval_sec    = max(60, doc["read_interval_sec"].as<int>());
     if (doc.containsKey("use_env_compensation")) _config.use_env_compensation = doc["use_env_compensation"];

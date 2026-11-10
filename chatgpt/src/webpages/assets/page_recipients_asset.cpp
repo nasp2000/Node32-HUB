@@ -236,11 +236,14 @@ const char PAGE_RECIPIENTS_JS[] PROGMEM = R"RECJS((function(){
       // els[0]=Sender, els[1]=HowTo, els[2]=Recipients, els[3]=DayCmds
       if (els.length < 4) return;
 
-      // Group into 3 tabs: Remetente | Regras (HowTo+Recipients) | Comandos
+      // Group into 3 tabs: Sender | Rules (HowTo+Recipients) | Commands
+      // The labels are refreshed once the language dictionary lands: at first
+      // visit there is no cached dict yet, so building them with rt() alone
+      // left the Portuguese fallbacks in an English UI.
       var groups = [
-        { key:'sender', label:rt('recipTabSender','\u2709\ufe0f Remetente'), nodes:[els[0]] },
-        { key:'rules',  label:rt('recipTabRules','\uD83D\uDCCB Regras'),      nodes:[els[1], els[2]] },
-        { key:'cmds',   label:rt('recipTabCmds','\uD83D\uDCE8 Comandos'),     nodes:[els[3]] }
+        { key:'sender', i18n:'recipTabSender', fb:'\u2709\ufe0f Remetente', label:rt('recipTabSender','\u2709\ufe0f Remetente'), nodes:[els[0]] },
+        { key:'rules',  i18n:'recipTabRules',  fb:'\uD83D\uDCCB Regras',      label:rt('recipTabRules','\uD83D\uDCCB Regras'),      nodes:[els[1], els[2]] },
+        { key:'cmds',   i18n:'recipTabCmds',   fb:'\uD83D\uDCE8 Comandos',    label:rt('recipTabCmds','\uD83D\uDCE8 Comandos'),     nodes:[els[3]] }
       ];
       var activeKey = 'sender';
 
@@ -263,10 +266,30 @@ const char PAGE_RECIPIENTS_JS[] PROGMEM = R"RECJS((function(){
         var btn = document.createElement('button');
         btn.className = 'acc-tab-btn' + (groups[g].key === activeKey ? ' active' : '');
         btn.setAttribute('data-tab', groups[g].key);
+        btn.setAttribute('data-i18n-key', groups[g].i18n);
+        btn.setAttribute('data-i18n-fb', groups[g].fb);
         btn.textContent = groups[g].label;
         btn.addEventListener('click', (function(k){ return function(){ switchTab(k); }; })(groups[g].key));
         tabBar.appendChild(btn);
       }
+
+      // Re-label the tabs after the dictionary arrives (async fetch in auto.js).
+      function refreshTabLabels() {
+        var btns = tabBar.querySelectorAll('.acc-tab-btn');
+        for (var i = 0; i < btns.length; i++) {
+          var k = btns[i].getAttribute('data-i18n-key');
+          var fb = btns[i].getAttribute('data-i18n-fb') || '';
+          if (k) btns[i].textContent = rt(k, fb);
+        }
+      }
+      refreshTabLabels();
+      try {
+        var _mo = new MutationObserver(function() {
+          if (document.documentElement.getAttribute('data-i18n-ready') === '1') { refreshTabLabels(); _mo.disconnect(); }
+        });
+        _mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-i18n-ready'] });
+      } catch (e) {}
+      setTimeout(refreshTabLabels, 2500);
 
       // Insert tab bar below home button (BEFORE h1)
       var homeDiv = wrap.querySelector('.actions.nav-inicio');

@@ -223,6 +223,7 @@ static const LegacyRoute s_legacyRoutes[] = {
     {"GET", "/api/inactivity-alert-config"},
     {"GET", "/api/oee-alert-config"},
     {"GET", "/api/lang"},
+    {"GET", "/api/version"},
     {"GET", "/api/logday-extra-emails"},
     {"GET", "/api/max31865-config"},
     {"GET", "/api/modbus/config"},
@@ -265,6 +266,8 @@ static const LegacyRoute s_legacyRoutes[] = {
     {"GET", "/api/sd-buffers"},
     {"GET", "/api/sdcard-config"},
     {"GET", "/api/sd-status"},
+    {"GET", "/vendor/chart.umd.min.js"},
+    {"GET", "/vendor/chartjs-plugin-zoom.min.js"},
     {"GET", "/api/sensor-config"},
     {"GET", "/api/sensorday-extra-emails"},
     {"GET", "/api/sensor-flags"},
@@ -277,6 +280,7 @@ static const LegacyRoute s_legacyRoutes[] = {
     {"GET", "/api/self-test"},
     {"GET", "/api/sound-config"},
     {"GET", "/api/status"},
+    {"GET", "/api/status-basic"},
     {"GET", "/api/telnet-status"},
     {"GET", "/api/test-manifest"},
     {"GET", "/api/uda1334a-config"},
@@ -515,3 +519,4 @@ bool isKnownApiPath(const String& path) {
     }
     return false;
 }
+

@@ -28,6 +28,8 @@ Envs: `n16r8` (S3: Rambox/Cam/RS232/HomeE32/Radio/S3-CNC) · `waveshare_8di8do`
 | Component | Version | License | Envs |
 |---|---|---|---|
 | bblanchon/ArduinoJson | 6.21.6 | MIT | all |
+| chartjs/Chart.js (vendored dist) | 4.4.0 | MIT | web charts |
+| chartjs/chartjs-plugin-zoom (vendored dist) | 2.0.1 | MIT | web charts |
 | ESP32Async/AsyncTCP | 3.5.0 | LGPL-3.0-only | all |
 | ESP32Async/ESPAsyncWebServer | 3.12.1 | LGPL-3.0-only | all |
 | rlogiacco/CircularBuffer | 1.4.0 | LGPL-3.0-only | all |

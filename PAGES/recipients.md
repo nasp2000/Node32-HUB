@@ -254,3 +254,10 @@ Known inconsistency: the **Day Command Sends card uses hardcoded PT text** (`Ema
 | Sender-copy suppression | `chatgpt/src/manage_email_impl.h:1268,1506` |
 | Day commands | `chatgpt/src/command_executor.cpp:550` |
 | Self-test manifest | `test_manifest_handler.cpp` (`PAGE("/recipients", ENABLE_PAGE_RECIPIENTS)`), `selftest_handler.cpp` |
+
+## 13. Alterações 2026-11-10 (i18n das abas)
+
+- **Abas traduzidas**: `Remetente | Regras | Comandos` apareciam em PT numa UI EN porque as
+  etiquetas eram construídas antes de `/api/lang` chegar. As abas passam a guardar
+  `data-i18n-key`/`data-i18n-fb` e a ser re-etiquetadas quando o dicionário carrega
+  (`MutationObserver` em `data-i18n-ready` + retry a 2,5 s). Verificado em .24: `✉️ Sender | 📋 Rules | 📨 Commands`.

@@ -127,6 +127,18 @@ bool sdcardResetWriteCounter(); // 🔄 Reset counters (card replacement)
 // 📊 Count folders and files recursively (for status page)
 void sdcardCountFoldersAndFiles(int &folderCount, int &fileCount, const char* path = "/"); // 📂 Count recursively
 
+// 📊 Deferred folder/file count — never scans the card in an HTTP handler.
+// sdcardCountStart() begins a walk, sdcardCountTick() advances it from the main
+// loop (budget per call), sdcardCountGet() returns the last completed result.
+void sdcardCountStart();
+void sdcardCountTick(unsigned long budgetMs);
+bool sdcardCountRunning();
+void sdcardCountGet(int &folderCount, int &fileCount);
+bool sdcardCountValid();
+// Day folders under /sensor_history collected by the deferred walk.
+int sdcardHistoryDateCount();
+const char* sdcardHistoryDateAt(int i);
+
 // SD Mutex diagnostics (exposed from chatgpt.ino for cross-module tracking)
 extern void sdMutexTrackAcquire(const char* holder);
 extern void sdMutexTrackRelease();
@@ -176,6 +188,13 @@ static inline String sdcardGetTodayFolder() { return ""; }
 static inline String sdcardGetFolderByDate(int day, int month, int year) { return ""; }
 static inline bool sdcardCreateFolder(const String &folderPath) { return false; }
 static inline bool sdcardDeleteFolderRecursive(const String &folderPath) { return false; }
+static inline void sdcardCountStart() {}
+static inline void sdcardCountTick(unsigned long) {}
+static inline bool sdcardCountRunning() { return false; }
+static inline void sdcardCountGet(int &folderCount, int &fileCount) { folderCount = 0; fileCount = 0; }
+static inline bool sdcardCountValid() { return false; }
+static inline int sdcardHistoryDateCount() { return 0; }
+static inline const char* sdcardHistoryDateAt(int) { return nullptr; }
 #endif // ENABLE_SDCARD==1
 
 // RULE: every SD data write must be counted (daily stats, all packs).

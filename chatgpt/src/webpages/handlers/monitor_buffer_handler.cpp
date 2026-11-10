@@ -49,8 +49,10 @@ void registerMonitorBufferRoutes(AsyncWebServer& server, const WebRouteContext& 
 
     server.on("/api/serial-monitor", HTTP_GET, [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
-        // Use 500ms guard (JS already uses isLoading flag; guard only catches double-rapid hits)
-        HeavyApiRequestGuard heavyGuard(request, "/api/serial-monitor", 500UL);
+        // Concurrency-only guard (no time window): several tabs polling at 3 s
+        // are legitimate, and a 500/200 ms window rejected them with 429. The
+        // `active` flag still prevents two overlapping dumps of the same buffer.
+        HeavyApiRequestGuard heavyGuard(request, "/api/serial-monitor", 0UL);
         if (!heavyGuard.allowed()) return;
 
         // Large initial buffer: the JSON dump over a 1460 B stream triggers
@@ -82,8 +84,8 @@ void registerMonitorBufferRoutes(AsyncWebServer& server, const WebRouteContext& 
     server.on("/api/received-text", HTTP_GET, [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
 
-            // Prevent rapid overlap from the monitor page polling loop.
-            HeavyApiRequestGuard heavyGuard(request, "/api/received-text", 400UL);
+            // Concurrency-only guard (see /api/serial-monitor above).
+            HeavyApiRequestGuard heavyGuard(request, "/api/received-text", 0UL);
             if (!heavyGuard.allowed()) return;
 
         int limit = readParamInt(request, "limit", 100);

@@ -33,6 +33,21 @@ static bool _fsDiagDumped = false;
 static bool _fsSubtypeMismatchLockout = false;
 static bool _fsBlankRecoveryTried = false;
 
+// Used-bytes cache.
+// joltwallet's FS::usedBytes() walks the free-list (lfs_fs_size) — measured at
+// ~500 ms on the 5 MB data partition on live .24. Calling it from an HTTP
+// handler blocked the single web task for 0.5-1 s per request (/api/status
+// called it twice: used + free). The value is now refreshed only from the main
+// loop (littlefsUsageTick) and by the mount path, so readers never touch flash.
+static volatile uint64_t _lfsUsedCache = 0;
+static volatile bool _lfsUsedValid = false;
+static unsigned long _lfsUsedMs = 0;
+// FS::totalBytes() is just as expensive as usedBytes(): arduino-esp32 derives
+// both from a single esp_littlefs_info() call that walks the filesystem
+// (~250 ms here). Cache both.
+static volatile uint64_t _lfsTotalCache = 0;
+static const unsigned long LFS_USED_REFRESH_MS = 600000UL; // 10 min
+
 // ESP-IDF uses subtype 0x82 for SPIFFS data partitions.
 // This project expects LittleFS when FILESYSTEM_PROVIDER==1.
 static constexpr uint8_t kDataSubtypeSpiffs = 0x82;
@@ -195,6 +210,10 @@ bool littlefsBegin() {
     uint64_t total = FS_INSTANCE.totalBytes();
     uint64_t used = FS_INSTANCE.usedBytes();
     uint64_t free = total - used;
+    _lfsTotalCache = total;
+    _lfsUsedCache = used;
+    _lfsUsedValid = true;
+    _lfsUsedMs = millis();
     Serial.printf("[%s] Total: %.2f MB, Used: %.2f MB, Free: %.2f MB\n",
                   FS_NAME,
                   total / (1024.0 * 1024.0),
@@ -208,6 +227,7 @@ bool littlefsEnd() {
 
     FS_INSTANCE.end();
     _fsMounted = false;
+    _lfsUsedValid = false;
     Serial.printf("[%s] Unmounted\n", FS_NAME);
     return true;
 }
@@ -218,17 +238,30 @@ bool littlefsMounted() {
 
 uint64_t littlefsTotalBytes() {
     if (!_fsMounted) return 0;
-    return FS_INSTANCE.totalBytes();
+    return _lfsTotalCache;
 }
 
 uint64_t littlefsUsedBytes() {
     if (!_fsMounted) return 0;
-    return FS_INSTANCE.usedBytes();
+    // Cache only: never scan the filesystem from a request handler.
+    // littlefsUsageTick() (main loop) and littlefsBegin() fill this.
+    if (!_lfsUsedValid) return 0;
+    return _lfsUsedCache;
 }
 
 uint64_t littlefsFreeBytes() {
     if (!_fsMounted) return 0;
     return littlefsTotalBytes() - littlefsUsedBytes();
+}
+
+void littlefsUsageTick() {
+    if (!_fsMounted) return;
+    const unsigned long now = millis();
+    if (_lfsUsedValid && (now - _lfsUsedMs) < LFS_USED_REFRESH_MS) return;
+    // ~500 ms free-list walk: keep it out of the web/async_tcp task.
+    _lfsUsedCache = FS_INSTANCE.usedBytes();
+    _lfsUsedValid = true;
+    _lfsUsedMs = now;
 }
 
 bool littlefsFormat() {
@@ -257,6 +290,8 @@ bool littlefsFormat() {
     bool ok = FS_INSTANCE.format();
     FS_INSTANCE.end();
     _fsMounted = false;
+    _lfsUsedValid = false;
+    _lfsTotalCache = 0;
     Serial.printf("[%s] format: %s\n", FS_NAME, ok ? "ok" : "FAILED");
     return ok;
 }

@@ -211,3 +211,16 @@ Single `data-i18n` content key: `sensorChartsTitle` (EN `"Local Processing Page"
 | Config gating flags | `chatgpt/src/ConfigManager.{h,cpp}` (`charts_page_enabled`, `charts_exempt_sessions`), `chatgpt/src/config_defaults.h:65-76,165-172` |
 | i18n dictionaries | `chatgpt/src/languages/lang_en_ui.h:940,2037-2055`, `lang_pt_ui.h:940,2037-2055` |
 | Tests (logic only, jsdom fixture) | `tests/web/test_sensor_charts.js`, `tests/web/pages/sensor_charts.html` (no manifest/selftest entry) |
+
+## 13. Alterações 2026-11-10 (CDN, 404s, payload)
+
+- **Chart.js 4.4.0 + chartjs-plugin-zoom 2.0.1 servidos pela própria placa**
+  (`/vendor/chart.umd.min.js`, `/vendor/chartjs-plugin-zoom.min.js`) — a página deixou de
+  depender de `cdn.jsdelivr.net` e funciona numa LAN isolada. Cache `immutable` (7 dias) e
+  gzip pré-gerado (205 KB → 69 KB).
+- **Sem 404 de módulos não compilados**: `/api/rs232-cols`, `/api/rs232-history-files`,
+  `/api/modbus-chart-cols`, `/api/modbus-chart-files` e `/api/proximity-chart-*` só são
+  pedidos se `/api/chart-caps` os declarar presentes (antes: 5-10 erros de consola por load).
+- **Payload do dia mais leve**: o JSON deixou de duplicar `temperature`/`pressure` quando
+  `temp_avg`/`pressure_hpa` existem (24 KB → ~16 KB) e os ficheiros diários deixaram de
+  receber amostras de outros dias (ver `PAGES/BACKLOG.md`/histórico do pack).

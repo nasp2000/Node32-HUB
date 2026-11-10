@@ -333,6 +333,7 @@ static void sendVirtualMessageInternal(const String &msg, int level, bool alread
     // Rules: suppress ANY level while there is data activity; re-emit later
     //  Exception: some critical messages (micro-pause, line limit, XON/XOFF) must appear in real-time
         bool isDataActiveForSuppression = true;
+#if (defined(ENABLE_RS232) && ENABLE_RS232==1) || (defined(ENABLE_DB25) && ENABLE_DB25==1)
         {
             bool empty = false;
             bool hasData = true;
@@ -344,6 +345,14 @@ static void sendVirtualMessageInternal(const String &msg, int level, bool alread
                 || rs232_sending
                 || rs232FirstResponseGuardActive; // Avoid pollution during first response/tx
         }
+#else
+        // No RS232/LPT receiver compiled (e.g. Pack Environment): the RX buffer
+        // only holds sensor lines injected by the sensor module, so treating it
+        // as "data activity" silenced the Web Serial Monitor for the whole run
+        // (51 boot messages, nothing afterwards). Suppression is only meant to
+        // keep log lines out of real printer/serial traffic.
+        isDataActiveForSuppression = false;
+#endif
         // Boot window: 'lastReceptionTime' starts at 0, so 'millis()-0 < 1000ms' is TRUE for the
         // first second, causing all boot messages to be silently discarded.
         // Bypass suppression for the first 30 s so the full boot log is always visible.

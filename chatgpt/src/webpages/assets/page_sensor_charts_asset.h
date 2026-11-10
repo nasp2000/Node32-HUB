@@ -9,8 +9,8 @@ static const char SENSOR_CHARTS_HTML[] PROGMEM = R"RAWHTML(
 <meta charset='UTF-8'>
 <meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1'>
 <title>Monitoring Charts</title>
-<script defer src='https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js'></script>
-<script defer src='https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js'></script>
+<script defer src='/vendor/chart.umd.min.js'></script>
+<script defer src='/vendor/chartjs-plugin-zoom.min.js'></script>
 <style>
 /* ---- THEMES ---- */
 :root,[data-theme='dark']{
@@ -1807,6 +1807,7 @@ async function loadDailyFiles(){
 }
 
 async function loadRS232DailyFiles(){
+  var _c=await ensureChartCaps(); if(_c && _c.rs232===false) return;
   try{
     var files=await fetchChartJson('/api/rs232-history-files',null,2),sel=document.getElementById('rs232DailyFile');
     if(!sel)return;
@@ -1818,6 +1819,7 @@ async function loadRS232DailyFiles(){
 }
 
 async function loadRS232Meta(selectedDate){
+  var _c=await ensureChartCaps(); if(_c && _c.rs232===false) return;
   try{
     var url='/api/rs232-cols';
     if(selectedDate)url+='?date='+encodeURIComponent(selectedDate);
@@ -1852,6 +1854,7 @@ async function filterMetricsByCapabilities(){
   try{
     var r=await fetch('/api/chart-caps',{cache:'no-store'});if(!r.ok)return;
     var caps=await r.json();
+    window.__chartCaps=caps;   // gate for RS232-only endpoints (avoids 404s when not compiled)
     var selIds=['chart1Type','chart2Type','chart3Type','chart1Type2','chart2Type2','chart3Type2'];
     // Hide SD/Env+Gas Day picker when neither ambient nor gas sensors are compiled.
     if(!caps.sensors){
@@ -1910,7 +1913,22 @@ async function filterMetricsByCapabilities(){
   }catch(e){}
 }
 
+// Capability probe, fetched once and reused. Needed before any RS232-only call:
+// on packs without RS232 charts those endpoints 404 and spam the console.
+async function ensureChartCaps(){
+  if(window.__chartCaps) return window.__chartCaps;
+  try{
+    var r=await fetch('/api/chart-caps',{cache:'no-store'});
+    if(r.ok) window.__chartCaps=await r.json();
+  }catch(e){}
+  return window.__chartCaps;
+}
+
 async function ensureRS232Ready(){
+  // Pack without RS232 charts: skip /api/rs232-cols + /api/rs232-history-files
+  // entirely (they 404 and spam the console).
+  var caps=await ensureChartCaps();
+  if(caps && caps.rs232===false) return false;
   var wantedDate='';
   try{
     var rsSel=document.getElementById('rs232DailyFile');
@@ -2038,6 +2056,7 @@ async function loadRS232Data(){
   }
 }
 async function loadModbusDailyFiles(){
+  var _c=await ensureChartCaps(); if(_c && _c.modbus===false) return;
   try{
     var files=await fetchChartJson('/api/modbus-chart-files',null,2),sel=document.getElementById('modbusDailyFile');
     if(!sel)return;
@@ -2049,6 +2068,7 @@ async function loadModbusDailyFiles(){
 }
 
 async function loadModbusMeta(selectedDate){
+  var _c=await ensureChartCaps(); if(_c && _c.modbus===false) return;
   try{
     var url='/api/modbus-chart-cols';
     if(selectedDate)url+='?date='+encodeURIComponent(selectedDate);
@@ -2079,6 +2099,7 @@ async function loadModbusMeta(selectedDate){
 }
 
 async function ensureModbusReady(){
+  var _c=await ensureChartCaps(); if(_c && _c.modbus===false) return false;
   var wantedDate='';
   try{
     var mbSel=document.getElementById('modbusDailyFile');
@@ -2121,6 +2142,7 @@ function requestModbusMetaSoon(){
 // === Proximity chart helpers ===
 
 async function loadProximityDailyFiles(){
+  var _c=await ensureChartCaps(); if(_c && _c.proximity===false) return;
   try{
     var files=await fetchChartJson('/api/proximity-chart-files',null,1);
     var cg=document.getElementById('proxFileCg');
@@ -2137,6 +2159,7 @@ async function loadProximityDailyFiles(){
 }
 
 async function loadProximityMeta(selectedDate){
+  var _c=await ensureChartCaps(); if(_c && _c.proximity===false) return;
   try{
     var url='/api/proximity-chart-cols'+(selectedDate?'?date='+encodeURIComponent(selectedDate):'');
     var d=await fetchChartJson(url,null,1);
@@ -2165,6 +2188,7 @@ async function loadProximityMeta(selectedDate){
 }
 
 async function ensureProximityReady(){
+  var _c=await ensureChartCaps(); if(_c && _c.proximity===false) return false;
   var wantedDate='';
   try{
     var prxSel=document.getElementById('proxDailyFile');
@@ -2860,7 +2884,7 @@ window.addEventListener('load',async function(){
   // Check if Chart.js loaded from CDN — fails when device has no internet access
   if(typeof Chart==='undefined'){
     document.body.style.cssText='background:#0f172a;color:#e2e8f0;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;font-family:system-ui,sans-serif;padding:24px';
-    document.body.innerHTML='<div><div style="font-size:48px;margin-bottom:16px">📉</div><h2 style="color:#f59e0b;margin-bottom:12px">Chart library not loaded</h2><p style="color:#94a3b8;margin-bottom:8px">The charts page requires the <strong style="color:#e2e8f0">Chart.js</strong> library via CDN.</p><p style="color:#94a3b8;margin-bottom:20px">Make sure the device has internet access (<em>cdn.jsdelivr.net</em>).</p><a href="/" style="background:#3b82f6;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none">← Home</a></div>';
+    document.body.innerHTML='<div><div style="font-size:48px;margin-bottom:16px">📉</div><h2 style="color:#f59e0b;margin-bottom:12px">Chart library not loaded</h2><p style="color:#94a3b8;margin-bottom:8px">The charts page could not load <strong style="color:#e2e8f0">Chart.js</strong> from the device (/vendor).</p><p style="color:#94a3b8;margin-bottom:20px">Try a hard reload (Ctrl+F5).</p><a href="/" style="background:#3b82f6;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none">← Home</a></div>';
     return;
   }
   registerChartPlugins(); // Register inline Chart.js plugins — safe here since Chart.js is confirmed loaded

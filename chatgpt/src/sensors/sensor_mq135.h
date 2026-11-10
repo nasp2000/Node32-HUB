@@ -40,10 +40,14 @@
   #define MQ135_RL_VALUE    10000.0f  // 10 kOhm
 #endif
 
-// R0 in clean air (Ohms). Factory default / typical value.
-// User must calibrate this via the web page for accurate ppm readings.
+// R0 in clean air (Ohms) — the same unit as computeRs() (RL is in Ohms).
+// The old default (76.63) was the datasheet value in kOhm used as Ohms, which
+// made Rs/R0 ~1000x too high and every gas curve collapse to 0.0 ppm.
+// 10400 Ohm reproduces ~400 ppm CO2 in clean air for this module's measured
+// Rs (6.7 kOhm on live .24, GPIO5 @5V, RL=10k, no divider fitted: AOUT 3.0 V).
+// Always re-calibrate from the web page (POST /api/mq135-calibrate-r0).
 #ifndef MQ135_R0_DEFAULT
-  #define MQ135_R0_DEFAULT  76.63f
+  #define MQ135_R0_DEFAULT  10400.0f
 #endif
 
 // Supply voltage (Vcc) fed to the sensor voltage divider

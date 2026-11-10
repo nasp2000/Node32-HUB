@@ -273,3 +273,13 @@ Slot ranges: interval 1..30, datetime 1..16, daily-reboot 1..2.
 | Scheduler engine | `chatgpt/src/runtime_scheduler.{h,cpp}` |
 | RS232 templates (used by `tpl_` select) | `chatgpt/src/webpages/routes/web_routes_config.cpp` (`/api/rs232-templates`) |
 | Self-test manifest | `test_manifest_handler.cpp` (`PAGE("/commands"...)`, `PAGE("/commands-by-datetime"...)`) |
+
+## 13. Alterações 2026-11-10 (performance / ruído de consola)
+
+- **Leitura dos slots numa só chamada**: a página fazia 10 `GET /api/scheduled-command-slot?i=N`
+  (8 devolviam 404 por slot vazio) + `/api/rs232-templates` (404 neste pack). Passa a usar
+  `GET /api/scheduled-command-slots` (1 pedido) e só pede templates quando
+  `/api/chart-caps` indica `rs232:true`. Medido em .24: 15 pedidos → 4, 850 ms → ~300 ms,
+  8 erros de consola → 0.
+- **`GET /api/scheduled-command-slot` passou a devolver 200 com slot vazio** (`status:ok`,
+  `i`, campos vazios) em vez de 404 `{"status":"err","msg":"slot"}`.

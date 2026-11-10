@@ -122,29 +122,42 @@ const char PAGE_COMMANDS_JS[] PROGMEM = R"JS((function(){
         attachSaveAll();
         loadAll();
     }
-    function loadTemplates(){ fetch('/api/rs232-templates',{cache:'no-store'}).then(r=>r.json()).then(j=>{ templatesCache=Array.isArray(j.templates)?j.templates:[]; tb.querySelectorAll("select[name^='tpl_']").forEach(function(sel){ var cur=sel.getAttribute('data-cur')||''; sel.innerHTML=templateOptions(cur); if(cur) sel.value=cur; }); }).catch(()=>{}); }
-    function mapUnit(u){ if(u==='seconds')return 's'; if(u==='minutes')return 'm'; if(u==='hours')return 'h'; return 'm'; }
-    function normaliseUnit(u){ if(u==='s')return 'seconds'; if(u==='m')return 'minutes'; if(u==='h')return 'hours'; return 'minutes'; }
-    function loadSlot(i){
-        fetch('/api/scheduled-command-slot?i='+i,{cache:'no-store'}).then(r=>r.ok?r.text():null).then(txt=>{
-            if(!txt) return;
-            var j=null;
-            try{ j=JSON.parse(txt);}catch(e){return;}
-            if(!j||j.status!=='ok') return;
-            var tr=tb.querySelector("tr[data-i='"+i+"']");
-            if(!tr) return;
-            var f;
-            f=tr.querySelector("select[name='type_"+i+"']"); if(f) f.value=j.type||'rs232';
-            f=tr.querySelector("input[name='cmd_"+i+"']"); if(f) f.value=j.command||'';
-            f=tr.querySelector("input[name='int_"+i+"']"); if(f) f.value=j.interval||'';
-            var uSel=tr.querySelector("select[name='unit_"+i+"']"); if(uSel) uSel.value=mapUnit(j.unit||'minutes');
-            var dSel=tr.querySelector("select[name='days_"+i+"']"); if(dSel) dSel.value=j.days||'everyday';
-            var tplSel=tr.querySelector("select[name='tpl_"+i+"']"); if(tplSel){ tplSel.setAttribute('data-cur',j.template||''); tplSel.innerHTML=templateOptions(j.template||''); if(j.template) tplSel.value=j.template; }
-            var enSel=tr.querySelector("select[name='en_"+i+"']"); if(enSel) enSel.value=(j.enabled?'1':'0');
-            toggleTemplate(i);
+    function loadTemplates(){
+        // RS232 templates only exist when the pack compiles RS232 charts; asking
+        // unconditionally produced a 404 + console error on every commands load.
+        fetch('/api/chart-caps',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(c){
+            if(c && c.rs232===false) return;
+            return fetch('/api/rs232-templates',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(function(j){
+                if(!j) return;
+                templatesCache=Array.isArray(j.templates)?j.templates:[];
+                tb.querySelectorAll("select[name^='tpl_']").forEach(function(sel){ var cur=sel.getAttribute('data-cur')||''; sel.innerHTML=templateOptions(cur); if(cur) sel.value=cur; });
+            });
         }).catch(()=>{});
     }
-    function loadAll(){ for(var i=1;i<=currentCount;i++) loadSlot(i); loadTemplates(); }
+    function mapUnit(u){ if(u==='seconds')return 's'; if(u==='minutes')return 'm'; if(u==='hours')return 'h'; return 'm'; }
+    function normaliseUnit(u){ if(u==='s')return 'seconds'; if(u==='m')return 'minutes'; if(u==='h')return 'hours'; return 'minutes'; }
+    function applySlot(j){
+        if(!j||j.status!=='ok') return;
+        var i=j.i||0; var tr=tb.querySelector("tr[data-i='"+i+"']");
+        if(!tr) return;
+        var f;
+        f=tr.querySelector("select[name='type_"+i+"']"); if(f) f.value=j.type||'rs232';
+        f=tr.querySelector("input[name='cmd_"+i+"']"); if(f) f.value=j.command||'';
+        f=tr.querySelector("input[name='int_"+i+"']"); if(f) f.value=j.interval||'';
+        var uSel=tr.querySelector("select[name='unit_"+i+"']"); if(uSel) uSel.value=mapUnit(j.unit||'minutes');
+        var dSel=tr.querySelector("select[name='days_"+i+"']"); if(dSel) dSel.value=j.days||'everyday';
+        var tplSel=tr.querySelector("select[name='tpl_"+i+"']"); if(tplSel){ tplSel.setAttribute('data-cur',j.template||''); tplSel.innerHTML=templateOptions(j.template||''); if(j.template) tplSel.value=j.template; }
+        var enSel=tr.querySelector("select[name='en_"+i+"']"); if(enSel) enSel.value=(j.enabled?'1':'0');
+        toggleTemplate(i);
+    }
+    function loadAll(){
+        // One request for all slots (was 10 GETs, 8 of them 404s on empty slots).
+        fetch('/api/scheduled-command-slots',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(j){
+            if(!j||!Array.isArray(j.slots)) return;
+            for(var k=0;k<j.slots.length;k++) applySlot(j.slots[k]);
+        }).catch(function(){});
+        loadTemplates();
+    }
     function toggleTemplate(i){ var tr=tb.querySelector("tr[data-i='"+i+"']"); if(!tr)return; var ty=tr.querySelector("select[name='type_"+i+"']"),tpl=tr.querySelector("select[name='tpl_"+i+"']"); if(!ty||!tpl)return; if(ty.value==='system'||ty.value==='modbus'){tpl.style.opacity='0.3';tpl.disabled=true;}else{tpl.style.opacity='1';tpl.disabled=false;} }
     function saveSlot(i,btn){
         var tr=tb.querySelector("tr[data-i='"+i+"']");

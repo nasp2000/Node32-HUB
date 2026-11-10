@@ -948,7 +948,7 @@ document.querySelectorAll('[data-i18n],[data-i18n-html]').forEach(function(el){
             setI18nReady(false);
             if(opts.langHint) persistLangChoice(opts.langHint);
         }
-        fetch('/api/lang?t='+Date.now(),{cache:'no-store'}).then(function(r){
+        fetch('/api/lang',{credentials:'same-origin'}).then(function(r){
             if(!r.ok) return null;
             var langCode=r.headers.get('X-UI-Lang')||r.headers.get('Content-Language')||opts.langHint||cachedCode||document.documentElement.lang||'pt';
             return r.json().then(function(s){ return {strings:s,langCode:langCode}; });
@@ -999,11 +999,11 @@ document.querySelectorAll('[data-i18n],[data-i18n-html]').forEach(function(el){
         }
         try{ localStorage.setItem('_fw_ver_last_check', String(nowMs)); }catch(_){}
 
-        fetch('/api/status?t=' + Date.now(), {cache: 'no-store'})
+        fetch('/api/version', {cache: 'no-store'})
             .then(function(r){ return r.ok ? r.json() : null; })
             .then(function(d){
                 if(!d) return;
-                var v = d.firmware_version || '';
+                var v = d.version || '';
                 if(!v) return;
                 var stored = '';
                 try{ stored = localStorage.getItem('_fw_ver') || ''; }catch(_){}

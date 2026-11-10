@@ -4,6 +4,7 @@
 #include "../../feature_flags.h"
 #include "../assets/config_manager_js_asset.h"
 #include "../assets/fragments_system_asset.h"
+#include "../assets/page_charts_vendor.h"
 #include "../assets/page_home_asset.h"
 #include "../auto_js.h"
 #include "../core_css.h"
@@ -23,11 +24,88 @@
 #include "../renderers/wifi_ap_minimal.h"
 #include "../../languages/lang_active.h"
 #include "../../runtime_environment.h"
+#include "../assets/generated_gzip_assets.h"
 
 extern const char* FIRMWARE_VERSION;
 extern const char* FIRMWARE_BUILD;
 
+namespace {
+// Pre-compressed payloads come from generated_gzip_assets.h (built by
+// scripts/gen_gzip_assets.py). The ROM tdefl is a stub on ESP32-S3, so gzip is
+// done at build time and served straight from flash — no runtime CPU, no RAM.
+
+inline bool clientAcceptsGzip(AsyncWebServerRequest* request) {
+    static const char* kHdr = "Accept-Encoding";
+    if (!request->hasHeader(kHdr)) return false;
+    String ae = request->header(kHdr);
+    ae.toLowerCase();
+    return ae.indexOf("gzip") >= 0;
+}
+
+// Send a pre-gzipped PROGMEM blob. Returns false when the client does not
+// accept gzip (caller then sends the identity copy).
+inline bool trySendGzipBlob(AsyncWebServerRequest* request, const char* contentType,
+                            const uint8_t* gz, size_t gzLen,
+                            const char* cacheControl = "max-age=3600, must-revalidate",
+                            const String& etag = String()) {
+    if (!clientAcceptsGzip(request)) return false;
+    // beginResponse_P streams straight from flash. beginResponse() COPIES the
+    // buffer into internal heap, and a 69 KB copy occasionally failed to send
+    // in full (browser aborted with ERR_CONTENT_LENGTH_MISMATCH).
+    AsyncWebServerResponse* response = request->beginResponse_P(200, contentType, gz, gzLen);
+    response->addHeader("Content-Encoding", "gzip");
+    response->addHeader("Vary", "Accept-Encoding");
+    response->addHeader("Cache-Control", cacheControl);
+    response->addHeader("ETag", etag.length() ? etag : (String(FIRMWARE_BUILD) + "|gz"));
+    request->send(response);
+    return true;
+}
+} // namespace
+
 static void registerCoreAdminRoutes(AsyncWebServer& server, const WebRouteContext& context) {
+    // Tiny version probe (~40 B). Used by /auto.js as the firmware cache-buster
+    // instead of /api/status, which is a full status build.
+    server.on("/api/version", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+        if (!context.ensureBasicAuth(req)) return;
+        String json = F("{\"version\":\"");
+        json += FIRMWARE_VERSION;
+        json += F("\",\"build\":\"");
+        json += FIRMWARE_BUILD;
+        json += F("\"}");
+        AsyncWebServerResponse* response = req->beginResponse(200, "application/json", json);
+        response->addHeader("ETag", FIRMWARE_BUILD);
+        response->addHeader("Cache-Control", "no-cache");
+        req->send(response);
+    });
+
+    // Minimal status for pollers/dashboards (~250 B): uptime, heap, version.
+    // The full /api/status builds every section (SD/NVS/heap breakdown) and is
+    // only needed by the Status page.
+    server.on("/api/status-basic", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+        if (!context.ensureBasicAuth(req)) return;
+        unsigned long upSec = millis() / 1000UL;
+        char up[32];
+        snprintf(up, sizeof(up), "%lud %02lu:%02lu:%02lu",
+                 upSec / 86400UL, (upSec % 86400UL) / 3600UL,
+                 (upSec % 3600UL) / 60UL, upSec % 60UL);
+        String json = F("{\"version\":\"");
+        json += FIRMWARE_VERSION;
+        json += F("\",\"uptime\":\"");
+        json += up;
+        json += F("\",\"free_heap\":");
+        json += String((unsigned long)ESP.getFreeHeap());
+        json += F(",\"min_free_heap\":");
+        json += String((unsigned long)ESP.getMinFreeHeap());
+        json += F(",\"rssi\":");
+        json += String((int)WiFi.RSSI());
+        json += F(",\"ip\":\"");
+        json += WiFi.localIP().toString();
+        json += F("\"}");
+        AsyncWebServerResponse* response = req->beginResponse(200, "application/json", json);
+        response->addHeader("Cache-Control", "no-store");
+        req->send(response);
+    });
+
     server.on("/api/status", HTTP_GET, [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) return;
         HttpRequest hreq;
@@ -114,6 +192,43 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
         request->send(204, "image/x-icon", "");
     });
 
+    // Chart.js + zoom plugin served from the device (works without internet).
+    server.on("/vendor/chart.umd.min.js", HTTP_GET, [](AsyncWebServerRequest* request) {
+        if (request->hasHeader("If-None-Match") &&
+            ifNoneMatchContainsEtag(request->header("If-None-Match"), FIRMWARE_BUILD)) {
+            request->send(304);
+            return;
+        }
+        if (trySendGzipBlob(request, "application/javascript; charset=utf-8", GZ_CHART_JS, GZ_CHART_JS_LEN,
+                            "max-age=604800, immutable")) return;
+        // beginResponse_P: stream from flash (beginResponse would copy the
+        // whole asset into internal heap — 205 KB for chart.umd.min.js).
+        AsyncWebServerResponse* response = request->beginResponse_P(
+            200, "application/javascript; charset=utf-8",
+            reinterpret_cast<const uint8_t*>(VENDOR_CHART_JS), strlen_P(VENDOR_CHART_JS));
+        response->addHeader("Cache-Control", "max-age=604800, immutable");
+        response->addHeader("ETag", FIRMWARE_BUILD);
+        request->send(response);
+    });
+
+    server.on("/vendor/chartjs-plugin-zoom.min.js", HTTP_GET, [](AsyncWebServerRequest* request) {
+        if (request->hasHeader("If-None-Match") &&
+            ifNoneMatchContainsEtag(request->header("If-None-Match"), FIRMWARE_BUILD)) {
+            request->send(304);
+            return;
+        }
+        if (trySendGzipBlob(request, "application/javascript; charset=utf-8", GZ_ZOOM_JS, GZ_ZOOM_JS_LEN,
+                            "max-age=604800, immutable")) return;
+        // beginResponse_P: stream from flash (beginResponse would copy the
+        // whole asset into internal heap — 205 KB for chart.umd.min.js).
+        AsyncWebServerResponse* response = request->beginResponse_P(
+            200, "application/javascript; charset=utf-8",
+            reinterpret_cast<const uint8_t*>(VENDOR_ZOOM_JS), strlen_P(VENDOR_ZOOM_JS));
+        response->addHeader("Cache-Control", "max-age=604800, immutable");
+        response->addHeader("ETag", FIRMWARE_BUILD);
+        request->send(response);
+    });
+
     // Serve shared CSS via chunked PROGMEM streaming (avoids copying ~12KB to heap).
     // ETag = FIRMWARE_VERSION: browser caches indefinitely on the same firmware and
     // automatically fetches the new file after a firmware update.
@@ -124,6 +239,7 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
             request->send(304);
             return;
         }
+        if (trySendGzipBlob(request, "text/css", GZ_CORE_CSS, GZ_CORE_CSS_LEN)) return;
         AsyncWebServerResponse* response = request->beginChunkedResponse(
             "text/css",
             [](uint8_t* buffer, size_t maxLen, size_t index) -> size_t {
@@ -152,7 +268,8 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
             request->send(304);
             return;
         }
-        AsyncWebServerResponse* response = request->beginResponse(
+        // beginResponse_P: stream from flash (no heap copy).
+        AsyncWebServerResponse* response = request->beginResponse_P(
             200,
             "application/javascript; charset=utf-8",
             reinterpret_cast<const uint8_t*>(AUTO_JS_BODY),
@@ -172,7 +289,8 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
             request->send(304);
             return;
         }
-        AsyncWebServerResponse* response = request->beginResponse(
+        // beginResponse_P: stream from flash (no heap copy).
+        AsyncWebServerResponse* response = request->beginResponse_P(
             200,
             "application/javascript; charset=utf-8",
             reinterpret_cast<const uint8_t*>(CONFIG_MANAGER_JS_BODY),
@@ -306,8 +424,25 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
         }
 
         const char* jsonPtr = activeLangUiJson; // read global at request time
-        // Compute total size once here so the chunk lambda does not call strlen_P on every chunk.
         const size_t totalSize = strlen_P(jsonPtr);
+        // Pre-compressed dictionary: 158 KB -> 48 KB (en) / 168 KB -> 51 KB (pt).
+        {
+            const bool pt = (String(activeLangCode) == "pt");
+            const uint8_t* gzData = pt ? GZ_LANG_UI_PT : GZ_LANG_UI_EN;
+            const size_t   gzLen  = pt ? GZ_LANG_UI_PT_LEN : GZ_LANG_UI_EN_LEN;
+            if (clientAcceptsGzip(request)) {
+                AsyncWebServerResponse* gz = request->beginResponse_P(
+                    200, "application/json; charset=utf-8", gzData, gzLen);
+                gz->addHeader("Content-Encoding", "gzip");
+                gz->addHeader("Vary", "Accept-Encoding");
+                gz->addHeader("Cache-Control", "private, max-age=300, must-revalidate");
+                gz->addHeader("ETag", langEtag + "|gz");
+                gz->addHeader("Content-Language", activeLangCode);
+                gz->addHeader("X-UI-Lang", activeLangCode);
+                request->send(gz);
+                return;
+            }
+        }
         AsyncWebServerResponse* response = request->beginChunkedResponse(
             "application/json",
             [jsonPtr, totalSize](uint8_t* buffer, size_t maxLen, size_t index) -> size_t {

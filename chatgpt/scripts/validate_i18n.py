@@ -20,6 +20,7 @@ import html
 import json
 import os
 import re
+import subprocess
 import sys
 
 RE_JSON_BLOCK = re.compile(
@@ -230,6 +231,17 @@ def run():
         f"[validate_i18n] OK: {len(en_keys)} EN keys, {len(pt_keys)} PT keys — "
         f"{len(used_keys)} key(s) used across {len(assets)} asset(s), all synchronized"
     )
+
+    # ---- 5. pre-gzipped static assets must match their sources -------------
+    # generated_gzip_assets.h is built from the language JSON / CSS / vendor JS;
+    # a stale copy would serve the previous build's strings.
+    chatgpt_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(en_file))))  # <repo>/chatgpt
+    gen = os.path.join(chatgpt_dir, "scripts", "gen_gzip_assets.py")
+    if os.path.isfile(gen):
+        rc = subprocess.call([sys.executable, gen, "--check"], cwd=chatgpt_dir)
+        if rc != 0:
+            print("[validate_i18n] FAILED: regenerate the gzip assets (see above)")
+            sys.exit(1)
 
 
 env = get_env()

@@ -91,6 +91,8 @@ Apache-2.0 full text: `chatgpt/build/third-party/licences/Apache-2.0.txt`.
 | mackron/dr_flac | Unlicense / MIT-0 | FLAC decoder, single header (`lib/dr_flac/`) |
 | nothings/stb_vorbis | Unlicense | OGG Vorbis decoder, single header (`lib/stb_vorbis/`) |
 | espressif/esp_audio_codec | Espressif Modified MIT | AAC decoder + Opus decoder (libopus core) (`lib/esp_audio_codec/`) |
+| chartjs/Chart.js | MIT | 4.4.0, unmodified dist (`src/webpages/assets/page_charts_vendor.h`) |
+| chartjs/chartjs-plugin-zoom | MIT | 2.0.1, unmodified dist (`src/webpages/assets/page_charts_vendor.h`) |
 
 ---
 

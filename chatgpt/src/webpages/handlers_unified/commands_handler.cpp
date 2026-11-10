@@ -356,7 +356,12 @@ void handleScheduledCommandSlotGet(HttpRequest& req, HttpResponse& res) {
     int interval = 0;
     bool enabled = false;
     if (!configManager.getSchedCmdSlot(slotIndex, command, interval, unit, days, templ, enabled, type)) {
-        res.send(404, "application/json", F("{\"status\":\"err\",\"msg\":\"slot\"}"));
+        // Empty slot: answer 200 with an empty payload. Returning 404 made the
+        // commands page log a console error per unused slot (8-10 per load).
+        String out = F("{\"status\":\"ok\",\"i\":");
+        out += String(slotIndex);
+        out += F(",\"command\":\"\",\"interval\":0,\"unit\":\"minutes\",\"days\":\"everyday\",\"template\":\"\",\"type\":\"rs232\",\"enabled\":false}");
+        res.send(200, "application/json", out);
         return;
     }
 
