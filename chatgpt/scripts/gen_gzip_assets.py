@@ -72,17 +72,48 @@ def build_header() -> str:
     return "\n".join(out) + "\n"
 
 
+def check_header() -> int:
+    """Verify the committed header still decodes to the current sources.
+
+    Compares the DECOMPRESSED payload, never the compressed bytes: gzip output
+    is not portable across zlib implementations (Ubuntu 24.04 links zlib-ng),
+    so a byte-for-byte comparison made the check fail on CI while passing on the
+    machine that generated the file. A stale header (source edited without
+    regenerating) still fails because the payload differs.
+    """
+    if not OUT.exists():
+        print(f"[gzip-assets] MISSING {OUT}")
+        return 1
+    text = OUT.read_text(encoding="utf-8")
+    problems = []
+    for sym, rel, delim, _minlen in ASSETS:
+        payload = extract(ROOT / rel, delim)
+        m = re.search(re.escape(sym) + r"\[\] PROGMEM = \{(.*?)\};", text, re.S)
+        if not m:
+            problems.append(f"{sym}: array missing from the header")
+            continue
+        data = bytes(int(b, 16) for b in re.findall(r"0x([0-9a-f]{2})", m.group(1)))
+        try:
+            back = gzip.decompress(data)
+        except Exception as exc:          # corrupt/truncated gzip
+            problems.append(f"{sym}: cannot decode ({exc})")
+            continue
+        if back != payload:
+            problems.append(f"{sym}: header {len(back)} B != source {len(payload)} B "
+                            f"({rel})")
+    if problems:
+        for p in problems:
+            print(f"[gzip-assets] STALE {p}")
+        print("[gzip-assets] STALE: run python chatgpt/scripts/gen_gzip_assets.py")
+        return 1
+    print("[gzip-assets] OK")
+    return 0
+
+
 def main() -> int:
-    header = build_header()
     if "--check" in sys.argv:
-        if not OUT.exists():
-            print(f"[gzip-assets] MISSING {OUT}")
-            return 1
-        if OUT.read_text(encoding="utf-8") != header:
-            print("[gzip-assets] STALE: run python chatgpt/scripts/gen_gzip_assets.py")
-            return 1
-        print("[gzip-assets] OK")
-        return 0
+        return check_header()
+    header = build_header()
     OUT.write_text(header, encoding="utf-8")
     total_raw = sum(len(extract(ROOT / rel, d)) for _, rel, d, _ in ASSETS)
     print(f"[gzip-assets] wrote {OUT} ({total_raw} B raw)")
