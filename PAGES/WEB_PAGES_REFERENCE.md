@@ -126,3 +126,4 @@ Key files: `webpage_state.cpp:236` (sessions) · `auto_js.h:99-138` (10-min watc
 | `GET /api/status-basic` | pollers/dashboards | ~116 B (`version`, `uptime`, `free_heap`, `rssi`, `ip`) |
 | `GET /api/status` | página Status | deixou de bloquear (47-100 ms; era 1,0-20 s) |
 | `GET /vendor/chart*.js` | Chart.js local | gzip pré-gerado, cache `immutable` |
+| `POST /api/sensor-history-compact` | manutenção: deduplica `.chart`/`.csv` de um dia (`date=YYYY-MM-DD`) | mantém a 1.ª ocorrência; só admins |

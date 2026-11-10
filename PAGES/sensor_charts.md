@@ -224,3 +224,16 @@ Single `data-i18n` content key: `sensorChartsTitle` (EN `"Local Processing Page"
 - **Payload do dia mais leve**: o JSON deixou de duplicar `temperature`/`pressure` quando
   `temp_avg`/`pressure_hpa` existem (24 KB → ~16 KB) e os ficheiros diários deixaram de
   receber amostras de outros dias (ver `PAGES/BACKLOG.md`/histórico do pack).
+
+## 14. Alterações 2026-11-10 (REABRIR-2: histórico e MQ-135)
+
+- **Compactação de histórico (novo)**: `POST /api/sensor-history-compact` com `date=YYYY-MM-DD`
+  remove amostras duplicadas do `.chart` e do `.csv` desse dia, mantendo a **primeira** ocorrência
+  de cada timestamp e reescrevendo via `.tmp` (original → `.bak` → troca → remove `.bak`).
+  Existe porque firmware anterior a 2026-11-10 re-anexava o ring pré-reboot a cada boot
+  (ex.: 2026-11-10 tinha 1008 registos / 219 únicos). Resposta: `{"ok":true,"date":...,"changed":bool}`.
+- **Auto-reparo no boot**: o primeiro flush periódico de cada boot chama a mesma rotina para o dia
+  corrente (no-op se o ficheiro já estiver limpo; mensagem no monitor quando limpa).
+- **MQ-135**: R0 passou a ser calibrado em ar limpo na board (ver histórico do pack) — a página
+  mostra `R0 (Ohm)`; `scale` dos slots extra é factor de precisão do armazenamento
+  (`valor/scale`), não multiplicador de exibição.

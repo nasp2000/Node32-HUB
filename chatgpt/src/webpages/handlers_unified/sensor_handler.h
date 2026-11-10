@@ -26,6 +26,8 @@ void handleSensorChartsSessionEndPost(HttpRequest& req, HttpResponse& res);
 void handleSensorHistoryGet(HttpRequest& req, HttpResponse& res);
 void handleSensorHistoryFilesGet(HttpRequest& req, HttpResponse& res);
 void handleSensorHistoryFileGet(HttpRequest& req, HttpResponse& res);
+// Remove duplicate rows/records from one day's history files (maintenance).
+void handleSensorHistoryCompactPost(HttpRequest& req, HttpResponse& res);
 #endif
 
 #if ENABLE_MQ135==1

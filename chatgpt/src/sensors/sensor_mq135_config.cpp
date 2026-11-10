@@ -8,6 +8,7 @@
 #include "sensor_mq135.h"
 #include <ArduinoJson.h>
 #include <time.h>
+#include <math.h>             // lroundf (extra-slot saturation)
 #include "feature_flags.h"
 #include "../psram_helpers.h"
 
@@ -131,20 +132,30 @@ bool MQ135ConfigManager::performReading(float temperature, float humidity) {
 // Stage history extra slots
 // ====================================================================================
 
+// Extra slots are stored as int16 scaled by 10 (1 decimal). Gas ppm can exceed
+// 3276.7 (MQ-135 CO/smoke curves reach thousands in "clean" air), so a plain
+// (int16_t) cast wrapped to negative values (live .24: CO 5029 -> stored
+// -3256.8). Saturate instead of overflowing.
+static int16_t mq135ScaleToInt16(float v) {
+    if (v > 32767.0f)  v = 32767.0f;
+    if (v < -32767.0f) v = -32767.0f;
+    return (int16_t)lroundf(v);
+}
+
 void MQ135ConfigManager::stageHistorySlots(SensorHistory &history) const {
     if (!_config.sensor_enabled) return;
     if (_config.gas_co2.enabled)
-        history.setExtraSlot(MQ135_SLOT_CO2,     (int16_t)(_config.last_co2));
+        history.setExtraSlot(MQ135_SLOT_CO2,     mq135ScaleToInt16(_config.last_co2));
     if (_config.gas_co.enabled)
-        history.setExtraSlot(MQ135_SLOT_CO,      (int16_t)(_config.last_co      * 10.0f));
+        history.setExtraSlot(MQ135_SLOT_CO,      mq135ScaleToInt16(_config.last_co      * 10.0f));
     if (_config.gas_nh3.enabled)
-        history.setExtraSlot(MQ135_SLOT_NH3,     (int16_t)(_config.last_nh3     * 10.0f));
+        history.setExtraSlot(MQ135_SLOT_NH3,     mq135ScaleToInt16(_config.last_nh3     * 10.0f));
     if (_config.gas_nox.enabled)
-        history.setExtraSlot(MQ135_SLOT_NOX,     (int16_t)(_config.last_nox     * 10.0f));
+        history.setExtraSlot(MQ135_SLOT_NOX,     mq135ScaleToInt16(_config.last_nox     * 10.0f));
     if (_config.gas_alcohol.enabled)
-        history.setExtraSlot(MQ135_SLOT_ALCOHOL, (int16_t)(_config.last_alcohol * 10.0f));
+        history.setExtraSlot(MQ135_SLOT_ALCOHOL, mq135ScaleToInt16(_config.last_alcohol * 10.0f));
     if (_config.gas_aqi.enabled)
-        history.setExtraSlot(MQ135_SLOT_AQI,     (int16_t)(_config.last_aqi));
+        history.setExtraSlot(MQ135_SLOT_AQI,     mq135ScaleToInt16(_config.last_aqi));
 }
 
 // ====================================================================================

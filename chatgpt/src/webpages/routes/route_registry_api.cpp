@@ -473,6 +473,7 @@ static const LegacyRoute s_legacyRoutes[] = {
     {"POST", "/api/sensor-config"},
     {"POST", "/api/sensorday-extra-emails"},
     {"POST", "/api/sensor-flush"},
+    {"POST", "/api/sensor-history-compact"},
     {"POST", "/api/sensor-measure"},
     {"POST", "/api/sensor-reset-stats"},
     {"POST", "/api/sound-config"},

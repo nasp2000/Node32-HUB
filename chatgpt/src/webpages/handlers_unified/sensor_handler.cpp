@@ -414,6 +414,42 @@ void handleSensorHistoryFileGet(HttpRequest& req, HttpResponse& res) {
     sensorConfigManager.getHistory().streamDailyFile(sp, dateId, &sensorConfigManager.getConfig());
     res.send(200, "application/json", buf);
 }
+
+// Remove duplicated samples from one day's .chart/.csv (maintenance).
+// Body or query: date=YYYY-MM-DD. Keeps the first sample of each timestamp.
+void handleSensorHistoryCompactPost(HttpRequest& req, HttpResponse& res) {
+    if (!configManager.getChartsPageEnabled()) {
+        res.send(404, "application/json", "{\"error\":\"charts disabled\"}");
+        return;
+    }
+    String src = req.body.length() ? req.body : req.query;
+    String dateId;
+    int eq = src.indexOf("date=");
+    if (eq >= 0) {
+        int start = eq + 5;
+        int end = src.indexOf('&', start);
+        if (end < 0) end = src.length();
+        dateId = src.substring(start, end);
+    }
+    // Strict YYYY-MM-DD: it becomes part of a file path.
+    bool valid = (dateId.length() == 10) && dateId[4] == '-' && dateId[7] == '-';
+    for (int i = 0; valid && i < 10; i++) {
+        if (i == 4 || i == 7) continue;
+        if (dateId[i] < '0' || dateId[i] > '9') valid = false;
+    }
+    if (!valid) {
+        res.send(400, "application/json", "{\"ok\":false,\"msg\":\"date=YYYY-MM-DD required\"}");
+        return;
+    }
+
+    bool changed = sensorConfigManager.getHistory().compactDailyFile(dateId);
+    String json = F("{\"ok\":true,\"date\":\"");
+    json += dateId;
+    json += F("\",\"changed\":");
+    json += changed ? F("true") : F("false");
+    json += '}';
+    res.sendJson(json);
+}
 #endif
 
 // ===== MQ-135 ========================================================================

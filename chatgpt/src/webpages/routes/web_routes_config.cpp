@@ -518,6 +518,7 @@ void registerSensorApiRoutes(AsyncWebServer& server, const WebRouteContext& cont
     registerApiRoute("GET",    "/api/sensor-history",           handleSensorHistoryGet);
     registerApiRoute("GET",    "/api/sensor-history-files",     handleSensorHistoryFilesGet);
     registerApiRoute("GET",    "/api/sensor-history-file",      handleSensorHistoryFileGet);
+    registerApiRoute("POST",   "/api/sensor-history-compact",   handleSensorHistoryCompactPost);
 #endif
 
 #if ENABLE_MQ135==1

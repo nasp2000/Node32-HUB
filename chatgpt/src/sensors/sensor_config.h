@@ -808,6 +808,229 @@ struct SensorHistory {
 #endif
     }
 
+    // ==========================================================================
+    // One-off maintenance: remove duplicate samples from one day's files.
+    //
+    // Firmware before 2026-11-10 re-appended the whole pre-reboot ring to the
+    // same day file after every reboot, so a day could hold the same sample
+    // dozens of times (live .24: 2026-11-10 had 1008 records / 219 unique).
+    // This keeps the FIRST occurrence of each timestamp and rewrites the file
+    // through a .tmp copy, so nothing valid is lost. The writer itself no
+    // longer produces duplicates (day gate + resume-from-last-row).
+    // ==========================================================================
+    static String dailyCsvPath(const String &dateId) {
+        return String(F("/sensor_history/")) + dateId + "/" + dateId + ".csv";
+    }
+
+    // "2026-11-10 19:15:52" -> epoch (0 when unparseable).
+    static uint32_t csvStampToEpoch(const char *s) {
+        int Y = 0, Mo = 0, D = 0, h = 0, m = 0, sec = 0;
+        if (!s || sscanf(s, "%d-%d-%d %d:%d:%d", &Y, &Mo, &D, &h, &m, &sec) != 6) return 0;
+        struct tm lt;
+        memset(&lt, 0, sizeof(lt));
+        lt.tm_year = Y - 1900; lt.tm_mon = Mo - 1; lt.tm_mday = D;
+        lt.tm_hour = h; lt.tm_min = m; lt.tm_sec = sec; lt.tm_isdst = -1;
+        time_t t = mktime(&lt);
+        return (t > 1000000000) ? (uint32_t)t : 0;
+    }
+
+    // Sorted insertion index for `ts` in seen[0..n) (binary search).
+    static size_t sortedPos(const uint32_t *seen, size_t n, uint32_t ts) {
+        size_t lo = 0, hi = n;
+        while (lo < hi) {
+            size_t mid = lo + (hi - lo) / 2;
+            if (seen[mid] < ts) lo = mid + 1; else hi = mid;
+        }
+        return lo;
+    }
+
+    // Timestamp index buffer: PSRAM first, internal heap as fallback (freed
+    // right after use — never kept resident).
+    static void *histIdxAlloc(size_t bytes) {
+#if defined(BOARD_HAS_PSRAM) || defined(CONFIG_SPIRAM_SUPPORT)
+        if (psramFound()) {
+            void *p = heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM);
+            if (p) return p;
+        }
+#endif
+        return malloc(bytes);
+    }
+    static void histIdxFree(void *p) {
+#if defined(BOARD_HAS_PSRAM) || defined(CONFIG_SPIRAM_SUPPORT)
+        if (p) heap_caps_free(p);
+#else
+        free(p);
+#endif
+    }
+
+    // Remove duplicate records from a .chart file. Returns true if rewritten.
+    bool compactChartFile(const String &path) {
+#if ENABLE_SDCARD==1
+        File in = SD_MMC.open(path.c_str(), FILE_READ);
+        if (!in) return false;
+
+        ChartFileHeader hdr;
+        // Structural validation (the magic constant is private to chart_history.cpp):
+        // version/source/column layout must match a sensor .chart written by this firmware.
+        if (in.read((uint8_t*)&hdr, sizeof(hdr)) != (int)sizeof(hdr) ||
+            hdr.version != CHART_HISTORY_VERSION ||
+            hdr.sourceType != CHART_HISTORY_SOURCE_SENSOR ||
+            hdr.columnCount == 0 || hdr.columnCount > CHART_HISTORY_SENSOR_MAX_COLUMNS ||
+            hdr.firstRecordOffset != sizeof(ChartFileHeader) + (uint32_t)hdr.columnCount * sizeof(ChartColumnDef)) {
+            in.close();
+            return false;
+        }
+        const size_t recSize = 8 + (size_t)hdr.columnCount * sizeof(int16_t);
+        const size_t total   = (size_t)in.size();
+        if (total <= hdr.firstRecordOffset) { in.close(); return false; }
+        const size_t nrec = (total - hdr.firstRecordOffset) / recSize;
+        if (nrec < 2) { in.close(); return false; }
+
+        uint32_t *seen = (uint32_t*)histIdxAlloc(nrec * sizeof(uint32_t));
+        if (!seen) { in.close(); return false; }
+        size_t nseen = 0;
+
+        String tmpPath = path + F(".tmp");
+        File out = SD_MMC.open(tmpPath.c_str(), FILE_WRITE);
+        if (!out) { histIdxFree(seen); in.close(); return false; }
+
+        // Header + column definitions are copied verbatim.
+        bool ok = true;
+        {
+            uint8_t buf[512];
+            in.seek(0);
+            size_t left = hdr.firstRecordOffset;
+            while (left > 0) {
+                size_t chunk = (left < sizeof(buf)) ? left : sizeof(buf);
+                if (in.read(buf, chunk) != (int)chunk || out.write(buf, chunk) != chunk) { ok = false; break; }
+                left -= chunk;
+            }
+        }
+
+        uint8_t rec[8 + CHART_HISTORY_SENSOR_MAX_COLUMNS * sizeof(int16_t)];
+        if (ok) {
+            in.seek(hdr.firstRecordOffset);
+            for (size_t i = 0; i < nrec; i++) {
+                if (in.read(rec, recSize) != (int)recSize) { ok = false; break; }
+                uint32_t ts = 0;
+                memcpy(&ts, rec, sizeof(ts));
+                size_t pos = sortedPos(seen, nseen, ts);
+                if (pos < nseen && seen[pos] == ts) continue;      // duplicate: keep first
+                if (out.write(rec, recSize) != recSize) { ok = false; break; }
+                memmove(&seen[pos + 1], &seen[pos], (nseen - pos) * sizeof(uint32_t));
+                seen[pos] = ts;
+                nseen++;
+            }
+        }
+        out.flush();
+        out.close();
+        in.close();
+        histIdxFree(seen);
+
+        if (!ok || nseen == 0 || nseen >= nrec) { SD_MMC.remove(tmpPath.c_str()); return false; }
+        // Replace safely: original -> .bak, tmp -> original, drop .bak. If the
+        // second rename fails the previous file is restored from .bak.
+        String bakPath = path + F(".bak");
+        SD_MMC.remove(bakPath.c_str());
+        if (!SD_MMC.rename(path.c_str(), bakPath.c_str())) { SD_MMC.remove(tmpPath.c_str()); return false; }
+        if (!SD_MMC.rename(tmpPath.c_str(), path.c_str())) {
+            SD_MMC.rename(bakPath.c_str(), path.c_str());
+            return false;
+        }
+        SD_MMC.remove(bakPath.c_str());
+        Serial.printf("[SENSOR_HISTORY] compact %s: %u -> %u records\n",
+                      path.c_str(), (unsigned)nrec, (unsigned)nseen);
+        return true;
+#else
+        (void)path;
+        return false;
+#endif
+    }
+
+    // Remove duplicate rows from a .csv file. Returns true if rewritten.
+    bool compactCsvFile(const String &path) {
+#if ENABLE_SDCARD==1
+        File in = SD_MMC.open(path.c_str(), FILE_READ);
+        if (!in) return false;
+
+        // Upper bound for the timestamp index; a day file is small.
+        size_t nLines = 0;
+        {
+            size_t sz = (size_t)in.size();
+            nLines = sz / 12 + 2;
+            if (nLines < 8) nLines = 8;
+            if (nLines > 20000) nLines = 20000;
+        }
+        uint32_t *seen = (uint32_t*)histIdxAlloc(nLines * sizeof(uint32_t));
+        if (!seen) { in.close(); return false; }
+        size_t nseen = 0, rows = 0, written = 0, dups = 0;
+
+        String tmpPath = path + F(".tmp");
+        File out = SD_MMC.open(tmpPath.c_str(), FILE_WRITE);
+        if (!out) { histIdxFree(seen); in.close(); return false; }
+
+        bool ok = true;
+        bool first = true;
+        while (in.available() && ok) {
+            String line = in.readStringUntil('\n');
+            line.trim();
+            if (line.length() == 0) continue;
+            if (first) {                      // header row
+                first = false;
+                if (out.print(line) != line.length() || out.print('\n') != 1) { ok = false; break; }
+                written++;
+                continue;
+            }
+            rows++;
+            uint32_t ts = csvStampToEpoch(line.c_str());
+            if (ts != 0) {
+                size_t pos = sortedPos(seen, nseen, ts);
+                if (pos < nseen && seen[pos] == ts) { dups++; continue; }   // duplicate: keep first
+                if (nseen >= nLines) { ok = false; break; }       // index overflow: abort, keep original
+                memmove(&seen[pos + 1], &seen[pos], (nseen - pos) * sizeof(uint32_t));
+                seen[pos] = ts;
+                nseen++;
+            }
+            if (out.print(line) != line.length() || out.print('\n') != 1) { ok = false; break; }
+            written++;
+        }
+        out.flush();
+        out.close();
+        in.close();
+        histIdxFree(seen);
+
+        // dups == 0 -> nothing to rewrite (keep the original untouched).
+        if (!ok || nseen == 0 || dups == 0) { SD_MMC.remove(tmpPath.c_str()); return false; }
+        String bakPath = path + F(".bak");
+        SD_MMC.remove(bakPath.c_str());
+        if (!SD_MMC.rename(path.c_str(), bakPath.c_str())) { SD_MMC.remove(tmpPath.c_str()); return false; }
+        if (!SD_MMC.rename(tmpPath.c_str(), path.c_str())) {
+            SD_MMC.rename(bakPath.c_str(), path.c_str());
+            return false;
+        }
+        SD_MMC.remove(bakPath.c_str());
+        Serial.printf("[SENSOR_HISTORY] compact %s: %u -> %u rows\n",
+                      path.c_str(), (unsigned)rows, (unsigned)written);
+        return true;
+#else
+        (void)path;
+        return false;
+#endif
+    }
+
+    // Compact both files of one day. Returns true when anything was rewritten.
+    bool compactDailyFile(const String &dateId) {
+#if ENABLE_SDCARD==1
+        if (dateId.length() != 10) return false;
+        bool chart = compactChartFile(chartHistorySensorPathForDate(dateId));
+        bool csv   = compactCsvFile(dailyCsvPath(dateId));
+        return chart || csv;
+#else
+        (void)dateId;
+        return false;
+#endif
+    }
+
     // Flush new sensor history points to PSRAM VFS (fallback when SD card is absent).
     // Writes CSV rows under source "SENSOR_HIST" into today's PSRAM virtual folder.
     bool periodicFlushToPSRAM(const SensorConfig &cfg) {

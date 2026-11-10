@@ -1288,6 +1288,24 @@ void SensorConfigManager::periodicPersist() {
     if ((now - lastSDFlush) >= sdIntervalMs) {
         Serial.printf("[SENSOR_PERSIST] Running periodic flush (interval: %lus)...\n",
                       sdIntervalMs / 1000);
+        // One-off self-heal (once per boot): firmware before 2026-11-10 could
+        // leave duplicated samples in a day file. compactDailyFile() keeps the
+        // first occurrence of each timestamp and is a no-op on clean files.
+        static bool s_compactChecked = false;
+        if (!s_compactChecked) {
+            s_compactChecked = true;
+            time_t tnow = time(nullptr);
+            if (tnow > 1000000000) {
+                struct tm tiday;
+                localtime_r(&tnow, &tiday);
+                char dayId[11];
+                snprintf(dayId, sizeof(dayId), "%04d-%02d-%02d",
+                         tiday.tm_year + 1900, tiday.tm_mon + 1, tiday.tm_mday);
+                if (history.compactDailyFile(String(dayId))) {
+                    sendVirtualMessage(F("Sensor history: duplicate samples removed from today's file"), INFO);
+                }
+            }
+        }
 #if ENABLE_SDCARD==1
         if (sdcardShouldUseSD()) {
             bool ok = history.periodicFlushToSD(config);
