@@ -287,12 +287,26 @@ uint8_t proximityShiftDayAlignedDate(time_t now, struct tm* out) {
 // proximityResetShiftDetection() is defined in proximity_manager.cpp and resets
 // _currentShiftIdx so the next tick forces a re-baseline.
 void proximitySetShiftConfig(const ProximityShiftConfig& cfg) {
-    _shiftCfg = cfg;
-    proximitySortShiftSlots(_shiftCfg);   // contract: slots sorted ascending (web/CLI never sort)
+    // Normalise BEFORE comparing: the caller's slot order must not look like a
+    // layout change (web/CLI never sort).
+    ProximityShiftConfig next = cfg;
+    proximitySortShiftSlots(next);
+    const bool layoutChanged = !proxShiftLayoutEqual(_shiftCfg, next);
+    _shiftCfg = next;
     sendVirtualMessage(String(F("[prox:shift] setConfig: en=")) + String((int)_shiftCfg.enabled) +
         F(" nSlots=") + String((int)_shiftCfg.nSlots) +
         F(" h0=") + String((int)_shiftCfg.slots[0].hour), COMMAND_RESPONSE, true);
-    proximityResetShiftDetection();
+    // Restarting the running shift is reserved for the page Reset button / a
+    // manual reset by the collaborator (owner, 2026-11-10). Saving the SAME
+    // layout (new e-mails, planned stops, auto-reset flag…) must keep the shift
+    // running; only a real layout change re-baselines, and it says so loudly so
+    // nobody mistakes it for the old quirk.
+    if (layoutChanged) {
+        sendVirtualMessage(F("[prox:shift] layout changed -> running shift re-baselined"), WARN, false, true);
+        proximityResetShiftDetection();
+    } else {
+        sendVirtualMessage(F("[prox:shift] layout unchanged, running shift kept"), INFO, false, true);
+    }
 }
 
 #endif // ENABLE_PROXIMITY == 1

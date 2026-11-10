@@ -460,3 +460,39 @@ TEST_CASE("stop bins: the rollover copy is stamped inside the day that just ende
                                22, lastMinute, &back) == 143);   // last square
     CHECK(back == ds);                                          // same day start
 }
+
+// 2026-11-10 (owner): the running shift must survive a page SAVE. The form posts
+// the whole shift config (e-mails, planned stops, auto-reset flag) and the old
+// setter re-baselined unconditionally — 31-10 s2 ended with total 23 180 while
+// the hourly columns added up to 68 440. Only the enable flag + slots matter.
+TEST_CASE("shift layout: e-mails, AR flag and stops are NOT a layout change") {
+    ProximityShiftConfig a;
+    memset(&a, 0, sizeof(a));
+    a.enabled = true; a.auto_reset_on_shift = false; a.nSlots = 3;
+    a.slots[0].hour = 6;  a.slots[1].hour = 14; a.slots[2].hour = 22;
+    strcpy(a.shiftday_emails, "a@b.c");
+    ProximityShiftConfig b = a;
+    b.auto_reset_on_shift = true;                 // auto-reset toggled
+    strcpy(b.shiftday_emails, "x@y.z,other@y.z"); // recipients edited
+    CHECK(proxShiftLayoutEqual(a, b));
+    b.enabled = false;                            // scheduling off IS a change
+    CHECK_FALSE(proxShiftLayoutEqual(a, b));
+}
+
+TEST_CASE("shift layout: any slot edit (hour, minute or count) is a change") {
+    ProximityShiftConfig a;
+    memset(&a, 0, sizeof(a));
+    a.enabled = true; a.nSlots = 3;
+    a.slots[0].hour = 6;  a.slots[1].hour = 14; a.slots[2].hour = 22;
+    ProximityShiftConfig b = a;
+    b.slots[1].minute = 30;                       // 14:00 -> 14:30
+    CHECK_FALSE(proxShiftLayoutEqual(a, b));
+    b = a; b.slots[2].hour = 23;                  // 22h -> 23h
+    CHECK_FALSE(proxShiftLayoutEqual(a, b));
+    b = a; b.nSlots = 2;                          // 3 shifts -> 2
+    CHECK_FALSE(proxShiftLayoutEqual(a, b));
+    // The web never sorts: normalise first, then the same slots are equal.
+    b = a; b.slots[0].hour = 22; b.slots[1].hour = 6; b.slots[2].hour = 14;
+    proximitySortShiftSlots(b);
+    CHECK(proxShiftLayoutEqual(a, b));
+}

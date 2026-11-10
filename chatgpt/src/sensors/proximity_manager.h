@@ -364,6 +364,23 @@ static inline void proximitySortShiftSlots(ProximityShiftConfig& sc) {
     }
 }
 
+// Do two shift configs describe the SAME shift layout? Only the enable flag and
+// the slots define the running window; the auto-reset flag, the planned stops and
+// the shift-day recipients travel in the same web form and must NOT invalidate
+// the running shift. Saving the page used to re-baseline every time (owner,
+// 2026-11-10: a save with nothing changed restarted the shift — 31-10 s2 ended
+// with total 23 180 vs 68 440 in the hourly columns). Pure (testable).
+static inline bool proxShiftLayoutEqual(const ProximityShiftConfig& a,
+                                        const ProximityShiftConfig& b) {
+    if (a.enabled != b.enabled) return false;
+    if (a.nSlots != b.nSlots) return false;
+    for (uint8_t i = 0; i < a.nSlots; i++) {
+        if (a.slots[i].hour   != b.slots[i].hour)   return false;
+        if (a.slots[i].minute != b.slots[i].minute) return false;
+    }
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 // Weekly OEE CSV pure helpers (additive, independent of SD/state; tested natively).
 // ---------------------------------------------------------------------------
