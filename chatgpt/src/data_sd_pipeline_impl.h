@@ -1001,7 +1001,8 @@ static unsigned long _proxChartRingLastMs = 0;
 // the day rollover), but a mid-day reboot/OTA would blank the strip for the
 // hours before it. So the day's bins are ALSO written to a small per-day file at
 // every shift close (3 writes/day, same SD/LittleFS sinks as the OEE files) and
-// merged back here where the RAM copy is UNKNOWN.
+// merged back here where the RAM copy is UNKNOWN. The rollover itself saves the
+// day that ends before clearing (a close that is also the rollover runs later).
 #define _PROX_STOP_BIN_SEC      600                  // 10 min per square
 #define _PROX_STOP_BINS         144                  // squares per production day
 #define _PROX_STOP_UNKNOWN      PROX_STOP_UNKNOWN    // shared with the file codec
@@ -1011,6 +1012,11 @@ static uint16_t _proxStopSec10[_PROX_STOP_MAX_CH][_PROX_STOP_BINS];
 static uint32_t _proxStopLastIn[_PROX_STOP_MAX_CH];
 static uint32_t _proxStopLastTick[_PROX_STOP_MAX_CH];
 static uint32_t _proxStopDayStart = 0;
+
+// Persist the bins of ONE production day to its per-day file (defined below
+// with the file codec; forward-declared so the day rollover in _proxStopBinsAdd
+// can save the day that just ended BEFORE zeroing the RAM copy).
+static void _proxStopBinsWrite(uint32_t dayStart, time_t ctxNow);
 
 // Write one ProximityChartRecord for the current accumulator state.
 // Uniform persisted cadence: SD *and* LittleFS follow the configured flush
@@ -1153,6 +1159,16 @@ static void _proxStopBinsAdd(uint8_t nCh, const uint32_t* chIn, time_t now) {
     const int bin = proxStopBinFromClock(ti.tm_hour, ti.tm_min, ti.tm_sec,
                                          proximityShiftDayBoundaryHour(), now, &dayStart);
     if (dayStart != _proxStopDayStart) {
+        // Day rollover: save the day that just ENDED before the bins are
+        // zeroed. The shift close that used to do this runs AFTER this tick on
+        // a boundary that is also a shift end (22h), so by then the RAM copy
+        // already belonged to the new day and the ended day's file was written
+        // EMPTY with the new day's header (seen on every stopbins_<D>.csv of
+        // 31-10..09-11). The close now skips a file whose day it no longer
+        // holds; this is the authoritative copy.
+        if (_proxStopDayStart != 0) {
+            _proxStopBinsWrite(_proxStopDayStart, (time_t)_proxStopDayStart + 86400 - 60);
+        }
         _proxStopDayStart = dayStart;
         for (uint8_t c = 0; c < _PROX_STOP_MAX_CH; c++) {
             for (int b = 0; b < _PROX_STOP_BINS; b++) _proxStopSec10[c][b] = _PROX_STOP_UNKNOWN;
@@ -1201,17 +1217,14 @@ static void _proxStopBinsPath(char* out, size_t cap, time_t now, bool flash) {
     }
 }
 
-// Persist the day's 10-min stop bins (called at every shift close). Writes one
-// "ch,v,v,..." line per channel that was watched today, plus a header carrying
-// day_start/bins so a stale file (other day, config change) is rejected on read.
-// Overwrites the same per-day file (no growth): 3 writes/day, no new sink.
-// `ctxNow` is the shift-end context time (just BEFORE the boundary), so a close
-// at the 22:00 day rollover still names/persists the ENDED day (same rule the
-// weekly OEE writer uses); <=0 falls back to now.
-void proxChartStopBinsSaveDay(time_t ctxNow) {
+// Persistence core: one "ch,v,v,..." line per watched channel plus a header
+// carrying `dayStart` (a stale/foreign file is rejected on read), written to the
+// file named by the production day holding `ctxNow` (a 21:59 close still names
+// the ended day). Overwrites in place: 3 writes/day, no growth, no new sink.
+static void _proxStopBinsWrite(uint32_t dayStart, time_t ctxNow) {
+    if (dayStart == 0) return;
     time_t now = (ctxNow > 1000000000L) ? ctxNow : time(nullptr);
     if (!sd_layout::clockReady(now)) return;
-    if (_proxStopDayStart == 0) return;
     const bool useFlash = !sdcardShouldUseSD();
 
     char path[96];
@@ -1220,7 +1233,7 @@ void proxChartStopBinsSaveDay(time_t ctxNow) {
     char line[((_PROX_STOP_BINS * 5) + 8)];
     char hdr[80];
     snprintf(hdr, sizeof(hdr), "# stopbins v1 day_start=%lu bins=%d",
-             (unsigned long)_proxStopDayStart, _PROX_STOP_BINS);
+             (unsigned long)dayStart, _PROX_STOP_BINS);
 
     size_t written = 0;
     if (!useFlash) {
@@ -1264,6 +1277,19 @@ void proxChartStopBinsSaveDay(time_t ctxNow) {
         lfsMutexUnlock();
 #endif
     }
+}
+
+// Persist the day's 10-min stop bins (called at every shift close). `ctxNow` is
+// the shift-end context time (just BEFORE the boundary), so a close at the 22:00
+// day rollover still names/persists the ENDED day (same rule the weekly OEE
+// writer uses); <=0 falls back to now. Writes only while the RAM copy still holds
+// the day `ctxNow` names — see proxStopBinsDayCovers().
+void proxChartStopBinsSaveDay(time_t ctxNow) {
+    time_t now = (ctxNow > 1000000000L) ? ctxNow : time(nullptr);
+    if (!sd_layout::clockReady(now)) return;
+    if (_proxStopDayStart == 0) return;
+    if (!proxStopBinsDayCovers(_proxStopDayStart, now)) return;
+    _proxStopBinsWrite(_proxStopDayStart, now);
 }
 
 // Read the persisted per-day bins into RAM: only the UNKNOWN blocks are filled

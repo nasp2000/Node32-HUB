@@ -2090,6 +2090,11 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
 
     long prevIn = -1;
     int  prevHour = -1;
+    // Timestamp of the previous counted row, to tell a real gap from a row that
+    // was APPENDED late: the shift_end/shift_boundary pair is stamped :59 of the
+    // turn end but written after the tick on the hour (05:59 lands after 06:00),
+    // so hour-only arithmetic sees a 23 h jump and flagged every hour as mixed.
+    char* prevTs = nullptr;
     char* line = buf;
     while (line && *line) {
         char* nl = strchr(line, '\n');
@@ -2151,7 +2156,16 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
                                     // email marks the bar with "~" and the weekly
                                     // CSV writes gap=1 instead of pretending the
                                     // hour was measured cleanly.
-                                    if (gapMaskOut) {
+                                    //
+                                    // Only when the row is in chronological order:
+                                    // the boundary snapshot is appended AFTER the
+                                    // tick it precedes (05:59 after 06:00), which
+                                    // is not a gap at all.
+                                    bool monotonic = true;
+                                    if (prevTs && strlen(p) >= 19 && strlen(prevTs) >= 19) {
+                                        monotonic = (memcmp(p, prevTs, 19) >= 0);
+                                    }
+                                    if (gapMaskOut && monotonic) {
                                         int span = (hour - attrHour + 24) % 24;
                                         if (span > 1) {
                                             int hh = attrHour;
@@ -2164,6 +2178,7 @@ static bool _proxReadHourlyCounts(const String& csvPath, int startHour, int durH
                                 }
                                 prevIn = ch0;
                                 prevHour = (hour >= 0 && hour <= 23) ? hour : prevHour;
+                                prevTs = p;
                             }
                         }
                     }

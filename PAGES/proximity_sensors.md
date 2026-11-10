@@ -291,7 +291,13 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
   then the hourly "Pcs por hora" chart **using the same production-bar blocks**
   (`▓` DARK SHADE filled / `░` LIGHT SHADE track, `proximityBuildHourlyChart()`),
   e.g. `21H  446 pcs  [▓░░░░░░░░░]` (a trailing `~` marks an hour whose count holds a
-  delta that spanned a missing CSV tick — mixed, not a clean hourly measure) — each part separated by one blank
+  delta that spanned a missing CSV tick — mixed, not a clean hourly measure; the flag
+  is only set when the two rows compared are in **chronological order**
+  (`memcmp` of the 19-char timestamp): the `shift_end`/`shift_boundary` pair of a
+  close is stamped `:59` but appended **after** the tick on the hour (05:59 written
+  after 06:00), so hour-only arithmetic saw a 23 h jump and marked **every** hour of
+  **every** shift — that was the `gap=1` in almost every row of the weekly CSV until
+  2026-11-10, while a real 2 h hole keeps flagging) — each part separated by one blank
   line. The count is `" pcs"`-suffixed and right-aligned to the widest value of the
   shift (`%02dH %*d pcs`), so every row's bar opens at the same column. The chart bar is **10 cells** (owner pick 2026-10-15: phone-width body,
   one row per shift hour), down from 20. Chart columns cover the ACTUAL shift hours `[start, end)` from
@@ -498,7 +504,13 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
   `/api/proximity-chart-data?stops=1`, which merges it only into the blocks the RAM
   copy still reports as unknown (a mid-day reboot/OTA blanks them; the daily 22:00
   reboot is the day rollover, so nothing is lost on a normal day). A file whose
-  header `day_start` differs from today is ignored.
+  header `day_start` differs from today is ignored. **Rollover copy (2026-11-10):**
+  the 22:00 close is both a shift end and the day rollover, and the 1-min tick that
+  zeroes the bins can run before it — the rollover now writes the ENDED day's bins
+  (`_proxStopBinsWrite(oldDayStart, oldDayStart+24h−60s)`) before clearing, and the
+  close skips the write when its `ctxNow` no longer falls inside the day held in RAM
+  (`proxStopBinsDayCovers()`), instead of overwriting the good file with the next
+  day's empty bins under a stale name.
 - **Weekly OEE CSV (single file per ISO week, additive)**: at every shift-end the
   board appends **one row per hour of the ended shift** to a single per-week file
   `/SDNAME/wk<NN>-oee.csv` (NN = ISO 8601 week number, from `proximityIsoWeek()`
@@ -530,7 +542,9 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
   folder — a 22H-06H turn no longer splits across two calendar dates when filtered),
   `ppm_meas` (pieces/minute actually made in that hour = `count_hour/60`, next to the
   nominal `ppm` target) and `gap` (1 = that hour holds a delta that spanned a missing
-  tick — mixed measure, never interpolated; the shift email marks the same bar with `~`).
+  tick — mixed measure, never interpolated; the shift email marks the same bar with `~`;
+  only rows in chronological order are compared, so the late-appended `:59` boundary
+  row no longer flags the whole shift — see the chart note above).
   Written by `_proxWriteWeeklyOee()` from the
   shift-end block (after the DI1 snapshot, before auto-reset). Pure helpers
   (`proximityIsoWeek`, `proximityWeeklyOeeFileName`, `proximityFormatOeeRow`) live

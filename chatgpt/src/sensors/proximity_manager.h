@@ -709,6 +709,19 @@ static inline void proxStopBinsMerge(uint16_t* ram, const uint16_t* saved, int n
     }
 }
 
+// Does the production day that starts at `dayStart` still contain `t`? A
+// shift-close save may only write a day's file while the RAM bins hold THAT
+// day: when the close is also the day rollover (22h) the 1-min tick can zero
+// the bins for the new day first, and writing then painted the ended day's file
+// EMPTY under the next day's header (every stopbins_<D>.csv 31-10..09-11).
+// The authoritative copy for the ended day is written by the rollover itself.
+// Pure — shared with tests/native/test_proximity_day_aligned.cpp.
+static inline bool proxStopBinsDayCovers(uint32_t dayStart, time_t t) {
+    if (dayStart == 0 || t <= 0) return false;
+    return (uint64_t)t >= (uint64_t)dayStart &&
+           (uint64_t)t <  (uint64_t)dayStart + 86400ull;
+}
+
 // 10-min block of the production day that holds a given local clock time, plus
 // the epoch of that day's start. The block index runs 0..143 from the
 // day-boundary hour (same ordering as the .chart columns and the OEE timeline

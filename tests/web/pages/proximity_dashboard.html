@@ -740,6 +740,11 @@ function drawChart24(canvas, hourly, scrapHourly, chName, dateStr, curCol, color
   // T23 → owner revision 2026-10-21: 6 squares of 10 min per hour. A square is
   // painted only for a stop run of at least 10 min (stopSquaresFromBins), so
   // short micro-stops never show; the run is snapped to whole squares.
+  // 2026-11-10 (owner): a CONFIGURED planned stop paints amber by itself, even
+  // when no (or a <10 min) stop was measured inside it — the window is plan
+  // time, same rule as the day donut and the shift email bar. Previously amber
+  // only appeared where a measured stop run happened to land in the window, so
+  // a shift whose planned stop was met showed no planned time at all.
   // Columns without samples (or no stopBins at all) fall back to the solid
   // hour color.
   (function drawTimeline() {
@@ -764,8 +769,10 @@ function drawChart24(canvas, hourly, scrapHourly, chName, dateStr, curCol, color
         var bw4 = segW / STOP_CELLS_PER_HOUR;
         for (var b4 = 0; b4 < STOP_CELLS_PER_HOUR; b4++) {
           var c4;
+          var plan4 = minuteInPlannedStop(hr4, b4 * STOP_CELL_MIN, tlStops);
           if (stopBinIsFuture(kc4, b4, curCol, curBin)) c4 = '#e2e8f0';
-          else if (sq4[b4]) c4 = (inStop4 || !inShift4) ? '#f59e0b' : '#dc2626';
+          else if (plan4 || !inShift4) c4 = '#f59e0b';   // configured plan window
+          else if (sq4[b4]) c4 = '#dc2626';              // measured stop, no plan
           else if (row4[b4] >= 0) c4 = '#16a34a';
           else c4 = hourColor;
           var xa4 = Math.round(segX + bw4 * b4);
@@ -1332,6 +1339,25 @@ function hourInPlannedStop(h, stops) {
     var a = hs, b = he;
     if (a < s) { a += 1440; b += 1440; }
     if (a < e && s < b) return true;
+  }
+  return false;
+}
+// minuteInPlannedStop: clock time h:m inside a configured planned stop
+// ({sh,sm,eh,em}, may wrap midnight). Pure (testable). Finer than
+// hourInPlannedStop so the strip paints only the squares the window covers,
+// and paints them even when nothing was measured there — same "planned" rule
+// as the day donut and the shift email bar (configured window, not sample).
+function minuteInPlannedStop(h, m, stops) {
+  if (!stops || !stops.length) return false;
+  var t = (h || 0) * 60 + (m || 0);
+  for (var j = 0; j < stops.length; j++) {
+    var st = stops[j] || {};
+    var s = (st.sh || 0) * 60 + (st.sm || 0);
+    var e = (st.eh || 0) * 60 + (st.em || 0);
+    if (e <= s) e += 1440;
+    var a = t;
+    if (a < s) a += 1440;
+    if (a >= s && a < e) return true;
   }
   return false;
 }

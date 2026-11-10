@@ -1022,6 +1022,28 @@ async function timelineTests() {
     ok(!win.hourInPlannedStop(1, night), '1 outside');
     ok(!win.hourInPlannedStop(12, null), 'no stops');
   });
+  test('minuteInPlannedStop: 10-min squares see the exact window edges', function () {
+    var stops = [{sh:1,sm:0,eh:1,em:30}];
+    ok(win.minuteInPlannedStop(1, 0, stops), '01:00 in');
+    ok(win.minuteInPlannedStop(1, 20, stops), '01:20 in');
+    ok(win.minuteInPlannedStop(1, 29, stops), '01:29 in');
+    ok(!win.minuteInPlannedStop(1, 30, stops), '01:30 out');
+    ok(!win.minuteInPlannedStop(0, 50, stops), '00:50 out');
+    // 6 squares of the hour -> only the first three belong to the window.
+    var n = 0;
+    for (var b = 0; b < 6; b++) if (win.minuteInPlannedStop(1, b * 10, stops)) n++;
+    is(n, 3, '01:00-01:30 paints 3 of the 6 squares');
+  });
+  test('minuteInPlannedStop: window across midnight + empty list', function () {
+    var night = [{sh:23,sm:0,eh:0,em:30}];
+    ok(win.minuteInPlannedStop(23, 50, night), '23:50 in');
+    ok(win.minuteInPlannedStop(0, 0, night), '00:00 in');
+    ok(win.minuteInPlannedStop(0, 29, night), '00:29 in');
+    ok(!win.minuteInPlannedStop(0, 30, night), '00:30 out');
+    ok(!win.minuteInPlannedStop(22, 50, night), '22:50 out');
+    ok(!win.minuteInPlannedStop(12, 0, null), 'no stops');
+    ok(!win.minuteInPlannedStop(12, 0, []), 'empty stops');
+  });
   test('timelineLegendHTML uses donut colors', function () {
     var s = win.timelineLegendHTML();
     ok(s.indexOf('#16a34a') >= 0, 'green production');
@@ -1173,6 +1195,37 @@ async function timelineTests() {
     win.drawChart24(cv, hourly, [], 'DI1', '09-10-2026', 10, '#0284c7', 0, 85, {}, sb);
     var fl = stripFills();
     ok(fl.indexOf('#f59e0b') >= 0, 'stopped cells inside the planned stop are amber');
+    win._lastShiftCfg = null;
+  });
+  test('drawChart24 paints a configured planned stop amber with no stop measured', function () {
+    t23Log = [];
+    var cv = doc.createElement('canvas');
+    var hourly = []; for (var h = 0; h < 24; h++) hourly.push(0);
+    hourly[1] = 5000;                       // the hour produced, nothing stopped
+    var sb = emptyBins();
+    sb[1] = [0, 0, 0, 0, 0, 0];             // watched, no stop at all
+    win._lastShiftCfg = { en: true, slots: [{h:6,m:0},{h:14,m:0},{h:22,m:0}],
+                          stops: [{sh:1,sm:0,eh:1,em:30}] };
+    win.drawChart24(cv, hourly, [], 'DI1', '09-10-2026', 10, '#0284c7', 0, 85, {}, sb);
+    var fl = stripFills();
+    var amber = fl.filter(function(c) { return c === '#f59e0b'; }).length;
+    var green = fl.filter(function(c) { return c === '#16a34a'; }).length;
+    is(amber, 3, 'the 3 squares of 01:00-01:30 are amber with no stop measured');
+    is(green, 3, 'the other squares of the hour stay green (production)');
+    win._lastShiftCfg = null;
+  });
+  test('drawChart24 keeps a measured stop OUTSIDE the plan red', function () {
+    t23Log = [];
+    var cv = doc.createElement('canvas');
+    var hourly = []; for (var h = 0; h < 24; h++) hourly.push(0);
+    var sb = emptyBins();
+    sb[1] = [600, 600, 0, 0, 0, 0];         // real 10-min stop at 01:00 and 01:10
+    win._lastShiftCfg = { en: true, slots: [{h:6,m:0},{h:14,m:0},{h:22,m:0}],
+                          stops: [{sh:1,sm:30,eh:2,em:0}] };   // plan starts at 01:30
+    win.drawChart24(cv, hourly, [], 'DI1', '09-10-2026', 10, '#0284c7', 0, 85, {}, sb);
+    var fl = stripFillsIn(64, 78);   // 400px canvas: hour 01 slot sits at x 65..77
+    is(fl.filter(function(c) { return c === '#dc2626'; }).length, 2, 'two red squares');
+    is(fl.filter(function(c) { return c === '#f59e0b'; }).length, 3, '01:30-02:00 amber');
     win._lastShiftCfg = null;
   });
   test('drawChart24 draws one separator per 10-min square', function () {

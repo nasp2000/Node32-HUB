@@ -31,6 +31,7 @@ struct ChartState {
     int  prevHour;
     long hourVal[24];
     uint32_t gapMask;   // bit per hour = the delta spanned a missing tick
+    const char* prevTs; // previous counted row's timestamp (gap needs order)
 };
 
 // Mirrors proximityBuildHourlyChart's inner loop for a single line.
@@ -80,8 +81,14 @@ static void parseLine(ChartState& st, const char* line, int startHour = 0, int d
                             }
                             if (st.hourVal[attrHour] < 0) st.hourVal[attrHour] = 0;
                             st.hourVal[attrHour] += delta;
+                            // Same rule as the firmware: a row appended out of
+                            // order (the 05:59 boundary written after the 06:00
+                            // tick) is not a gap.
+                            bool monotonic = (st.prevTs == nullptr)
+                                || (strlen(p) < 19 || strlen(st.prevTs) < 19)
+                                || (memcmp(p, st.prevTs, 19) >= 0);
                             int span = (hour - attrHour + 24) % 24;
-                            if (span > 1) {   // a tick is missing inside: mixed hour
+                            if (monotonic && span > 1) {   // a tick is missing inside: mixed hour
                                 int hh = attrHour;
                                 for (int g = 0; g < 24 && hh != hour; g++) {
                                     st.gapMask |= (1u << hh);
@@ -91,6 +98,7 @@ static void parseLine(ChartState& st, const char* line, int startHour = 0, int d
                         }
                         st.prevIn = ch0;
                         if (hour >= 0 && hour <= 23) st.prevHour = hour;
+                        st.prevTs = p;
                     }
                 }
             }
@@ -682,4 +690,36 @@ TEST_CASE("stop bins merge: RAM wins, persisted copy only fills unknown blocks")
     CHECK(ram[3] == 0);                       // a measured 0 is NOT overwritten
     CHECK(ram[4] == PROX_STOP_UNKNOWN);       // unknown in both stays unknown
     CHECK(ram[5] == 179);
+}
+
+// ===== 2026-11-10: the closing boundary is APPENDED after the tick it precedes =====
+// Real .29 layout (PROXIMITY_10-11-2026.csv): "06:00:03 tick" then
+// "05:59:00 shift_end/shift_boundary". Hour-only arithmetic saw 05:59 after 06:00
+// as a 23 h jump and flagged EVERY hour of every turn as mixed (~ in the email,
+// gap=1 in the weekly CSV) although no tick was missing.
+TEST_CASE("gap flag: a boundary row appended after the later tick flags nothing") {
+    ChartState st;
+    memset(&st, 0, sizeof(st));
+    st.prevIn = -1; st.prevHour = -1;
+    for (int h = 0; h < 24; h++) st.hourVal[h] = -1;
+    parseLine(st, "2026-11-10 04:30:02,tick,,74210,0,0.0,0,0,0", 22, 8);
+    parseLine(st, "2026-11-10 05:00:02,tick,,77430,0,0.0,0,0,0", 22, 8);
+    parseLine(st, "2026-11-10 05:30:03,tick,,85180,0,0.0,0,0,0", 22, 8);
+    parseLine(st, "2026-11-10 06:00:03,tick,,93790,0,0.0,0,0,0", 22, 8);
+    parseLine(st, "2026-11-10 05:59:00,shift_boundary,,93800,0,0.0,0,0,0", 22, 8);
+    CHECK(st.gapMask == 0u);            // nothing was missing
+    CHECK(st.hourVal[5] == (85180 - 77430) + (93790 - 85180));  // 05:00->06:00 = 16360
+}
+
+TEST_CASE("gap flag: a real 2 h hole is still flagged after the order check") {
+    ChartState st;
+    memset(&st, 0, sizeof(st));
+    st.prevIn = -1; st.prevHour = -1;
+    for (int h = 0; h < 24; h++) st.hourVal[h] = -1;
+    parseLine(st, "2026-10-18 22:02:02,tick,,480,0,0.0,0,0,0", 22, 8);
+    parseLine(st, "2026-10-19 04:30:02,tick,,21000,0,0.0,0,0,0", 22, 8);
+    CHECK(st.hourVal[22] == 21000 - 480);   // 22:02 -> 04:30, whole hole on hour 22
+    CHECK((st.gapMask & (1u << 22)) != 0);
+    CHECK((st.gapMask & (1u << 2)) != 0);
+    CHECK((st.gapMask & (1u << 4)) == 0);
 }

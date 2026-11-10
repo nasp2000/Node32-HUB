@@ -432,3 +432,31 @@ TEST_CASE("stop bins: boundary 0 = calendar day, sub-minute seconds floor the st
     // NULL day-start pointer is allowed (JSON emitter only needs the index).
     CHECK(proxStopBinFromClock(8, 17, 42, 0, t, nullptr) == 49);
 }
+
+// 2026-11-10: the shift close that lands on the day rollover (22h) used to
+// write the ENDED day's file after the 1-min tick had already zeroed the bins
+// for the new day — empty file, next day's header (`stopbins_31-10`..`09-11`
+// were all zeros). The close now only writes while the RAM copy still covers
+// `ctxNow`; the rollover itself saves the ended day before the reset.
+TEST_CASE("stop bins: a close only saves while the RAM bins still cover its day") {
+    const uint32_t ds = (uint32_t)wallClock(2026, 6, 15, 22, 0, 0);   // day 16-06
+    CHECK(proxStopBinsDayCovers(ds, (time_t)ds));                      // first second
+    CHECK(proxStopBinsDayCovers(ds, (time_t)ds + 3 * 3600));           // mid-day
+    CHECK(proxStopBinsDayCovers(ds, (time_t)ds + 86400 - 60));         // 21:59 close
+    CHECK_FALSE(proxStopBinsDayCovers(ds, (time_t)ds + 86400));        // 22:00 = next day
+    CHECK_FALSE(proxStopBinsDayCovers(ds, (time_t)ds - 60));           // ended yesterday
+    CHECK_FALSE(proxStopBinsDayCovers(0, (time_t)ds));                 // no day yet
+}
+
+TEST_CASE("stop bins: the rollover copy is stamped inside the day that just ended") {
+    const uint32_t ds = (uint32_t)wallClock(2026, 6, 15, 22, 0, 0);
+    const time_t lastMinute = (time_t)ds + 86400 - 60;   // what _proxStopBinsAdd uses
+    CHECK(proxStopBinsDayCovers(ds, lastMinute));
+    uint32_t back = 0;
+    struct tm tmLast;
+    const time_t t = lastMinute;
+    localtime_r(&t, &tmLast);
+    CHECK(proxStopBinFromClock(tmLast.tm_hour, tmLast.tm_min, tmLast.tm_sec,
+                               22, lastMinute, &back) == 143);   // last square
+    CHECK(back == ds);                                          // same day start
+}
