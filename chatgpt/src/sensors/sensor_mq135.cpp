@@ -94,6 +94,17 @@ float MQ135Sensor::computePPM(float ratio, float para, float parb) const {
     return para * powf(ratio, parb);
 }
 
+// Gas ppm anchored to the CO2 reading (same Rs/R0 ratio, different slope).
+// Replaces the raw datasheet fits, which are only valid for Rs/R0 << 1 and
+// returned absurd values at the clean-air operating point.
+float MQ135Sensor::computeGasFromCO2(float co2_ppm, float baseline, float parb) const {
+    if (co2_ppm <= 0.0f || baseline <= 0.0f) return 0.0f;
+    float v = baseline * powf(co2_ppm / 400.0f, parb / MQ135_PARB_CO2);
+    if (!(v >= 0.0f)) return 0.0f;                 // NaN / negative guard
+    if (v > MQ135_PPM_MAX) v = MQ135_PPM_MAX;      // sensor ceiling
+    return v;
+}
+
 float MQ135Sensor::getCurrentRs() const {
     if (!initialized) return 0.0f;
     return computeRs(readADCAverage());
@@ -130,14 +141,8 @@ bool MQ135Sensor::update(float temperature, float humidity) {
     float ratio = (r0 > 0.0f) ? (rs / r0) : 0.0f;
     lastReading.rs_r0_ratio = ratio;
 
-    // Gas ppm from base (uncorrected) ratio
-    lastReading.ppm_co2     = computePPM(ratio, MQ135_PARA_CO2,     MQ135_PARB_CO2);
-    lastReading.ppm_co      = computePPM(ratio, MQ135_PARA_CO,      MQ135_PARB_CO);
-    lastReading.ppm_nh3     = computePPM(ratio, MQ135_PARA_NH3,     MQ135_PARB_NH3);
-    lastReading.ppm_nox     = computePPM(ratio, MQ135_PARA_NOX,     MQ135_PARB_NOX);
-    lastReading.ppm_alcohol = computePPM(ratio, MQ135_PARA_ALCOHOL, MQ135_PARB_ALCOHOL);
-    lastReading.ppm_benzene = computePPM(ratio, MQ135_PARA_BENZENE, MQ135_PARB_BENZENE);
-    lastReading.ppm_smoke   = computePPM(ratio, MQ135_PARA_SMOKE,   MQ135_PARB_SMOKE);
+    // CO2 from the calibrated ratio: this is the anchor for every other gas.
+    lastReading.ppm_co2     = computePPM(ratio, MQ135_PARA_CO2, MQ135_PARB_CO2);
 
     // Temperature + humidity compensation for CO2 (most useful corrected reading)
     bool hasEnvData = (!isnan(temperature) && !isnan(humidity)
@@ -156,6 +161,18 @@ bool MQ135Sensor::update(float temperature, float humidity) {
         lastReading.ppm_co2_corrected = lastReading.ppm_co2;
         lastReading.temp_compensated  = false;
     }
+
+    // Every other gas follows the CO2 anchor (same ratio, datasheet slope), so
+    // clean air reads the documented baseline instead of the raw datasheet fit.
+    const float co2Anchor = (lastReading.ppm_co2_corrected > 0.0f)
+                            ? lastReading.ppm_co2_corrected
+                            : lastReading.ppm_co2;
+    lastReading.ppm_co      = computeGasFromCO2(co2Anchor, MQ135_BASE_CO,      MQ135_PARB_CO);
+    lastReading.ppm_nh3     = computeGasFromCO2(co2Anchor, MQ135_BASE_NH3,     MQ135_PARB_NH3);
+    lastReading.ppm_nox     = computeGasFromCO2(co2Anchor, MQ135_BASE_NOX,     MQ135_PARB_NOX);
+    lastReading.ppm_alcohol = computeGasFromCO2(co2Anchor, MQ135_BASE_ALCOHOL, MQ135_PARB_ALCOHOL);
+    lastReading.ppm_benzene = computeGasFromCO2(co2Anchor, MQ135_BASE_BENZENE, MQ135_PARB_BENZENE);
+    lastReading.ppm_smoke   = computeGasFromCO2(co2Anchor, MQ135_BASE_SMOKE,   MQ135_PARB_SMOKE);
 
     // AQI based on corrected CO2
     lastReading.aqi   = computeAQI(lastReading.ppm_co2_corrected);

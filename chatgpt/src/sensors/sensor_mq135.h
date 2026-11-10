@@ -66,29 +66,47 @@
 #define MQ135_SAMPLES     10
 
 // ====================================================================================
-// Gas curve constants — from MQ-135 datasheet (a * ratio^b = ppm)
-// Each gas has a sensitivity curve: ppm = PARA * (Rs/R0)^PARB
+// Gas curves.
+//
+// ppm = a * (Rs/R0)^b, fitted from the MQ-135 datasheet. Those fits are only
+// valid for Rs/R0 well below 1 (the datasheet plots cover the polluted range);
+// evaluating them at the clean-air operating point returned absurd absolute
+// values (live .24, R0 calibrated to 400 ppm CO2: CO 5030 ppm, "smoke" 201000
+// ppm).
+//
+// The MQ-135 cannot separate gases anyway: one resistance ratio moves every
+// curve. So CO2 keeps the datasheet fit (it is the calibrated anchor, 400 ppm
+// in clean air) and every other gas is expressed RELATIVE to that anchor using
+// the same ratio:
+//
+//   ppm_gas = MQ135_BASE_<gas> * (CO2 / 400)^(b_gas / b_CO2)
+//
+// Clean air therefore reads the baseline, and a dirtier ratio scales every gas
+// monotonically with CO2 instead of exploding. Slopes stay the datasheet ones.
 // ====================================================================================
 #define MQ135_PARA_CO2      116.6020682f
 #define MQ135_PARB_CO2      (-2.769034857f)
 
-#define MQ135_PARA_CO       605.18f
+// Datasheet slopes (unchanged).
 #define MQ135_PARB_CO       (-3.937f)
-
-#define MQ135_PARA_NH3      102.2f
 #define MQ135_PARB_NH3      (-2.473f)
-
-#define MQ135_PARA_NOX      44.947f
 #define MQ135_PARB_NOX      (-3.445f)
-
-#define MQ135_PARA_ALCOHOL  77.255f
 #define MQ135_PARB_ALCOHOL  (-3.18f)
-
-#define MQ135_PARA_BENZENE  34.668f
 #define MQ135_PARB_BENZENE  (-3.369f)
-
-#define MQ135_PARA_SMOKE    40000.0f
 #define MQ135_PARB_SMOKE    (-3.0f)
+
+// Clean-air baselines at CO2 = 400 ppm (indoor background references). These
+// are anchor points, not datasheet constants: they only define where each curve
+// starts in clean air; the shape comes from the datasheet slopes above.
+#define MQ135_BASE_CO       0.5f      // ppm  (atmosfera ~0.1-0.5)
+#define MQ135_BASE_NH3      1.0f      // ppm  (ambiente interior)
+#define MQ135_BASE_NOX      0.05f     // ppm
+#define MQ135_BASE_ALCOHOL  0.2f      // ppm
+#define MQ135_BASE_BENZENE  0.005f    // ppm
+#define MQ135_BASE_SMOKE    0.1f      // ppm  (fumo de incêndio; MQ-135 não mede fumo)
+
+// Sensor ceiling: values above this are not plausible for an MQ-135.
+#define MQ135_PPM_MAX       10000.0f
 
 // ====================================================================================
 // Temperature/humidity correction coefficients
@@ -157,6 +175,8 @@ private:
 
     // Compute ppm for a gas using its curve constants (Rs/R0 ratio already computed)
     float computePPM(float ratio, float para, float parb) const;
+    // Gas ppm relative to the CO2 anchor (see the curve block above).
+    float computeGasFromCO2(float co2_ppm, float baseline, float parb) const;
 
     // Derive AQI from CO2 ppm (simplified EPA-like scale)
     float computeAQI(float co2_ppm) const;
