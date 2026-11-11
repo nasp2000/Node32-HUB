@@ -36,7 +36,13 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install system deps
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq g++ make
+        # Runner image DNS/metadata flakes make a single apt call unreliable
+        # (2026-11-11: "Temporary failure resolving security.ubuntu.com").
+        run: |
+          set -e
+          sudo apt-get update -qq
+          for i in 1 2 3; do sudo apt-get install -y -qq g++ make && break || sleep 20; done
+          command -v g++ >/dev/null && command -v make >/dev/null
       - name: Run native test suite
         run: python scripts/run_native_tests.py
 
@@ -111,7 +117,16 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install system deps
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq g++ make ccache
+        # g++/make are required; ccache is a speed-up only — scripts/ccache.py
+        # already falls back when it is absent, so an apt flake on that one
+        # package must not fail every firmware job (2026-11-11 runner DNS).
+        run: |
+          set -e
+          sudo apt-get update -qq
+          for i in 1 2 3; do sudo apt-get install -y -qq g++ make && break || sleep 20; done
+          command -v g++ >/dev/null && command -v make >/dev/null
+          sudo apt-get install -y -qq ccache || echo "::warning::ccache unavailable - building without it"
+
       - name: Install PlatformIO
         run: pip install --quiet platformio
       - name: Cache PlatformIO platforms and packages
