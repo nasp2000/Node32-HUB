@@ -15,7 +15,7 @@ IP, it runs once and writes the evidence bundle.
 ```bash
 node tests/web/device_crawl.js --pack rambox32 --host 192.168.1.99
 node tests/web/device_crawl.js --pack s3_cnc  --host 192.168.1.38 --auth admin:admin
-node tests/web/device_crawl.js --pack waveshare --host 192.168.1.50 --desktop
+node tests/web/device_crawl.js --pack waveshare --host 192.168.1.50 --mobile
 ```
 
 `--host` takes the **full IPv4 address** (no shorthand).
@@ -25,7 +25,7 @@ node tests/web/device_crawl.js --pack waveshare --host 192.168.1.50 --desktop
 | `--pack <name>` | label used in the report/evidence folder |
 | `--host <ip>` | board IPv4 address |
 | `--auth user:pass` | HTTP basic auth |
-| `--desktop` | 1280x800 instead of 390x844 (mobile-first default) |
+| `--mobile` | 390x844 (phone) instead of the default 1280x800 desktop |
 | `--no-tabs` | skip the menu/tab pass (not recommended: coverage drops) |
 | `--timeout <ms>` | per-page timeout (default 25000) |
 | `--out <dir>` | evidence root (default `artifacts/device_crawl`) |

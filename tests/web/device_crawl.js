@@ -23,7 +23,7 @@
  *   node tests/web/device_crawl.js --pack rambox32 --host 192.168.1.99
  *   node tests/web/device_crawl.js --pack s3_cnc --host 192.168.1.38
  *   node tests/web/device_crawl.js --pack p4_cam --host 192.168.1.18 --auth admin:admin
- *   node tests/web/device_crawl.js --pack waveshare --host 192.168.1.50 --desktop
+ *   node tests/web/device_crawl.js --pack waveshare --host 192.168.1.50 --mobile
  *
  * Exit code 0 = every target passed, 1 = at least one FAIL (CI friendly).
  */
@@ -36,7 +36,7 @@ const path = require('path');
 
 // ---------------------------------------------------------------- CLI ------
 function parseArgs(argv) {
-  const a = { viewport: 'mobile', timeout: 25000, tabs: true, auth: '' };
+  const a = { viewport: 'desktop', timeout: 25000, tabs: true, auth: '' };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
     if (k === '--pack') a.pack = argv[++i];
@@ -44,6 +44,7 @@ function parseArgs(argv) {
     else if (k === '--auth') a.auth = argv[++i];
     else if (k === '--out') a.out = argv[++i];
     else if (k === '--desktop') a.viewport = 'desktop';
+    else if (k === '--mobile') a.viewport = 'mobile';
     else if (k === '--no-tabs') a.tabs = false;
     else if (k === '--timeout') a.timeout = parseInt(argv[++i], 10);
     else if (k === '--help' || k === '-h') a.help = true;
@@ -59,7 +60,7 @@ const HELP = `device_crawl.js — crawl every page of a Node32-HUB pack and stor
   --host <ip>          board address (full IP, e.g. 192.168.1.99)
   --auth <user:pass>   HTTP basic auth (optional)
   --out <dir>          output root (default artifacts/device_crawl)
-  --desktop            use 1280x800 instead of 390x844 (mobile-first default)
+  --mobile             use 390x844 (phone) instead of the default 1280x800 desktop
   --no-tabs            skip the menu/tab pass
   --timeout <ms>       per-page timeout (default 25000)
 

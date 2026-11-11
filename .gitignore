@@ -18,6 +18,9 @@ build_p4cam.sh
 *.map
 
 # Build artifacts
+# Device-crawl evidence bundles (tests/web/device_crawl.js)
+artifacts/
+
 *.a
 # Exception: vendored prebuilt DSP lib (Espressif Modified MIT, see SBOM) —
 # required at link time, no sources available, must be versioned
