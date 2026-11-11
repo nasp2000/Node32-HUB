@@ -87,6 +87,10 @@ bool cameraRecordFinish();
 // True while a recording session is active.
 bool cameraRecordActive();
 
+// True when the session captures on its own schedule (dashcam, timelapse):
+// the cameraLoop staging pump must not feed those sessions as well.
+bool cameraRecordSelfPaced();
+
 // Photo fast path (needs ENABLE_SDCARD): hand an owned JPEG copy to the
 // background saver and answer the POST immediately; the tick writes it out.
 // False = both slots busy (caller writes synchronously instead).

@@ -7,6 +7,7 @@
 #include "../renderers/page_render_common.h"
 #include "../../feature_flags.h"
 #include "../../camera_manager.h"
+#include "../../camera_stream_policy.h"  // CAM_MAX_MJPEG_CLIENTS + admission
 #include "../../camera_record.h"
 #include "../../psram_helpers.h"
 #include "../../direct_log.h"
@@ -100,13 +101,13 @@ static size_t fillMjpegBuffer(MjpegStreamState* s, uint8_t* buf, size_t maxLen) 
     return RESPONSE_TRY_AGAIN;
 }
 
-// Active MJPEG viewer count. The S3 serves up to MAX_MJPEG_CLIENTS parallel
-// viewers; each pins an Async client and pins the shared cache only while it
-// is being sent from. Last byte pushed to ANY viewer (CAM-63): a live stream
-// always moves bytes — fresh frames or re-sent last frames — so silence here
-// means the counted viewers are dead TCP without FIN (zombie slots).
-// is sending a frame (zero-copy), so no extra capture or per-viewer copy. Extras get 503.
-#define MAX_MJPEG_CLIENTS 2
+// Active MJPEG viewer count. Each viewer pins the shared cache only while its
+// frame is being sent (zero-copy), so no extra capture or per-viewer copy.
+// Single-viewer policy: the cache has ONE slot and is only republished while
+// no viewer holds a pin, so a second viewer starves the publish path — on the
+// P4 CAM (v1.120) that measured 0.5-1 fps with freeHeap 37-43 KB / maxAlloc
+// 2-4 KB and ended in a panic. Extras get 503 until the per-viewer slot ring
+// replaces this cache (see camera_stream_policy.h).
 static volatile int s_mjpegClients = 0;
 // ACK timeout for long-lived MJPEG responses (CAM-67): AsyncClient aborts a
 // connection whose sent data goes unacknowledged for
@@ -252,16 +253,16 @@ static auto fillAviPlayBuffer = [](AviPlayState* s, uint8_t* buf, size_t maxLen)
     server.on("/cam/stream", HTTP_GET, [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) { req->send(401); return; }
         if (!cameraIsReady()) { req->send(503, "text/plain", "Camera not ready"); return; }
-        // Multi-viewer policy (max 2): each viewer owns a private pump state
-        // fed from the shared cache — no extra captures, ~1 frameBuf in PSRAM
-        // each. Extras get 503 instead of starving WiFi/heap.
+        // Viewer policy: CAM_MAX_MJPEG_CLIENTS (1). Each viewer owns a private
+        // pump state fed from the shared cache — no extra captures, ~1 frameBuf
+        // in PSRAM each. Extras get 503 instead of starving WiFi/heap.
         // Zombie eviction (CAM-63): dead TCP without FIN leaks slots, so every
         // in-page retry 503s forever and only a full refresh (page unload
         // closes the browser sockets) recovers. A live stream always moves
         // bytes — fresh or re-sent frames — so no bytes for 20 s means the
         // counted viewers are gone: reset the counter (live response objects
         // keep working untouched) and accept the newcomer.
-        if (s_mjpegClients >= MAX_MJPEG_CLIENTS) {
+        if (!cameraStreamAdmit(s_mjpegClients)) {
             if (s_lastMjpegByteMs != 0 && (millis() - s_lastMjpegByteMs) > 20000UL) {
                 directLogPrintln("[CAM] Stream slots stale 20s: evicting zombie viewers");
                 s_mjpegClients = 0;

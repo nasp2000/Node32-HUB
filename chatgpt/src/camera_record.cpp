@@ -1260,6 +1260,11 @@ bool cameraRecordFinish() {
 // State queries
 // ---------------------------------------------------------------------------
 bool          cameraRecordActive()      { return s_active; }
+
+// True when the session drives its own capture cadence (dashcam / timelapse
+// pump their own frames from cameraRecordTick). The cameraLoop staging pump
+// must not feed those as well, or every frame lands twice.
+bool cameraRecordSelfPaced() { return s_tlActive || s_dashOwn; }
 bool          cameraRecordIsH264()      { return s_active && s_h264; }
 uint8_t       cameraRecordContainer()   { return (s_active && s_h264) ? s_h264Container : 0; }
 const String& cameraRecordPath()        { return s_path; }
@@ -1593,11 +1598,19 @@ void cameraRecordTick(uint32_t nowMs) {
         s_lastFrameMs = 0;
     }
 
-    // ---- Generic idle pump ----
+    // ---- Generic idle pump (fallback) ----
     // An active session with no other feeder (dashcam off, stream off, e.g.
     // a manual start or a motion session while idle) would otherwise record
     // zero frames. Feed it here at the session fps.
-    if (s_active && cfg.dashcam_mins == 0 && !s_tlActive &&
+    //
+    // On the P4 the staging pump in cameraLoop() feeds the recorder instead
+    // (measured 12 fps vs 5.75 fps here at 800x640), so this only captures
+    // when that pump has gone quiet — a fallback, not a second feeder. The
+    // heartbeat is only set while the staging pump actually feeds, so boards
+    // that keep this path (S3) behave exactly as before.
+    uint32_t pumpFeedMs = cameraLoopPumpFeedMs();
+    bool pumpFeeding = pumpFeedMs != 0 && (nowMs - pumpFeedMs) < 400UL;
+    if (s_active && cfg.dashcam_mins == 0 && !s_tlActive && !pumpFeeding &&
         !cameraStreamIsActive() && !cameraMotionSamplingActive()) {
         uint32_t intervalMs = (s_fps > 0) ? (1000UL / s_fps) : 100UL;
         if (s_lastFrameMs == 0 || (nowMs - s_lastFrameMs) >= intervalMs) {

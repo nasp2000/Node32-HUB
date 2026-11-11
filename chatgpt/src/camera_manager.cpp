@@ -14,6 +14,7 @@
 #include "camera_resolution.h"
 #include "camera_capture_guard.h"  // stall/photo-fallback pure logic (CAM-62/64)
 #include "camera_stream_fps.h"  // rolling-FPS window (pure, rounded)
+#include "camera_stream_policy.h"  // viewer cap + pump/feed decisions (pure)
 #include "direct_log.h"
 #include "feature_flags.h"
 #if ENABLE_SDCARD==1
@@ -93,6 +94,10 @@ static uint32_t s_lastStreamCaptureMs = 0;  // throttle pre-capture to configure
 static uint8_t*  s_p4RawSolo = nullptr;       // H.264-only UYVY stage (no stream)
 static size_t    s_p4RawSoloCap = 0;
 static uint32_t  s_lastH264PumpMs = 0;
+// Last time cameraLoop()'s staging pump handed a frame to the MJPEG recorder.
+// cameraRecordTick()'s idle pump uses this as a fallback heartbeat: while the
+// staging pump is feeding, the recorder must not run a second capture.
+static volatile uint32_t s_lastPumpFeedMs = 0;
 
 // Binary semaphore — posted by cameraLoop() after each cache update.
 // Stream consumers (MJPEG callback, RTSP, etc.) take it to sleep until a new frame arrives.
@@ -678,6 +683,23 @@ void cameraLoop() {
 #if defined(TARGET_BOARD_P4) && TARGET_BOARD_P4 == 1 && ENABLE_SDCARD==1
     pumpForH264 = cameraRecordIsH264();
 #endif
+    // MJPEG recording with no viewer has to run this pump too. Previously it
+    // was fed by the recorder's own idle pump (one capture + JPEG encode in
+    // cameraRecordTick): measured 5.75 fps at 800x640 against 12 fps for the
+    // same camera through this staging path. Both feed the same recorder; the
+    // idle pump now only acts as a fallback (see cameraLoopPumpFeedMs()).
+    bool recMjpeg = false;
+    bool pumpForRec = false;
+#if ENABLE_SDCARD==1
+    recMjpeg = cameraRecordActive() && !cameraRecordIsH264();
+#endif
+#if defined(TARGET_BOARD_P4) && TARGET_BOARD_P4 == 1 && ENABLE_SDCARD==1
+    // Dashcam/timelapse pump their own frames from cameraRecordTick — feeding
+    // them here too would queue every frame twice.
+    pumpForRec = recMjpeg && !cameraRecordSelfPaced();
+#endif
+    (void)recMjpeg;    // feed below is compiled out without SD
+    (void)pumpForRec;  // S3 keeps its own idle pump (same feed, other feeder)
 #if defined(TARGET_BOARD_P4) && TARGET_BOARD_P4 == 1 && ENABLE_SDCARD==1
     // H.264 with no viewer: skip the MJPEG half of the pump entirely — one
     // dequeue straight into the encoder. Nothing else consumes a JPEG frame
@@ -715,7 +737,7 @@ void cameraLoop() {
         return;
     }
 #endif
-    if (s_streamActive || pumpForH264) {
+    if (cameraPumpNeeded(s_streamActive, pumpForH264, pumpForRec)) {
         // Pre-capture frames on core 1 (loop task) so the AsyncTCP task on core 0
         // never needs to call esp_camera_fb_get() — that would block WiFi/TCP and
         // make all other web pages inaccessible.
@@ -729,10 +751,12 @@ void cameraLoop() {
             // churn, readers never blocked during capture).
             static uint8_t* s_p4Stage = nullptr;
             static size_t s_p4StageCap = 0;
-            // Without a viewer the stream cache was never sized, but a H.264
-            // session still needs the JPEG staging area (idle pump): give it
-            // the same ceiling a stream would have used.
-            if (!s_p4Stage && (s_streamCacheSize > 0 || pumpForH264)) {
+            // Without a viewer neither the stream cache nor the JPEG staging
+            // area exists: a H.264 session still needs one (raw tap dropped
+            // after the encode) and so does a manual MJPEG recording (the
+            // recorder rides on this pump) — give both the same ceiling a
+            // stream would have used.
+            if (!s_p4Stage && (s_streamCacheSize > 0 || pumpForH264 || pumpForRec)) {
                 size_t cap = s_streamCacheSize ? s_streamCacheSize
 #if defined(TARGET_BOARD_P4) && TARGET_BOARD_P4 == 1
                                                : (size_t)STREAM_CACHE_MAX_BYTES;
@@ -797,16 +821,17 @@ void cameraLoop() {
                 srcLen = fb->len;
             }
 #endif
-            if (src && s_streamCacheSize > 0 && srcLen <= s_streamCacheSize) {
+            // Recorder feed happens BEFORE the cache publish and outside its
+            // size condition: a pinned cache (or no cache at all — recording
+            // with no viewer) must never starve the file. H.264 sessions take
+            // NALs from the raw tap above, not JPEG.
 #if ENABLE_SDCARD==1
-                // Recorder is fed from the freshly captured frame, independent
-                // of the cache publish below: a pinned cache only defers the
-                // publish, it must never starve the recording. Queue-full drops
-                // the newest frame. (H.264 sessions take NALs, not JPEG.)
-                if (cameraRecordActive() && srcLen > 0 && !cameraRecordIsH264()) {
-                    cameraRecordFrame(src, srcLen);
-                }
+            if (src && srcLen > 0 && cameraPumpFeedsRecorder(recMjpeg)) {
+                cameraRecordFrame(src, srcLen);
+                s_lastPumpFeedMs = millis();  // idle-pump fallback heartbeat
+            }
 #endif
+            if (src && s_streamCacheSize > 0 && srcLen <= s_streamCacheSize) {
                 bool published = false;
                 if (s_streamCacheMux && xSemaphoreTake(s_streamCacheMux, pdMS_TO_TICKS(10)) == pdTRUE) {
                     // Never overwrite a frame a stream viewer is still sending.
@@ -837,11 +862,11 @@ void cameraLoop() {
 #endif
             }
         }
-        // When streaming, the recorder is fed from the freshly captured frame
-        // above and motion sampling stays paused (it reconfigures the sensor,
-        // which would tear the JPEG pipeline). Background ticks below only run
-        // when idle.
-        return;
+        // Streaming/H.264 keeps the early return: motion sampling stays paused
+        // (it reconfigures the sensor, which would tear the JPEG pipeline).
+        // A MJPEG recording on its own still needs the recorder tick below
+        // (rotation, ring drain, photo saver), so it falls through instead.
+        if (s_streamActive || pumpForH264) return;
     }
 
     // Background tasks below only run when stream is inactive.
@@ -868,6 +893,12 @@ void cameraLoop() {
 
 bool cameraIsReady()          { return s_ready; }
 bool cameraStreamIsActive()   { return s_streamActive; }
+
+// Heartbeat for the recorder's idle pump: millis() of the last frame the
+// staging pump handed to the MJPEG recorder (0 = never). cameraRecordTick()
+// only captures on its own when this is stale, so a running staging pump is
+// never fought by a second capture+encode.
+uint32_t cameraLoopPumpFeedMs() { return s_lastPumpFeedMs; }
 
 const char* cameraGetDetectedModel() {
     if (!s_ready) return "Not detected";

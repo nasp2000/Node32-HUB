@@ -66,6 +66,11 @@ void cameraStreamStop();
 // Returns true if a stream session is currently active.
 bool cameraStreamIsActive();
 
+// millis() of the last frame cameraLoop()'s staging pump fed to the MJPEG
+// recorder (0 = never). The recorder's idle pump uses it as a fallback
+// heartbeat: it only captures when this is stale.
+uint32_t cameraLoopPumpFeedMs();
+
 // Semaphore-based frame notification for MJPEG streaming tasks.
 // cameraLoop() gives this semaphore after each new frame capture.
 // Stream consumers take it to avoid polling.
