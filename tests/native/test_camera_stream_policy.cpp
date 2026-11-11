@@ -6,12 +6,14 @@
 // how many MJPEG viewers the single-slot cache admits, and whether the capture
 // pump must run for a recording with no viewer.
 #include "../../chatgpt/src/camera_stream_policy.h"
+#include "../../chatgpt/src/camera_stream_slots.h"  // ring size vs cap
 
-TEST_CASE("viewer admission: exactly one viewer until the slot ring exists") {
-    CHECK(CAM_MAX_MJPEG_CLIENTS == 1);
-    CHECK(cameraStreamAdmit(0));    // first viewer admitted
-    CHECK_FALSE(cameraStreamAdmit(1));  // second one gets 503 (was a panic)
-    CHECK_FALSE(cameraStreamAdmit(2));  // and so does a third
+TEST_CASE("viewer admission: two viewers with the 3-slot ring, third gets 503") {
+    CHECK(CAM_MAX_MJPEG_CLIENTS == 2);
+    CHECK(CAM_MAX_MJPEG_CLIENTS < CAM_STREAM_SLOTS);  // writer always keeps a slot
+    CHECK(cameraStreamAdmit(0));   // first viewer admitted
+    CHECK(cameraStreamAdmit(1));   // second one too (ring, CAM-76)
+    CHECK_FALSE(cameraStreamAdmit(2));  // third gets 503 "Stream busy"
     CHECK_FALSE(cameraStreamAdmit(9));  // zombie leftovers never over-admit
 }
 

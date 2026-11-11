@@ -12,9 +12,10 @@
 //    freeHeap 37-43 KB / maxAlloc 2-4 KB, ending in a panic
 //    (reset_reason=PANIC, uptime restarted). One viewer: 12 fps, heap flat.
 //    CAM-76 replaced that cache with a 3-slot ring (camera_stream_slots.h), so
-//    publishing no longer waits on a pin. The cap stays at 1 until the
-//    2-viewer run on hardware proves the heap holds: raising it is this one
-//    constant, and the acceptance criteria are in HISTORIC/CAM/HISTORICO.md.
+//    publishing no longer waits on a pin, and the cap went back to 2 after the
+//    2-viewer measurement on the .18 (both viewers keep streaming, heap flat,
+//    no panic). If that ever regresses, dropping this constant to 1 is the
+//    whole rollback.
 //
 // 2) A manual MJPEG recording with no viewer was fed by a separate idle pump
 //    (one full capture + JPEG encode inside the recorder tick): 5.75 fps
@@ -25,9 +26,11 @@
 
 #include <stdint.h>
 
-// Maximum simultaneous MJPEG viewers (raise only after the per-viewer cache
-// slot ring lands).
-#define CAM_MAX_MJPEG_CLIENTS 1
+// Maximum simultaneous MJPEG viewers. Two is back on the table because the
+// 3-slot ring (CAM-76) removed the single-publish-slot stall that made the
+// second viewer fatal in v1.120; 3 slots cover writer + 2 pinned viewers + 1
+// slack. Verified on the .18 with the ring in place (see HISTORIC/CAM).
+#define CAM_MAX_MJPEG_CLIENTS 2
 
 // Admission test for a new /cam/stream viewer. `current` is the number of
 // viewers already attached (zombie eviction is handled by the caller).
