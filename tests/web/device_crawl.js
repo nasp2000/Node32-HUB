@@ -19,11 +19,11 @@
  *       manifest.json    the device's own page manifest (audit trail)
  *       screenshots/*.png
  *
- * Usage:
+ * Usage (on demand — no IP file, no automatic chain):
+ *   node tests/web/device_crawl.js --pack rambox32 --host 192.168.1.99
  *   node tests/web/device_crawl.js --pack s3_cnc --host 192.168.1.38
- *   node tests/web/device_crawl.js --targets tests/web/targets.json
  *   node tests/web/device_crawl.js --pack p4_cam --host 192.168.1.18 --auth admin:admin
- *   node tests/web/device_crawl.js --targets targets.json --desktop --out artifacts/run1
+ *   node tests/web/device_crawl.js --pack waveshare --host 192.168.1.50 --desktop
  *
  * Exit code 0 = every target passed, 1 = at least one FAIL (CI friendly).
  */
@@ -42,7 +42,6 @@ function parseArgs(argv) {
     if (k === '--pack') a.pack = argv[++i];
     else if (k === '--host') a.host = argv[++i];
     else if (k === '--auth') a.auth = argv[++i];
-    else if (k === '--targets') a.targets = argv[++i];
     else if (k === '--out') a.out = argv[++i];
     else if (k === '--desktop') a.viewport = 'desktop';
     else if (k === '--no-tabs') a.tabs = false;
@@ -54,11 +53,11 @@ function parseArgs(argv) {
 }
 
 const HELP = `device_crawl.js — crawl every page of a Node32-HUB pack and store evidence
+(on demand: you say the pack and the IP, it runs; nothing is stored or scheduled)
 
-  --pack <name>        pack label used in the report (e.g. s3_cnc)
-  --host <ip>          board address
+  --pack <name>        pack label used in the report (e.g. rambox32, s3_cnc)
+  --host <ip>          board address (full IP, e.g. 192.168.1.99)
   --auth <user:pass>   HTTP basic auth (optional)
-  --targets <file>     JSON with several targets: {"targets":[{pack,host,auth?}]}
   --out <dir>          output root (default artifacts/device_crawl)
   --desktop            use 1280x800 instead of 390x844 (mobile-first default)
   --no-tabs            skip the menu/tab pass
@@ -221,7 +220,7 @@ const TABS_JS = `(() => {
     e.setAttribute('data-crawl-tab', String(out.length));
     out.push({ i: out.length, label: t.slice(0, 40) });
   }
-  return out.slice(0, 16);
+  return out;   // 100%: every tab/section found, no sampling (safety cap below)
 })()`;
 
 const CLICK_TAB = (i, open) => `(() => {
@@ -246,7 +245,7 @@ async function runTarget(target, cdp, opts, outRoot, log) {
     target: { pack, host, auth: !!auth },
     firmware: null, device: null, viewport: opts.viewport,
     started_at: new Date().toISOString(),
-    pages: [], summary: { total: 0, pass: 0, fail: 0, warn: 0 }, errors: [],
+    pages: [], skipped: [], summary: { total: 0, pass: 0, fail: 0, warn: 0, skipped: 0 }, errors: [],
   };
 
   // --- manifest (authoritative page list for this pack) ---
@@ -275,14 +274,21 @@ async function runTarget(target, cdp, opts, outRoot, log) {
 
   // --- pages ---
   let pages = [];
+  const skipped = [];
   if (manifest && Array.isArray(manifest.pages)) {
-    pages = manifest.pages.filter((p) => p && p.enabled !== false && p.testable !== false).map((p) => p.path);
+    for (const p of manifest.pages) {
+      if (!p || !p.path) continue;
+      if (p.enabled === false) { skipped.push({ path: p.path, reason: 'disabled in this build' }); continue; }
+      if (p.testable === false) { skipped.push({ path: p.path, reason: 'not testable' }); continue; }
+      pages.push(p.path);
+    }
   }
   if (!pages.length) {
     pages = ['/']; // fallback: at least the home page
     report.errors.push('manifest listed no testable pages; crawled / only');
   }
   pages = Array.from(new Set(pages));
+  report.skipped = skipped;
 
   // --- viewport ---
   const vp = opts.viewport === 'desktop'
@@ -400,7 +406,7 @@ async function runTarget(target, cdp, opts, outRoot, log) {
       // --- one-level menu/tab pass ---
       if (opts.tabs) {
         const tabs = (await evaluate(TABS_JS)) || [];
-        for (let ti = 0; ti < tabs.length; ti++) {
+        for (let ti = 0; ti < tabs.length && ti < 200; ti++) {
           const tab = tabs[ti];
           const before = current.console_errors.length + current.exceptions.length;
           await evaluate(CLICK_TAB(tab.i, true));
@@ -439,6 +445,7 @@ async function runTarget(target, cdp, opts, outRoot, log) {
   report.summary.pass = report.pages.filter((p) => p.status === 'PASS').length;
   report.summary.fail = report.pages.filter((p) => p.status === 'FAIL').length;
   report.summary.warn = report.pages.filter((p) => p.status === 'WARN').length;
+  report.summary.skipped = skipped.length;
   report.duration_ms = now() - started;
   report.finished_at = new Date().toISOString();
 
@@ -446,10 +453,11 @@ async function runTarget(target, cdp, opts, outRoot, log) {
   fs.writeFileSync(path.join(dir, 'report.json'), JSON.stringify(report, null, 1));
   const lines = [];
   lines.push(`pack=${pack} host=${host} fw=${report.firmware || '?'} viewport=${opts.viewport}`);
-  lines.push(`pages=${report.summary.total} pass=${report.summary.pass} fail=${report.summary.fail} warn=${report.summary.warn}`);
+  lines.push(`pages=${report.summary.total} pass=${report.summary.pass} fail=${report.summary.fail} warn=${report.summary.warn} skipped=${report.summary.skipped}`);
   for (const p of report.pages) {
     lines.push(`${p.status}\t${p.path}\t${(p.findings || []).join(' | ')}`);
   }
+  for (const s of skipped) lines.push(`SKIP\t${s.path}\t${s.reason}`);
   fs.writeFileSync(path.join(dir, 'summary.txt'), lines.join('\n') + '\n');
 
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -472,8 +480,9 @@ figure{margin:0 0 8px}.tabs{display:grid;grid-template-columns:repeat(auto-fit,m
 figcaption{font-size:12px;color:#94a3b8}h1{font-size:18px}code{color:#93c5fd}</style></head>
 <body><h1>Device crawl — ${esc(pack)} <code>${esc(host)}</code></h1>
 <p>fw ${esc(report.firmware || '?')} · ${report.summary.pass}/${report.summary.total} PASS ·
-${report.summary.fail} FAIL · ${report.summary.warn} WARN · ${Math.round(report.duration_ms / 1000)}s ·
-${esc(report.started_at)}</p>${cards}</body></html>`);
+${report.summary.fail} FAIL · ${report.summary.warn} WARN · ${report.summary.skipped} SKIP ·
+${Math.round(report.duration_ms / 1000)}s · ${esc(report.started_at)}</p>
+${report.skipped && report.skipped.length ? `<p style="color:#94a3b8">SKIP: ${report.skipped.map(s => esc(s.path) + ' (' + esc(s.reason) + ')').join(', ')}</p>` : ''}${cards}</body></html>`);
 
   log(`report: ${path.join(dir, 'report.json')}`);
   return report;
@@ -484,17 +493,8 @@ async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help) { console.log(HELP); return 0; }
 
-  let targets = [];
-  if (opts.targets) {
-    const raw = JSON.parse(fs.readFileSync(opts.targets, 'utf8'));
-    targets = Array.isArray(raw) ? raw : (raw.targets || []);
-  } else if (opts.host) {
-    targets = [{ pack: opts.pack || 'unknown', host: opts.host, auth: opts.auth }];
-  } else {
-    console.log(HELP);
-    return 2;
-  }
-  if (!targets.length) throw new Error('no targets');
+  if (!opts.host) { console.log(HELP); return 2; }
+  const targets = [{ pack: opts.pack || 'unknown', host: String(opts.host).trim(), auth: opts.auth }];
 
   const outRoot = path.resolve(opts.out || path.join(__dirname, '..', '..', 'artifacts', 'device_crawl'), stamp());
   fs.mkdirSync(outRoot, { recursive: true });
@@ -530,7 +530,6 @@ async function main() {
   }
 
   fs.writeFileSync(path.join(outRoot, 'run.log'), logLines.join('\n') + '\n');
-  fs.writeFileSync(path.join(outRoot, 'targets.json'), JSON.stringify({ targets, results }, null, 1));
   console.log('\n=== summary ===');
   for (const r of results) console.log(r.error ? `${r.pack}@${r.host}: ERROR ${r.error}` : `${r.pack}@${r.host}: ${r.pass}/${r.total} pass, ${r.fail} fail, ${r.warn} warn`);
   console.log('evidence root: ' + outRoot);

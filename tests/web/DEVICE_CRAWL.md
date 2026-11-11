@@ -7,27 +7,37 @@ and writes a bundle an agent (or a human) can review afterwards.
 No npm dependencies: it talks raw CDP to the system Chromium
 (`/usr/bin/chromium`, or `$CHROME_BIN`).
 
-## Usage
+## Usage — on demand, one pack + one IP per run
+
+No IP file is stored and nothing runs on a schedule: you say the pack and the
+IP, it runs once and writes the evidence bundle.
 
 ```bash
-# one board
-node tests/web/device_crawl.js --pack s3_cnc --host 192.168.1.38
-
-# several boards (pack + ip each)
-cp tests/web/targets.example.json tests/web/targets.local.json   # edit it
-node tests/web/device_crawl.js --targets tests/web/targets.local.json
-
-# options
---auth user:pass     HTTP basic auth
---desktop            1280x800 instead of 390x844 (mobile-first default)
---no-tabs            skip the menu/tab pass
---timeout <ms>       per-page timeout (default 25000)
---out <dir>          evidence root (default artifacts/device_crawl)
+node tests/web/device_crawl.js --pack rambox32 --host 192.168.1.99
+node tests/web/device_crawl.js --pack s3_cnc  --host 192.168.1.38 --auth admin:admin
+node tests/web/device_crawl.js --pack waveshare --host 192.168.1.50 --desktop
 ```
+
+`--host` takes the **full IPv4 address** (no shorthand).
+
+| Option | Meaning |
+|---|---|
+| `--pack <name>` | label used in the report/evidence folder |
+| `--host <ip>` | board IPv4 address |
+| `--auth user:pass` | HTTP basic auth |
+| `--desktop` | 1280x800 instead of 390x844 (mobile-first default) |
+| `--no-tabs` | skip the menu/tab pass (not recommended: coverage drops) |
+| `--timeout <ms>` | per-page timeout (default 25000) |
+| `--out <dir>` | evidence root (default `artifacts/device_crawl`) |
 
 Exit code `0` = all pages PASS, `1` = at least one FAIL (CI friendly), `2` = bad usage/launch.
 
 ## What is checked per page
+
+**Coverage is 100%**: every page the device declares, every tab/section on it,
+every one screenshotted and validated — nothing is sampled. Pages the build
+declares as disabled/not-testable are reported as `SKIP` with the reason, so the
+report accounts for the whole manifest.
 
 | Check | Severity |
 |---|---|
