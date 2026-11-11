@@ -29,12 +29,14 @@ struct MjpegStreamState {
     int     phase    = 0;
     size_t  offset   = 0;
     size_t  frameLen = 0;
-    const uint8_t* frameBuf = nullptr;  // pinned pointer into the shared cache (zero copy)
+    const uint8_t* frameBuf = nullptr;  // pinned pointer into a ring slot (zero copy)
     bool    pinned   = false;           // frameBuf held via cameraStreamFramePin()
+    CamStreamPin pin;              // slot/gen this viewer pinned (CAM-76 ring)
+    uint32_t lastGen = 0;          // newest generation this viewer already sent
     char    hdr[96];              // stack-built header: zero heap churn per frame
     size_t  hdrLen    = 0;
 
-    ~MjpegStreamState() { if (pinned) cameraStreamFrameUnpin(); }
+    ~MjpegStreamState() { if (pinned) cameraStreamFrameUnpin(pin.slot); }
 };
 
 // Last millis() at which fillMjpegBuffer() pushed bytes to any viewer.
@@ -53,19 +55,24 @@ static size_t fillMjpegBuffer(MjpegStreamState* s, uint8_t* buf, size_t maxLen) 
         // buffer. Release the previous pin first so cameraLoop() can publish
         // a fresh frame while we wait.
         if (s->pinned) {
-            cameraStreamFrameUnpin();
+            cameraStreamFrameUnpin(s->pin.slot);
             s->pinned = false;
             s->frameBuf = nullptr;
             s->frameLen = 0;
         }
         SemaphoreHandle_t sema = cameraStreamFrameSemaphore();
         if (sema) xSemaphoreTake(sema, pdMS_TO_TICKS(250));
-        size_t availLen = 0;
-        const uint8_t* avail = cameraStreamFramePin(availLen);
-        if (avail && availLen > 0 && availLen <= (1024UL * 1024UL)) {
+        // Ring (CAM-76): take the newest slot newer than what this viewer
+        // already sent. When the pump produced nothing new (or is pinned
+        // elsewhere) fall back to the newest frame overall and resend it so
+        // the ACK clock keeps ticking — the fps dedup keeps that honest.
+        const uint8_t* avail = cameraStreamFramePin(&s->pin, s->lastGen);
+        if (!avail) avail = cameraStreamFramePin(&s->pin, 0);
+        if (avail && s->pin.len > 0 && s->pin.len <= (1024UL * 1024UL)) {
             s->frameBuf = avail;
-            s->frameLen = availLen;
+            s->frameLen = s->pin.len;
             s->pinned   = true;
+            if (s->pin.gen > s->lastGen) s->lastGen = s->pin.gen;
             cameraStreamFrameSent();
         }
         if (!s->frameBuf || s->frameLen == 0) return RESPONSE_TRY_AGAIN;

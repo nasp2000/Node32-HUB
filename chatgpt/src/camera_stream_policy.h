@@ -5,14 +5,16 @@
 //
 // Two facts drove these constants (both measured on the P4 CAM, v1.120):
 //
-// 1) TWO MJPEG viewers were not just slow, they killed the board. The stream
-//    path keeps ONE shared frame cache and only publishes while no viewer
-//    holds a pin (`s_streamRefs == 0`), so a second viewer widens the pinned
-//    window until publishing stops: measured 5-8 frames in 8-10 s (~0.5-1 fps)
-//    with freeHeap 37-43 KB / maxAlloc 2-4 KB, ending in a panic
+// 1) TWO MJPEG viewers were not just slow, they killed the board. v1.120 kept
+//    ONE shared frame cache and only published while no viewer held a pin
+//    (`s_streamRefs == 0`), so a second viewer widened the pinned window until
+//    publishing stopped: measured 5-8 frames in 8-10 s (~0.5-1 fps) with
+//    freeHeap 37-43 KB / maxAlloc 2-4 KB, ending in a panic
 //    (reset_reason=PANIC, uptime restarted). One viewer: 12 fps, heap flat.
-//    Until the cache becomes per-viewer (slot ring, P3), the second viewer
-//    gets a 503 instead of a crash.
+//    CAM-76 replaced that cache with a 3-slot ring (camera_stream_slots.h), so
+//    publishing no longer waits on a pin. The cap stays at 1 until the
+//    2-viewer run on hardware proves the heap holds: raising it is this one
+//    constant, and the acceptance criteria are in HISTORIC/CAM/HISTORICO.md.
 //
 // 2) A manual MJPEG recording with no viewer was fed by a separate idle pump
 //    (one full capture + JPEG encode inside the recorder tick): 5.75 fps

@@ -15,6 +15,7 @@
 #include "camera_capture_guard.h"  // stall/photo-fallback pure logic (CAM-62/64)
 #include "camera_stream_fps.h"  // rolling-FPS window (pure, rounded)
 #include "camera_stream_policy.h"  // viewer cap + pump/feed decisions (pure)
+#include "camera_stream_slots.h"   // MJPEG slot ring selection (pure)
 #include "direct_log.h"
 #include "feature_flags.h"
 #if ENABLE_SDCARD==1
@@ -74,21 +75,24 @@ static void cameraP4StageWriter(const uint8_t* data, size_t len, void* c) {
 // cameraLoop() pre-captures frames into s_streamCache; the MJPEG callback reads from it.
 // This prevents esp_camera_fb_get() and memcpy from blocking the AsyncTCP task on core 0,
 // which would otherwise stall all other HTTP/TCP processing ("everything becomes inaccessible").
-static uint8_t*        s_streamCache      = nullptr;
-static size_t          s_streamCacheSize  = 0;
-static size_t          s_streamCacheLen   = 0;
-static volatile bool   s_streamCacheValid = false;
+// Slot ring (CAM-76): one contiguous PSRAM block split into CAM_STREAM_SLOTS
+// equal slots. The writer publishes into the next slot with no reader pinned,
+// so a slow viewer no longer freezes the publish path (v1.120 bailed out
+// whenever ANY viewer was sending, which is what made a second viewer fatal).
+// Allocation stays in ONE ps_malloc: repeated per-slot reallocs were a PSRAM
+// fragmentation source (CAM-52).
+static uint8_t*        s_streamCache      = nullptr;   // ring base
+static size_t          s_streamCacheSize  = 0;         // total bytes allocated
+static size_t          s_streamSlotCap    = 0;         // bytes per slot
+static size_t          s_slotLen[CAM_STREAM_SLOTS] = {0};
+static uint32_t        s_slotGen[CAM_STREAM_SLOTS] = {0};
+static int             s_slotRefs[CAM_STREAM_SLOTS] = {0};  // readers sending from it
+static int             s_publishCursor    = -1;        // last slot published into
+static volatile bool   s_streamCacheValid = false;     // at least one slot holds a frame
 static SemaphoreHandle_t s_streamCacheMux = nullptr;
 // Last publish timestamp (millis): photo fallback serves the cached frame
 // only while it is younger than PHOTO_CACHE_MAX_AGE_MS (CAM-64).
 static volatile uint32_t s_cachePublishMs = 0;
-
-// Zero-copy reader pins. While > 0 a stream consumer is sending straight from
-// the shared cache, so cameraLoop() must NOT overwrite it: each reader bumps
-// this on cameraStreamFramePin() and drops it on cameraStreamFrameUnpin().
-// This removes the old per-viewer PSRAM frame copy (one full JPEG memcpy per
-// viewer per frame).
-static volatile int    s_streamRefs       = 0;
 
 static uint32_t s_lastStreamCaptureMs = 0;  // throttle pre-capture to configured fps
 static uint8_t*  s_p4RawSolo = nullptr;       // H.264-only UYVY stage (no stream)
@@ -756,8 +760,10 @@ void cameraLoop() {
             // after the encode) and so does a manual MJPEG recording (the
             // recorder rides on this pump) — give both the same ceiling a
             // stream would have used.
-            if (!s_p4Stage && (s_streamCacheSize > 0 || pumpForH264 || pumpForRec)) {
-                size_t cap = s_streamCacheSize ? s_streamCacheSize
+            if (!s_p4Stage && (s_streamSlotCap > 0 || pumpForH264 || pumpForRec)) {
+                // One slot's worth (the ring is slots*cap, so using the ring
+                // total here would triple the staging buffer for no reason).
+                size_t cap = s_streamSlotCap ? s_streamSlotCap
 #if defined(TARGET_BOARD_P4) && TARGET_BOARD_P4 == 1
                                                : (size_t)STREAM_CACHE_MAX_BYTES;
 #else
@@ -831,15 +837,21 @@ void cameraLoop() {
                 s_lastPumpFeedMs = millis();  // idle-pump fallback heartbeat
             }
 #endif
-            if (src && s_streamCacheSize > 0 && srcLen <= s_streamCacheSize) {
+            if (src && s_streamSlotCap > 0 && srcLen <= s_streamSlotCap) {
                 bool published = false;
                 if (s_streamCacheMux && xSemaphoreTake(s_streamCacheMux, pdMS_TO_TICKS(10)) == pdTRUE) {
-                    // Never overwrite a frame a stream viewer is still sending.
-                    if (s_streamRefs == 0) {
-                        memcpy(s_streamCache, src, srcLen);
-                        s_streamCacheLen = srcLen;
-                        s_streamCacheValid = true;
+                    // Publish into the next slot nobody is sending from. A
+                    // pinned slot is never overwritten, but a pinned ring no
+                    // longer blocks publishing: with 3 slots a second viewer
+                    // still gets fresh frames (CAM-76).
+                    int idx = camStreamPickWriteSlot(s_slotRefs, CAM_STREAM_SLOTS, s_publishCursor);
+                    if (idx >= 0) {
+                        memcpy(s_streamCache + (size_t)idx * s_streamSlotCap, src, srcLen);
                         s_cacheGen++;
+                        s_slotLen[idx] = srcLen;
+                        s_slotGen[idx] = s_cacheGen;
+                        s_publishCursor = idx;
+                        s_streamCacheValid = true;
                         s_cachePublishMs = nowMs;  // photo fallback freshness (CAM-64)
                         published = true;
                     }
@@ -962,21 +974,29 @@ bool cameraStreamStart() {
 #else
         streamCacheBytesFor(s_config.framesize);
 #endif
-    if (!s_streamCache || s_streamCacheSize < need) {
+    // Ring needs CAM_STREAM_SLOTS slots of `need` bytes each, contiguous.
+    size_t total = need * (size_t)CAM_STREAM_SLOTS;
+    if (!s_streamCache || s_streamCacheSize < total) {
         if (s_streamCache) free(s_streamCache);
-        s_streamCache = (uint8_t*)(psramFound() ? ps_malloc(need) : malloc(need));
+        s_streamCache = (uint8_t*)(psramFound() ? ps_malloc(total) : malloc(total));
         if (!s_streamCache) {
             camLog("[CAM] Failed to allocate stream cache", ERROR);
             s_streamCacheSize = 0;
+            s_streamSlotCap = 0;
             return false;
         }
-        s_streamCacheSize = need;
+        s_streamCacheSize = total;
     }
+    s_streamSlotCap = need;
 
     s_streamActive = true;
-    s_streamRefs = 0;  // fresh session: no reader can hold a stale pin
     s_streamCacheValid = false;
-    s_streamCacheLen = 0;
+    for (int i = 0; i < CAM_STREAM_SLOTS; i++) {
+        s_slotLen[i] = 0;
+        s_slotGen[i] = 0;
+        s_slotRefs[i] = 0;   // fresh session: no reader can hold a stale pin
+    }
+    s_publishCursor = -1;
     s_lastStreamCaptureMs = 0;
     return true;
 }
@@ -1276,45 +1296,54 @@ bool cameraGrabFileFrame(uint8_t** outCopy, size_t* outLen, uint32_t timeoutMs) 
     return true;
 }
 
+// Newest published frame, no pin (recorder reads it and copies into its own
+// queue slot immediately; snapshots copy out). Pointer valid until the next
+// publish, which for these callers happens on another core at frame rate — so
+// this reads the slot the publish cursor points at, which the writer will not
+// touch again until the ring wraps (3 slots of slack).
 const uint8_t* cameraStreamFrame(size_t& sizeOut) {
-    if (!s_ready || !s_streamActive || !s_streamCacheValid) {
-        sizeOut = 0;
-        return nullptr;
-    }
-    if (!s_streamCacheMux || xSemaphoreTake(s_streamCacheMux, pdMS_TO_TICKS(5)) != pdTRUE) {
-        sizeOut = 0;
-        return nullptr;
-    }
-    sizeOut = s_streamCacheLen;
-    const uint8_t* ptr = s_streamCache;
-    xSemaphoreGive(s_streamCacheMux);
-    return ptr;
-}
-
-// Zero-copy variant: pin the cache so cameraLoop() will not overwrite it until
-// cameraStreamFrameUnpin(). The returned pointer stays valid for the whole
-// send — this removes the per-viewer PSRAM frame copy the stream pump used to
-// do. Each successful pin MUST be matched by exactly one unpin.
-const uint8_t* cameraStreamFramePin(size_t& sizeOut) {
     sizeOut = 0;
     if (!s_ready || !s_streamActive || !s_streamCacheValid) return nullptr;
     if (!s_streamCacheMux || xSemaphoreTake(s_streamCacheMux, pdMS_TO_TICKS(5)) != pdTRUE) return nullptr;
     const uint8_t* ptr = nullptr;
-    if (s_streamCache && s_streamCacheLen > 0) {
-        sizeOut = s_streamCacheLen;
-        ptr = s_streamCache;
-        s_streamRefs++;
+    int idx = s_publishCursor;
+    if (s_streamCache && s_streamSlotCap > 0 && idx >= 0 && idx < CAM_STREAM_SLOTS &&
+        s_slotLen[idx] > 0) {
+        sizeOut = s_slotLen[idx];
+        ptr = s_streamCache + (size_t)idx * s_streamSlotCap;
     }
     xSemaphoreGive(s_streamCacheMux);
     return ptr;
 }
 
-void cameraStreamFrameUnpin() {
+// Zero-copy variant: pin the newest slot published after `afterGen` so the
+// writer will not overwrite it until cameraStreamFrameUnpin(). A viewer that
+// already sent the newest frame (nothing newer) re-sends what it holds.
+// Each successful pin MUST be matched by exactly one unpin.
+const uint8_t* cameraStreamFramePin(CamStreamPin* pin, uint32_t afterGen) {
+    if (pin) { pin->slot = 0; pin->gen = 0; pin->len = 0; }
+    if (!s_ready || !s_streamActive || !s_streamCacheValid || !pin) return nullptr;
+    if (!s_streamCacheMux || xSemaphoreTake(s_streamCacheMux, pdMS_TO_TICKS(5)) != pdTRUE) return nullptr;
+    const uint8_t* ptr = nullptr;
+    int idx = camStreamPickNewest(s_slotGen, CAM_STREAM_SLOTS, afterGen);
+    if (idx >= 0 && s_streamCache && s_streamSlotCap > 0 && s_slotLen[idx] > 0) {
+        s_slotRefs[idx]++;
+        ptr = s_streamCache + (size_t)idx * s_streamSlotCap;
+        pin->slot = (uint8_t)idx;
+        pin->gen  = s_slotGen[idx];
+        pin->len  = s_slotLen[idx];
+    }
+    xSemaphoreGive(s_streamCacheMux);
+    return ptr;
+}
+
+void cameraStreamFrameUnpin(uint8_t slot) {
+    if (slot >= CAM_STREAM_SLOTS) return;
     if (s_streamCacheMux && xSemaphoreTake(s_streamCacheMux, pdMS_TO_TICKS(5)) == pdTRUE) {
-        if (s_streamRefs > 0) s_streamRefs--;
+        if (s_slotRefs[slot] > 0) s_slotRefs[slot]--;
         xSemaphoreGive(s_streamCacheMux);
-    } else if (s_streamRefs > 0) {
-        s_streamRefs--;  // best effort if the mutex is momentarily busy
+    } else if (s_slotRefs[slot] > 0) {
+        s_slotRefs[slot]--;  // best effort if the mutex is momentarily busy
     }
 }
 
@@ -1335,7 +1364,8 @@ bool cameraStreamWaitFrame(uint32_t timeoutMs) {
         bool valid;
         if (s_streamCacheMux && xSemaphoreTake(s_streamCacheMux, pdMS_TO_TICKS(5)) == pdTRUE) {
             gen = s_cacheGen;
-            valid = s_streamCacheValid && s_streamCacheLen > 0;
+            valid = s_streamCacheValid && s_publishCursor >= 0 &&
+                    s_slotLen[s_publishCursor] > 0;
             xSemaphoreGive(s_streamCacheMux);
         } else {
             delay(2);

@@ -130,15 +130,25 @@ bool cameraGrabFileFrame(uint8_t** outCopy, size_t* outLen, uint32_t timeoutMs);
 // send that spans multiple writes, use cameraStreamFramePin()/Unpin() instead.
 const uint8_t* cameraStreamFrame(size_t& sizeOut);
 
-// Pin the current cached frame for zero-copy streaming. While pinned,
-// cameraLoop() skips capturing/publishing into the cache, so the returned
-// pointer stays valid until the matching cameraStreamFrameUnpin(). Returns
-// nullptr when no frame is available. Every successful pin must be matched by
-// exactly one unpin. Safe from any core.
-const uint8_t* cameraStreamFramePin(size_t& sizeOut);
+// A pinned frame from the slot ring: which slot, which publish generation and
+// how long the JPEG is. Harvested by cameraStreamFramePin() and handed back
+// verbatim (slot) to cameraStreamFrameUnpin().
+struct CamStreamPin {
+    uint8_t  slot = 0;
+    uint32_t gen  = 0;
+    size_t   len  = 0;
+};
 
-// Release a pin taken with cameraStreamFramePin().
-void cameraStreamFrameUnpin();
+// Pin the newest frame published after `afterGen` (0 = any) for zero-copy
+// streaming. The ring never overwrites a pinned slot, so the returned pointer
+// stays valid until cameraStreamFrameUnpin(pin->slot) — no capture is blocked
+// by a slow viewer anymore (CAM-76). Returns nullptr when nothing new is
+// available: the caller re-sends the frame it already holds. Every successful
+// pin must be matched by exactly one unpin. Safe from any core.
+const uint8_t* cameraStreamFramePin(CamStreamPin* pin, uint32_t afterGen);
+
+// Release a pin taken with cameraStreamFramePin(). Unknown slots are ignored.
+void cameraStreamFrameUnpin(uint8_t slot);
 
 // Wait up to timeoutMs for a new stream frame to appear.
 // Polls the cache generation counter with yield between checks.
