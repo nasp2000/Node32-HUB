@@ -228,6 +228,38 @@ async function run() {
   }
 
   // ════════════════════════════════════════════════════════════════
+  // RS232 templates are only fetched when the build has RS232
+  // (crawl 2026-11-11: 404 /api/rs232-templates on packs without it)
+  // ════════════════════════════════════════════════════════════════
+  {
+    dom = loadPage(); await wait(dom, 800);
+    win = dom.window;
+
+    var calls = [];
+    var origFetch = win.fetch;
+    win.fetch = function (u, o) {
+      calls.push(String(u));
+      return origFetch(u, o);
+    };
+
+    test('lt() does not fetch templates when RS232 is disabled in the build', function () {
+      calls.length = 0;
+      win._rs232Enabled = false;
+      win.__test__.lt();
+      is(calls.filter(function (u) { return u.indexOf('/api/rs232-templates') >= 0; }).length, 0,
+        'no /api/rs232-templates request');
+    });
+
+    test('lt() still fetches templates when RS232 is enabled', function () {
+      calls.length = 0;
+      win._rs232Enabled = true;
+      win.__test__.lt();
+      ok(calls.filter(function (u) { return u.indexOf('/api/rs232-templates') >= 0; }).length === 1,
+        'exactly one /api/rs232-templates request');
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════
   // Summary
   // ════════════════════════════════════════════════════════════════
   var total = passed + failed;

@@ -500,7 +500,13 @@ function setupDontCopySenderAutoSave(){
     }catch(e){ /* ignore */ }
 }
 
+var _rcpRetries = 0;
 function loadRecipientsConfig(){
+    // Recipients can only be rendered on /recipients. Without its table there is
+    // nothing to fill, so fetching /api/recipients here only produced a 404 (the
+    // endpoint is absent on builds without the Recipients page: .29, .24) plus an
+    // endless 2 s retry loop. Return before touching the network.
+    if(!document.getElementById('recipients-table')) return;
     try{
         if(typeof optimizedFetch !== 'undefined' && optimizedFetch && typeof optimizedFetch.request === 'function'){
             optimizedFetch.request('/api/recipients?limit=100', {}, 0).then(function(list){
@@ -523,11 +529,11 @@ function loadRecipientsConfig(){
                         var cb = document.getElementById('dont_copy_sender_checkbox'); if(cb) cb.checked = dontCopy;
                         try{ if(typeof setupDontCopySenderAutoSave === 'function') setTimeout(setupDontCopySenderAutoSave, 50); }catch(e){}
                     }catch(e){}
-                }).catch(function(){ setTimeout(loadRecipientsConfig, 2000); });
+                }).catch(function(){ if(_rcpRetries++ < 3) setTimeout(loadRecipientsConfig, 2000); });
             });
         } else {
             // fallback: use fetch directly
-            fetch('/api/recipients?limit=100',{cache:'no-store'}).then(r=>r.json()).then(function(list){ try{ if(typeof clearAllRecipientsRows === 'function') clearAllRecipientsRows(); }catch(e){} if(Array.isArray(list)) list.forEach(function(rec){ try{ if(typeof addRecipientWithData === 'function') addRecipientWithData(rec.name||'', rec.email||''); }catch(e){} }); if(typeof addRecipientWithData === 'function') addRecipientWithData('', ''); }).catch(function(){ setTimeout(loadRecipientsConfig,2000); });
+            fetch('/api/recipients?limit=100',{cache:'no-store'}).then(r=>r.json()).then(function(list){ try{ if(typeof clearAllRecipientsRows === 'function') clearAllRecipientsRows(); }catch(e){} if(Array.isArray(list)) list.forEach(function(rec){ try{ if(typeof addRecipientWithData === 'function') addRecipientWithData(rec.name||'', rec.email||''); }catch(e){} }); if(typeof addRecipientWithData === 'function') addRecipientWithData('', ''); }).catch(function(){ if(_rcpRetries++ < 3) setTimeout(loadRecipientsConfig,2000); });
         }
     }catch(e){ console.error('loadRecipientsConfig error', e); }
 }

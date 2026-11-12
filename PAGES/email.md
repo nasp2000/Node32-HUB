@@ -82,6 +82,10 @@ Inline `<script>` (auto.js supplies `customAlert`, `showLoading`, etc.; `_t()` f
   `smtp.tls_insecure !== false` (**defaults to true** when key absent).
 - `testEmail()` — `POST /api/email-test` (no body); success → `customAlert(d.message)`;
   failure → `d.message` or generic error.
+- No recipients list is loaded here: `auto.js` `loadRecipientsConfig()` returns before
+  any request when the page has no `#recipients-table`, so builds without the
+  Recipients page never call the absent `/api/recipients` (crawl 2026-11-11: it 404'd
+  and retried every 2 s).
 - Form submit: `FormData` → sets `section=email`, forces explicit
   `smtp_tls_insecure = '1'/'0'`, converts to `URLSearchParams`, `POST /api/config`;
   on `d.success` → saved alert + `showSavedCard()`, else error alert.

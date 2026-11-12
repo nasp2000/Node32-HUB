@@ -118,7 +118,9 @@ Both pages use an identical inline IIFE pattern (`PAGE_COMMANDS_JS`,
 - **`loadAll()`/`la()`** — per row `GET /api/scheduled-command-slot?i=` /
   `/api/scheduled-datetime-slot?i=`; then `GET /api/rs232-templates` to populate the
   template `<select>` (preserving `data-cur`). Sets type/command/interval/unit/days/
-  date/time/daily/template/enabled onto the row.
+  date/time/daily/template/enabled onto the row. **The template fetch is skipped when
+  the build has no RS232** (`/commands` checks `chart-caps.rs232`, `/commands-by-datetime`
+  checks `_rs232Enabled`), otherwise it 404s on every load of a pack without RS232.
 - **`toggleTemplate(i)`/`tt(i)`** — disables + dims the template select when type is
   System or Modbus.
 - **`saveSlot(i,btn)`/`ss(i,btn)`** — FormData `{i,type,command,interval,unit,days,template,enabled}`
