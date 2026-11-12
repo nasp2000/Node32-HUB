@@ -38,6 +38,36 @@ static inline int cameraP4StillsOnly(uint16_t w, uint16_t h) {
     return w > 1920 ? 1 : 0;
 }
 
+// Modes the table can describe but the P4 pipeline cannot actually run on this
+// OV5647 bring-up (CAM-78, measured on the .18 with v1.120):
+//   1280x720  — RAW10 30 fps profile: capture stalls (CAM-62); every command
+//               times out until the sensor is restarted.
+//   1920x1080 — RAW10 30 fps profile: the pipeline fails to init ("Not
+//               detected") and the camera stays dead until a restart.
+// Both stay in kCamResModes (real sensor modes, register tables kept for a
+// future fix) but must never be offered or accepted at runtime.
+static inline int cameraP4ModeBroken(uint16_t w, uint16_t h) {
+    return (w == 1280 && h == 720) || (w == 1920 && h == 1080);
+}
+
+// 1 when the mode may be listed in resList / selected through the API.
+static inline int cameraP4ModeUsable(uint16_t w, uint16_t h) {
+    return cameraValidResolution(w, h) && !cameraP4ModeBroken(w, h);
+}
+
+// MJPEG fps ceiling by LIVE pixel count (CAM-79). The small RAW8 binning modes
+// are rated 50 fps and measured 11-12 fps at the old fixed ceiling of 15 — the
+// ceiling was ours, not the sensor's. 800x640 (0.51 MP) and 800x800 (0.64 MP)
+// get 25; every larger mode keeps 15 (measured 10-12).
+#define CAM_P4_FPS_CAP_SMALL        25
+#define CAM_P4_FPS_CAP_LARGE        15
+#define CAM_P4_SMALL_MODE_PIXELS    650000UL
+
+static inline uint8_t cameraP4MjpegFpsCap(uint32_t pixels) {
+    if (pixels == 0) return CAM_P4_FPS_CAP_LARGE;   // unknown geometry: stay conservative
+    return (pixels <= CAM_P4_SMALL_MODE_PIXELS) ? CAM_P4_FPS_CAP_SMALL : CAM_P4_FPS_CAP_LARGE;
+}
+
 // Resolve the effective P4 MIPI output size. An explicit persisted mode wins;
 // otherwise use the legacy framesize-derived size only if it is a real OV5647
 // mode. Unsupported enum sizes fall back to safe 800x800.
@@ -46,7 +76,7 @@ static inline int cameraResolveP4OutputDims(uint16_t override_w, uint16_t overri
                                             uint16_t enum_w, uint16_t enum_h,
                                             uint16_t* out_w, uint16_t* out_h) {
     if (!out_w || !out_h) return 0;
-    if (override_w && override_h && cameraValidResolution(override_w, override_h)) {
+    if (override_w && override_h && cameraP4ModeUsable(override_w, override_h)) {
         *out_w = override_w;
         *out_h = override_h;
         return 1;

@@ -58,6 +58,15 @@ static inline void p4CamLog(const String &msg, int level = INFO) {
 #endif
 
 static bool s_ready = false;
+
+// CAM-81: last USB-source failure step, surfaced as `usbDiag` in
+// /api/camera/status. Without it the only evidence was "source 1 failed to
+// start, fell back to MIPI" in the log, with no reason a web client can read.
+static char s_usbDiag[40] = "";
+static void p4UsbSetDiag(const char* tag) {
+    snprintf(s_usbDiag, sizeof(s_usbDiag), "%s", tag ? tag : "");
+}
+const char* cameraP4UsbDiag() { return s_usbDiag; }
 // Shared SCCB/I2C0 arbitration (CAM_P4 only): the OV5647 SCCB bus (SDA7/SCL8)
 // is touched by TWO IDF/Arduino users on different tasks — the idle-time
 // presence probe (Arduino Wire, from the /api/camera/status handler) and the
@@ -454,6 +463,20 @@ static void p4UsbRawIsocProbe(usb_host_client_handle_t ch, usb_device_handle_t d
     for (int i = 0; i < numPkt; i++) isoc->isoc_packet_desc[i].num_bytes = perUs;
     p4CamLog(String("[CAM-P4/USB] raw isoc: reading ep 0x") + String(epAddr, HEX) +
              " alt=" + String(alt) + " mps/us=" + String(perUs) + " for 800ms");
+    // CAM-81 validation: an isoch endpoint on HS carries at most 3 transactions
+    // of 1024 B per microframe (high-bandwidth). A descriptor claiming more —
+    // or nothing — means the walk picked the wrong alt set, and every URB will
+    // be refused; say it here instead of burning 80 submits.
+    if (perUs == 0 || perUs > 3u * 1024u) {
+        char db[32];
+        snprintf(db, sizeof(db), "isoc:ps=%u", (unsigned)perUs);
+        p4UsbSetDiag(db);
+        p4CamLog(String("[CAM-P4/USB] raw isoc: refused before submit (perUs=") +
+                 String(perUs) + ", HS max 3072)", ERROR);
+        usb_host_transfer_free(ctrl);
+        usb_host_interface_release(ch, dh, iface);
+        return;
+    }
     uint32_t t0 = millis();
     esp_err_t subErr = ESP_OK;
     int loops = 0;
@@ -534,6 +557,17 @@ static void p4UsbRawIsocProbe(usb_host_client_handle_t ch, usb_device_handle_t d
             p4CamLog(String("[CAM-P4/USB] raw isoc sweep pay=") + String(payVars[pv]) +
                      ": nonEmpty=" + String(st.nonEmpty) + " bytes=" + String(st.totalBytes), WARN);
         }
+    }
+    if (subErr != ESP_OK) {
+        char db[40];
+        snprintf(db, sizeof(db), "isoc:%s", esp_err_to_name(subErr));
+        p4UsbSetDiag(db);
+        p4CamLog(String("[CAM-P4/USB] raw isoc VERDICT: every URB was refused (") +
+                 String(esp_err_to_name(subErr)) +
+                 ") - host cannot use this endpoint/altsetting; a driver-level "
+                 "isoc fix is needed before UVC can stream", ERROR);
+    } else if (!st.nonEmpty) {
+        p4UsbSetDiag("isoc:idle");
     }
     p4CamLog(String("[CAM-P4/USB] raw isoc RESULT: submits=") + String(loops) +
              " submitErr=" + (subErr == ESP_OK ? String("-") : String(esp_err_to_name(subErr))) +
@@ -992,8 +1026,10 @@ static bool p4UsbBegin(uint16_t w, uint16_t h) {
     drv.xCoreID = 1;
     drv.create_background_task = true;
     drv.event_cb = p4UvcDriverEventCb;
+    p4UsbSetDiag("init");
     if (uvc_host_install(&drv) != ESP_OK) {
         p4CamLog("[CAM-P4/USB] uvc_host_install failed", ERROR);
+        p4UsbSetDiag("install");
         return false;
     }
     s_uvcInstalled = true;
@@ -1099,8 +1135,12 @@ static bool p4UsbBegin(uint16_t w, uint16_t h) {
             }
             if (got == 2) {
                 p4CamLog(String("[CAM-P4/USB] non-MJPEG data @") + String(cands[c][0]) + "x" + String(cands[c][1]) + " (pump serves MJPEG only)", WARN);
+                p4UsbSetDiag("nonmjpeg");
             } else {
                 p4CamLog(String("[CAM-P4/USB] no data @") + String(cands[c][0]) + "x" + String(cands[c][1]), WARN);
+                char db[32];
+                snprintf(db, sizeof(db), "nodata:%ux%u", (unsigned)cands[c][0], (unsigned)cands[c][1]);
+                p4UsbSetDiag(db);
             }
             uvc_host_stream_format_t after = {};
             if (uvc_host_stream_format_get(hdl, &after) == ESP_OK) {
@@ -1141,6 +1181,7 @@ static bool p4UsbBegin(uint16_t w, uint16_t h) {
                 int got = p4UsbWaitFrames(P4_USB_CAND_WAIT_MS);
                 if (got != 0) {
                     p4CamLog("[CAM-P4/USB] webcam streams YUY2-only (MJPEG delivers no data); needs SW JPEG encode path (future work)", ERROR);
+                    p4UsbSetDiag("yuy2only");
                 } else {
                     p4CamLog("[CAM-P4/USB] YUY2 probe: no data either (device is not sending on this interface)", WARN);
                 }
@@ -1153,10 +1194,14 @@ static bool p4UsbBegin(uint16_t w, uint16_t h) {
             p4CamLog(String("[CAM-P4/USB] YUY2 probe: stream_open rejected err=") + String(esp_err_to_name(e2)), WARN);
         }
         p4CamLog("[CAM-P4/USB] no MJPEG candidate delivered frames", ERROR);
+        // Keep the more specific reason set above ("nodata:WxH", "nonmjpeg",
+        // "yuy2", "open") when there is one; the generic tag is the fallback.
+        if (!s_usbDiag[0] || !strncmp(s_usbDiag, "init", 4)) p4UsbSetDiag("nodata");
         uvc_host_uninstall();
         s_uvcInstalled = false;
         return false;
     }
+    p4UsbSetDiag("ok");
     if (uvc_host_stream_format_get(hdl, &cur) == ESP_OK && cur.format == UVC_VS_FORMAT_MJPEG) {
         // Publish the NEGOTIATED geometry as the live size (page + recorder
         // must follow the device, not the request).
@@ -1342,7 +1387,11 @@ static int8_t p4CsiModeIndex(uint16_t w, uint16_t h) {
 }
 
 bool cameraP4ValidCsiMode(uint16_t w, uint16_t h) {
-    return p4CsiModeIndex(w, h) >= 0;
+    // CAM-78: a size the table knows but the pipeline cannot run (720p stall,
+    // 1080p init failure) must not be accepted — selecting it used to leave
+    // the camera dead until a restart.
+    if (p4CsiModeIndex(w, h) < 0) return false;
+    return cameraP4ModeUsable(w, h) != 0;
 }
 
 // Exported: "WxH,WxH,..." of the known CSI sensor modes for resList, ordered
@@ -1370,8 +1419,12 @@ String cameraP4CsiResList() {
     }
     String out;
     for (uint8_t i = 0; i < P4_CSI_MODE_COUNT; i++) {
+        const uint16_t w = kP4CsiModes[order[i]].w, h = kP4CsiModes[order[i]].h;
+        // CAM-78: never offer a mode that cannot run (1280x720 stalls,
+        // 1920x1080 fails init) — the page would let the user brick the view.
+        if (!cameraP4ModeUsable(w, h)) continue;
         if (out.length()) out += ',';
-        out += String(kP4CsiModes[order[i]].w) + "x" + String(kP4CsiModes[order[i]].h);
+        out += String(w) + "x" + String(h);
     }
     return out;
 }
@@ -2251,11 +2304,15 @@ uint8_t cameraP4FpsMax() {
     // MIPI MJPEG. The old fixed 6 was measured long ago (and at HD); the
     // OV5647 RAW8 modes are rated 50 fps and the MJPEG wire delivered 6.8 fps
     // while the loop was still clamped to 6 — i.e. we were at our own ceiling,
-    // not the sensor's. 15 leaves headroom for the small modes; the real
-    // sustained rate is reported by the status pill (streamFps), and a mode
-    // that cannot hold it simply publishes fewer frames (never a stall: the
-    // stall path is queue-bound, not rate-bound).
-    return 15;
+    // not the sensor's.
+    // CAM-79: the ceiling now follows the live geometry — 25 fps for the small
+    // binning modes (<=0.65 MP) and 15 above it. The real sustained rate is
+    // still whatever the pump delivers (status pill `streamFps`), and a mode
+    // that cannot hold it publishes fewer frames (never a stall: the stall path
+    // is queue-bound, not rate-bound).
+    uint16_t w = 0, h = 0;
+    cameraP4ActualDims(w, h);
+    return cameraP4MjpegFpsCap((uint32_t)w * (uint32_t)h);
 }
 
 // Fase 4 (Tarefa 5): H.264 path ceiling. MJPEG keeps 6 (measured); H.264

@@ -29,6 +29,21 @@ static String camTimestamp() {
     return String(buf);
 }
 
+// Photo filename (CAM-80): the second-level base is enough for recordings but
+// three snapshot POSTs inside the same second all mapped to ONE .jpg and
+// overwrote each other. Append millis + a same-millisecond counter, so a burst
+// or a double-tap never collides. Recordings keep camTimestamp() unchanged.
+static String camPhotoTimestamp() {
+    static uint32_t lastMs = 0;
+    static uint16_t seq = 0;
+    uint32_t ms = millis();
+    if (ms == lastMs) { if (seq < 99) seq++; } else { lastMs = ms; seq = 0; }
+    char buf[40];
+    snprintf(buf, sizeof(buf), "%s_%03lu_%u", camTimestamp().c_str(),
+             (unsigned long)(ms % 1000UL), (unsigned)seq);
+    return String(buf);
+}
+
 // ── Status (extended with recording + SD info) ─────────────────────
 void handleCameraStatusGet(HttpRequest& req, HttpResponse& res) {
     (void)req;
@@ -82,9 +97,14 @@ void handleCameraStatusGet(HttpRequest& req, HttpResponse& res) {
     doc["fpsMaxH264"] = cameraP4FpsMaxH264();
     // Fase 1 (Tarefa 5): Codec block visibility (HW encoder present).
     doc["h264Avail"] = p4H264HwAvailable() ? true : false;
-    // Last H.264 open failure step (Tarefa 5 follow-up): lets a device tell
-    // "res rejected" from "hw_new/alloc/open failed" without a serial console.
+    // Last H.264 step (Tarefa 5 follow-up + CAM-77): lets a device tell
+    // "res rejected" from "hw_new/alloc/open failed" from "every frame failed
+    // to encode" (diag becomes "enc:<code>") without a serial console.
     doc["h264Diag"] = p4H264BeginDiag();
+    doc["h264EncFails"] = p4H264EncodeFails();
+    doc["h264EncErr"] = p4H264LastEncodeErr();
+    // CAM-81: why the USB source is not streaming (empty = never tried).
+    doc["usbDiag"] = cameraP4UsbDiag();
     // Capture-pipeline stall flag (CAM-62): 1 while no frame arrived for
     // P4_CAP_STALL_MS. Lets a snapshot 503 be diagnosed remotely instead of
     // guessing whether the sensor, the encoder or the HTTP path failed.
@@ -426,6 +446,15 @@ void handleCameraConfigPost(HttpRequest& req, HttpResponse& res) {
 #if defined(TARGET_BOARD_P4) && TARGET_BOARD_P4 == 1
         if (ok && cameraP4ValidCsiMode(rw, rh)) {
             cfg.p4_res_w = rw; cfg.p4_res_h = rh; changed = true;
+        } else if (ok && cameraValidResolution(rw, rh)) {
+            // CAM-78: a real sensor mode the pipeline cannot run (720p stalls,
+            // 1080p fails init). Say so instead of silently "No changes".
+            char buf[176];
+            snprintf(buf, sizeof(buf),
+                     "{\"success\":false,\"message\":\"%ux%u is not usable on this sensor "
+                     "(pipeline stalls) - pick another mode\"}", (unsigned)rw, (unsigned)rh);
+            res.sendJson(String(buf));
+            return;
         }
 #else
         (void)ok;
@@ -542,7 +571,7 @@ void handleCameraPhotoPost(HttpRequest& req, HttpResponse& res) {
     }
 
 #if ENABLE_SDCARD==1
-    String ts = camTimestamp();
+    String ts = camPhotoTimestamp();  // CAM-80: sub-second unique name
     String folder = String(CAM_REC_ROOT) + "/PHOTOS";
     String path = folder + "/" + ts + ".jpg";
     // Fast path: the grab already returned an owned copy, so answer now and

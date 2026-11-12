@@ -294,3 +294,29 @@ TEST_CASE("pack guards: null/zero arguments are no-ops, never writes") {
     cameraH264PackUyvy(src, 4, 2, 4, nullptr, CAM_H264_FMT_HW);
     for (unsigned i = 0; i < sizeof(dst); i++) CHECK(dst[i] == 0xAB);
 }
+
+TEST_CASE("CAM-77: encode-failure diag is short, rate-limited and reports recovery") {
+    char d[CAM_H264_ENC_DIAG_CAP];
+    memset(d, 'x', sizeof(d));
+    cameraH264EncDiag(d, sizeof(d), -3);
+    CHECK(strcmp(d, "enc:-3") == 0);          // fits the status slot
+    cameraH264EncDiag(d, sizeof(d), 0);
+    CHECK(strcmp(d, "enc:0") == 0);
+    cameraH264EncDiag(d, sizeof(d), -12345);
+    CHECK(strlen(d) < CAM_H264_ENC_DIAG_CAP);
+    cameraH264EncDiag(nullptr, sizeof(d), -1);  // no crash
+    cameraH264EncDiag(d, 0, -1);
+
+    // First failure of a streak always logs; then every 100th.
+    CHECK(cameraH264EncShouldLog(0, 100) == false);
+    CHECK(cameraH264EncShouldLog(1, 100) == true);
+    CHECK(cameraH264EncShouldLog(2, 100) == false);
+    CHECK(cameraH264EncShouldLog(99, 100) == false);
+    CHECK(cameraH264EncShouldLog(100, 100) == true);
+    CHECK(cameraH264EncShouldLog(200, 100) == true);
+    CHECK(cameraH264EncShouldLog(5, 0) == false);   // repeats disabled
+
+    CHECK(cameraH264EncRecovered(0) == false);   // never failed: nothing to say
+    CHECK(cameraH264EncRecovered(1) == true);
+    CHECK(cameraH264EncRecovered(250) == true);
+}

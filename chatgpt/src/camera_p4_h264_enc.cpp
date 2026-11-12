@@ -56,6 +56,9 @@ static uint8_t* s_inBuf = nullptr;    // 16-B aligned UYVY staging (padded)
 static uint32_t s_inCap = 0;
 static uint8_t* s_outBuf = nullptr;   // 16-B aligned Annex B output slot
 static uint32_t s_outCap = 0;
+static uint32_t s_encFails = 0;           // consecutive process() failures
+static uint32_t s_encFailTotal = 0;       // lifetime failures (status/diag)
+static int      s_encLastErr = 0;         // last esp_h264_enc_process() code
 static uint16_t s_w = 0, s_h = 0;         // requested geometry
 static uint16_t s_aw = 0, s_ah = 0;       // 16-px aligned geometry
 static uint8_t  s_fmt = CAM_H264_FMT_HW;  // input layout of the opened encoder
@@ -170,6 +173,8 @@ bool p4H264Begin(uint16_t w, uint16_t h, uint8_t fps, uint32_t bitrateKbps) {
     }
     s_open = true;
     s_frames = 0;
+    s_encFails = 0;
+    s_encLastErr = 0;
     p4H264SetDiag("ok");
     p4H264Log(String(s_isSw ? "[CAM-P4/H264] SW encoder open " : "[CAM-P4/H264] HW encoder open ") +
               w + "x" + h + " @" + fps + "fps " + kbps + "kbps", INFO);
@@ -198,7 +203,27 @@ bool p4H264EncodeUyvy(const uint8_t* uyvy, size_t uyvyLen,
     encOut.raw_data.len = s_outCap;
     esp_h264_err_t e = esp_h264_enc_process(s_enc, &in, &encOut);
     if (e != ESP_H264_ERR_OK || encOut.length == 0) {
-        return false;  // session stays open: caller drops the frame, retries
+        // CAM-77: say WHY. The session stays open and the caller drops the
+        // frame, but a silent `false` made "0 frames, h264Diag=ok" impossible
+        // to diagnose from the web UI.
+        s_encFails++;
+        s_encFailTotal++;
+        s_encLastErr = (int)e;
+        char d[CAM_H264_ENC_DIAG_CAP];
+        cameraH264EncDiag(d, sizeof(d), (int)e);
+        p4H264SetDiag(d);
+        if (cameraH264EncShouldLog(s_encFails, 100)) {
+            p4H264Log(String("[CAM-P4/H264] encode failed err=") + (int)e +
+                      " (out=" + (uint32_t)encOut.length + "B, streak " +
+                      s_encFails + ", total " + s_encFailTotal + ")", ERROR);
+        }
+        return false;
+    }
+    if (cameraH264EncRecovered(s_encFails)) {
+        p4H264Log(String("[CAM-P4/H264] encode recovered after ") + s_encFails +
+                  " failed frame(s)", INFO);
+        p4H264SetDiag("ok");
+        s_encFails = 0;
     }
     s_frames++;
     if (out) *out = s_outBuf;
@@ -216,8 +241,13 @@ void p4H264End() {
     if (s_inBuf) { esp_h264_free(s_inBuf); s_inBuf = nullptr; }
     if (s_outBuf) { esp_h264_free(s_outBuf); s_outBuf = nullptr; }
     s_inCap = 0; s_outCap = 0; s_frames = 0;
+    s_encFails = 0; s_encLastErr = 0;
     s_fmt = CAM_H264_FMT_HW; s_isSw = false;
 }
+
+// CAM-77 diagnostics: lifetime encode failures + last error code.
+uint32_t p4H264EncodeFails() { return s_encFailTotal; }
+int p4H264LastEncodeErr() { return s_encLastErr; }
 
 #else  // !P4_HAVE_H264_HW — core without esp_h264 (e.g. 3.3.5 P4 packs)
 
@@ -226,6 +256,8 @@ bool p4H264Active() { return false; }
 const char* p4H264BeginDiag() { return ""; }
 bool p4H264Begin(uint16_t, uint16_t, uint8_t, uint32_t) { return false; }
 bool p4H264EncodeUyvy(const uint8_t*, size_t, const uint8_t**, size_t*) { return false; }
+uint32_t p4H264EncodeFails() { return 0; }
+int p4H264LastEncodeErr() { return 0; }
 void p4H264End() {}
 
 #endif  // P4_HAVE_H264_HW

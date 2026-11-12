@@ -302,8 +302,12 @@ static bool cameraBeginP4() {
     if (!cameraP4Begin(w, h, quality, s_config.source)) {
         uint8_t other = cameraP4OtherSource(s_config.source);
         if (cameraP4Begin(w, h, quality, other)) {
-            camLog(String("[CAM] source ") + s_config.source + " failed to start — fell back to " +
-                   other + " (" + cameraP4Model() + ")", WARN);
+            // CAM-81: carry the reason, not just "failed" — the web client
+            // reads the same token from `usbDiag` in /api/camera/status.
+            String why = String(cameraP4UsbDiag());
+            camLog(String("[CAM] source ") + s_config.source + " failed to start" +
+                   (why.length() ? String(" (") + why + ")" : String("")) +
+                   " — fell back to " + other + " (" + cameraP4Model() + ")", WARN);
             s_config.source = other;
         } else {
             camLog("[CAM] P4 pipeline init failed on both sources", ERROR);

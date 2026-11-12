@@ -62,11 +62,16 @@ TEST_CASE("Fase 3 stills-only: 5MP class is photo-only, video sizes are not") {
 
 TEST_CASE("effective P4 output dims: explicit supported sensor mode wins") {
     uint16_t w = 0, h = 0;
+    // CAM-78: 1920x1080 and 1280x720 are real modes the pipeline cannot run,
+    // so a stored override on them is auto-reverted to the enum geometry.
     CHECK(cameraResolveP4OutputDims(1920, 1080, 800, 800, &w, &h) == 1);
-    CHECK(w == 1920); CHECK(h == 1080);
+    CHECK(w == 800); CHECK(h == 800);
     CHECK(cameraResolveP4OutputDims(1280, 720, 800, 800, &w, &h) == 1);
-    CHECK(w == 1280); CHECK(h == 720);
-    CHECK(cameraResolveP4OutputDims(800, 640, 1920, 1080, &w, &h) == 1);
+    CHECK(w == 800); CHECK(h == 800);
+    // A working override still wins over the legacy enum.
+    CHECK(cameraResolveP4OutputDims(1280, 960, 800, 640, &w, &h) == 1);
+    CHECK(w == 1280); CHECK(h == 960);
+    CHECK(cameraResolveP4OutputDims(800, 640, 1280, 720, &w, &h) == 1);
     CHECK(w == 800); CHECK(h == 640);
 }
 
@@ -90,10 +95,41 @@ TEST_CASE("P4 preset targets are known sensor modes") {
     CHECK(cameraValidResolution(1280, 720) == 1);  // valid mode, but presets avoid it (CAM-62 stall)
 }
 
+TEST_CASE("CAM-78: broken modes are never usable, usable modes are") {
+    // Real sensor modes the P4 pipeline cannot run (measured on .18 v1.120).
+    CHECK(cameraP4ModeBroken(1280, 720) == 1);    // capture stalls (CAM-62)
+    CHECK(cameraP4ModeBroken(1920, 1080) == 1);   // init fails: "Not detected"
+    CHECK(cameraP4ModeBroken(1280, 960) == 0);
+    CHECK(cameraP4ModeBroken(800, 640) == 0);
+
+    CHECK(cameraP4ModeUsable(800, 640) == 1);
+    CHECK(cameraP4ModeUsable(800, 800) == 1);
+    CHECK(cameraP4ModeUsable(800, 1280) == 1);
+    CHECK(cameraP4ModeUsable(1280, 960) == 1);
+    CHECK(cameraP4ModeUsable(2592, 1944) == 1);   // stills-only, still offered
+    CHECK(cameraP4ModeUsable(1280, 720) == 0);    // hidden + refused
+    CHECK(cameraP4ModeUsable(1920, 1080) == 0);
+    CHECK(cameraP4ModeUsable(640, 480) == 0);     // not a sensor mode
+    CHECK(cameraP4ModeUsable(9999, 9999) == 0);
+}
+
+TEST_CASE("CAM-79: MJPEG fps ceiling follows the live pixel count") {
+    CHECK(cameraP4MjpegFpsCap(800u * 640u) == 25);    // 0.51 MP: small RAW8 mode
+    CHECK(cameraP4MjpegFpsCap(800u * 800u) == 25);    // 0.64 MP: the boundary
+    CHECK(cameraP4MjpegFpsCap(650001u) == 15);        // just above the boundary
+    CHECK(cameraP4MjpegFpsCap(1280u * 960u) == 15);
+    CHECK(cameraP4MjpegFpsCap(1920u * 1080u) == 15);
+    CHECK(cameraP4MjpegFpsCap(0) == 15);              // unknown geometry: safe
+}
+
 TEST_CASE("P4 preset targets resolve to exact output dims") {
     uint16_t w = 0, h = 0;
+    // CAM-78 auto-revert: a stored override on a broken mode no longer wins —
+    // the (working) enum geometry is used instead of leaving the camera dead.
     CHECK(cameraResolveP4OutputDims(1920, 1080, 800, 800, &w, &h) == 1);
-    CHECK(w == 1920); CHECK(h == 1080);   // hd
+    CHECK(w == 800); CHECK(h == 800);
+    CHECK(cameraResolveP4OutputDims(1280, 960, 800, 640, &w, &h) == 1);
+    CHECK(w == 1280); CHECK(h == 960);    // hd (largest working mode)
     CHECK(cameraResolveP4OutputDims(800, 800, 800, 640, &w, &h) == 1);
     CHECK(w == 800); CHECK(h == 800);     // safe/night
     CHECK(cameraResolveP4OutputDims(800, 640, 800, 800, &w, &h) == 1);

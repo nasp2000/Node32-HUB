@@ -42,10 +42,11 @@ function getPreset(n) {
 
 // P4 per-sensor presets (mirrors page_camera_asset.cpp P4_OV5647_PRESETS /
 // P4_USB_PRESETS, CAM-68). OV5647 = RPi v1.3 MIPI modes from kP4CsiModes
-// (never 1280x720 — experimental profile stalls, CAM-62); USB posts
-// quality/fps only (geometry is negotiated with the webcam).
+// (never 1280x720 — stalls, CAM-62 — and never 1920x1080 — fails init,
+// CAM-78; the largest working mode is 1280x960); USB posts quality/fps only
+// (geometry is negotiated with the webcam).
 var P4_OV5647_PRESETS = {
-  hd:    {res:'1920x1080',q:10,fs:6,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
+  hd:    {res:'1280x960',q:10,fs:6,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
   vga:   {res:'800x640',q:20,fs:6,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
   fast:  {res:'800x640',q:35,fs:6,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
   night: {res:'800x800',q:15,fs:4,br:1,ct:-1,sa:-1,awb:0,aec:1,agc:1,gc:0},
@@ -393,14 +394,28 @@ function run() {
       ok(P4_USB_PRESETS[names[i]], 'USB has preset ' + names[i]);
     }
   });
-  test('OV5647 preset resolutions are real CSI modes (never the stalling 720p)', function() {
+  test('OV5647 preset resolutions are real, RUNNABLE CSI modes (CAM-78)', function() {
     var names = ['hd', 'vga', 'fast', 'night', 'safe', 'eco'];
     for (var i = 0; i < names.length; i++) {
       var p = P4_OV5647_PRESETS[names[i]];
       ok(p.res, names[i] + ' carries a resolution');
       ok(CAM_RES_MODES.indexOf(p.res) >= 0, names[i] + ' res is a sensor mode: ' + p.res);
       ok(p.res !== '1280x720', names[i] + ' must not use the stalling 720p profile (CAM-62)');
+      ok(p.res !== '1920x1080', names[i] + ' must not use 1080p (init fails: Not detected)');
     }
+  });
+  test('preset mirror matches page_camera_asset.cpp (no drift)', function() {
+    var asset = fs.readFileSync(path.join(__dirname, '..', '..', 'chatgpt', 'src',
+                                 'webpages', 'assets', 'page_camera_asset.cpp'), 'utf8');
+    ok(asset.indexOf("hd:{res:'" + P4_OV5647_PRESETS.hd.res + "'") >= 0,
+       'asset hd res matches the mirror: ' + P4_OV5647_PRESETS.hd.res);
+    ok(asset.indexOf("fast:{res:'" + P4_OV5647_PRESETS.fast.res + "'") >= 0,
+       'asset fast res matches the mirror');
+    ok(asset.indexOf("q:" + P4_OV5647_PRESETS.hd.q + ",") >= 0, 'asset hd quality matches');
+  });
+  test('HD preset is the largest WORKING mode (1280x960), not 1080p', function() {
+    is(P4_OV5647_PRESETS.hd.res, '1280x960');
+    ok(P4_OV5647_PRESETS.hd.q < P4_OV5647_PRESETS.fast.q, 'hd still the highest quality');
   });
   test('USB presets carry NO resolution (geometry is negotiated)', function() {
     var names = ['hd', 'vga', 'fast', 'night', 'safe', 'eco'];
@@ -424,7 +439,7 @@ function run() {
   });
   test('OV5647 preset body posts resolution, USB one does not', function() {
     var o = buildP4PresetBody(getP4Preset('hd', 'OV5647', 6));
-    ok(o.indexOf('resolution=1920x1080') >= 0, 'OV5647 posts explicit resolution');
+    ok(o.indexOf('resolution=1280x960') >= 0, 'OV5647 posts explicit resolution (largest working mode)');
     var u = buildP4PresetBody(getP4Preset('hd', 'USB-UVC', 30));
     ok(u.indexOf('resolution=') < 0, 'USB posts quality/fps only');
     ok(u.indexOf('quality=10') >= 0, 'USB still pushes quality');
@@ -487,9 +502,9 @@ function run() {
   });
 
   console.log('  --- getP4Preset (per-sensor presets, CAM-68) ---');
-  test('P4 OV5647 hd targets 1920x1080 at ceiling fps', function() {
+  test('P4 OV5647 hd targets 1280x960 (1080p fails init, CAM-78)', function() {
     var p = getP4Preset('hd', 'OV5647', 6);
-    is(p.res, '1920x1080'); is(p.q, 10); is(p.fs, 6); is(p.usb, false);
+    is(p.res, '1280x960'); is(p.q, 10); is(p.fs, 6); is(p.usb, false);
   });
   test('P4 OV5647 safe targets the verified 800x800 mode', function() {
     var p = getP4Preset('safe', 'OV5647', 6);
@@ -502,12 +517,13 @@ function run() {
     ok(eco.fs <= safe.fs, 'eco fps at/below safe');
     ok(eco.q > safe.q, 'eco more compressed than safe');
   });
-  test('P4 OV5647 preset targets are all known sensor modes, never 720p', function() {
+  test('P4 OV5647 preset targets are all known sensor modes, never 720p/1080p', function() {
     var names = ['hd', 'vga', 'fast', 'night', 'safe', 'eco'];
     for (var i = 0; i < names.length; i++) {
       var p = getP4Preset(names[i], 'OV5647', 6);
       ok(CAM_RES_MODES.indexOf(p.res) >= 0, names[i] + ' res ' + p.res + ' is a sensor mode');
       ok(p.res !== '1280x720', names[i] + ' avoids the stalled 720p profile');
+      ok(p.res !== '1920x1080', names[i] + ' avoids the 1080p profile that fails init (CAM-78)');
       ok(p.fs <= 6, names[i] + ' fps within the MIPI sustained ceiling');
     }
   });

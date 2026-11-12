@@ -61,6 +61,21 @@ static inline uint8_t cameraP4OtherSource(uint8_t source) {
     return (source == CAM_P4_SRC_USB) ? CAM_P4_SRC_MIPI : CAM_P4_SRC_USB;
 }
 
+// CAM-81: why the USB source failed, in one short token served as `usbDiag`
+// in /api/camera/status (the log line alone was invisible to web clients):
+//   ""            never tried this boot
+//   "init"        begin started, nothing conclusive yet
+//   "install"     uvc_host_install() failed
+//   "nodata:WxH"  every MJPEG format was tried, none delivered a frame
+//   "nonmjpeg"    the device sent non-MJPEG data (pump serves MJPEG only)
+//   "yuy2only"    YUY2 streams but MJPEG never does (needs SW JPEG path)
+//   "isoc:<err>"  raw isochronous probe refused (endpoint/altsetting)
+//   "isoc:ps=N"   descriptor claimed an impossible packet size (walk bug)
+//   "isoc:idle"   URBs accepted but no data arrived
+//   "nodata"      generic fallback
+//   "ok"          streaming
+const char* cameraP4UsbDiag();
+
 // Initialise the selected pipeline at the given resolution.
 // w/h: capture size (e.g. 1280x720). quality: JPEG 4..63 (mapped internally).
 // Returns true when the first JPEG frame was captured successfully.

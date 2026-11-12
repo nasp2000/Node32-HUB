@@ -38,11 +38,17 @@ void p4H264End();
 // True between a successful p4H264Begin() and p4H264End().
 bool p4H264Active();
 
-// Short tag of the LAST p4H264Begin() failure step — surfaced in
-// /api/camera/status as `h264Diag` so a device failure is diagnosable
-// without a serial console. Values: "ok", "res", "hw_new", "alloc_in",
-// "alloc_out", "open". Empty string on cores without the encoder.
+// Short tag of the LAST H.264 step — surfaced in /api/camera/status as
+// `h264Diag` so a device failure is diagnosable without a serial console.
+// Values: "ok", "res", "hw_new", "alloc_in", "alloc_out", "open", plus
+// "enc:<code>" when per-frame encoding fails (CAM-77) and "sw" for the
+// software-encoder fallback. Empty string on cores without the encoder.
 const char* p4H264BeginDiag();
+
+// CAM-77: lifetime count of failed frames and the last error code returned by
+// esp_h264_enc_process() (0 = none yet). Served as `h264EncFails`/`h264EncErr`.
+uint32_t p4H264EncodeFails();
+int p4H264LastEncodeErr();
 
 // False on cores without the esp_h264 HW encoder (stub builds).
 bool p4H264HwAvailable();
@@ -55,5 +61,7 @@ static inline void p4H264End() {}
 static inline bool p4H264Active() { return false; }
 static inline bool p4H264HwAvailable() { return false; }
 static inline const char* p4H264BeginDiag() { return ""; }
+static inline uint32_t p4H264EncodeFails() { return 0; }
+static inline int p4H264LastEncodeErr() { return 0; }
 
 #endif  // TARGET_BOARD_P4

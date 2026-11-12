@@ -1942,7 +1942,7 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "camTipTabPic": "Ajustes de imagem",
   "camTipTabRec": "Opções de gravação",
   "camTipTabMot": "Deteção de movimento",
-  "camTipPresetHd": "Predefinição HD (1280x720)",
+  "camTipPresetHd": "Predefinição HD (1280x960)",
   "camTipPresetVga": "Predefinição VGA (640x480)",
   "camTipPresetFast": "Predefinição rápida (baixa latência)",
   "camTipPresetNight": "Predefinição noturna (melhorada)",

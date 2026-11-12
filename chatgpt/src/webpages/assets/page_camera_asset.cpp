@@ -637,7 +637,7 @@ body{
     <div class='psec on' id='psecCam'>
       <div class='phead'><span>&#127916;</span><span data-i18n='camPanelCam'>Camera Control</span></div>
       <div class='btns'>
-        <button class='bp' id='bPrHd' onclick='preset("hd",this)' title='HD preset (1280x720)' data-i18n-title='camTipPresetHd'>HD</button>
+        <button class='bp' id='bPrHd' onclick='preset("hd",this)' title='HD preset (1280x960)' data-i18n-title='camTipPresetHd'>HD</button>
         <button class='bp' id='bPrVga' onclick='preset("vga",this)' title='VGA preset (640x480)' data-i18n-title='camTipPresetVga'>VGA</button>
         <button class='bp' id='bPrFast' onclick='preset("fast",this)' title='Fast preset (low latency)' data-i18n-title='camTipPresetFast'>Fast</button>
         <button class='bp' id='bPrNight' onclick='preset("night",this)' title='Night preset (enhanced)' data-i18n-title='camTipPresetNight'>Night</button>
@@ -856,13 +856,15 @@ var PreferredP4Res='';
 var CurModel='';
 var CurIsP4=false;
 var CurFpsMax=0;
-// P4 OV5647 (RPi v1.3) presets: explicit sensor modes from kP4CsiModes —
-// never 1280x720 (experimental RAW10 profile stalls the pipeline, CAM-62).
+// P4 OV5647 (RPi v1.3) presets: explicit sensor modes from kP4CsiModes.
+// CAM-78: 1280x720 (RAW10, stalls the pipeline — CAM-62) and 1920x1080
+// (RAW10, pipeline fails to init: "Not detected") are not offered at all,
+// so HD is 1280x960 — the largest mode measured working.
 // fps values stay at/below the MIPI sustained ceiling (6). Safe = the only
 // HW-verified mode (800x800). USB presets carry no resolution: the geometry
 // is negotiated with the webcam, so only quality/fps/picture are pushed.
 var P4_OV5647_PRESETS={
-  hd:{res:'1920x1080',q:10,fs:6,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
+  hd:{res:'1280x960',q:10,fs:6,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
   vga:{res:'800x640',q:20,fs:6,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
   fast:{res:'800x640',q:35,fs:6,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
   night:{res:'800x800',q:15,fs:4,br:1,ct:-1,sa:-1,awb:0,aec:1,agc:1,gc:0},
@@ -1222,7 +1224,7 @@ function applyPresetTitles(){
   if(!CurIsP4)return;
   var usb=(CurModel==='USB-UVC');
   var t={
-    bPrHd:usb?'HD preset (max quality — resolution fixed by the USB camera)':'HD preset (1920x1080)',
+    bPrHd:usb?'HD preset (max quality — resolution fixed by the USB camera)':'HD preset (1280x960)',
     bPrVga:usb?'VGA preset (balanced — resolution fixed by the USB camera)':'VGA preset (800x640)',
     bPrFast:usb?'Fast preset (low latency — resolution fixed by the USB camera)':'Fast preset (800x640, low latency)',
     bPrNight:usb?'Night preset (enhanced — resolution fixed by the USB camera)':'Night preset (800x800, enhanced)',

@@ -80,6 +80,37 @@ static inline bool cameraH264ResSupported(uint16_t w, uint16_t h) {
            w <= CAM_H264_MAX_W && h <= CAM_H264_MAX_H;
 }
 
+// --- Per-frame encode failures (CAM-77) --------------------------------------
+// `esp_h264_enc_process()` can fail on every frame and v1.120 dropped the frame
+// with a bare `return false` — which is exactly why "H.264 records 0 frames
+// with h264Diag=ok" could not be diagnosed from the web UI. These helpers own
+// the decision of WHEN to say it and WHAT to store, so it is testable here;
+// the wrapper in camera_p4_h264_enc.cpp only feeds them numbers.
+//
+// Diag format kept short (24-byte slot in the status JSON): "enc:-3" means the
+// last process() returned -3 (esp_h264_err_t: 0 ok, <0 error).
+#define CAM_H264_ENC_DIAG_CAP 24
+
+static inline void cameraH264EncDiag(char* out, size_t cap, int err) {
+    if (!out || cap == 0) return;
+    snprintf(out, cap, "enc:%d", err);
+}
+
+// Log the first failure of a streak, then one every `everyN` (0 disables the
+// repeats) — a per-frame failure at 15 fps would otherwise flood the console.
+static inline bool cameraH264EncShouldLog(uint32_t consecutiveFails, uint32_t everyN) {
+    if (consecutiveFails == 0) return false;
+    if (consecutiveFails == 1) return true;
+    if (everyN == 0) return false;
+    return (consecutiveFails % everyN) == 0;
+}
+
+// A success after N>0 failures is worth one line: it tells "the encoder came
+// back" apart from "it never worked".
+static inline bool cameraH264EncRecovered(uint32_t failsBefore) {
+    return failsBefore > 0;
+}
+
 // --- Input formats (esp_h264_types.h, hardware-silicon dependent) ------------
 // The CSI pipeline hands us UYVY (2 bytes/px). The encoder's accepted raw
 // format depends on silicon revision, via ESP_H264_HW_IS_SUPPORTED_PIC_TYPE():
