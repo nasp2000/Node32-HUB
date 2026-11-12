@@ -34,6 +34,7 @@
 #include "camera_pins.h"  // CAM_PIN_SIOD/SIOC/XCLK on the 40-pin header
 #include "camera_p4_h264.h"  // Fase 4: H.264 fps ceiling (pure header)
 #include "camera_resolution.h"  // CAM-78 usable modes + CAM-79 fps cap (pure)
+#include "camera_p4_usb_isoc.h"  // CAM-82 isoc verdict (pure, native-tested)
 #include "camera_motion_uyvy.h"  // motion luma tap (pure header, no deps)
 #include "psram_helpers.h"  // ps_malloc() for the USB frame slot
 #include "log.h"            // LogLevel (INFO/WARN/ERROR)
@@ -68,6 +69,12 @@ static void p4UsbSetDiag(const char* tag) {
     snprintf(s_usbDiag, sizeof(s_usbDiag), "%s", tag ? tag : "");
 }
 const char* cameraP4UsbDiag() { return s_usbDiag; }
+
+// CAM-82: speed + hub context of the camera we probed, so the isoc verdict can
+// tell "device idle" from "full-speed isoc behind a hub" (USB 2.0 cannot split
+// isochronous transfers, so that wiring can never stream).
+static bool s_usbFsBehindHub = false;
+static uint16_t s_usbHubVid = 0, s_usbHubPid = 0;
 // Shared SCCB/I2C0 arbitration (CAM_P4 only): the OV5647 SCCB bus (SDA7/SCL8)
 // is touched by TWO IDF/Arduino users on different tasks — the idle-time
 // presence probe (Arduino Wire, from the /api/camera/status handler) and the
@@ -305,6 +312,7 @@ struct P4IsocProbe {
     volatile int nonEmpty;       // packets carrying at least 1 byte
     volatile int totalBytes;
     volatile int statusSeen;     // first non-COMPLETED status
+    volatile int skipped;        // packets the host SKIPPED (bus overload)
     volatile int hdrOk;          // packets starting with a valid UVC header
     volatile int sof;            // payload headers with frame-ID
     volatile int eof;            // payload headers with EoF
@@ -325,6 +333,7 @@ static void p4IsocXferCb(usb_transfer_t* t) {
         for (int i = 0; i < t->num_isoc_packets; i++) {
             auto& d = t->isoc_packet_desc[i];
             st->packets += 1;
+            if (d.status == USB_TRANSFER_STATUS_SKIPPED) st->skipped += 1;
             if (d.status != USB_TRANSFER_STATUS_COMPLETED && !st->statusSeen) st->statusSeen = d.status;
             const int n = d.actual_num_bytes;
             if (n <= 0) continue;
@@ -468,12 +477,15 @@ static void p4UsbRawIsocProbe(usb_host_client_handle_t ch, usb_device_handle_t d
     // of 1024 B per microframe (high-bandwidth). A descriptor claiming more —
     // or nothing — means the walk picked the wrong alt set, and every URB will
     // be refused; say it here instead of burning 80 submits.
-    if (perUs == 0 || perUs > 3u * 1024u) {
-        char db[32];
-        snprintf(db, sizeof(db), "isoc:ps=%u", (unsigned)perUs);
+    if (perUs == 0 || perUs > CAM_USB_ISOC_HS_MAX_PER_US) {
+        // CAM-82: same pure verdict/token as the post-probe path.
+        CamUsbIsocSample bad = {};
+        bad.perUs = perUs;
+        char db[CAM_USB_ISOC_DIAG_CAP];
+        camUsbIsocDiag(&bad, db, sizeof(db));
         p4UsbSetDiag(db);
-        p4CamLog(String("[CAM-P4/USB] raw isoc: refused before submit (perUs=") +
-                 String(perUs) + ", HS max 3072)", ERROR);
+        p4CamLog(String("[CAM-P4/USB] raw isoc: refused before submit (") + db + ") - " +
+                 camUsbIsocAdvice(CAM_USB_ISOC_BAD_PS, s_usbFsBehindHub), ERROR);
         usb_host_transfer_free(ctrl);
         usb_host_interface_release(ch, dh, iface);
         return;
@@ -559,21 +571,30 @@ static void p4UsbRawIsocProbe(usb_host_client_handle_t ch, usb_device_handle_t d
                      ": nonEmpty=" + String(st.nonEmpty) + " bytes=" + String(st.totalBytes), WARN);
         }
     }
-    if (subErr != ESP_OK) {
-        char db[40];
-        snprintf(db, sizeof(db), "isoc:%s", esp_err_to_name(subErr));
-        p4UsbSetDiag(db);
-        p4CamLog(String("[CAM-P4/USB] raw isoc VERDICT: every URB was refused (") +
-                 String(esp_err_to_name(subErr)) +
-                 ") - host cannot use this endpoint/altsetting; a driver-level "
-                 "isoc fix is needed before UVC can stream", ERROR);
-    } else if (!st.nonEmpty) {
-        p4UsbSetDiag("isoc:idle");
-    }
+    // CAM-82: one pure verdict for the whole probe (native-tested), so the
+    // diagnosis is the same on the console and in `usbDiag`, and it names the
+    // action. Measured reference case (.18): submits=80
+    // submitErr=ESP_ERR_NOT_FOUND packets=114 nonEmpty=0 -> isoc:notfound.
+    CamUsbIsocSample sample = {};
+    sample.submits = (unsigned)loops;
+    sample.submitErr = (subErr == ESP_OK) ? 0 : (int)subErr;
+    sample.packets = st.packets;
+    sample.nonEmpty = st.nonEmpty;
+    sample.skipped = st.skipped;
+    sample.perUs = perUs;
+    sample.fsBehindHub = s_usbFsBehindHub;
+    CamUsbIsocVerdict verdict = camUsbIsocVerdict(&sample);
+    char db[CAM_USB_ISOC_DIAG_CAP];
+    camUsbIsocDiag(&sample, db, sizeof(db));
+    p4UsbSetDiag(db);
+    p4CamLog(String("[CAM-P4/USB] raw isoc VERDICT: ") + db + " - " +
+             camUsbIsocAdvice(verdict, s_usbFsBehindHub),
+             verdict == CAM_USB_ISOC_OK ? INFO : ERROR);
     p4CamLog(String("[CAM-P4/USB] raw isoc RESULT: submits=") + String(loops) +
              " submitErr=" + (subErr == ESP_OK ? String("-") : String(esp_err_to_name(subErr))) +
              " xferStatus=" + String((int)isoc->status) +
              " packets=" + String(st.packets) + " nonEmpty=" + String(st.nonEmpty) +
+             " skipped=" + String(st.skipped) +
              " bytes=" + String(st.totalBytes) + " hdrOk=" + String(st.hdrOk) +
              " sof=" + String(st.sof) + " eof=" + String(st.eof) + " jpegSoi=" + String(st.soi) +
              " errStatus=" + String(st.statusSeen));
@@ -637,11 +658,33 @@ static void p4UsbDumpConfig(uint8_t addr, P4UsbBestAlt *best) {
         return;
     }
     usb_device_info_t info = {};
+    // CAM-82: this address's own topology — copied into the globals only if it
+    // turns out to be the winning camera (the sweep also dumps the hub).
+    bool fsBehindHub = false;
+    uint16_t hubVid = 0, hubPid = 0;
     if (usb_host_device_info(dh, &info) == ESP_OK) {
+        // CAM-82: remember whether this camera is a full/low-speed device
+        // behind a hub. USB 2.0 hubs do not split isochronous transactions, so
+        // such a camera can never stream there — the verdict must say so
+        // instead of blaming the driver.
+        fsBehindHub = (info.speed != USB_SPEED_HIGH) && (info.parent.dev_hdl != nullptr);
+        if (info.parent.dev_hdl) {
+            const usb_device_desc_t* hubDesc = nullptr;
+            if (usb_host_get_device_descriptor(info.parent.dev_hdl, &hubDesc) == ESP_OK && hubDesc) {
+                hubVid = hubDesc->idVendor;
+                hubPid = hubDesc->idProduct;
+            }
+        }
         p4CamLog(String("[CAM-P4/USB] device addr=") + String(info.dev_addr) +
                  " speed=" + String(info.speed == USB_SPEED_HIGH ? "HIGH" :
                                      info.speed == USB_SPEED_FULL ? "FULL" : "LOW") +
-                 " bMaxPacketSize0=" + String(info.bMaxPacketSize0));
+                 " bMaxPacketSize0=" + String(info.bMaxPacketSize0) +
+                 " parent=" + (info.parent.dev_hdl
+                     ? ((hubVid || hubPid)
+                         ? (String("hub ") + String(hubVid, HEX) + ":" + String(hubPid, HEX))
+                         : String("hub")) +
+                       " port " + String(info.parent.port_num)
+                     : String("root")));
     }
     const usb_device_desc_t *dd = nullptr;
     if (usb_host_get_device_descriptor(dh, &dd) == ESP_OK && dd) {
@@ -721,6 +764,11 @@ static void p4UsbDumpConfig(uint8_t addr, P4UsbBestAlt *best) {
                 best->bw = bestBw; best->addr = addr;
                 best->iface = bestIface; best->alt = bestAlt;
                 best->ep = bestEp; best->perUs = bestPerUs; best->bcd = bcdUVC;
+                // CAM-82: the probe will run against THIS address, so keep its
+                // topology (a hub dumped later must not overwrite it).
+                s_usbFsBehindHub = fsBehindHub;
+                s_usbHubVid = hubVid;
+                s_usbHubPid = hubPid;
             }
         } else {
             p4CamLog("[CAM-P4/USB] no isochronous VideoStreaming endpoint found", WARN);
@@ -1138,9 +1186,13 @@ static bool p4UsbBegin(uint16_t w, uint16_t h) {
                 p4CamLog(String("[CAM-P4/USB] non-MJPEG data @") + String(cands[c][0]) + "x" + String(cands[c][1]) + " (pump serves MJPEG only)", WARN);
                 p4UsbSetDiag("nonmjpeg");
             } else {
-                p4CamLog(String("[CAM-P4/USB] no data @") + String(cands[c][0]) + "x" + String(cands[c][1]), WARN);
+                p4CamLog(String("[CAM-P4/USB] no data @") + String(cands[c][0]) + "x" + String(cands[c][1]) +
+                         (s_usbFsBehindHub ? String(" (full-speed device behind a hub: isoc cannot be split)") : String("")), WARN);
                 char db[32];
-                snprintf(db, sizeof(db), "nodata:%ux%u", (unsigned)cands[c][0], (unsigned)cands[c][1]);
+                // CAM-82: when the camera is FS behind a hub the mode is not
+                // the problem — say it once instead of blaming 800x600.
+                if (s_usbFsBehindHub) snprintf(db, sizeof(db), "nodata:fs-hub");
+                else snprintf(db, sizeof(db), "nodata:%ux%u", (unsigned)cands[c][0], (unsigned)cands[c][1]);
                 p4UsbSetDiag(db);
             }
             uvc_host_stream_format_t after = {};

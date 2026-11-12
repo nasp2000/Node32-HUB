@@ -69,9 +69,15 @@ static inline uint8_t cameraP4OtherSource(uint8_t source) {
 //   "nodata:WxH"  every MJPEG format was tried, none delivered a frame
 //   "nonmjpeg"    the device sent non-MJPEG data (pump serves MJPEG only)
 //   "yuy2only"    YUY2 streams but MJPEG never does (needs SW JPEG path)
-//   "isoc:<err>"  raw isochronous probe refused (endpoint/altsetting)
+//   "nodata:fs-hub" full-speed camera behind a hub: USB 2.0 cannot split
+//                 isochronous transfers, so it can never stream there (CAM-82)
+//   "isoc:notfound" raw isoc probe: the host refused every URB
+//   "isoc:zlen"   packets completed but carried 0 bytes (wrong alt / idle)
+//   "isoc:zlen-hub" same, plus the full-speed-behind-hub cause
+//   "isoc:skip"   the host skipped every packet (bus overload)
 //   "isoc:ps=N"   descriptor claimed an impossible packet size (walk bug)
 //   "isoc:idle"   URBs accepted but no data arrived
+//   "isoc:ok"     isochronous data flowing
 //   "nodata"      generic fallback
 //   "ok"          streaming
 const char* cameraP4UsbDiag();
