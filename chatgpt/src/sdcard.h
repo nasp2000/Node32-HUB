@@ -49,6 +49,12 @@ void sdMutexUnlock();
 // Delay-free variants for the audio playback path (called on every SD read).
 bool sdMutexLockFast(TickType_t timeoutTicks);
 void sdMutexUnlockFast();
+// Diagnostics + emergency recovery (watchdog, /api/sd-status, /api/sd/mutex-reset).
+// sdMutexGetSnapshot: false when the mutex is free; fills depth, held time and the
+// owning FreeRTOS task name. sdMutexEmergencyReset: rebuilds a leaked mutex.
+bool sdMutexGetSnapshot(uint32_t* depthOut, unsigned long* heldMsOut,
+                        char* ownerNameOut, size_t ownerNameCap);
+bool sdMutexEmergencyReset(const char* reason);
 // SDMMC pins (MMC 1-bit mode for ESP32-S3 with built-in SD card)
 // ESP32-S3 modules with camera (OV2640/OV5640) have SD card slot on the back
 // MMC 1-bit mode is faster and more reliable than SPI for built-in SD cards

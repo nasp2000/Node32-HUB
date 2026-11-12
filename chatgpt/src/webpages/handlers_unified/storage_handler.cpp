@@ -144,6 +144,36 @@ void handleSdResetWriteCounterPost(HttpRequest& req, HttpResponse& res) {
 #endif
 }
 
+// Remote recovery for a leaked SD mutex: the same emergency path the loop
+// watchdog uses after SD_MUTEX_RESET_AFTER_MS. Answers with the state that was
+// found (owner task name / depth / held time) so a crawl can record the offender.
+void handleSdMutexResetPost(HttpRequest& req, HttpResponse& res) {
+    (void)req;
+#if ENABLE_SDCARD==1
+    uint32_t depth = 0;
+    unsigned long heldMs = 0;
+    char owner[24];
+    const bool held = sdMutexGetSnapshot(&depth, &heldMs, owner, sizeof(owner));
+    const bool ok = sdMutexEmergencyReset("api");
+    String json = F("{\"status\":\"");
+    json += ok ? F("ok") : F("failed");
+    json += F("\",\"was_held\":");
+    json += held ? F("true") : F("false");
+    json += F(",\"owner\":\"");
+    json += sharedWebJsonEscape(String(held ? owner : ""));
+    json += F("\",\"depth\":");
+    json += String(depth);
+    json += F(",\"held_ms\":");
+    json += String(heldMs);
+    json += F(",\"message\":\"");
+    json += ok ? F("SD mutex rebuilt") : F("Reset refused (already owner or throttled)");
+    json += F("\"}");
+    res.send(ok ? 200 : 409, "application/json", json);
+#else
+    res.send(501, "application/json", "{\"status\":\"disabled\"}");
+#endif
+}
+
 void handleSdcardConfigGet(HttpRequest& req, HttpResponse& res) {
     (void)req;
     res.send(200, "application/json", sharedWebBuildSdcardConfigJson());

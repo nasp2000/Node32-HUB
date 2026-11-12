@@ -7,5 +7,6 @@ void handleSdBuffersGet(HttpRequest& req, HttpResponse& res);
 void handleSdStatusGet(HttpRequest& req, HttpResponse& res);
 void handleSdActionPost(HttpRequest& req, HttpResponse& res);
 void handleSdResetWriteCounterPost(HttpRequest& req, HttpResponse& res);
+void handleSdMutexResetPost(HttpRequest& req, HttpResponse& res);
 void handleSdcardConfigGet(HttpRequest& req, HttpResponse& res);
 void handleSdcardConfigSavePost(HttpRequest& req, HttpResponse& res);

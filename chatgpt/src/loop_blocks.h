@@ -12,6 +12,8 @@
 #include "day_report_fallback.h"
 #endif
 #include "flash_fallback_cleanup.h" // LittleFS fallback cleanup (stub when disabled)
+#include "sdcard.h"                 // sdMutexGetSnapshot / sdMutexEmergencyReset
+#include "sd_mutex_guard.h"         // pure WARN/RESET thresholds (native-tested)
 void processLine(const String& line, unsigned long currentMillis);
 
 static void handleSensorReads() {
@@ -114,64 +116,53 @@ static void handleStorageStats() {
 
 static void handleSdMutexWatchdog() {
     unsigned long _now = millis();
-    // 🛡️ SD MUTEX WATCHDOG: Emergency deadlock recovery
-    // Monitors mutex held duration and forces reset if >60s (indicates file.close() hang)
+    // 🛡️ SD MUTEX WATCHDOG: Emergency deadlock recovery.
+    // Uses the authoritative ownership tracking (sdMutexGetSnapshot), NOT the
+    // optional debug label: on packs without the SD-write pipeline the label was
+    // never set, so a leaked lock went unnoticed and /files answered 503 for
+    // hours (.9 Cam-M, 2026-11-11). WARN names the owning task; after
+    // SD_MUTEX_RESET_AFTER_MS the lock is rebuilt so SD access recovers without
+    // a reboot or a serial console.
     #if ENABLE_SDCARD==1
     static unsigned long lastMutexCheck = 0;
-    if (_now - lastMutexCheck >= 5000) { // Check every 5 seconds (faster monitoring)
+    static unsigned long lastWarnMs = 0;
+    if (_now - lastMutexCheck >= 5000) { // Check every 5 seconds
         lastMutexCheck = _now;
-        
-        extern volatile const char* sdMutexHolder;
-        extern volatile unsigned long sdMutexAcquiredAt;
-        extern TaskHandle_t sdMutexOwnerTask;
-        extern SemaphoreHandle_t sdMutex;
-        
-        if (sdMutexHolder && sdMutexAcquiredAt > 0 && sdMutexOwnerTask) {
-            unsigned long heldDuration = _now - sdMutexAcquiredAt;
-            
-            // CRITICAL: If mutex held >60s (1 minute), force emergency recovery
-            if (heldDuration > 60000) {
-                char panicMsg[250];
-                snprintf(panicMsg, sizeof(panicMsg), 
-                         "🚨 SD MUTEX DEADLOCK: held by '%s' for %lums (task %p). FORCING UNLOCK!",
-                         sdMutexHolder, heldDuration, sdMutexOwnerTask);
-                Serial.println(panicMsg);
-                sendVirtualMessage(panicMsg, ERROR);
-                
-                // SAFE RECOVERY: Force-unlock mutex WITHOUT deleting it
-                // Problem: vSemaphoreDelete() with blocked tasks causes memory corruption
-                // Solution: Force recursive Give() to unwind mutex depth + reset tracking
-                
-                if (sdMutex != NULL) {
-                    // Force unlock up to 10 times (handles recursive locks)
-                    for (int i = 0; i < 10; i++) {
-                        if (xSemaphoreGiveRecursive(sdMutex) != pdTRUE) {
-                            break; // Mutex fully released
-                        }
-                        delay(10); // Small delay between unlocks
+
+        uint32_t depth = 0;
+        unsigned long heldMs = 0;
+        char owner[24];
+        const bool held = sdMutexGetSnapshot(&depth, &heldMs, owner, sizeof(owner));
+
+        switch (sdMutexGuardDecide(heldMs, depth, held)) {
+            case SD_MUTEX_GUARD_WARN:
+                if (sdMutexGuardWarnDue(_now, lastWarnMs)) {
+                    lastWarnMs = _now;
+                    char warnMsg[200];
+                    snprintf(warnMsg, sizeof(warnMsg),
+                             "⚠️ SD mutex held long: '%s' depth=%u for %lums",
+                             owner[0] ? owner : "?", (unsigned)depth, heldMs);
+                    sendVirtualMessage(warnMsg, WARN, false, true);
+                }
+                break;
+            case SD_MUTEX_GUARD_RESET:
+                if (sdMutexEmergencyReset("watchdog")) {
+                    lastWarnMs = 0;
+                } else {
+                    // Still stuck (e.g. this task is the owner): keep a trace.
+                    if (sdMutexGuardWarnDue(_now, lastWarnMs)) {
+                        lastWarnMs = _now;
+                        char stuckMsg[200];
+                        snprintf(stuckMsg, sizeof(stuckMsg),
+                                 "⚠️ SD mutex still held: '%s' depth=%u for %lums (reset refused)",
+                                 owner[0] ? owner : "?", (unsigned)depth, heldMs);
+                        sendVirtualMessage(stuckMsg, WARN, false, true);
                     }
                 }
-                
-                // Reset tracking via public API (sdcard.cpp handles internal struct)
-                extern TaskHandle_t sdMutexOwnerTask;
-                extern uint32_t sdMutexDepth;
-                sdMutexOwnerTask = NULL;
-                sdMutexDepth = 0;
-                
-                // Reset legacy diagnostic variables
-                sdMutexHolder = nullptr;
-                sdMutexAcquiredAt = 0;
-                
-                sendVirtualMessage(F("✅ SD mutex force-unlocked. System may be unstable - reboot recommended."), WARN);
-            }
-            // WARNING: If mutex held >30s, log warning (but don't force reset yet)
-            else if (heldDuration > 30000 && (heldDuration % 15000) < 5000) { // Log every 15s after 30s threshold
-                char warnMsg[200];
-                snprintf(warnMsg, sizeof(warnMsg), 
-                         "⚠️ SD mutex held long: '%s' for %lums (task %p)",
-                         sdMutexHolder, heldDuration, sdMutexOwnerTask);
-                sendVirtualMessage(warnMsg, WARN);
-            }
+                break;
+            default:
+                lastWarnMs = 0;
+                break;
         }
     }
     #endif

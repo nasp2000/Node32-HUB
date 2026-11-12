@@ -135,6 +135,15 @@ bool sdMutexLock(TickType_t) { return true; }
 void sdMutexUnlock()         {}
 bool sdMutexLockFast(TickType_t) { return true; }
 void sdMutexUnlockFast()         {}
+// No SD mutex exists without SD: report free / no-op the emergency reset.
+bool sdMutexGetSnapshot(uint32_t* depthOut, unsigned long* heldMsOut,
+                        char* ownerNameOut, size_t ownerNameCap) {
+    if (depthOut) *depthOut = 0;
+    if (heldMsOut) *heldMsOut = 0;
+    if (ownerNameOut && ownerNameCap) ownerNameOut[0] = 0;
+    return false;
+}
+bool sdMutexEmergencyReset(const char*) { return false; }
 // Freeze-write stubs: needed by runtime_email.cpp when ENABLE_SDCARD=0 but ENABLE_SMTP=1.
 // The SD double-buffer pipeline does not exist without SD, so these are always false/zero.
 volatile bool     sdcardFreezeWrites            = false;

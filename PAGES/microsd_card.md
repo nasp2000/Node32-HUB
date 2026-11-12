@@ -146,11 +146,12 @@ All handlers in `handlers_unified/storage_handler.cpp`; response JSON uses
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/api/sd-status` | GET | `handleSdStatusGet` → `sharedWebBuildSdStatusJson()`: `{status,mounted,sd_status,storage_mode,is_psram,total_bytes,used_bytes}` (sizes only when mounted) + `{flash_total_bytes,flash_used_bytes}` whenever LittleFS is mounted |
+| `/api/sd-status` | GET | `handleSdStatusGet` → `sharedWebBuildSdStatusJson()`: `{status,mounted,sd_status,storage_mode,is_psram,total_bytes,used_bytes,mutex:{owner,depth,held_ms}}` (sizes only when mounted) + `{flash_total_bytes,flash_used_bytes}` whenever LittleFS is mounted. `mutex` names the FreeRTOS task that owns the SD lock and how long it has held it — a name that stays put for minutes is a leaked lock (`/files` then answers 503 "SD Busy") |
 | `/api/sdcard-config` | GET | `handleSdcardConfigGet` → `sharedWebBuildSdcardConfigJson()`: `{status,enabled,flush_interval,format,structured,email_send,email_from_sd,max_size_mb,emailday_extra_emails,auto_cleanup,cleanup_threshold,keep_days}` (`auto_cleanup` always `true`, kept for API compat) |
 | `/api/sdcard-config-save` | POST | `handleSdcardConfigSavePost` (guarded `ENABLE_SDCARD`) — form fields → `SharedSdcardConfigInput` (pre-seeded from current config; only **present** fields override) → `sharedWebApplySdcardConfig()` → `saveSection("sdcard")` |
 | `/api/sd-action` | POST | manual route (`web_routes_storage.cpp:52`, Ethernet `:783`) → `handleSdActionPost` → `sharedWebApplySdAction(action)` |
 | `/api/storage-retry-sd` | POST | registered, **not used** by this page (retry SD storage) |
+| `/api/sd/mutex-reset` | POST | `handleSdMutexResetPost`: rebuilds the recursive SD mutex after a leak (same path as the loop watchdog and the serial `SDMUTEXRESET`). Answers `{status:ok|failed,was_held,owner,depth,held_ms,message}` — 200 when rebuilt, 409 when refused (caller is the owner or throttled to 1 per 10 s) |
 | `/api/sd-buffers` | GET | registered (streamed, HeavyApiRequestGuard), **not used** by this page |
 | `/api/sd/reset-write-counter` | POST | registered, **not used** by this page (PT messages) |
 

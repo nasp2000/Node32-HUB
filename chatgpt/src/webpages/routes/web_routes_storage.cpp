@@ -30,6 +30,7 @@ static void registerStorageAdminRoutes(AsyncWebServer& server, const WebRouteCon
     registerApiRoute("GET",  "/api/sd-status",         handleSdStatusGet);
     registerApiRoute("GET",  "/api/sdcard-config",      handleSdcardConfigGet);
     registerApiRoute("POST", "/api/storage-retry-sd",   handleStorageRetrySdPost);
+    registerApiRoute("POST", "/api/sd/mutex-reset",     handleSdMutexResetPost);
     registerApiRoute("POST", "/api/sd/reset-write-counter", handleSdResetWriteCounterPost);
     registerApiRoute("POST", "/api/sdcard-config-save", handleSdcardConfigSavePost);
 

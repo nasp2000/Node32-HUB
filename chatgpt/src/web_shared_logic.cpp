@@ -7,6 +7,7 @@
 #include "usbip_server.h"
 #include "usb_host_manager.h"
 #include "littlefs_manager.h"
+#include "sdcard.h"         // sdMutexGetSnapshot (SD mutex owner in /api/sd-status)
 #include <esp_task_wdt.h>   // feed the task WDT inside the long monitor JSON loops (async_tcp)
 
 bool sharedWebBufferDadosLock(TickType_t timeoutTicks, bool& didLockOut) {
@@ -452,6 +453,24 @@ String sharedWebBuildSdStatusJson() {
     json += sharedWebJsonEscape(String(getStorageModeString()));
     json += F("\",\"is_psram\":");
     json += (currentStorageMode == STORAGE_MODE_PSRAM) ? F("true") : F("false");
+    // SD mutex ownership: owner task name + hold time. A name that stays put for
+    // minutes means a leaked lock (/files answers 503 "SD Busy" meanwhile);
+    // POST /api/sd/mutex-reset recovers it remotely.
+#if ENABLE_SDCARD==1
+    {
+        uint32_t mdepth = 0;
+        unsigned long mheld = 0;
+        char mowner[24];
+        sdMutexGetSnapshot(&mdepth, &mheld, mowner, sizeof(mowner));
+        json += F(",\"mutex\":{\"owner\":\"");
+        json += sharedWebJsonEscape(String(mowner));
+        json += F("\",\"depth\":");
+        json += String(mdepth);
+        json += F(",\"held_ms\":");
+        json += String(mheld);
+        json += '}';
+    }
+#endif
     if (mounted) {
         json += F(",\"total_bytes\":");
         sharedWebAppendUInt64(json, sdcardTotalBytes());
