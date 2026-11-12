@@ -5,7 +5,7 @@
 
 size_t streamGcodeMobilePageToPrint(Print& out) {
     size_t n = 0;
-    n += streamPageShellStart(out, "Enviar G-code");
+    n += streamPageShellStart(out, "Send G-code");
     out.print(FPSTR(PAGE_GCODE_MOBILE));
     n += strlen_P(PAGE_GCODE_MOBILE);
     n += streamAutoJsFooter(out);

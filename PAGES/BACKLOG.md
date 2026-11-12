@@ -139,10 +139,10 @@ history and is still the place to look before changing shared wiring.
 | ID | Pri | Issue | Files | Status |
 |---|---|---|---|---|
 | GM-1 | High | Step 1 *Send G-code*: vertical, no-scroll screen that uploads a job from the phone to the controller's PSRAM workspace. Verified in Chromium mobile emulation at 320×568 / 360×640 / 390×844 / 412×915 (`scrollHeight == clientHeight`), 14 jsdom cases. PC page untouched. | `page_gcode_mobile_asset.cpp`, `gcode_mobile_page_renderer.cpp`, `web_routes_monitor.cpp`, `tests/web/test_gcode_mobile.js` | fixed |
-| GM-2 | High | Step 2 *Frame*: outline the job's bounding box on the machine (uses `GET /api/grbl/frame-bbox` + the frame actions of the PC page) | — | open (next run) |
-| GM-3 | High | Step 3 *Play*: start the uploaded job (`psram-stream` / `stream`) with pause/cancel | — | open |
+| GM-2 | High | Step 2 *Frame*: outline the job area on the machine. **Fixed:** the mobile page computes the XY bounds in the browser while reading the picked file (comments and Z-only moves ignored) and replays the PC page's sequence over `/api/grbl/send` 150 ms apart (`M5, G90, G21, G1 min, M3 S5%, 4 corners, M5`) after checking the machine is idle. No SD round-trip, so it works for PSRAM jobs too. | `page_gcode_mobile_asset.cpp`, `tests/web/test_gcode_mobile.js` | fixed |
+| GM-3 | High | Step 3 *Play*: **Fixed:** START streams the stored job (`/api/grbl/psram-stream`, `slot=0`) and STOP cancels (`/api/grbl/cancel`); while the step is open it polls `/api/grbl/status` once per second for state + `lines_sent/lines_total`. A job already on the controller (`/api/grbl/psram-file`) keeps steps 2/3 usable after a reload. | `page_gcode_mobile_asset.cpp`, `tests/web/test_gcode_mobile.js` | fixed |
 | GM-4 | Medium | Entry point for the wizard (home page is shared by all packs, so it was left untouched): decide between a CNC-only home tile and a mobile-only link | `page_home_*` | open |
-| GM-5 | Low | i18n keys (`gm*`) for the wizard; English fallback text only for now | `lang_en_ui.h`, `lang_pt_ui.h` | open |
+| GM-5 | Low | i18n keys (`gm*`) for the wizard. **Fixed:** 38 keys in EN+PT (titles, actions, per-step hints, frame/play texts, badges, errors with `{code}/{name}/{path}/{size}`), `data-i18n` for static labels and `t()/tf()` with English fallbacks for runtime messages; gzip language assets regenerated. | `lang_en_ui.h`, `lang_pt_ui.h`, `generated_gzip_assets.h` | fixed |
 
 ## Files (`files.md` → `/files`)
 

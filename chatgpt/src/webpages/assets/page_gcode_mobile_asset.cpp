@@ -1,20 +1,21 @@
 #include "page_gcode_mobile_asset.h"
 
-// Mobile G-code sender — wizard, step 1 of 3 ("Send G-code").
+// Mobile G-code wizard — three steps, one action per screen, no vertical scroll.
 //
-// Vertical-only, no page scroll: one action per screen, the arrow advances
-// (steps 2 "Frame" and 3 "Play" are separate pages, not built yet, so the
-// arrow stays disabled here and the step counter says 1/3).
+//   1. Send    — pick a G-code file on the phone, upload it to the controller's
+//                PSRAM workspace and keep its XY bounds for step 2.
+//   2. Frame   — outline that area on the machine (same command sequence as the
+//                PC page's frame, spindle at a fixed low power).
+//   3. Play    — start the stored job (psram-stream) and stop it (cancel).
 //
-// Step 1 does exactly one thing: put a job on the controller -- pick a file on
-// the phone and upload it to the PSRAM workspace via /api/grbl/psram-upload
-// (the same endpoint the PC page uses). Starting the job is step 3.
+// The screens are swapped inside one route (/m) by the footer arrow, so the
+// wizard cannot scroll: #gm is a fixed 100dvh column, the active screen takes
+// the leftover height (flex:1, min-height:0) and everything is overflow:hidden.
 //
-// The PC page (/grbl-controller) is untouched by design: this is a separate
-// asset, renderer and route.
+// The PC page (/grbl-controller) is a separate asset/renderer/route and is
+// untouched by design.
 const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
 <style>
-  /* No scroll anywhere on this page: the wizard is one screen. */
   html, body { height: 100%; margin: 0; overflow: hidden; background: #0b1220; }
   body { color: #e6f1ff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   #gm {
@@ -26,6 +27,7 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   #gm .steps { display: flex; gap: 6px; }
   #gm .steps i { width: 22px; height: 4px; border-radius: 2px; background: #24344d; display: block; }
   #gm .steps i.on { background: #3b82f6; }
+  #gm .steps i.done { background: #1d4ed8; }
   #gm h1 { font-size: 16px; margin: 0; font-weight: 700; letter-spacing: .2px; }
   #gm .badge {
     margin-left: auto; font-size: 11px; padding: 3px 8px; border-radius: 999px;
@@ -33,87 +35,180 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   }
   #gm .badge.ok { border-color: #10b981; color: #6ee7b7; }
   #gm .badge.warn { border-color: #f59e0b; color: #fcd34d; }
-  /* The pick zone takes all the leftover height, so the page can never need a scrollbar. */
-  #gm .pick {
+
+  #gm .screen { flex: 1 1 auto; min-height: 0; display: none; flex-direction: column; gap: 8px; overflow: hidden; }
+  #gm .screen.on { display: flex; }
+
+  #gm .card {
     flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+    align-items: center; justify-content: center; gap: 8px; box-sizing: border-box;
     border: 2px dashed #3b82f6; border-radius: 14px; background: #0f172a;
-    color: #dbeafe; font-size: 15px; padding: 16px; text-align: center; box-sizing: border-box;
+    color: #dbeafe; font-size: 15px; padding: 16px; text-align: center;
   }
-  #gm .pick:active { background: #14213a; }
-  #gm .pick .ico { font-size: 40px; line-height: 1; }
-  #gm .pick .nm { font-weight: 700; word-break: break-all; max-height: 3.2em; overflow: hidden; }
-  #gm .pick .sz { font-size: 12px; color: #94a3b8; }
+  #gm button.card { cursor: pointer; }
+  #gm button.card:active { background: #14213a; }
+  #gm .card.solid { border-style: solid; cursor: default; }
+  #gm .card .ico { font-size: 40px; line-height: 1; }
+  #gm .card .nm { font-weight: 700; word-break: break-all; max-height: 3.2em; overflow: hidden; }
+  #gm .card .sz { font-size: 12px; color: #94a3b8; }
+  #gm .card .big { font-size: 26px; font-weight: 800; letter-spacing: .5px; }
+  #gm .card .row { font-size: 13px; color: #cbd5e1; }
+  #gm .card .kv { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #93c5fd; }
+
   #gm .msg { flex: 0 0 auto; font-size: 12px; line-height: 1.35; color: #94a3b8; min-height: 2.7em; }
   #gm .msg.err { color: #fca5a5; }
   #gm .msg.ok { color: #6ee7b7; }
   #gm .bar { flex: 0 0 auto; height: 6px; border-radius: 3px; background: #1e293b; overflow: hidden; display: none; }
   #gm .bar.on { display: block; }
   #gm .bar span { display: block; height: 100%; width: 0%; background: #3b82f6; transition: width .15s linear; }
-  #gm .send {
-    flex: 0 0 auto; width: 100%; height: 54px; border: 0; border-radius: 12px;
+
+  #gm .acts { flex: 0 0 auto; display: flex; gap: 8px; }
+  #gm .primary {
+    flex: 1 1 auto; height: 54px; border: 0; border-radius: 12px;
     background: #2563eb; color: #fff; font-size: 17px; font-weight: 700;
   }
-  #gm .send:disabled { background: #1e293b; color: #64748b; }
+  #gm .primary:disabled { background: #1e293b; color: #64748b; }
+  #gm .danger {
+    flex: 0 0 auto; height: 54px; padding: 0 18px; border-radius: 12px;
+    border: 1px solid #dc2626; background: #7f1d1d; color: #fff; font-size: 15px; font-weight: 700;
+    display: none;
+  }
+  #gm .danger.on { display: block; }
+
   #gm .nav { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; }
   #gm .nav .no { font-size: 12px; color: #94a3b8; }
-  #gm .nav .nxt {
-    margin-left: auto; width: 46px; height: 46px; border-radius: 50%;
-    border: 1px solid #334155; background: #0f172a; color: #64748b; font-size: 20px;
+  #gm .nav .arrow {
+    width: 46px; height: 46px; border-radius: 50%; border: 1px solid #334155;
+    background: #0f172a; color: #cbd5e1; font-size: 20px;
   }
-  #gm .nav .nxt:disabled { opacity: .55; }
-  #gm .nav .cap { font-size: 11px; color: #64748b; }
+  #gm .nav .arrow:disabled { opacity: .45; color: #64748b; }
+  #gm .nav .back { margin-left: 0; }
+  #gm .nav .next { margin-left: auto; }
+
   @media (max-height: 560px) {
     #gm h1 { font-size: 14px; }
-    #gm .pick .ico { font-size: 28px; }
-    #gm .send { height: 46px; font-size: 15px; }
+    #gm .card .ico { font-size: 28px; }
+    #gm .primary, #gm .danger { height: 46px; font-size: 15px; }
+    #gm .nav .arrow { width: 40px; height: 40px; }
   }
 </style>
 
 <div id="gm">
   <header>
     <div class="steps"><i class="on"></i><i></i><i></i></div>
-    <h1>Send G-code</h1>
+    <h1 id="gmTitle" data-i18n="gmTitle1">Send G-code</h1>
     <span class="badge" id="gmLink">--</span>
   </header>
 
-  <button type="button" class="pick" id="gmPick">
-    <span class="ico">&#128196;</span>
-    <span class="nm" id="gmName">Choose a file</span>
-    <span class="sz" id="gmSize">.gcode &middot; .nc &middot; .txt</span>
-  </button>
-  <input type="file" id="gmFile" accept=".gcode,.nc,.ngc,.txt,text/plain" hidden>
+  <!-- ── Step 1: send ─────────────────────────────────────────────── -->
+  <section class="screen on" id="gmS1">
+    <button type="button" class="card" id="gmPick" data-i18n-title="gmPickTip">
+      <span class="ico">&#128196;</span>
+      <span class="nm" id="gmName" data-i18n="gmPick">Choose a file</span>
+      <span class="sz" id="gmSize">.gcode &middot; .nc &middot; .txt</span>
+    </button>
+    <input type="file" id="gmFile" accept=".gcode,.nc,.ngc,.txt,text/plain" hidden>
+  </section>
 
-  <div class="msg" id="gmMsg">The file is stored on the controller; starting is step 3.</div>
+  <!-- ── Step 2: frame ────────────────────────────────────────────── -->
+  <section class="screen" id="gmS2">
+    <div class="card solid">
+      <span class="ico">&#128207;</span>
+      <span class="nm" id="gmFrameJob">--</span>
+      <span class="kv" id="gmFrameArea">--</span>
+      <span class="row" id="gmFrameHint" data-i18n="gmFrameHint">Outlines the job area with the spindle at 5%.</span>
+    </div>
+  </section>
+
+  <!-- ── Step 3: play ─────────────────────────────────────────────── -->
+  <section class="screen" id="gmS3">
+    <div class="card solid">
+      <span class="ico">&#9654;&#65039;</span>
+      <span class="nm" id="gmPlayJob">--</span>
+      <span class="big" id="gmPlayState">--</span>
+      <span class="kv" id="gmPlayProgress"></span>
+    </div>
+  </section>
+
+  <div class="msg" id="gmMsg" data-i18n="gmStep1Hint">The file is stored on the controller; starting is step 3.</div>
   <div class="bar" id="gmBar"><span id="gmFill"></span></div>
 
-  <button type="button" class="send" id="gmSend" disabled>SEND</button>
+  <div class="acts">
+    <button type="button" class="primary" id="gmPrimary" disabled data-i18n="gmSend">SEND</button>
+    <button type="button" class="danger" id="gmStop" data-i18n="gmStop">STOP</button>
+  </div>
 
   <div class="nav">
+    <button type="button" class="arrow back" id="gmBack" disabled title="Back">&#8592;</button>
     <span class="no" id="gmNo">1 / 3</span>
-    <span class="cap">2 &middot; Frame</span>
-    <button type="button" class="nxt" id="gmNext" disabled title="Next step: frame">&#8594;</button>
+    <button type="button" class="arrow next" id="gmNext" disabled data-i18n-title="gmNextTip">&#8594;</button>
   </div>
 </div>
 
 <script>
 (function () {
   'use strict';
-  var MAX_BYTES = 4 * 1024 * 1024;   // same cap as the controller's PSRAM workspace
+  var MAX_BYTES = 4 * 1024 * 1024;   // controller PSRAM workspace cap
   var STORE_KEY = 'gm.sid';
+  var FRAME_POWER_PCT = 5;
+  var FRAME_FEED = 1200;
+
   var el = {
+    title: document.getElementById('gmTitle'),
+    steps: document.querySelectorAll('#gm .steps i'),
+    screens: [document.getElementById('gmS1'), document.getElementById('gmS2'), document.getElementById('gmS3')],
     pick: document.getElementById('gmPick'),
     file: document.getElementById('gmFile'),
     name: document.getElementById('gmName'),
     size: document.getElementById('gmSize'),
+    frameJob: document.getElementById('gmFrameJob'),
+    frameArea: document.getElementById('gmFrameArea'),
+    playJob: document.getElementById('gmPlayJob'),
+    playState: document.getElementById('gmPlayState'),
+    playProgress: document.getElementById('gmPlayProgress'),
     msg: document.getElementById('gmMsg'),
     bar: document.getElementById('gmBar'),
     fill: document.getElementById('gmFill'),
-    send: document.getElementById('gmSend'),
+    primary: document.getElementById('gmPrimary'),
+    stop: document.getElementById('gmStop'),
+    back: document.getElementById('gmBack'),
+    next: document.getElementById('gmNext'),
+    no: document.getElementById('gmNo'),
     link: document.getElementById('gmLink')
   };
-  var st = { sid: '', token: '', canWrite: true, file: null, busy: false, ready: false };
 
+  var st = {
+    sid: '', token: '', canWrite: true,
+    step: 1, file: null, bbox: null,
+    jobName: '', jobBytes: 0,
+    busy: false, running: false,
+    pollTimer: 0
+  };
+
+  // ── i18n ────────────────────────────────────────────────────────────────
+  function t(k, fb) {
+    try {
+      if (typeof window._t === 'function') {
+        var v = window._t(k, fb);
+        if (v !== undefined && v !== null && v !== '' && v !== k) return v;
+      }
+      var raw = localStorage.getItem('ui_lang_cache');
+      if (raw) {
+        var p = JSON.parse(raw);
+        if (p && p[k] !== undefined) return p[k];
+      }
+    } catch (e) {}
+    return fb !== undefined ? fb : k;
+  }
+  function tf(k, fb, vars) {
+    var s = String(t(k, fb));
+    for (var key in (vars || {})) {
+      if (Object.prototype.hasOwnProperty.call(vars, key)) s = s.replace('{' + key + '}', String(vars[key]));
+    }
+    return s;
+  }
+
+  // ── helpers ────────────────────────────────────────────────────────────
   function sessionId() {
     if (st.sid) return st.sid;
     var v = '';
@@ -145,35 +240,27 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     el.msg.className = 'msg' + (kind === 'err' ? ' err' : kind === 'ok' ? ' ok' : '');
   }
 
+  // code -> [i18n key, English fallback] so the message is readable even
+  // before (or without) the language dictionary.
+  var ERROR_TEXT = {
+    file_too_large: ['gmErrTooLarge', 'File is larger than 4 MB.'],
+    upload_empty: ['gmErrEmpty', 'The file is empty.'],
+    psram_store_failed: ['gmErrStore', 'The controller could not store the file.'],
+    vfs_budget_exceeded: ['gmErrBudget', 'No space left on the controller.'],
+    alloc_failed: ['gmErrAlloc', 'Not enough memory on the controller.'],
+    no_control: ['gmErrNoControl', 'Another client holds control. Close the PC page and retry.'],
+    network: ['gmErrNetwork', 'Network error. Try again.'],
+    no_file: ['gmFrameNoJob', 'Upload a job first (step 1).'],
+    empty_file: ['gmPlayNoJob', 'No job on the controller.'],
+    not_idle: ['gmFrameNotIdle', 'Machine is not idle.'],
+    machine_not_idle: ['gmFrameNotIdle', 'Machine is not idle.'],
+    stream_failed: ['gmPlayFailed', 'Could not start the job.'],
+    psram_stream_failed: ['gmPlayFailed', 'Could not start the job.']
+  };
   function errorText(code) {
-    var map = {
-      file_too_large: 'File is larger than 4 MB.',
-      upload_empty: 'The file is empty.',
-      psram_store_failed: 'The controller could not store the file.',
-      vfs_budget_exceeded: 'No space left on the controller.',
-      alloc_failed: 'Not enough memory on the controller.',
-      no_control: 'Another client holds control. Close the PC page and retry.',
-      network: 'Network error. Try again.'
-    };
-    return map[code] || ('Error: ' + code);
-  }
-
-  function refreshSend() {
-    el.send.disabled = !(st.file && st.canWrite && !st.busy);
-  }
-
-  function setFile(f) {
-    st.file = f || null;
-    st.ready = false;
-    if (!f) {
-      el.name.textContent = 'Choose a file';
-      el.size.textContent = '.gcode \u00b7 .nc \u00b7 .txt';
-    } else {
-      el.name.textContent = cleanName(f.name);
-      el.size.textContent = fmtBytes(f.size);
-    }
-    refreshSend();
-    return !!f;
+    var e = ERROR_TEXT[code];
+    if (e) return t(e[0], e[1]);
+    return tf('gmErrGeneric', 'Error: {code}', { code: code });
   }
 
   function progress(pct) {
@@ -182,7 +269,94 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     el.fill.style.width = Math.max(0, Math.min(100, pct)) + '%';
   }
 
-  function send() {
+  function linkBadge(on, text) {
+    el.link.textContent = text;
+    el.link.className = 'badge' + (on ? ' ok' : ' warn');
+  }
+
+  // ── HTTP ───────────────────────────────────────────────────────────────
+  function post(url, payload) {
+    var body = payload || {};
+    body.sid = sessionId();
+    if (st.token) body.token = st.token;
+    var enc = [];
+    for (var k in body) {
+      if (Object.prototype.hasOwnProperty.call(body, k)) {
+        enc.push(encodeURIComponent(k) + '=' + encodeURIComponent(body[k]));
+      }
+    }
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: enc.join('&')
+    }).then(function (r) {
+      return r.json().then(function (d) { return { status: r.status, body: d || {} }; });
+    });
+  }
+
+  // ── G-code bounds (step 2 needs them, and the file is already here) ─────
+  function boundsFromText(text) {
+    var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    var lines = String(text || '').split(/\r?\n/);
+    var saw = false;
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].replace(/\([^)]*\)/g, ' ').replace(/;.*$/, ' ').trim().toUpperCase();
+      if (!line) continue;
+      var mx = line.match(/X\s*(-?\d*\.?\d+)/);
+      var my = line.match(/Y\s*(-?\d*\.?\d+)/);
+      if (!mx && !my) continue;
+      if (mx) {
+        var x = parseFloat(mx[1]);
+        if (isFinite(x)) { if (x < minX) minX = x; if (x > maxX) maxX = x; saw = true; }
+      }
+      if (my) {
+        var y = parseFloat(my[1]);
+        if (isFinite(y)) { if (y < minY) minY = y; if (y > maxY) maxY = y; saw = true; }
+      }
+    }
+    if (!saw || !isFinite(minX) || !isFinite(minY)) return null;
+    return { minX: minX, maxX: maxX, minY: minY, maxY: maxY };
+  }
+
+  function readBounds(file) {
+    return new Promise(function (resolve) {
+      try {
+        var fr = new FileReader();
+        fr.onload = function () { resolve(boundsFromText(fr.result)); };
+        fr.onerror = function () { resolve(null); };
+        fr.readAsText(file);
+      } catch (e) { resolve(null); }
+    });
+  }
+
+  function areaText(b) {
+    var w = (b.maxX - b.minX).toFixed(2);
+    var h = (b.maxY - b.minY).toFixed(2);
+    return 'X[' + b.minX.toFixed(2) + '..' + b.maxX.toFixed(2) + ']  Y[' +
+           b.minY.toFixed(2) + '..' + b.maxY.toFixed(2) + ']  ' + w + ' x ' + h;
+  }
+
+  // ── step 1: send ───────────────────────────────────────────────────────
+  function setFile(f) {
+    st.file = f || null;
+    st.bbox = null;
+    if (!f) {
+      el.name.textContent = t('gmPick', 'Choose a file');
+      el.size.textContent = '.gcode \u00b7 .nc \u00b7 .txt';
+    } else {
+      el.name.textContent = cleanName(f.name);
+      el.size.textContent = fmtBytes(f.size);
+    }
+    render();
+    if (f) {
+      readBounds(f).then(function (b) {
+        if (st.file === f) { st.bbox = b; render(); }
+      });
+    }
+    return !!f;
+  }
+
+  function upload() {
     if (!st.file || st.busy) return false;
     if (!st.canWrite) { setMsg(errorText('no_control'), 'err'); return false; }
     if (st.file.size > MAX_BYTES) { setMsg(errorText('file_too_large'), 'err'); return false; }
@@ -190,8 +364,8 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     var query = 'name=' + encodeURIComponent(name) + '&sid=' + encodeURIComponent(sessionId());
     if (st.token) query += '&token=' + encodeURIComponent(st.token);
     var xhr = new XMLHttpRequest();
-    st.busy = true; refreshSend();
-    setMsg('Uploading ' + name + '\u2026', '');
+    st.busy = true; render();
+    setMsg(tf('gmSending', 'Uploading {name}\u2026', { name: name }), '');
     progress(1);
     xhr.open('POST', '/api/grbl/psram-upload?' + query, true);
     xhr.setRequestHeader('Content-Type', 'application/octet-stream');
@@ -205,35 +379,205 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
       var d = null;
       try { d = JSON.parse(xhr.responseText || '{}'); } catch (e) { d = null; }
       if (xhr.status === 200 && d && d.success === true) {
-        st.ready = true;
+        st.jobName = name;
+        st.jobBytes = Number(d.bytes) || (st.file ? st.file.size : 0);
         progress(100);
         el.bar.className = 'bar';
-        setMsg('Job ready: ' + (d.file_path || name) + ' (' + fmtBytes(d.bytes) + ')', 'ok');
+        setMsg(tf('gmReady', 'Job ready: {path} ({size})',
+                  { path: String(d.file_path || name), size: fmtBytes(st.jobBytes) }), 'ok');
       } else {
         progress(0);
         setMsg(errorText((d && d.message) ? String(d.message) : ('http_' + xhr.status)), 'err');
       }
-      refreshSend();
+      render();
     };
     xhr.onerror = function () {
       st.busy = false; progress(0);
       setMsg(errorText('network'), 'err');
-      refreshSend();
+      render();
     };
     xhr.send(st.file);
     return true;
   }
 
-  function linkBadge(on, text) {
-    el.link.textContent = text;
-    el.link.className = 'badge' + (on ? ' ok' : ' warn');
+  // ── step 2: frame ──────────────────────────────────────────────────────
+  function machineFresh() {
+    return fetch('/api/grbl/status', { cache: 'no-store' })
+      .then(function (r) { return r.json(); }).catch(function () { return null; });
+  }
+
+  function runFrame() {
+    if (st.busy || !st.bbox) return false;
+    if (!st.canWrite) { setMsg(errorText('no_control'), 'err'); return false; }
+    st.busy = true; render();
+    setMsg(t('gmFrameRunning', 'Tracing the outline\u2026'), '');
+    machineFresh().then(function (s) {
+      var wf = String((s && s.workflow_state) || '').toLowerCase();
+      if (wf === 'running' || wf === 'paused' || wf === 'hold') {
+        st.busy = false; render();
+        setMsg(t('gmFrameNotIdle', 'Machine is not idle.'), 'err');
+        return;
+      }
+      var b = st.bbox;
+      var mx = Math.round(1000 * FRAME_POWER_PCT / 5);   // S value for 5% of a 1000 rpm scale
+      var sVal = Math.max(1, Math.min(1000, mx));
+      var lines = [
+        'M5', 'G90', 'G21',
+        'G1 X' + b.minX.toFixed(3) + ' Y' + b.minY.toFixed(3) + ' F' + FRAME_FEED,
+        'M3 S' + String(sVal),
+        'G1 X' + b.maxX.toFixed(3) + ' Y' + b.minY.toFixed(3) + ' F' + FRAME_FEED,
+        'G1 X' + b.maxX.toFixed(3) + ' Y' + b.maxY.toFixed(3) + ' F' + FRAME_FEED,
+        'G1 X' + b.minX.toFixed(3) + ' Y' + b.maxY.toFixed(3) + ' F' + FRAME_FEED,
+        'G1 X' + b.minX.toFixed(3) + ' Y' + b.minY.toFixed(3) + ' F' + FRAME_FEED,
+        'M5'
+      ];
+      var chain = Promise.resolve();
+      lines.forEach(function (cmd) {
+        chain = chain.then(function () {
+          return post('/api/grbl/send', { slot: 0, cmd: cmd });
+        }).then(function (res) {
+          if (!res.body || res.body.success !== true) {
+            throw new Error((res.body && res.body.message) ? String(res.body.message) : 'send_failed');
+          }
+          return new Promise(function (r) { setTimeout(r, 150); });
+        });
+      });
+      return chain.then(function () {
+        st.busy = false; render();
+        setMsg(t('gmFrameDone', 'Outline done.'), 'ok');
+      });
+    }).catch(function (e) {
+      st.busy = false; render();
+      setMsg(errorText(String((e && e.message) || 'network')), 'err');
+    });
+    return true;
+  }
+
+  // ── step 3: play ───────────────────────────────────────────────────────
+  function startJob() {
+    if (st.busy) return false;
+    if (!st.canWrite) { setMsg(errorText('no_control'), 'err'); return false; }
+    st.busy = true; render();
+    setMsg(t('gmStarting', 'Starting\u2026'), '');
+    post('/api/grbl/psram-stream', { slot: 0 }).then(function (res) {
+      st.busy = false;
+      if (res.body && res.body.success === true) {
+        st.running = true;
+        setMsg(t('gmPlayStarted', 'Job started.'), 'ok');
+        pollStatus(true);
+      } else {
+        setMsg(errorText((res.body && res.body.message) ? String(res.body.message) : 'stream_failed'), 'err');
+      }
+      render();
+    }).catch(function () {
+      st.busy = false; render();
+      setMsg(errorText('network'), 'err');
+    });
+    return true;
+  }
+
+  function stopJob() {
+    if (st.busy) return false;
+    st.busy = true; render();
+    post('/api/grbl/cancel', {}).then(function (res) {
+      st.busy = false;
+      st.running = false;
+      if (res.body && res.body.success === true) setMsg(t('gmPlayStopped', 'Job stopped.'), 'ok');
+      else setMsg(errorText((res.body && res.body.message) ? String(res.body.message) : 'cancel_failed'), 'err');
+      pollStatus(true);
+      render();
+    }).catch(function () {
+      st.busy = false; render();
+      setMsg(errorText('network'), 'err');
+    });
+    return true;
+  }
+
+  function pollStatus(once) {
+    machineFresh().then(function (s) {
+      if (!s) return;
+      var wf = String(s.workflow_state || s.state || '').toLowerCase();
+      st.running = (wf === 'running' || wf === 'paused' || wf === 'hold');
+      if (el.playState) el.playState.textContent = wf ? wf.toUpperCase() : '--';
+      if (el.playProgress) {
+        var tot = Number(s.lines_total) || 0;
+        var sent = Number(s.lines_sent) || 0;
+        el.playProgress.textContent = tot > 0 ? (sent + ' / ' + tot) : '';
+      }
+      if (s.usb_running) linkBadge(true, t('gmOnline', 'online'));
+      render();
+    });
+  }
+
+  // ── render / navigation ────────────────────────────────────────────────
+  function jobReady() { return !!(st.jobName || st.jobBytes); }
+
+  function defaultMsg(step) {
+    if (step === 1) setMsg(t('gmStep1Hint', 'The file is stored on the controller; starting is step 3.'), '');
+    else if (step === 2) setMsg(t('gmStep2Hint', 'Check the job area on the machine before cutting.'), '');
+    else setMsg(t('gmStep3Hint', 'Starts the job stored on the controller.'), '');
+  }
+
+  function setStep(n) {
+    var changed = (Math.max(1, Math.min(3, n)) !== st.step);
+    st.step = Math.max(1, Math.min(3, n));
+    el.screens.forEach(function (sec, i) { sec.className = 'screen' + (i + 1 === st.step ? ' on' : ''); });
+    el.steps.forEach(function (dot, i) {
+      dot.className = (i + 1 === st.step) ? 'on' : (i + 1 < st.step ? 'done' : '');
+    });
+    el.no.textContent = st.step + ' / 3';
+    if (st.step !== 3) {
+      if (st.pollTimer) { clearInterval(st.pollTimer); st.pollTimer = 0; }
+    } else if (!st.pollTimer) {
+      pollStatus(false);
+      st.pollTimer = setInterval(function () { pollStatus(false); }, 1000);
+    }
+    try { history.replaceState(null, '', '#' + st.step); } catch (e) {}
+    if (changed) defaultMsg(st.step);
+    render();
+  }
+
+  function render() {
+    var is1 = st.step === 1, is2 = st.step === 2, is3 = st.step === 3;
+    el.title.textContent = t(is1 ? 'gmTitle1' : is2 ? 'gmTitle2' : 'gmTitle3',
+                               is1 ? 'Send G-code' : is2 ? 'Frame' : 'Play');
+    el.title.setAttribute('data-i18n', is1 ? 'gmTitle1' : is2 ? 'gmTitle2' : 'gmTitle3');
+
+    // primary action per step
+    el.primary.textContent = t(is1 ? 'gmSend' : is2 ? 'gmFrameRun' : 'gmPlay',
+                               is1 ? 'SEND' : is2 ? 'FRAME' : 'START');
+    el.primary.setAttribute('data-i18n', is1 ? 'gmSend' : is2 ? 'gmFrameRun' : 'gmPlay');
+    el.primary.disabled = st.busy ||
+      (is1 ? (!st.file || !st.canWrite) :
+       is2 ? (!st.bbox || !st.canWrite) :
+             (!st.canWrite || !jobReady() || st.running));
+    el.stop.className = 'danger' + (is3 && st.running ? ' on' : '');
+
+    // per-step readouts
+    if (is2) {
+      el.frameJob.textContent = jobReady() ? (st.jobName || t('gmJobOnController', 'Job on the controller'))
+                                           : t('gmFrameNoJob', 'Upload a job first (step 1).');
+      var showBounds = st.bbox && jobReady();
+      el.frameArea.textContent = showBounds ? areaText(st.bbox)
+                                            : (jobReady() ? t('gmFrameNoBounds', 'Pick the file again in step 1 to measure it.') : '');
+    }
+    if (is3) {
+      el.playJob.textContent = jobReady() ? st.jobName : t('gmPlayNoJob', 'No job on the controller.');
+      if (!el.playState.textContent) el.playState.textContent = '--';
+    }
+
+    // navigation
+    el.back.disabled = st.busy || st.step === 1;
+    el.next.disabled = st.busy || st.step === 3 || (is1 && !jobReady());
   }
 
   function init() {
     sessionId();
-    refreshSend();
-    // Control token: without it the controller refuses writes. One shot is
-    // enough for step 1 (subsequent steps re-issue it).
+    var h = parseInt(String(location.hash || '').replace('#', ''), 10);
+    st.step = (h >= 1 && h <= 3) ? h : 1;
+    setStep(st.step);
+    defaultMsg(st.step);
+
     fetch('/api/grbl/control-token?sid=' + encodeURIComponent(st.sid), { cache: 'no-store' })
       .then(function (r) { return r.json(); })
       .then(function (d) {
@@ -242,42 +586,59 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
           st.canWrite = (d.can_write !== false);
           if (!st.canWrite) setMsg(errorText('no_control'), 'err');
         }
-        refreshSend();
+        render();
       })
-      .catch(function () { refreshSend(); });
-    // One-shot machine state (no polling on this screen).
-    fetch('/api/grbl/status', { cache: 'no-store' })
+      .catch(function () { render(); });
+
+    // Job already on the controller (survives a page reload) → steps 2/3 stay usable.
+    fetch('/api/grbl/psram-file', { cache: 'no-store' })
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        if (d && d.usb_running) linkBadge(true, 'online');
-        else linkBadge(false, 'offline');
+        if (d && d.success === true && d.has_file) {
+          st.jobName = String(d.name || 'job.nc');
+          st.jobBytes = Number(d.size) || 0;
+        }
+        render();
       })
-      .catch(function () { linkBadge(false, 'offline'); });
+      .catch(function () {});
+
+    machineFresh().then(function (s) {
+      if (s && s.usb_running) linkBadge(true, t('gmOnline', 'online'));
+      else linkBadge(false, t('gmOffline', 'offline'));
+    });
 
     el.pick.addEventListener('click', function () { el.file.click(); });
     el.file.addEventListener('change', function () {
       var f = el.file.files && el.file.files[0];
       setFile(f || null);
       if (f && f.size > MAX_BYTES) setMsg(errorText('file_too_large'), 'err');
-      else if (f) setMsg('Ready to send.', '');
+      else if (f) setMsg(t('gmReadyToSend', 'Ready to send.'), '');
     });
-    el.send.addEventListener('click', send);
-    // The arrow is the wizard's advance; steps 2 and 3 are separate pages.
-    el.next = document.getElementById('gmNext');
-    el.next.addEventListener('click', function () {
-      if (el.next.disabled) return;
+    el.primary.addEventListener('click', function () {
+      if (st.step === 1) upload();
+      else if (st.step === 2) runFrame();
+      else startJob();
     });
+    el.stop.addEventListener('click', stopJob);
+    el.back.addEventListener('click', function () { if (!el.back.disabled) setStep(st.step - 1); });
+    el.next.addEventListener('click', function () { if (!el.next.disabled) setStep(st.step + 1); });
   }
 
   window.__test__ = window.__test__ || {};
   window.__test__.gmInit = init;
-  window.__test__.gmSend = send;
+  window.__test__.gmSetStep = setStep;
+  window.__test__.gmUpload = upload;
+  window.__test__.gmRunFrame = runFrame;
+  window.__test__.gmStart = startJob;
+  window.__test__.gmStop = stopJob;
   window.__test__.gmSetFile = setFile;
+  window.__test__.gmBounds = boundsFromText;
+  window.__test__.gmArea = areaText;
   window.__test__.gmCleanName = cleanName;
   window.__test__.gmFmtBytes = fmtBytes;
   window.__test__.gmErrorText = errorText;
   window.__test__.gmState = st;
-  window.__test__.gmLinkBadge = linkBadge;
+  window.__test__.gmT = t;
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

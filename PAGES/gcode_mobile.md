@@ -1,9 +1,8 @@
-# Mobile G-code wizard — `/m` (step 1: Send G-code)
+# Mobile G-code wizard — `/m` (1 Send · 2 Frame · 3 Play)
 
-> First page of the phone wizard for the CNC packs. Vertical, **one action per
-> screen and no vertical scroll**. Steps 2 (*Frame*) and 3 (*Play*) are separate
-> pages and are **not built yet** — the arrow is disabled and the counter reads
-> `1 / 3`.
+> Three-step phone wizard for the CNC packs. Vertical, **one action per screen and
+> no vertical scroll**: the three screens live in one route and the footer arrows
+> swap them (`#1`/`#2`/`#3` keep the step across a reload).
 >
 > The PC page (`/grbl-controller`) is a different asset, renderer and route and is
 > deliberately untouched by this page.
@@ -12,9 +11,12 @@
 
 ## 1. Objective
 
-Put a G-code job on the controller from a phone in one gesture: choose a file,
-upload it to the controller's PSRAM workspace, confirm it is stored. Starting the
-job belongs to step 3, so this page never sends `psram-stream`/`stream`.
+Run a job from a phone with three single-action screens:
+
+1. **Send** — choose a G-code file, upload it to the controller's PSRAM workspace
+   and keep its XY bounds (computed in the browser while reading the file).
+2. **Frame** — outline that area on the machine before cutting (spindle 5%).
+3. **Play** — start the stored job (`psram-stream`) and stop it (`cancel`).
 
 ---
 
@@ -42,12 +44,16 @@ Fixed viewport, single column (`#gm`, `height:100dvh`, `overflow:hidden`,
 `html,body{overflow:hidden}`), so the page can never scroll:
 
 ```
-header  steps ●○○ · title · machine badge (online/offline)
-pick    dashed tap target (flex:1, min-height:0) — file name + size once chosen
-msg     one line of status / error
-bar     upload progress (hidden until a transfer starts)
-SEND    full-width primary (54 px), disabled until a file is chosen
-nav     1 / 3 · "2 · Frame" · → (disabled)
+header   steps ●○○ · title (Send|Frame|Play) · machine badge (online/offline)
+screen   the active step only (flex:1, min-height:0, overflow:hidden)
+  S1     dashed tap target — file name + size
+  S2     job name + measured area "X[..] Y[..] W x H" + hint
+  S3     job name + machine state + "sent / total" lines
+msg      one line of status / error (per-step default text)
+bar      upload progress (hidden unless transferring)
+primary  SEND | FRAME | START (54 px, disabled while busy/no file/no control)
+STOP     appears on step 3 only while the job runs
+nav      ← · n / 3 · →
 ```
 
 A `@media (max-height:560px)` branch shrinks the title, icon and button so small
@@ -59,8 +65,10 @@ phones still fit without scrolling.
 
 | Control | Type | Behaviour |
 |---|---|---|
-| File picker | `<input type=file accept=".gcode,.nc,.ngc,.txt,text/plain">` (hidden, opened by the card) | name sanitised to a safe basename, size shown, >4 MB refused client-side |
-| SEND | button | uploads; disabled while busy, without write control, or with no file |
+| File picker | `<input type=file accept=".gcode,.nc,.ngc,.txt,text/plain">` (hidden, opened by the card) | name sanitised to a safe basename, size shown, >4 MB refused |
+| Primary | button | SEND (upload) / FRAME (outline) / START (stream), one per step |
+| STOP | button | `cancel`; visible only on step 3 while a job runs |
+| ← → | arrows | previous/next step; `→` waits for a job on step 1, disabled on 3 |
 
 ---
 
@@ -80,12 +88,20 @@ phones still fit without scrolling.
 - On load (one shot each, no polling): `GET /api/grbl/control-token?sid=` → `{token, can_write}`
   and `GET /api/grbl/status` → `usb_running` for the badge. `can_write:false`
   keeps SEND disabled and explains that another client holds control.
-- `send()` — `XMLHttpRequest` (progress events) to
+- `upload()` — `XMLHttpRequest` (progress) to
   `/api/grbl/psram-upload?name=&sid=&token=` with `Content-Type: application/octet-stream`,
-  `X-Filename`, `X-Filesize`. Success (200 + `success:true`) → `Job ready: <path> (<bytes>)`;
-  any other reply → mapped message (`file_too_large`, `upload_empty`,
-  `psram_store_failed`, `vfs_budget_exceeded`, `alloc_failed`, HTTP status).
-- No job is started here: `psram-stream` / `stream` are step 3.
+  `X-Filename`, `X-Filesize`. Success → `Job ready: <path> (<bytes>)`; otherwise a mapped
+  message (`file_too_large`, `upload_empty`, `psram_store_failed`, `vfs_budget_exceeded`,
+  `alloc_failed`, `no_control`, HTTP status).
+- `boundsFromText()` — XY bounds from the picked file (G-code comments and Z-only moves
+  ignored), shown on step 2 as `X[min..max] Y[min..max] W x H`.
+- `runFrame()` — refuses unless the machine is idle, then posts one batch to
+  `/api/grbl/send` 150 ms apart: `M5, G90, G21, G1 Xmin Ymin F1200, M3 S<5%>,`
+  the four corners, `M5` (same sequence as the PC page's frame).
+- `startJob()` / `stopJob()` — `/api/grbl/psram-stream` (`slot=0`) and `/api/grbl/cancel`.
+  On step 3 the page polls `/api/grbl/status` once per second (state + `lines_sent/lines_total`).
+- On load: control token, `/api/grbl/psram-file` (a job already on the controller keeps
+  steps 2/3 usable after a reload) and the machine badge (one-shot).
 
 ---
 
@@ -96,6 +112,10 @@ phones still fit without scrolling.
 | `/api/grbl/control-token` | GET | write token + `can_write` |
 | `/api/grbl/status` | GET | machine badge (`usb_running`) |
 | `/api/grbl/psram-upload` | POST | stores the uploaded file in the PSRAM workspace (`file_path`, `bytes`) |
+| `/api/grbl/psram-file` | GET | job already on the controller (`has_file`, `name`, `size`) |
+| `/api/grbl/send` | POST | one outline line at a time (step 2) |
+| `/api/grbl/psram-stream` | POST | starts the stored job (`slot=0`) |
+| `/api/grbl/cancel` | POST | stops the job |
 
 ---
 
@@ -109,14 +129,19 @@ is replaced or cleared.
 
 ## 9. Runtime engine
 
-None — no timers, no polling. The upload is a single XHR with progress.
+None on steps 1–2. Step 3 polls `/api/grbl/status` every 1 s while it is on screen
+(the timer is cleared when leaving the step), and the upload itself is one XHR with progress.
 
 ---
 
 ## 10. i18n keys
 
-None yet (English fallback text in the asset). Add `gm*` keys to `lang_en_ui.h` and
-`lang_pt_ui.h` together with steps 2–3, when the whole wizard can be translated in one pass.
+38 `gm*` keys in `lang_en_ui.h` + `lang_pt_ui.h` (kept in sync; `validate_i18n.py` green):
+titles `gmTitle1..3`, actions `gmSend`/`gmFrameRun`/`gmPlay`/`gmStop`, per-step hints
+`gmStep1..3Hint`, frame texts `gmFrame*`, play texts `gmPlay*`, badges `gmOnline`/`gmOffline`,
+errors `gmErr*` (`{code}`, `{name}`, `{path}`, `{size}` placeholders) and `gmNextTip`.
+Static labels use `data-i18n`; runtime messages go through `t()/tf()` with English
+fallbacks so the page is readable before the dictionary loads.
 
 ---
 
@@ -124,10 +149,11 @@ None yet (English fallback text in the asset). Add `gm*` keys to `lang_en_ui.h` 
 
 | # | Finding | Status |
 |---|---|---|
-| 1 | No scroll at 320×568, 360×640, 390×844, 412×915 — `scrollHeight == clientHeight` measured in Chromium with mobile emulation | verified |
-| 2 | Steps 2 (Frame) and 3 (Play) missing; the arrow is intentionally disabled | open (next runs) |
-| 3 | No entry point yet: the PC page and the shared home page were kept untouched, so `/m` is typed manually | open (decide in a later run) |
+| 1 | No scroll on any of the three steps at 320×568, 360×640, 390×844, 412×915 (12/12 combinations: `scrollHeight == clientHeight`, `overflow:hidden` on body and screen) | verified |
+| 2 | Frame uses the browser-computed bounds, so a job uploaded in a previous session needs the file picked again (the controller only reports name/size) | by design for now |
+| 3 | No entry point yet: the PC page and the shared home page were kept untouched, so `/m` is typed manually | open (BACKLOG GM-4) |
 | 4 | Upload is limited to the 4 MB PSRAM workspace; larger jobs must go through the PC page's SD path | by design for now |
+| 5 | Frame runs at a fixed 5% / F1200 (no power/feed UI on the phone) | by design for now |
 
 ---
 
@@ -138,4 +164,5 @@ None yet (English fallback text in the asset). Add `gm*` keys to `lang_en_ui.h` 
 | Asset (CSS + HTML + JS) | `chatgpt/src/webpages/assets/page_gcode_mobile_asset.cpp/.h` |
 | Renderer | `chatgpt/src/webpages/renderers/gcode_mobile_page_renderer.cpp/.h` |
 | Route | `chatgpt/src/webpages/routes/web_routes_monitor.cpp` (`server.on("/m", …)`, CNC pack guard) |
-| Tests | `tests/web/test_gcode_mobile.js`, fixture `tests/web/pages/gcode_mobile.html` (generated by `extract.py`) |
+| i18n | `chatgpt/src/languages/lang_en_ui.h`, `lang_pt_ui.h` (`gm*`), regenerated `assets/generated_gzip_assets.h` |
+| Tests | `tests/web/test_gcode_mobile.js` (16 cases), fixture `tests/web/pages/gcode_mobile.html` (generated by `extract.py`) |
