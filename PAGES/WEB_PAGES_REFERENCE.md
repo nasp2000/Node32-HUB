@@ -64,7 +64,7 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/wifi` | WiFi AP/STA + scan | static | scan 5 s | B | no | — |
 | `/google-script` | Google Apps Script setup | static | manual | B | no | `ENABLE_PAGE_GOOGLE_SCRIPT` |
 | `/access` | Sessions/users/access control | static | one GET | B | **A** (*) | `ENABLE_PAGE_ACCESS` |
-| `/alerts-config` | Inactivity/OEE alert rules | static | manual | B | no | `ENABLE_PAGE_ALERTS` + `ENABLE_PROXIMITY` |
+| `/alerts-config` | Inactivity/OEE alert rules + live state per slot (sent/cap today, sent-this-period) | static + live state | `/api/status` 30 s (skipped while the tab is hidden) | B | no | `ENABLE_PAGE_ALERTS` + `ENABLE_PROXIMITY` |
 | `/email` | SMTP config + test | static | manual | B | no | `ENABLE_SMTP` |
 | `/recipients` | Email recipient groups | static | manual | B | no | `ENABLE_PAGE_RECIPIENTS` |
 | `/ftp` | FTP upload client + test + last-sends history (persisted `/config/ftp_status.json`, loaded once on page open) | static | manual | B | no | `ENABLE_FTP_CLIENT` + `ENABLE_PAGE_FTP` |

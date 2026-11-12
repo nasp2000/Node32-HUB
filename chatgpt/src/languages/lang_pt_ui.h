@@ -1048,6 +1048,8 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "freq24h": "1 aviso/24H",
   "recipErrMinEmail": "⚠️ Erro: Deve definir pelo menos um email quando alertas estão ativos!",
   "recipErrEmail": "⚠️ Erro: Email inválido (verifique o formato)",
+  "alertsLiveToday": "hoje",
+  "alertsLivePeriod": "enviado neste período",
   "recipSaving": "⏳ A guardar...",
   "recipSaved": "✅ Guardado!",
   "recipErrSave": "❌ Erro",

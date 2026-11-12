@@ -1,4 +1,5 @@
 #include "alerts_page_renderer.h"
+#include "../../alerts_limits.h"   // ALERTS-4: one max/day range for UI + API
 
 #include "../../ConfigManager.h"
 #include "../../feature_flags.h"
@@ -42,7 +43,55 @@ size_t alertsEscapedHtml(Print& out, const String& input) {
 
 static const char* const kTimeoutVals[]   = {"5","10","20","30","45","60","120","180","360","720","1440"};
 static const char* const kTimeoutLabels[] = {"5 min","10 min","20 min","30 min","45 min","1h","2h","3h","6h","12h","24h"};
-static const int kMaxPerDayVals[] = {3,6,9,12,15,20,25,30,45,60};
+
+
+static size_t alertsMaxPerDayOptions(Print& out, int selected) {
+    size_t n = 0;
+    char numBuf[8];
+    bool emittedExtra = false;
+    const int extra = alertsMaxPerDayExtraOption(selected);   // stored value not in the list
+    for (int i = 0; i < alertsMaxPerDayOptionCount(); ++i) {
+        const int v = alertsMaxPerDayOptionAt(i);
+        // Insert an out-of-list stored value in ascending order so the select
+        // still lists it where the user expects it.
+        if (extra > 0 && !emittedExtra && extra < v) {
+            itoa(extra, numBuf, 10);
+            out.print(F("<option value='"));
+            n += 15;
+            out.print(numBuf); n += strlen(numBuf);
+            out.print(F("' selected>"));
+            n += 11;
+            out.print(numBuf); n += strlen(numBuf);
+            out.print(F(" alerts/day</option>"));
+            n += 21;
+            emittedExtra = true;
+        }
+        itoa(v, numBuf, 10);
+        out.print(F("<option value='"));
+        n += 15;
+        out.print(numBuf); n += strlen(numBuf);
+        out.print('\'');
+        n += 1;
+        if (v == selected) { out.print(F(" selected")); n += 9; }
+        out.print('>');
+        n += 1;
+        out.print(numBuf); n += strlen(numBuf);
+        out.print(F(" alerts/day</option>"));
+        n += 21;
+    }
+    if (extra > 0 && !emittedExtra) {
+        itoa(extra, numBuf, 10);
+        out.print(F("<option value='"));
+        n += 15;
+        out.print(numBuf); n += strlen(numBuf);
+        out.print(F("' selected>"));
+        n += 11;
+        out.print(numBuf); n += strlen(numBuf);
+        out.print(F(" alerts/day</option>"));
+        n += 21;
+    }
+    return n;
+}
 
 size_t alertsSlotRow(Print& out, int idx, bool enabled, int timeout, int maxPerDay, const String& emails) {
     size_t n = 0;
@@ -92,25 +141,17 @@ size_t alertsSlotRow(Print& out, int idx, bool enabled, int timeout, int maxPerD
     n += strlen(idBuf);
     out.print(F("' style='padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,.18);background:#1e293b;color:#fff;font-size:12px;width:100%'>"));
     n += 105;
-    for (int i = 0; i < 10; ++i) {
-        char numBuf[8];
-        itoa(kMaxPerDayVals[i], numBuf, 10);
-        out.print(F("<option value='"));
-        n += 15;
-        out.print(numBuf);
-        n += strlen(numBuf);
-        out.print('\'');
-        n += 1;
-        if (kMaxPerDayVals[i] == maxPerDay) { out.print(F(" selected")); n += 9; }
-        out.print('>');
-        n += 1;
-        out.print(numBuf);
-        n += strlen(numBuf);
-        out.print(F(" alerts/day</option>"));
-        n += 21;
-    }
-    out.print(F("</select></td>"));
-    n += 13;
+    n += alertsMaxPerDayOptions(out, maxPerDay);
+    out.print(F("</select>"));
+    n += 9;
+    // ALERTS-5: live state for this slot, filled by the page from /api/status
+    // (alerts_sent_today / alert_sent_this_period). Empty until the first fetch.
+    out.print(F("<div id='alert_live_"));
+    n += 24;
+    out.print(idBuf);
+    n += strlen(idBuf);
+    out.print(F("' style='font-size:10px;line-height:1.3;color:#94a3b8;margin-top:2px'>--</div></td>"));
+    n += 82;
 
     // Col 3: Email input
     out.print(F("<td style='padding:6px'><input type='text' id='alert_emails_"));
@@ -227,23 +268,7 @@ size_t oeeAlertSlotRow(Print& out, int idx, bool enabled, int metric, int thresh
     n += strlen(idBuf);
     out.print(F("' style='padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,.18);background:#1e293b;color:#fff;font-size:12px;width:100%'>"));
     n += 105;
-    for (int i = 0; i < 10; ++i) {
-        char numBuf[8];
-        itoa(kMaxPerDayVals[i], numBuf, 10);
-        out.print(F("<option value='"));
-        n += 15;
-        out.print(numBuf);
-        n += strlen(numBuf);
-        out.print('\'');
-        n += 1;
-        if (kMaxPerDayVals[i] == maxPerDay) { out.print(F(" selected")); n += 9; }
-        out.print('>');
-        n += 1;
-        out.print(numBuf);
-        n += strlen(numBuf);
-        out.print(F(" alerts/day</option>"));
-        n += 21;
-    }
+    n += alertsMaxPerDayOptions(out, maxPerDay);
     out.print(F("</select></td>"));
     n += 13;
 

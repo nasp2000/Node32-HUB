@@ -88,7 +88,7 @@ boundary, never at midnight), email only with valid recipients + wifi.
 |---|---|---|---|---|
 | Enable | `alert_enabled_<i>` | checkbox (18×18) | on/off | disabled |
 | Timeout | `alert_timeout_<i>` | select | `5,10,20,30,45,60,120,180,360,720,1440` min → labels *5 min…24 h* | `20` min |
-| Alerts/day | `alert_max_<i>` | select | `3,6,9,12,15,20,25,30,45,60` (option text hardcodes PT suffix *"avisos/dia"*) | `12` |
+| Alerts/day | `alert_max_<i>` | select | `3,6,9,12,15,20,25,30,45,60,75,90,100` (limit 100 — same range the API accepts; a stored value outside the list is appended so it is never silently changed); live `sent/cap today` line under it | `12` |
 | Emails | `alert_emails_<i>` | text | comma-separated list, placeholder `email1@ex.com, email2@ex.com`; validated by the shared rule (`email_validation.h`, mirrored in the page JS): local part 1–64, one `@`, dotted domain, TLD ≥2 letters | empty |
 
 ### OEE per-slot inputs — proximity builds only (repeat for `i = 0 … 2`, all disabled by default)
@@ -98,10 +98,10 @@ boundary, never at midnight), email only with valid recipients + wifi.
 | Enable + Metric | `oee_enabled_<i>` + `oee_metric_<i>` | checkbox + select | metric `0` Shift OEE / `1` Day OEE / `2` Availability (labels via `proxDashOeeShift/proxDashOeeDay/proxDashA`) | slot 0: Shift OEE; slot 1: Day OEE; slot 2: Availability |
 | Threshold | `oee_threshold_<i>` | number 1–100 | fire when value < threshold (%) | slot 0/1: `60`; slot 2: `80` |
 | Persist | `oee_persist_<i>` | select | `5,10,15,20,30,45,60,120,240` min | `15` min |
-| Alerts/day | `oee_max_<i>` | select | `3,6,9,12,15,20,25,30,45,60` | `6` |
+| Alerts/day | `oee_max_<i>` | select | `3,6,9,12,15,20,25,30,45,60,75,90,100` (limit 100, same rule as inactivity) | `6` |
 | Emails | `oee_emails_<i>` | text | same validation as inactivity | empty |
 
-API accepts wider numeric ranges than the UI offers: timeout **1–1440**, max/day **1–100**
+API accepts wider numeric ranges than the UI offers: timeout **1–1440**, max/day **1–100** (the UI now offers the same 1–100 span — ALERTS-4)
 (server-side check in the handler).
 
 ---
@@ -121,7 +121,12 @@ API accepts wider numeric ranges than the UI offers: timeout **1–1440**, max/d
 1. Click handler attached to `#save_inactivity_alert`.
 2. Loops slots 0–5 collecting `alert_enabled_i`, `alert_timeout_i`, `alert_max_i`,
    `alert_emails_i` (trimmed).
-4. **Client validation** (only for enabled slots):
+4. **Live state** — after load the page fetches `/api/status` once and then every 30 s
+   (skipped while the tab is hidden) and writes, under each slot's alerts/day select,
+   `sent/cap today` from `inactivity_alerts.slots[i].alerts_sent_today` plus a
+   `sent this period` marker when `alert_sent_this_period` is set (red). The OEE tab has
+   no counters in the payload, so it shows none.
+5. **Client validation** (only for enabled slots):
    - emails empty → `customAlert("Define at least one email when alerts are active!")`, abort;
    - any item fails the e-mail rule (local part non-empty, one `@`, domain with a dot, TLD ≥2 letters; list split on `,`/`;`) → `customAlert` with `recipErrEmail`, abort. The same rule runs again server-side (`emailListLooksValid()`), so the two can never disagree.
 5. POST via `fetch('/api/inactivity-alert-config', {method:'POST', body:new URLSearchParams(fd), 'Content-Type':'application/x-www-form-urlencoded'})`.
