@@ -128,6 +128,12 @@ history and is still the place to look before changing shared wiring.
 
 ---
 
+## FTP (`ftp.md` → `/ftp`)
+
+| ID | Pri | Issue | Files | Status |
+|---|---|---|---|---|
+| FTP-1 | High | **`ftpMon` held the SD mutex for 79 s / 94 s / 110 s on `.9` (2026-11-12) and the SD watchdog force-released it at 120 s** ("Mutex recovered; reboot advisable"). `ftpRunCycle` locked once for the whole scan+upload pass and `ftpUploadFileImpl` held it across `ftpStoreStream` — i.e. across every network write, so the hold scaled with the queue size and link speed (4 MB file at 250 ms/8 KB ≈ 128 s). **Fixed:** the lock now covers storage access only — the candidate scan, `open`+`size`, each 8 KB chunk read (`ftp_stream_guard.h`, `ftpReadChunkScoped`) and the delete-after; the network write runs unlocked. Longest hold = one scan or one chunk read (few ms) whatever the file/link. 5 native cases (`test_ftp_stream_guard.cpp`) reproduce the old 128 s hold and prove the scoped one stays at 4 ms with 0 holds during a send; busies unlock nothing and leak nothing. | `ftp_client.cpp` (`ftpRunCycle`, `ftpUploadFileImpl`, `ftpFileReadChunk`), `ftp_stream_guard.h`, `tests/native/test_ftp_stream_guard.cpp` | fixed — native only, no OTA yet |
+
 ## Files (`files.md` → `/files`)
 
 | ID | Pri | Issue | Files | Status |

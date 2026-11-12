@@ -1,5 +1,6 @@
 #if defined(ARDUINO)
 #include "feature_flags.h"
+#include "ftp_stream_guard.h"   // storage-lock scope for the upload stream
 #include "log.h"  // WARN/INFO/ERROR enum (un-breaks the /config guard)
 #if ENABLE_FTP_CLIENT==1
 
@@ -405,15 +406,62 @@ static bool ftpLogin(WiFiClient& ctl, char* resp, size_t rs, String& detail) {
 typedef size_t (*FtpChunkReader)(void* ctx, uint8_t* buf, size_t maxLen);
 
 // Arduino File-backed source (SD_MMC and LittleFS share the fs::File API).
-struct FtpFileReaderCtx { File* f; size_t remaining; };
+// The storage lock is taken per chunk read only (see ftp_stream_guard.h): the
+// File handle is touched exclusively inside that read, and never while the
+// network write runs, so no FTP hold can approach the SD watchdog.
+struct FtpFileReaderCtx {
+    File* f;
+    size_t remaining;
+    bool useSd;      // lock choice for the per-chunk read
+    bool useLfs;
+};
+static bool ftpCtxLock(void* ctx) {
+    FtpFileReaderCtx* r = (FtpFileReaderCtx*)ctx;
+    if (!r) return false;
+    if (r->useSd) {
+#if ENABLE_SDCARD==1
+        return sdMutexLock(pdMS_TO_TICKS(2000));
+#else
+        return true;
+#endif
+    }
+    if (r->useLfs) {
+#if ENABLE_FILESYSTEM==1
+        extern bool lfsMutexLock(TickType_t timeoutTicks);
+        return lfsMutexLock(pdMS_TO_TICKS(2000));
+#else
+        return true;
+#endif
+    }
+    return true;
+}
+static void ftpCtxUnlock(void* ctx) {
+    FtpFileReaderCtx* r = (FtpFileReaderCtx*)ctx;
+    if (!r) return;
+    if (r->useSd) {
+#if ENABLE_SDCARD==1
+        sdMutexUnlock();
+#endif
+    } else if (r->useLfs) {
+#if ENABLE_FILESYSTEM==1
+        extern void lfsMutexUnlock();
+        lfsMutexUnlock();
+#endif
+    }
+}
+static int ftpCtxRead(void* ctx, uint8_t* buf, size_t len) {
+    FtpFileReaderCtx* r = (FtpFileReaderCtx*)ctx;
+    if (!r || !r->f || !r->remaining) return 0;
+    size_t n = r->remaining < len ? r->remaining : len;
+    int got = r->f->read(buf, n);
+    if (got > 0) r->remaining -= (size_t)got;
+    return got;
+}
 static size_t ftpFileReadChunk(void* ctx, uint8_t* buf, size_t maxLen) {
     FtpFileReaderCtx* r = (FtpFileReaderCtx*)ctx;
     if (!r || !r->f || !r->remaining) return 0;
-    size_t n = r->remaining < maxLen ? r->remaining : maxLen;
-    int got = r->f->read(buf, n);
-    if (got <= 0) return 0;
-    r->remaining -= (size_t)got;
-    return (size_t)got;
+    FtpSourceOps ops{ ftpCtxLock, ftpCtxUnlock, ftpCtxRead, r };
+    return ftpReadChunkScoped(ops, buf, maxLen);
 }
 
 // PSRAM VFS source (already chunk-addressable; just advance the offset).
@@ -892,21 +940,22 @@ bool ftpUploadFileImpl(FtpLocalFs fs, const String& localPath, const String& rem
     // PSRAM (SDMMC DMA into PSRAM corrupts memory on ESP32-S3; see above).
     size_t fileSize = 0;
     File f;                    // SD / LFS handle, kept open for the stream
-    bool sdLocked = false;
     String vfsFolder, vfsFname;  // PSRAM-VFS source identity
 #if ENABLE_SDCARD==1
     if (useSd) {
-        // Held for the whole stream: the open File must not see concurrent
-        // create/delete/rename (log rotation, cleanup) mid-upload.
+        // Open+size only: the stream below re-locks per chunk (ftpFileReadChunk),
+        // so the SD mutex is never held across a network write. Holding it for the
+        // whole transfer is what made ftpMon exceed the watchdog (79-123 s, .9).
         if (!sdMutexLock(pdMS_TO_TICKS(5000))) { detail = "SD busy"; return false; }
-        sdLocked = true;
         f = SD_MMC.open(localPath, FILE_READ);
         if (f && !f.isDirectory()) fileSize = f.size();
+        sdMutexUnlock();
     }
 #endif
 #if ENABLE_FILESYSTEM==1
     if (!useSd && !usePsram && fs == FTP_FS_LFS) {
-        // Covered by the cycle-wide lfsMutex hold above (same as sdLocked).
+        // Open+size only, same rule as the SD path: the stream re-locks per
+        // chunk read (ftpFileReadChunk) instead of holding the flash lock.
         if (littlefsBegin()) {
             fs::FS& lfs = getLittleFS();
             f = lfs.open(localPath, FILE_READ);
@@ -923,8 +972,13 @@ bool ftpUploadFileImpl(FtpLocalFs fs, const String& localPath, const String& rem
         if (sz > 0 && sz < FTP_MAX_UPLOAD_BYTES) fileSize = sz;
     }
     if (!(fileSize > 0 && fileSize < FTP_MAX_UPLOAD_BYTES)) {
+#if ENABLE_SDCARD==1
+        if (useSd && f) {
+            if (sdMutexLock(pdMS_TO_TICKS(1000))) { f.close(); sdMutexUnlock(); }
+            else f.close();   // never leak the handle even if the card is busy
+        } else
+#endif
         if (f) f.close();
-        if (sdLocked) sdMutexUnlock();
         detail = "open/read failed or empty";
         return false;
     }
@@ -949,13 +1003,18 @@ bool ftpUploadFileImpl(FtpLocalFs fs, const String& localPath, const String& rem
         ftpEnsureRemoteDirs(ctl, resp, sizeof(resp), cwdOk ? String("") : remoteBase, remoteName);
         String remote = cwdOk ? remoteName : (remoteBase + "/" + remoteName);
         size_t sent = 0;
-        FtpFileReaderCtx fctx{ &f, fileSize };
+        FtpFileReaderCtx fctx{ &f, fileSize, useSd, (fs == FTP_FS_LFS) };
         FtpVfsReaderCtx vctx{ vfsFolder, vfsFname, 0, fileSize };
         bool stored;
         if (usePsram) stored = ftpStoreStream(ctl, fileSize, remote, resp, sizeof(resp), detail, sent, ftpVfsReadChunk, &vctx);
         else stored = ftpStoreStream(ctl, fileSize, remote, resp, sizeof(resp), detail, sent, ftpFileReadChunk, &fctx);
+#if ENABLE_SDCARD==1
+        if (useSd && f) {
+            if (sdMutexLock(pdMS_TO_TICKS(1000))) { f.close(); sdMutexUnlock(); }
+            else f.close();   // never leave the handle open for the next cycle
+        } else
+#endif
         if (f) f.close();
-        if (sdLocked) sdMutexUnlock();
         if (stored) {
             ok = true;
             detail = String("OK ") + remoteName + " (" + String((unsigned)sent) + "B)";
@@ -1007,53 +1066,55 @@ static int ftpRunCycle(String& detail) {
     bool onlyNew = configManager.getFtpOnlyNew();
     bool deleteAfter = configManager.getFtpDeleteAfter();
     int maxFiles = ftpClampMaxFiles(configManager.getFtpMaxFiles());
-#if ENABLE_SDCARD==1
-    // Exclusive SD for the WHOLE scan+upload cycle: FTP must be the only SD
-    // user while it runs. The old per-entry yield let concurrent writers
-    // (proximity CSV appends, web pages) interleave with the scan and wedge
-    // the SDMMC host (crash-loop, HISTORIC #57). While held here, writers wait
-    // their short timeout and skip; page handlers answer "sd_busy". The mutex
-    // is recursive, so the per-upload sdMutexLock below just nests.
+    // The storage lock is taken for the candidate SCAN and for each chunk read
+    // of an upload (ftpFileReadChunk), never for the whole cycle and never
+    // across a network write: the old cycle-wide hold kept the SD mutex for
+    // 79-123 s on .9 (multi-file queue over a slow link) and the SD watchdog
+    // force-released it. Writers (proximity CSV, log flush, web pages) now wait
+    // only for one scan or one 8 KB read, and the scan itself still runs with
+    // the lock held so a rotation cannot interleave mid-listing (HISTORIC #57).
     const char* pathP = nullptr;
     FtpLocalFs fs = ftpParseLocalRef(localRef.c_str(), pathP);
     fs = ftpResolveLocalFs(fs, sdcardShouldUseSD());
-    bool sdLocked = false;
-    if (fs == FTP_FS_SD) {
-        sdLocked = sdMutexLock(pdMS_TO_TICKS(8000));
-        if (!sdLocked) {
-            ftpLock(); s_status.busy = false; ftpUnlock();
-            detail = "SD busy"; return 0;
-        }
-    }
-#endif
 #if ENABLE_FILESYSTEM==1
-    // Exclusive LittleFS for the WHOLE scan+upload cycle when the cycle can
-    // touch flash (explicit LFS ref, or legacy AUTO without SD which merges
-    // the LittleFS mirrors). Same discipline as sdLocked above: while held,
-    // writers wait their short timeout and skip. Recursive: per-upload locks
-    // below just nest. (Crash guard: emailQueueProc LittleFS stat vs loop
-    // writers, .24 2026-10-14.)
-    bool lfsLocked = false;
+    bool touchesFlash = false;
     {
         const char* lpP = nullptr;
         FtpLocalFs askedFs = ftpParseLocalRef(localRef.c_str(), lpP);
-        bool touchesFlash = (fs == FTP_FS_LFS) ||
-                            (askedFs == FTP_FS_AUTO && !sdcardShouldUseSD());
-        if (touchesFlash) {
-            extern bool lfsMutexLock(TickType_t timeoutTicks);
-            lfsLocked = lfsMutexLock(pdMS_TO_TICKS(8000));
-            if (!lfsLocked) {
-                ftpLock(); s_status.busy = false; ftpUnlock();
-#if ENABLE_SDCARD==1
-                if (sdLocked) sdMutexUnlock();
-#endif
-                detail = "LittleFS busy"; return 0;
-            }
-        }
+        touchesFlash = (fs == FTP_FS_LFS) || (askedFs == FTP_FS_AUTO && !sdcardShouldUseSD());
     }
 #endif
     std::vector<FtpCandidate, PsramAllocatorStd<FtpCandidate>> cands;
-    ftpListCandidates(cands, localRef, filter.c_str());
+    {
+        bool scanLocked = false;
+#if ENABLE_SDCARD==1
+        if (fs == FTP_FS_SD) {
+            if (!sdMutexLock(pdMS_TO_TICKS(8000))) {
+                ftpLock(); s_status.busy = false; ftpUnlock();
+                detail = "SD busy"; return 0;
+            }
+            scanLocked = true;
+        }
+#endif
+#if ENABLE_FILESYSTEM==1
+        bool lfsScanLocked = false;
+        if (!scanLocked && touchesFlash) {
+            extern bool lfsMutexLock(TickType_t timeoutTicks);
+            lfsScanLocked = lfsMutexLock(pdMS_TO_TICKS(8000));
+            if (!lfsScanLocked) {
+                ftpLock(); s_status.busy = false; ftpUnlock();
+                detail = "LittleFS busy"; return 0;
+            }
+        }
+#endif
+        ftpListCandidates(cands, localRef, filter.c_str());
+#if ENABLE_FILESYSTEM==1
+        if (lfsScanLocked) { extern void lfsMutexUnlock(); lfsMutexUnlock(); }
+#endif
+#if ENABLE_SDCARD==1
+        if (scanLocked) sdMutexUnlock();
+#endif
+    }
     String sent = onlyNew ? ftpLoadSentList() : String("");
     // Each successful file appends "relPath:size\n"; reserve the worst case up
     // front so the loop does not realloc the growing String (fragmentation).
@@ -1080,13 +1141,6 @@ static int ftpRunCycle(String& detail) {
             sendVirtualMessage(String(F("FTP skip (file failed, continuing): ")) + cands[i].relPath + " | " + d, 1, true, false);
         }
     }
-#if ENABLE_SDCARD==1
-    if (sdLocked) sdMutexUnlock();
-#endif
-#if ENABLE_FILESYSTEM==1
-    extern void lfsMutexUnlock();
-    if (lfsLocked) lfsMutexUnlock();
-#endif
     ftpLock(); s_status.busy = false; ftpUnlock();
     s_lastCycle = millis();
     _ftpRtcSaveEpoch();
