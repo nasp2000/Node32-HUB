@@ -126,7 +126,11 @@ API accepts wider numeric ranges than the UI offers: timeout **1–1440**, max/d
    `sent/cap today` from `inactivity_alerts.slots[i].alerts_sent_today` plus a
    `sent this period` marker when `alert_sent_this_period` is set (red). The OEE tab has
    no counters in the payload, so it shows none.
-5. **Client validation** (only for enabled slots):
+5. **Markup + bounds are unit-tested**: the alerts/day options and the live-state div come from
+   `alerts_max_per_day_options.h` (rendered into a String in `test_alerts_options.cpp`), and both
+   config handlers use `alertsValidateMaxPerDay()` from `alerts_limits.h`, so the UI and the API
+   share one 1–100 range.
+6. **Client validation** (only for enabled slots):
    - emails empty → `customAlert("Define at least one email when alerts are active!")`, abort;
    - any item fails the e-mail rule (local part non-empty, one `@`, domain with a dot, TLD ≥2 letters; list split on `,`/`;`) → `customAlert` with `recipErrEmail`, abort. The same rule runs again server-side (`emailListLooksValid()`), so the two can never disagree.
 5. POST via `fetch('/api/inactivity-alert-config', {method:'POST', body:new URLSearchParams(fd), 'Content-Type':'application/x-www-form-urlencoded'})`.

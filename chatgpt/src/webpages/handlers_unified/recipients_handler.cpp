@@ -1,4 +1,5 @@
 #include "../../languages/lang_active.h"
+#include "../../alerts_limits.h"   // ALERTS-4: max/day bounds shared with the UI
 #include "../../email_validation.h"   // shared alert e-mail rule (client mirrors it)
 #include "recipients_handler.h"
 #include "../../feature_flags.h"
@@ -93,8 +94,13 @@ void handleInactivityAlertConfigPost(HttpRequest& req, HttpResponse& res) {
                 res.send(200, "application/json", F("{\"status\":\"error\",\"message\":\"Timeout must be 1-1440\"}"));
                 return;
             }
-            if (maxPerDayInt < 1 || maxPerDayInt > 100) {
-                res.send(200, "application/json", F("{\"status\":\"error\",\"message\":\"Max per day must be 1-100\"}"));
+            if (alertsValidateMaxPerDay(maxPerDayInt) != ALERTS_MAX_PER_DAY_OK) {
+                String msg = F("{\"status\":\"error\",\"message\":\"Max per day must be ");
+                msg += String(ALERTS_MAX_PER_DAY_MIN);
+                msg += '-';
+                msg += String(ALERTS_MAX_PER_DAY_LIMIT);
+                msg += F("\"}");
+                res.send(200, "application/json", msg);
                 return;
             }
             if (!emails.length()) {
@@ -237,8 +243,13 @@ void handleOeeAlertConfigPost(HttpRequest& req, HttpResponse& res) {
                 res.send(200, "application/json", F("{\"status\":\"error\",\"message\":\"Persist must be 1-240 minutes\"}"));
                 return;
             }
-            if (maxPerDayInt < 1 || maxPerDayInt > 100) {
-                res.send(200, "application/json", F("{\"status\":\"error\",\"message\":\"Max per day must be 1-100\"}"));
+            if (alertsValidateMaxPerDay(maxPerDayInt) != ALERTS_MAX_PER_DAY_OK) {
+                String msg = F("{\"status\":\"error\",\"message\":\"Max per day must be ");
+                msg += String(ALERTS_MAX_PER_DAY_MIN);
+                msg += '-';
+                msg += String(ALERTS_MAX_PER_DAY_LIMIT);
+                msg += F("\"}");
+                res.send(200, "application/json", msg);
                 return;
             }
             if (!emails.length()) {

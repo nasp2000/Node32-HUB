@@ -43,3 +43,17 @@ inline int alertsMaxPerDayExtraOption(int stored) {
 inline bool alertsMaxPerDayInRange(int value) {
     return value >= ALERTS_MAX_PER_DAY_MIN && value <= ALERTS_MAX_PER_DAY_LIMIT;
 }
+
+// Validation result for the handlers, so they reject with the right message and
+// the bounds can never drift from the UI again (ALERTS-4).
+enum AlertsMaxPerDayCheck : int {
+    ALERTS_MAX_PER_DAY_OK = 0,
+    ALERTS_MAX_PER_DAY_TOO_LOW,
+    ALERTS_MAX_PER_DAY_TOO_HIGH
+};
+
+inline AlertsMaxPerDayCheck alertsValidateMaxPerDay(int value) {
+    if (value < ALERTS_MAX_PER_DAY_MIN) return ALERTS_MAX_PER_DAY_TOO_LOW;
+    if (value > ALERTS_MAX_PER_DAY_LIMIT) return ALERTS_MAX_PER_DAY_TOO_HIGH;
+    return ALERTS_MAX_PER_DAY_OK;
+}

@@ -31,12 +31,21 @@ function extractFn(src, name) {
 }
 
 const src = fs.readFileSync(SRC, 'utf8');
-const code = extractFn(src, 'alertsLiveText') + '\n' + extractFn(src, 'alertsLiveApply');
+// The scheduling lines are top-level in the asset (they run when the page
+// loads), so the snippet keeps them after the three functions.
+const STARTUP = 'alertsLiveLoad();setInterval(alertsLiveLoad,30000);';
+if (src.indexOf(STARTUP) < 0) throw new Error('live-state startup lines not found in the asset');
+const code = extractFn(src, 'alertsLiveText') + '\n' + extractFn(src, 'alertsLiveApply') +
+             '\n' + extractFn(src, 'alertsLiveLoad') + '\n' + STARTUP;
 const rt = function (k, fb) { return fb !== undefined ? fb : k; };
 // The page functions read the global `document`; bind each test's own DOM.
-function makeApi(doc) {
-  return new Function('rt', 'document', code +
-    '\nreturn { text: alertsLiveText, apply: alertsLiveApply };')(rt, doc);
+function makeApi(doc, hooks) {
+  hooks = hooks || {};
+  return new Function('rt', 'document', 'fetch', 'setInterval', code +
+    '\nreturn { text: alertsLiveText, apply: alertsLiveApply, load: alertsLiveLoad };')(
+      rt, doc,
+      hooks.fetch || function () { return Promise.resolve({ json: function () { return Promise.resolve({}); } }); },
+      hooks.setInterval || function (fn, ms) { return { fn: fn, ms: ms }; });
 }
 const api = makeApi(new JSDOM('<!doctype html><body></body>').window.document);
 
@@ -77,6 +86,52 @@ test('slots without a live element are skipped', function () {
     { alerts_sent_today: 1, alert_sent_this_period: false },
     { alerts_sent_today: 1, alert_sent_this_period: false },
   ] } }), true, 'still applies what exists (no DOM nodes here)');
+});
+
+test('the live state is polled from /api/status every 30 s, not while hidden', function () {
+  const doc = new JSDOM('<!doctype html><body></body>').window.document;
+  // jsdom reports hidden=true without pretendToBeVisual; the page must see a
+  // visible tab for the load call.
+  Object.defineProperty(doc, 'hidden', { value: false, writable: true, configurable: true });
+  const calls = [];
+  let interval = null;
+  const api = makeApi(doc, {
+    fetch: function (url, opts) { calls.push({ url: url, cache: opts && opts.cache }); return Promise.resolve({ json: function () { return Promise.resolve({}); } }); },
+    setInterval: function (fn, ms) { interval = { fn: fn, ms: ms }; return 1; },
+  });
+  // The snippet runs the startup lines at construction, exactly like the page.
+  is(calls.length, 1, 'one fetch on load');
+  is(calls[0].url, '/api/status', 'endpoint');
+  is(calls[0].cache, 'no-store', 'cache policy');
+  is(interval && interval.ms, 30000, 'polls every 30 s');
+  // hidden tab: the timer fires but does not fetch
+  doc.hidden = true;
+  interval.fn();
+  is(calls.length, 1, 'no request while the tab is hidden');
+  doc.hidden = false;
+  interval.fn();
+  is(calls.length, 2, 'resumes when visible again');
+});
+
+test('renders the real /api/status shape (inactivity_alerts.slots[i])', function () {
+  // Field names as written by system_status_payload.h:827-828.
+  const dom = new JSDOM('<div id="alert_live_0"></div><select id="alert_max_0"><option value="6" selected>6</option></select>',
+                        { url: 'http://localhost' });
+  const doc = dom.window.document;
+  const api = makeApi(doc);
+  const payload = {
+    status: 'ok',
+    inactivity_alerts: {
+      sensors_reset_timer: true,
+      alerts_sent_today: 2,
+      slots: [
+        { enabled: true, timeout_minutes: 20, max_per_day: 6, emails: 'a@b.com',
+          alerts_sent_today: 2, alert_sent_this_period: true },
+      ],
+    },
+  };
+  is(api.apply(payload), true, 'applied');
+  is(doc.getElementById('alert_live_0').textContent, '2/6 today \u00b7 sent this period', 'text from the real shape');
 });
 
 var total = passed + failed;

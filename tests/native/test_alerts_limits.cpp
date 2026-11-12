@@ -53,6 +53,19 @@ TEST_CASE("range check matches the config handlers (1..100)") {
     CHECK_FALSE(alertsMaxPerDayInRange(200));
 }
 
+TEST_CASE("handler validation reports why a value is refused") {
+    // The handlers call alertsValidateMaxPerDay(); the message is built from the
+    // same constants, so the bounds cannot drift from the UI again.
+    CHECK(alertsValidateMaxPerDay(-1) == ALERTS_MAX_PER_DAY_TOO_LOW);
+    CHECK(alertsValidateMaxPerDay(0) == ALERTS_MAX_PER_DAY_TOO_LOW);
+    CHECK(alertsValidateMaxPerDay(1) == ALERTS_MAX_PER_DAY_OK);
+    CHECK(alertsValidateMaxPerDay(60) == ALERTS_MAX_PER_DAY_OK);
+    CHECK(alertsValidateMaxPerDay(80) == ALERTS_MAX_PER_DAY_OK);   // API-set value the UI must show
+    CHECK(alertsValidateMaxPerDay(100) == ALERTS_MAX_PER_DAY_OK);
+    CHECK(alertsValidateMaxPerDay(101) == ALERTS_MAX_PER_DAY_TOO_HIGH);
+    CHECK(alertsValidateMaxPerDay(1000) == ALERTS_MAX_PER_DAY_TOO_HIGH);
+}
+
 TEST_CASE("option index guards") {
     CHECK(alertsMaxPerDayOptionAt(-1) == 0);
     CHECK(alertsMaxPerDayOptionAt(alertsMaxPerDayOptionCount()) == 0);
