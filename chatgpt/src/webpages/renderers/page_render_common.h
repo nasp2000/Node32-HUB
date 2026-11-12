@@ -1,8 +1,20 @@
 #pragma once
 
 #include <Arduino.h>
+#include <ESPAsyncWebServer.h>   // AsyncWebServerRequest::client() (allowSlowClientAck)
 
 extern const char* FIRMWARE_VERSION;
+
+// A chunked HTML page can stay unacknowledged for longer than the AsyncTCP ACK
+// timeout while the browser is busy parsing/rendering it — this build sets
+// CONFIG_ASYNC_TCP_MAX_ACK_TIME=1000, and on expiry AsyncWebServerRequest
+// closes the client, which the browser reports as
+// ERR_INCOMPLETE_CHUNKED_ENCODING mid-document (crawl 2026-11-12: /camera,
+// 72 KB, 2/2 crawls; curl always got the full body). Give long HTML pages the
+// same generous window the MJPEG stream already uses.
+inline void allowSlowClientAck(AsyncWebServerRequest* req, uint32_t ms = 30000) {
+    if (req && req->client()) req->client()->setAckTimeout(ms);
+}
 
 inline size_t streamPageShellStart(Print& out, const char* title) {
     size_t n = 0;

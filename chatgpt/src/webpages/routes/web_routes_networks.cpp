@@ -34,6 +34,9 @@ void registerNetworksRoutes(AsyncWebServer& server, const WebRouteContext& conte
         const size_t pLen = _pre.length(), aLen = _aLen, sLen = _suf.length();
         const char*  pPtr = _pre.c_str(),  *sPtr = _suf.c_str();
 
+        // Long page: a busy browser may ACK slowly (>1 s) and the
+        // request timeout would cut the chunked stream (CAM-28).
+        allowSlowClientAck(req);
         AsyncWebServerResponse* response = req->beginChunkedResponse(
             "text/html; charset=utf-8",
             [pLen, aLen, sLen, pPtr, sPtr](uint8_t* buf, size_t maxLen, size_t index) -> size_t {

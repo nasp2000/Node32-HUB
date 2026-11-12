@@ -318,6 +318,13 @@ async function runTarget(target, cdp, opts, outRoot, log) {
     current.exceptions.push(String(txt).slice(0, 300));
     log(`[exception] ${String(txt).slice(0, 300)}`);
   });
+  // requestId -> url, so a failure names the resource and not just its type
+  const reqUrl = new Map();
+  cdp.on('Network.requestWillBeSent', (p, sid) => {
+    if (sid !== S) return;
+    if (p.requestId) reqUrl.set(p.requestId, String((p.request && p.request.url) || ''));
+    if (reqUrl.size > 400) reqUrl.delete(reqUrl.keys().next().value);
+  });
   cdp.on('Network.responseReceived', (p, sid) => {
     if (sid !== S) return;
     const r = p.response || {};
@@ -327,7 +334,11 @@ async function runTarget(target, cdp, opts, outRoot, log) {
   cdp.on('Network.loadingFailed', (p, sid) => {
     if (sid !== S) return;
     if (p.canceled) return;
-    current.failed.push(`${p.errorText || 'failed'} ${String(p.type || '').slice(0, 20)}`);
+    const u = reqUrl.get(p.requestId) || '';
+    // Keep the short form (used by the summary) but carry the URL when we have it.
+    current.failed.push(u
+      ? `${p.errorText || 'failed'} ${String(p.type || '').slice(0, 20)} ${u.slice(0, 160)}`
+      : `${p.errorText || 'failed'} ${String(p.type || '').slice(0, 20)}`);
   });
 
   await cdp.send('Page.enable', {}, S);

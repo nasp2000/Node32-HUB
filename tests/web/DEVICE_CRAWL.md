@@ -44,7 +44,7 @@ report accounts for the whole manifest.
 | HTTP status of the document is 200 | FAIL |
 | `console.error` / uncaught JS exception | FAIL |
 | Rendered text contains `&#123;`, `\u{XXXX}`, `â€`, `Ã…` (escaped/mojibake) | FAIL |
-| Failed requests / HTTP >= 400 (assets, XHR) | WARN |
+| Failed requests / HTTP >= 400 (assets, XHR) — the failed request's URL is reported too | WARN |
 | `data-i18n-ready` never becomes `1` | WARN (noted) |
 | Each tab/section: screenshot + the same text check + new console errors | FAIL / WARN |
 
