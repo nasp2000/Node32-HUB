@@ -297,6 +297,7 @@ void handleTestManifestGet(HttpRequest& req, HttpResponse& res) {
     PAGE("/uda1334a",            ENABLE_UDA1334A);
     PAGE("/radio-ui",            ENABLE_UDA1334A);
     PAGE("/grbl-controller",     ENABLE_GRBL);
+    PAGE("/m",                   ENABLE_GRBL);   // mobile wizard step 1
     PAGE("/sensor-config",       (ENABLE_AHT20_BMP280 && ENABLE_SENSOR_CONFIG_PAGE));
     PAGE("/mq135-config",        ENABLE_MQ135);
     PAGE("/hx711",               ENABLE_HX711);

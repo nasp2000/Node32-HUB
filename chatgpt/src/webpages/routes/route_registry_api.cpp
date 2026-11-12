@@ -318,6 +318,7 @@ static const LegacyRoute s_legacyRoutes[] = {
     {"GET", "/GoogleAppsScript_EmailHandler.js"},
     {"GET", "/google-script"},
     {"GET", "/grbl-controller"},
+    {"GET", "/m"},
     {"GET", "/healthz"},
     {"GET", "/hx711"},
     {"GET", "/ina226"},

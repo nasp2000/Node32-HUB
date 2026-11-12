@@ -134,6 +134,16 @@ history and is still the place to look before changing shared wiring.
 |---|---|---|---|---|
 | FTP-1 | High | **`ftpMon` held the SD mutex for 79 s / 94 s / 110 s on `.9` (2026-11-12) and the SD watchdog force-released it at 120 s** ("Mutex recovered; reboot advisable"). `ftpRunCycle` locked once for the whole scan+upload pass and `ftpUploadFileImpl` held it across `ftpStoreStream` — i.e. across every network write, so the hold scaled with the queue size and link speed (4 MB file at 250 ms/8 KB ≈ 128 s). **Fixed:** the lock now covers storage access only — the candidate scan, `open`+`size`, each 8 KB chunk read (`ftp_stream_guard.h`, `ftpReadChunkScoped`) and the delete-after; the network write runs unlocked. Longest hold = one scan or one chunk read (few ms) whatever the file/link. 5 native cases (`test_ftp_stream_guard.cpp`) reproduce the old 128 s hold and prove the scoped one stays at 4 ms with 0 holds during a send; busies unlock nothing and leak nothing. | `ftp_client.cpp` (`ftpRunCycle`, `ftpUploadFileImpl`, `ftpFileReadChunk`), `ftp_stream_guard.h`, `tests/native/test_ftp_stream_guard.cpp` | fixed — native only, no OTA yet |
 
+## Mobile G-code wizard (`gcode_mobile.md` → `/m`)
+
+| ID | Pri | Issue | Files | Status |
+|---|---|---|---|---|
+| GM-1 | High | Step 1 *Send G-code*: vertical, no-scroll screen that uploads a job from the phone to the controller's PSRAM workspace. Verified in Chromium mobile emulation at 320×568 / 360×640 / 390×844 / 412×915 (`scrollHeight == clientHeight`), 14 jsdom cases. PC page untouched. | `page_gcode_mobile_asset.cpp`, `gcode_mobile_page_renderer.cpp`, `web_routes_monitor.cpp`, `tests/web/test_gcode_mobile.js` | fixed |
+| GM-2 | High | Step 2 *Frame*: outline the job's bounding box on the machine (uses `GET /api/grbl/frame-bbox` + the frame actions of the PC page) | — | open (next run) |
+| GM-3 | High | Step 3 *Play*: start the uploaded job (`psram-stream` / `stream`) with pause/cancel | — | open |
+| GM-4 | Medium | Entry point for the wizard (home page is shared by all packs, so it was left untouched): decide between a CNC-only home tile and a mobile-only link | `page_home_*` | open |
+| GM-5 | Low | i18n keys (`gm*`) for the wizard; English fallback text only for now | `lang_en_ui.h`, `lang_pt_ui.h` | open |
+
 ## Files (`files.md` → `/files`)
 
 | ID | Pri | Issue | Files | Status |

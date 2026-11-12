@@ -14,6 +14,7 @@
 #include "route_registry_api.h"
 #if ENABLE_GRBL == 1
 #include "../renderers/grbl_controller_page_renderer.h"
+#include "../renderers/gcode_mobile_page_renderer.h"
 #endif
 #include "../renderers/sensor_charts_page_renderer.h"
 #include "../renderers/status_page_renderer.h"
@@ -503,6 +504,28 @@ void registerMonitorRoutes(AsyncWebServer& server, const WebRouteContext& contex
         request->send(response);
 #ifndef QUIET_HTTP_LOGS
         context.logServed(request, "/grbl-controller", bytes, false);
+#endif
+    });
+
+    // Mobile G-code wizard, step 1 ("Send G-code"). Vertical, no-scroll screen;
+    // the PC controller page above is a separate asset and stays untouched.
+    server.on("/m", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+        if (!context.ensureBasicAuth(request)) return;
+        if (sendNotModifiedIfCached(request)) return;
+        if (!context.allowHtmlClient(request)) return;
+
+        AsyncResponseStream* response = request->beginResponseStream("text/html; charset=utf-8");
+        if (!response) {
+            context.decrementActiveHtmlSessions();
+            request->send(500, "text/plain", "Internal Server Error");
+            return;
+        }
+        response->addHeader("ETag", FIRMWARE_BUILD);
+        response->addHeader("Cache-Control", "private, max-age=15, must-revalidate");
+        const size_t bytes = streamGcodeMobilePageToPrint(*response);
+        request->send(response);
+#ifndef QUIET_HTTP_LOGS
+        context.logServed(request, "/m", bytes, false);
 #endif
     });
 #endif
