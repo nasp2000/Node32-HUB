@@ -15,6 +15,7 @@
 #if ENABLE_GRBL == 1
 #include "../renderers/grbl_controller_page_renderer.h"
 #include "../renderers/gcode_mobile_page_renderer.h"
+#include "../../ua_classify.h"   // phone -> /m by default (UID 288)
 #endif
 #include "../renderers/sensor_charts_page_renderer.h"
 #include "../renderers/status_page_renderer.h"
@@ -488,6 +489,16 @@ void registerMonitorRoutes(AsyncWebServer& server, const WebRouteContext& contex
 #if defined(SELECTED_PACK) && (SELECTED_PACK == PACK_P4_CNC || SELECTED_PACK == PACK_S3_CNC)
     server.on("/grbl-controller", HTTP_GET, [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
+        // Phones get the mobile wizard by default (UID 288); desktop keeps this
+        // page, byte-identical. `?desk=1` forces the full controller from any
+        // device, so a phone is never locked out of jog/pendant features.
+        if (!request->hasParam("desk")) {
+            const AsyncWebHeader* uaHdr = request->getHeader("User-Agent");
+            if (uaWantsMobileWizard(uaHdr ? uaHdr->value().c_str() : nullptr)) {
+                request->redirect("/m");
+                return;
+            }
+        }
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
 

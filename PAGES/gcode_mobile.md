@@ -30,7 +30,7 @@ Run a job from a phone with three single-action screens:
 | Ethernet | not registered: the CNC packs have no Ethernet build (`ENABLE_ETHERNET` off) |
 | Auth / caching | `ensureBasicAuth` + `allowHtmlClient`; `ETag = FIRMWARE_BUILD`, `private, max-age=15, must-revalidate` |
 | Session | **not** never-kick: it is a static page (one-shot GETs, no polling), so the normal static rules apply |
-| Home entry | none yet (kept out on purpose: the home page is shared by every pack) |
+| Entry point | **`GET /grbl-controller` from a phone** redirects here (302) — decided by `ua_classify.h` on the User-Agent only; desktop and tablets keep the full controller, `?desk=1` forces it from any device. No home-page tile (that page is shared by every pack). |
 | i18n | English fallback text only, no `data-i18n` keys yet — keys arrive with the complete wizard |
 
 Renderer: `renderers/gcode_mobile_page_renderer.cpp` → `assets/page_gcode_mobile_asset.cpp`
@@ -151,7 +151,7 @@ fallbacks so the page is readable before the dictionary loads.
 |---|---|---|
 | 1 | No scroll on any of the three steps at 320×568, 360×640, 390×844, 412×915 (12/12 combinations: `scrollHeight == clientHeight`, `overflow:hidden` on body and screen) | verified |
 | 2 | Frame uses the browser-computed bounds, so a job uploaded in a previous session needs the file picked again (the controller only reports name/size) | by design for now |
-| 3 | No entry point yet: the PC page and the shared home page were kept untouched, so `/m` is typed manually | open (BACKLOG GM-4) |
+| 3 | Entry point: `GET /grbl-controller` from a phone now redirects here (UA-based, `?desk=1` escape); tablets and desktop are untouched | fixed (GM-4) |
 | 4 | Upload is limited to the 4 MB PSRAM workspace; larger jobs must go through the PC page's SD path | by design for now |
 | 5 | Frame runs at a fixed 5% / F1200 (no power/feed UI on the phone) | by design for now |
 

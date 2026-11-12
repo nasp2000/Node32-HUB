@@ -22,7 +22,8 @@ itself persists no settings (all board settings live in ConfigManager / SD).
 |---|---|
 | Page URL | `GET /grbl-controller` |
 | Feature flag | `ENABLE_GRBL`; **route/API block gated to CNC packs** (`PACK_P4_CNC` / `PACK_S3_CNC`) in `web_routes_monitor.cpp:44` |
-| WiFi server | `web_routes_monitor.cpp:486` — streams `streamGrblControllerPageToPrint()` |
+| WiFi server | `web_routes_monitor.cpp` — streams `streamGrblControllerPageToPrint()` |
+| Phone entry (UID 288) | **Phones are redirected to `/m`** (mobile wizard) before the page is streamed, decided on `User-Agent` only (`ua_classify.h`: iPhone/iPod/Android+Mobile/Windows Phone/BlackBerry/Opera Mini → phone). Tablets (iPad, Android without `Mobile`, Kindle/Silk/PlayBook) and desktop keep this page byte-identical; `?desk=1` forces it from any device. Unknown/absent UA (curl, scripts, bots) counts as desktop. |
 | Ethernet | `ethernet_bootstrap_routes.h:186` → `streamSharedGrblControllerPage` (`web_shared_pages.cpp:103`) |
 | Auth / caching | `ensureBasicAuth` + `allowHtmlClient`; `ETag` = `FIRMWARE_BUILD`, `private, max-age=15, must-revalidate` |
 | Session exemption | ALWAYS exempt (local processing) — unconditional `window._localPagesNeverExpire=true`, never kicked by time |

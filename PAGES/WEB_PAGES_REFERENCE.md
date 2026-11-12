@@ -40,8 +40,8 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/serial-monitor` | Serial monitor variant | local | 3 s | B | **A** | `ENABLE_PAGE_MONITOR` |
 | `/sensor-charts` | Real-time sensor charts + buffers; after reboot/late `from`, merges SD day `.chart` head with live ring (`streamMergedWindow`); pre-reboot gaps bridged from the RTC RAM tail (`sensor_rtc_tail.h`) | local | hb 45 s + 1 s | B + V | **A** (*) | charts enable + sensor flags |
 | `/buffer-viewer` | GRBL serial buffer viewer | local | 5 s | B | **A** | `ENABLE_PAGE_MONITOR` |
-| `/grbl-controller` | CNC/GRBL: jog, MDI, files, height map | hybrid | WS 100 ms / REST 800 ms | B | **A** | `ENABLE_GRBL` |
-| `/m` | **Mobile wizard 1·2·3**: send a G-code file to the controller, frame its area, start/stop the job (vertical, no scroll; arrows swap the three screens in one route) | hybrid | token/psram-file/status on load; `/api/grbl/status` 1 s only while step 3 is open | B | no (static page, no `_localPagesNeverExpire`) | `ENABLE_GRBL` + CNC packs |
+| `/grbl-controller` | CNC/GRBL: jog, MDI, files, height map. **Phones are redirected to `/m`** (UA-based, `?desk=1` forces this page) | hybrid | WS 100 ms / REST 800 ms | B | **A** | `ENABLE_GRBL` |
+| `/m` (phone default) | Mobile wizard 1·2·3 reached from `/grbl-controller` on a phone UA; send/frame/play, vertical, no scroll | hybrid | token/psram-file/status on load; `/api/grbl/status` 1 s only on step 3 | B | no | `ENABLE_GRBL` + CNC packs |
 | `/camera` | Live camera + motion/playback (MJPG) | local | img poll 5 s | B | **A** | `ENABLE_CAMERA` + `ENABLE_SDCARD` |
 | `/hub` | Camera hub/aggregator | local | 10 s | B | **A** | `ENABLE_CAMERA` |
 | `/cam/snapshot` · `/cam/stream` · `/cam/raw` · `/cam/playback` · `/cam/motion/diff` | JPEG/MJPEG/raw/motion/playback streams | stream | on demand / long-lived; raw +10 s status watchdog (CAM-63) | B | **A** (~) | `ENABLE_CAMERA` |
