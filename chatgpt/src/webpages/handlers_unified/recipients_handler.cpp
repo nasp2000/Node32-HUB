@@ -1,4 +1,5 @@
 #include "../../languages/lang_active.h"
+#include "../../email_validation.h"   // shared alert e-mail rule (client mirrors it)
 #include "recipients_handler.h"
 #include "../../feature_flags.h"
 #include "../../coordinator_hooks.h"
@@ -100,8 +101,8 @@ void handleInactivityAlertConfigPost(HttpRequest& req, HttpResponse& res) {
                 res.send(200, "application/json", F("{\"status\":\"error\",\"message\":\"Emails required when alert is active\"}"));
                 return;
             }
-            if (emails.indexOf('@') < 0) {
-                res.send(200, "application/json", F("{\"status\":\"error\",\"message\":\"Invalid email (missing @)\"}"));
+            if (!emailListLooksValid(emails.c_str())) {
+                res.send(200, "application/json", F("{\"status\":\"error\",\"message\":\"Invalid email (check format)\"}"));
                 return;
             }
         }
@@ -244,8 +245,8 @@ void handleOeeAlertConfigPost(HttpRequest& req, HttpResponse& res) {
                 res.send(200, "application/json", F("{\"status\":\"error\",\"message\":\"Emails required when alert is active\"}"));
                 return;
             }
-            if (emails.indexOf('@') < 0) {
-                res.send(200, "application/json", F("{\"status\":\"error\",\"message\":\"Invalid email (missing @)\"}"));
+            if (!emailListLooksValid(emails.c_str())) {
+                res.send(200, "application/json", F("{\"status\":\"error\",\"message\":\"Invalid email (check format)\"}"));
                 return;
             }
         }

@@ -89,7 +89,7 @@ boundary, never at midnight), email only with valid recipients + wifi.
 | Enable | `alert_enabled_<i>` | checkbox (18×18) | on/off | disabled |
 | Timeout | `alert_timeout_<i>` | select | `5,10,20,30,45,60,120,180,360,720,1440` min → labels *5 min…24 h* | `20` min |
 | Alerts/day | `alert_max_<i>` | select | `3,6,9,12,15,20,25,30,45,60` (option text hardcodes PT suffix *"avisos/dia"*) | `12` |
-| Emails | `alert_emails_<i>` | text | comma-separated list, placeholder `email1@ex.com, email2@ex.com`; loose validation (must contain `@`) | empty |
+| Emails | `alert_emails_<i>` | text | comma-separated list, placeholder `email1@ex.com, email2@ex.com`; validated by the shared rule (`email_validation.h`, mirrored in the page JS): local part 1–64, one `@`, dotted domain, TLD ≥2 letters | empty |
 
 ### OEE per-slot inputs — proximity builds only (repeat for `i = 0 … 2`, all disabled by default)
 
@@ -123,7 +123,7 @@ API accepts wider numeric ranges than the UI offers: timeout **1–1440**, max/d
    `alert_emails_i` (trimmed).
 4. **Client validation** (only for enabled slots):
    - emails empty → `customAlert("Define at least one email when alerts are active!")`, abort;
-   - no `@` in emails → `customAlert("Invalid email (missing @)")`, abort.
+   - any item fails the e-mail rule (local part non-empty, one `@`, domain with a dot, TLD ≥2 letters; list split on `,`/`;`) → `customAlert` with `recipErrEmail`, abort. The same rule runs again server-side (`emailListLooksValid()`), so the two can never disagree.
 5. POST via `fetch('/api/inactivity-alert-config', {method:'POST', body:new URLSearchParams(fd), 'Content-Type':'application/x-www-form-urlencoded'})`.
 6. Response JSON:
    - `status==='ok'` → `hideLoading(); enableBtn(b)` + `customAlert('Saved!')` + `showSavedCard()`;
