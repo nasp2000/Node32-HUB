@@ -33,6 +33,7 @@
 #include "sdkconfig.h"
 #include "camera_pins.h"  // CAM_PIN_SIOD/SIOC/XCLK on the 40-pin header
 #include "camera_p4_h264.h"  // Fase 4: H.264 fps ceiling (pure header)
+#include "camera_resolution.h"  // CAM-78 usable modes + CAM-79 fps cap (pure)
 #include "camera_motion_uyvy.h"  // motion luma tap (pure header, no deps)
 #include "psram_helpers.h"  // ps_malloc() for the USB frame slot
 #include "log.h"            // LogLevel (INFO/WARN/ERROR)
