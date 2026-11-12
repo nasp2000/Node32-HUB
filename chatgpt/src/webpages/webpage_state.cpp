@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "../web_session_tracker.h"  // stale-tracker rule (native-tested)
 #include "../arduinojson_fix.h"
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
@@ -343,10 +344,12 @@ void webclientCleanup() {
 	// Multi-client mode safety net: reset session counter if no activity for 30s.
 	// This recovers from leaked counters when onDisconnect is not called (e.g. reused
 	// TCP connections, stack-level resets, or responses completed before disconnect fires).
+	// "Activity" includes heartbeats from live pages (see webLocalPageHeartbeat), so a
+	// browser that only polls APIs is never mistaken for a leaked session.
 	if (!configManager.getWebSingleClientOnly()) {
 		multiTrackPrune(now);
 		activeHtmlSessions = multiTrackCount();
-		if (activeHtmlSessions > 0 && multiClientLastActivityMs > 0 && (now - multiClientLastActivityMs >= 30000UL)) {
+		if (webTrackerIsStale(now, multiClientLastActivityMs, (uint8_t)activeHtmlSessions)) {
 			for (uint8_t i = 0; i < MULTI_TRACK_MAX; i++) multiTrack[i].used = false;
 			activeHtmlSessions = 0;
 			sendVirtualMessage(F("Web: reset multi-client sessions (stale tracker)"), INFO);
@@ -395,8 +398,12 @@ void decrementActiveHtmlSessions() {
 void webLocalPageHeartbeat(AsyncWebServerRequest* request) {
 	if (configManager.getWebSingleClientOnly()) return;
 	if (!request || !request->client()) return;
+	const unsigned long nowMs = millis();
 	bool dummy = false;
-	multiTrackTouch(request->client()->remoteIP(), millis(), dummy);
+	if (!multiTrackTouch(request->client()->remoteIP(), nowMs, dummy)) return;
+	// A live page that only polls APIs is still an active client: without this
+	// the 30 s stale-tracker reset wiped it over and over (web_session_tracker.h).
+	multiClientLastActivityMs = webTrackerTouch(nowMs, multiClientLastActivityMs, (uint8_t)multiTrackCount());
 }
 
 bool ensureBasicAuth(AsyncWebServerRequest* request) {

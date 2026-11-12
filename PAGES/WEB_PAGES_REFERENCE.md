@@ -7,6 +7,8 @@ Legend: `local` = polls continuously in the browser; `static` = config page (one
 `stream` = data stream; `hybrid` = real-time-ish. Auth: `B` = Basic, `V` = viewer account may open
 (`/`, `/status`, `/sensor-charts`, `/monitor`, `/files` — rest → 403).
 Never kick: `A` = **never closes by time**; `no` = static page (see rules below).
+Session engine (multi-client): every request from a tracked IP is activity — a page that only
+polls APIs keeps its slot (the 30 s stale reset needs real silence, `web_session_tracker.h`).
 
 ## Never-kick rules (essential)
 

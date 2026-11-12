@@ -233,8 +233,13 @@ All enforcement reads config at request time → changes apply immediately.
   - Viewer restriction: if the request authenticates with the **viewer** account, only
     `/`, `/status`, `/sensor-charts`, `/monitor`, `/files` are allowed (else 403).
   - `charts_exempt` short-circuits the idle/absolute expiry checks (local pages never kick).
-- **`webclientCleanup()`** (`:340`) — periodic: prunes stale multi-client tracker (30 s
-  no-activity reset) and expires single-client sessions, recording an `expired` history event.
+- **`webclientCleanup()`** (`:340`) — periodic (every 5 s): prunes stale multi-client tracker
+  and expires single-client sessions, recording an `expired` history event. The 30 s
+  multi-client reset is decided by `webTrackerIsStale()` (`web_session_tracker.h`, native-tested)
+  and needs **real** silence: a `webLocalPageHeartbeat()` (any API poll from a live page) counts
+  as activity and refreshes the stamp (`webTrackerTouch()`). Before 2026-11-12 only a new HTML
+  page load moved that stamp, so a browser sitting on one live page (camera, `/m` step 3,
+  status polling) was wiped every 30 s and `active_html_sessions` kept dropping to 0.
 - **`webclientForceReset()`** (`:377`) — records `kick-all` event, clears all session state.
 - **`ensureBasicAuth()`** (`:390`) — master switch `auth_enabled`; if off → open. No
   credentials configured → open (lockout guard). Otherwise authenticates admin **or** viewer.

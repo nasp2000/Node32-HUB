@@ -53,7 +53,7 @@ TEST_BINS = ["test_modbus_crc", "test_charset", "test_string_utils",
                  "test_ogg_parser", "test_opus_head", "test_stb_vorbis_decode", "test_sensor_day_report", "test_email_body_archive",
              "test_lfs_mutex_guard", "test_email_flash_rpc",
              "test_email_recipients", "test_email_event_fields", "test_ftp_status_store",
-             "test_sd_mutex_guard", "test_ftp_stream_guard"]
+             "test_sd_mutex_guard", "test_ftp_stream_guard", "test_web_session_tracker"]
 LOGS_DIR = os.path.normpath(os.path.join(_PARENT, "..", "logs"))
 LOG_FILE = os.path.join(LOGS_DIR, "test_results_latest.txt")
 
