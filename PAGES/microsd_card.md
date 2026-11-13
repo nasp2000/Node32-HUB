@@ -49,13 +49,17 @@ main.page.sdcard > div.wrap
   ├ "🗑️ Auto Cleanup" card (always active — no on/off toggle)
   │  ├ table: #sd_cleanup_threshold | #sd_keep_days
   │  └ note: "cleanup always on: above the limit the oldest goes whatever its age; below the limit only older than keep_days; /config is never deleted"
+ ├ "⌨️ Commands" card (`SDCARD_COMMANDS_SECTION`, rendered since SD-3)
+ │  ├ hint: the commands are typed on the command-sending pages
+ │  └ EMAILDAY / EMAILDAY [date] · LOGDAY / LOGDAY [date] · SENSORDAY / SENSORDAY [date] with examples
  ├ [💾 Save]  (#sd_save)
  ├ #sd_config_msg   (result line under the button)
  └ footer JS: <script src='/auto.js'> + init call
 ```
 
-> Note: a "⌨️ Commands" card (EMAILDAY / LOGDAY / SENSORDAY help) exists in the asset
-> (`SDCARD_COMMANDS_SECTION`) but is **never rendered** — see finding SD-3.
+The body is composed by `streamSdcardPageBody()` (`renderers/sdcard_page_body.h`):
+settings sections → commands card → Save block. A native test renders it and pins
+the order and the ids auto.js needs (`test_sdcard_page_body.cpp`).
 
 ---
 
@@ -129,13 +133,12 @@ Project rules: `customAlert`/`showSavedCard` (auto.js), no arrow functions, i18n
 `window._t(k, fallback)` — **but the fallbacks here are hardcoded PT** (rule violation,
 finding SD-5).
 
-### Dead inline code (must not be trusted)
+### Only one initialiser ships
 
-`PAGE_SDCARD_PART2` (`page_sdcard_asset.cpp:132-205`) contains a **duplicate** inline
-`initSdcardPage()` that uses `bindClick`/`apiGet`/`apiPost` (undefined helpers) and posts
-mount/unmount to `/api/sdcard-config-save` with `{mount:1}` — the wrong endpoint, which the
-save handler ignores. It is shadowed by the auto.js version at load time and never runs.
-See finding SD-2.
+`PAGE_SDCARD_PART2` is markup only. The duplicate inline `initSdcardPage()` it used to carry
+(undefined `bindClick`/`apiGet`/`apiPost`, mount/unmount posted to the config-save endpoint)
+was removed (SD-2): the renderer calls the auto.js `initSdcardPage()` after the `/auto.js`
+footer, and the native test asserts no `<script>` survives in the body.
 
 ---
 
@@ -322,7 +325,7 @@ and `sdGettingStatus` (initial "Getting status..." cell), `sdUnmountConfirm`
 | # | Finding | Severity | Status |
 |---|---|---|---|
 | 1 | **Save no longer wipes fields not exposed on this page.** `saveConfig()` now preserves and re-sends `structured`, `email_from_sd`, `max_size_mb`, `emailday_extra_emails` (cached from `GET /api/sdcard-config`), so a save here no longer erases EMAILDAY extra emails or resets those settings. | High | **fixed** (auto.js + client) |
-| 2 | **Dead duplicate `initSdcardPage()`** in `page_sdcard_asset.cpp:132-205` — shadowed by the auto.js version. Uses undefined helpers `bindClick`/`apiGet`/`apiPost` and wrong keys (`write_pause_ms`, `active`, `email`); posts mount/unmount to `/api/sdcard-config-save` (wrong endpoint). If auto.js ever stops defining it, the page breaks with a ReferenceError. | Medium | open |
+| 2 | **Dead duplicate `initSdcardPage()`** — shadowed by the auto.js version, undefined helpers, wrong endpoint. **Fixed:** removed with the inline script (5.8 KB); the renderer's footer call still uses the auto.js version, and `test_sdcard_page_body.cpp` asserts no `<script>`/`bindClick`/`apiGet`/`apiPost` remains in the body. | Medium | fixed |
 | 3 | **Commands card never rendered.** `SDCARD_COMMANDS_SECTION` (EMAILDAY/LOGDAY/SENSORDAY help) is defined but not printed by the renderer — users can't see it here. | Medium | open |
 | 4 | **`#sd_msg` element missing + dead `j.disabled` branch.** auto.js writes mount/unmount/refresh feedback to `#sd_msg` which doesn't exist (only `sd_info`/`sd_config_msg`), so action results are invisible; and `render()` checks `j.disabled` which `sharedWebBuildSdStatusJson` never emits ("SD desativado" unreachable). | Low | open |
 | 5 | **PT runtime fallbacks in auto.js + server fixed.** Runtime fallbacks and server codes/messages are now English (`No SD data`, `Mounted`, `Configuration saved!`, `invalid_flush_interval`, `Config saved`, `Mount started in background`, `Counter reset`). | Low | **fixed** |
