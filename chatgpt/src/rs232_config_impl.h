@@ -298,6 +298,8 @@ void applyRS232Config() { // Apply RS232 configs or perform startup if first run
             ntpRetries++;
         }
         
+        heapTraceMark("ntp_wait");   // A8: configTzTime + the NTP wait loop (max 10 s)
+
         if(now > 100000) {
             struct tm timeinfo;
             localtime_r(&now, &timeinfo);
@@ -365,6 +367,7 @@ void applyRS232Config() { // Apply RS232 configs or perform startup if first run
                 panicContextReport();
             }
             #endif
+            heapTraceMark("ntp_log");   // A8: crash-logger + log header + boot snapshot + debug writer
         } else {
             safeEnviarMensagemVirtual("NTP FAILED: invalid time after %d attempts", WARN, ntpRetries);
         }
