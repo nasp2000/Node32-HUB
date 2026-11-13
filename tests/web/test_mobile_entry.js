@@ -27,10 +27,14 @@ function test(name, fn) {
 function ok(v, m) { if (!v) throw new Error(m || 'assertion failed'); }
 function is(a, b, m) { if (a !== b) throw new Error(m || ('expected ' + JSON.stringify(b) + ' got ' + JSON.stringify(a))); }
 
-// The /grbl-controller handler block, from its server.on( to the closing "});".
+// The /grbl-controller handler block, from its route registration to the
+// closing "});". Page GET routes moved from server.on(path, HTTP_GET, …) to
+// registerPageGet(path, …) (A1b, 2026-11-13): accept both so the suite keeps
+// pinning the handler, not the registration style.
 function handlerBlock() {
   const src = fs.readFileSync(ROUTE, 'utf8');
-  const start = src.indexOf('server.on("/grbl-controller"');
+  let start = src.indexOf('registerPageGet("/grbl-controller"');
+  if (start < 0) start = src.indexOf('server.on("/grbl-controller"');
   ok(start > 0, 'handler not found');
   const endMarker = 'streamGrblControllerPageToPrint(*response);';
   const streamEnd = src.indexOf(endMarker, start);
