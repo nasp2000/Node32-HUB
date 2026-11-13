@@ -15,6 +15,7 @@
 #include "network_access_point.h"
 #include "network_runtime_state.h"
 #include "network_saved_profiles.h"
+#include "heap_trace.h"   // A5: fine marks inside the WiFi bring-up
 
 WiFiHybridState currentHybridState = HYBRID_BOOT_AP_STA;
 unsigned long hybridBootTime = 0;
@@ -83,6 +84,7 @@ void startHybridWiFiConnection() {
 #endif
 
     loadSavedNetworks();
+    heapTraceMark("wifi_cfg");   // A5: config read + savedNetworks cache
 
 #if defined(TARGET_BOARD_P4) && TARGET_BOARD_P4 == 1
     WiFi.setPins(18, 19, 14, 15, 16, 17, 54);
@@ -115,8 +117,9 @@ void startHybridWiFiConnection() {
     if (apSSID.isEmpty()) apSSID = "NODE32-HUB";
     if (apPassword.isEmpty()) apPassword = "";
 
-    WiFi.mode(WIFI_AP_STA);
+    WiFi.mode(WIFI_AP_STA);   // first driver init (esp_wifi_init + AP/STA netifs)
     delay(300);
+    heapTraceMark("wifi_mode");   // A5
 
     bool apResult = WiFi.softAP(apSSID.c_str(), apPassword.c_str(), 6, 0, 4);
     if (!apResult) {
@@ -130,9 +133,11 @@ void startHybridWiFiConnection() {
     } else {
         sendVirtualMessage(F("AP failed; retry later"), WARN);
     }
+    heapTraceMark("wifi_ap");   // A5: softAP + DHCP server + beacon buffers
 
     // Start STA connection attempt
     WifiNetwork* bestNetwork = findBestAvailableNetworkPtr();
+    heapTraceMark("wifi_scan");   // A5: async scan + PSRAM cache (driver scan buffers)
     if (bestNetwork != nullptr) {
         safeEnviarMensagemVirtual("STA: %s", INFO, bestNetwork->ssid.c_str());
         WiFi.begin(bestNetwork->ssid.c_str(), bestNetwork->password.c_str());
@@ -141,6 +146,7 @@ void startHybridWiFiConnection() {
         WiFi.begin(ssid.c_str(), password.c_str());
         addOrUpdateNetwork(ssid, password);
     }
+    heapTraceMark("wifi_sta");   // A5: WiFi.begin() — STA connect path
 
     // Go to boot state — 60s timeout, async
     currentHybridState = HYBRID_BOOT_AP_STA;
