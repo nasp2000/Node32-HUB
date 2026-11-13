@@ -16,6 +16,8 @@
 #endif
 #if ENABLE_FILESYSTEM==1
 #include <LittleFS.h>
+#include <mbedtls/build_info.h>   // A4: MBEDTLS_SSL_IN/OUT_CONTENT_LEN (compile-time TLS buffers)
+#include <mbedtls/ssl.h>
 #endif
 #include "psram_vfs.h"
 #include "commands.h"
@@ -799,6 +801,27 @@ void runtimeEmailInitBackgroundTasks() {
         sendVirtualMessage(F("❌ Failed to create email queue processor task"), ERROR);
     } else {
         sendVirtualMessage(F("✅ Email queue processor task created on Core 0 (32KB PSRAM stack)"), INFO);
+    }
+
+    // A4 (2026-11-13): report the TLS record-buffer limits the firmware was BUILT
+    // with. They are compile-time constants of the prebuilt mbedTLS library
+    // (CONFIG_MBEDTLS_INTERNAL_MEM_ALLOC=1, MAX_CONTENT_LEN=16384, no asymmetric
+    // lengths, no variable buffer length), so they cannot be tuned from here —
+    // but seeing them on the board (Serial + Web Monitor) proves what each SMTP
+    // connection will allocate instead of leaving it to the plan's assumption.
+    {
+        char tls[160];
+        snprintf(tls, sizeof(tls),
+                 "[heap:A4] tls_in=%u tls_out=%u var_buf=%d internal_alloc=1",
+                 (unsigned)MBEDTLS_SSL_IN_CONTENT_LEN,
+                 (unsigned)MBEDTLS_SSL_OUT_CONTENT_LEN,
+#if defined(MBEDTLS_SSL_VARIABLE_BUFFER_LENGTH)
+                 1
+#else
+                 0
+#endif
+        );
+        sendVirtualMessage(String(tls), INFO, false, true);
     }
 }
 
