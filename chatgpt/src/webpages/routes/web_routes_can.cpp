@@ -19,7 +19,7 @@ void registerCanRoutes(AsyncWebServer& server, const WebRouteContext& context) {
 
 #if ENABLE_CAN==1
     // HTML monitor + config page: /can
-    server.on("/can", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/can", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;

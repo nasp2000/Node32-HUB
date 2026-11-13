@@ -2,6 +2,7 @@
 // Preserves the original storage behavior while moving it out of webpage_impl.h.
 
 #include "files_api_handler.h"
+#include "../routes/route_registry_api.h"
 
 #include <Arduino.h>
 #include "../../languages/lang_active.h"
@@ -136,7 +137,7 @@ fs::FS* getFileSystem(AsyncWebServerRequest* request, bool& usesFlash, bool& mou
 } // namespace
 
 void registerFilesApiRoutes(AsyncWebServer& server, const WebRouteContext& context) {
-    server.on("/api/sd/download", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/sd/download", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
 
         String storageType = resolveStorageType(request);

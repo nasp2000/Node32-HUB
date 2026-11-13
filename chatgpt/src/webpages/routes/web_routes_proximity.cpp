@@ -192,7 +192,7 @@ void registerProximityRoutes(AsyncWebServer& server, const WebRouteContext& cont
 #if ENABLE_PROXIMITY==1
 
     // HTML pages.
-    server.on("/proximity-dashboard", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/proximity-dashboard", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -211,7 +211,7 @@ void registerProximityRoutes(AsyncWebServer& server, const WebRouteContext& cont
 #endif
     });
 
-    server.on("/proximity", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/proximity", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;

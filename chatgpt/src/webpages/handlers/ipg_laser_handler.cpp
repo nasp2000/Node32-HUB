@@ -1,4 +1,5 @@
 #include "ipg_laser_handler.h"
+#include "../routes/route_registry_api.h"
 
 #include <ArduinoJson.h>
 
@@ -47,12 +48,12 @@ static void sendIpgLaserStatus(AsyncWebServerRequest* request) {
 
 void registerIpgLaserApiRoutes(AsyncWebServer& server, const WebRouteContext& context) {
 #if ENABLE_IPG_LASER == 1
-    server.on("/api/ipg-laser-status", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/ipg-laser-status", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         sendIpgLaserStatus(request);
     });
 
-    server.on("/api/ipg-laser-commands", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/ipg-laser-commands", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
 
         size_t count = 0;
@@ -75,7 +76,7 @@ void registerIpgLaserApiRoutes(AsyncWebServer& server, const WebRouteContext& co
         request->send(response);
     });
 
-    server.on("/api/ipg-laser-log", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/ipg-laser-log", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
 
         IpgLaserLogEntry entries[24];

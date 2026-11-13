@@ -34,7 +34,7 @@ static void registerStorageAdminRoutes(AsyncWebServer& server, const WebRouteCon
     registerApiRoute("POST", "/api/sd/reset-write-counter", handleSdResetWriteCounterPost);
     registerApiRoute("POST", "/api/sdcard-config-save", handleSdcardConfigSavePost);
 
-    server.on("/api/sd-buffers", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+    registerPageGet("/api/sd-buffers", [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) return;
         HeavyApiRequestGuard guard(req, "/api/sd-buffers");
         if (!guard.allowed()) return;
@@ -82,7 +82,7 @@ void registerStorageRoutes(AsyncWebServer& server, const WebRouteContext& contex
 #if ENABLE_PAGE_SDCARD==1
     // SD card & storage configuration page (/sdcard).
     // Always available: also shows PSRAM-only status when SD is disabled.
-    server.on("/sdcard", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/sdcard", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;

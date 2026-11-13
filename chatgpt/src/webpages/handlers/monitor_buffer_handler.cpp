@@ -1,6 +1,7 @@
 // Handlers for monitor status and receive-buffer APIs.
 
 #include "monitor_buffer_handler.h"
+#include "../routes/route_registry_api.h"
 
 #include <Arduino.h>
 
@@ -33,7 +34,7 @@ String sanitizeDownloadFilename(String fileName) {
 }  // namespace
 
 void registerMonitorBufferRoutes(AsyncWebServer& server, const WebRouteContext& context) {
-    server.on("/api/monitor-status", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/monitor-status", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
 
         AsyncResponseStream* response = request->beginResponseStream("application/json");
@@ -47,7 +48,7 @@ void registerMonitorBufferRoutes(AsyncWebServer& server, const WebRouteContext& 
         request->send(response);
     });
 
-    server.on("/api/serial-monitor", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/serial-monitor", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         // Concurrency-only guard (no time window): several tabs polling at 3 s
         // are legitimate, and a 500/200 ms window rejected them with 429. The
@@ -81,7 +82,7 @@ void registerMonitorBufferRoutes(AsyncWebServer& server, const WebRouteContext& 
         request->send(response);
     });
 
-    server.on("/api/received-text", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/received-text", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
 
             // Concurrency-only guard (see /api/serial-monitor above).

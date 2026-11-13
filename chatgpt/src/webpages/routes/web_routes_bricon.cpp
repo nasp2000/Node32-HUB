@@ -20,7 +20,7 @@ void registerBriconRoutes(AsyncWebServer& server, const WebRouteContext& context
 
     // HTML page.
     // One page only: the unified Rambox page owns this device's UI.
-    server.on("/bricon", HTTP_GET, [](AsyncWebServerRequest* request) {
+    registerPageGet("/bricon", [](AsyncWebServerRequest* request) {
         request->redirect("/rambox?dev=bricon");
     });
 

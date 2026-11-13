@@ -23,7 +23,7 @@ void registerCommandRoutes(AsyncWebServer& server, const WebRouteContext& contex
 
 
 #if ENABLE_PAGE_COMMANDS_INTERVAL==1
-    server.on("/commands", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/commands", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -45,7 +45,7 @@ void registerCommandRoutes(AsyncWebServer& server, const WebRouteContext& contex
     });
 #endif // ENABLE_PAGE_COMMANDS_INTERVAL
 
-    server.on("/commands-by-datetime", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/commands-by-datetime", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;

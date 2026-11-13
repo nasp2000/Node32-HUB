@@ -49,7 +49,7 @@ struct Touch7BodyAccum {
 void registerTouch7Routes(AsyncWebServer& server, const WebRouteContext& context) {
 #if defined(SELECTED_PACK) && (SELECTED_PACK == PACK_S3_TOUCH7)
     // HTML pages (streamed, same shape as /sound).
-    server.on("/ecra", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/ecra", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -69,7 +69,7 @@ void registerTouch7Routes(AsyncWebServer& server, const WebRouteContext& context
         context.logServed(request, "/ecra", bytes, false);
 #endif
     });
-    server.on("/falas", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/falas", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;

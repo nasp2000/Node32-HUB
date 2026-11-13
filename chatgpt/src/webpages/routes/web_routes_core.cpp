@@ -65,7 +65,7 @@ inline bool trySendGzipBlob(AsyncWebServerRequest* request, const char* contentT
 static void registerCoreAdminRoutes(AsyncWebServer& server, const WebRouteContext& context) {
     // Tiny version probe (~40 B). Used by /auto.js as the firmware cache-buster
     // instead of /api/status, which is a full status build.
-    server.on("/api/version", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+    registerPageGet("/api/version", [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) return;
         String json = F("{\"version\":\"");
         json += FIRMWARE_VERSION;
@@ -81,7 +81,7 @@ static void registerCoreAdminRoutes(AsyncWebServer& server, const WebRouteContex
     // Minimal status for pollers/dashboards (~250 B): uptime, heap, version.
     // The full /api/status builds every section (SD/NVS/heap breakdown) and is
     // only needed by the Status page.
-    server.on("/api/status-basic", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+    registerPageGet("/api/status-basic", [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) return;
         unsigned long upSec = millis() / 1000UL;
         char up[32];
@@ -106,7 +106,7 @@ static void registerCoreAdminRoutes(AsyncWebServer& server, const WebRouteContex
         req->send(response);
     });
 
-    server.on("/api/status", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+    registerPageGet("/api/status", [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) return;
         HttpRequest hreq;
         HttpResponse hresp;
@@ -125,7 +125,7 @@ static void registerCoreAdminRoutes(AsyncWebServer& server, const WebRouteContex
 #endif
     });
 
-    server.on("/api/nvs-stats", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+    registerPageGet("/api/nvs-stats", [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) return;
         HttpRequest hreq;
         HttpResponse hresp;
@@ -172,7 +172,7 @@ static void registerCoreAdminRoutes(AsyncWebServer& server, const WebRouteContex
         });
     });
 
-    server.on("/api/heap-snapshot", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+    registerPageGet("/api/heap-snapshot", [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) return;
         HttpRequest hreq;
         HttpResponse hresp;
@@ -188,12 +188,12 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
     registerCommandApiRoutes(server, context);
 
     // Reply silently to favicon requests (avoids 500 errors in browser devtools)
-    server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest* request) {
+    registerPageGet("/favicon.ico", [](AsyncWebServerRequest* request) {
         request->send(204, "image/x-icon", "");
     });
 
     // Chart.js + zoom plugin served from the device (works without internet).
-    server.on("/vendor/chart.umd.min.js", HTTP_GET, [](AsyncWebServerRequest* request) {
+    registerPageGet("/vendor/chart.umd.min.js", [](AsyncWebServerRequest* request) {
         if (request->hasHeader("If-None-Match") &&
             ifNoneMatchContainsEtag(request->header("If-None-Match"), FIRMWARE_BUILD)) {
             request->send(304);
@@ -211,7 +211,7 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
         request->send(response);
     });
 
-    server.on("/vendor/chartjs-plugin-zoom.min.js", HTTP_GET, [](AsyncWebServerRequest* request) {
+    registerPageGet("/vendor/chartjs-plugin-zoom.min.js", [](AsyncWebServerRequest* request) {
         if (request->hasHeader("If-None-Match") &&
             ifNoneMatchContainsEtag(request->header("If-None-Match"), FIRMWARE_BUILD)) {
             request->send(304);
@@ -232,7 +232,7 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
     // Serve shared CSS via chunked PROGMEM streaming (avoids copying ~12KB to heap).
     // ETag = FIRMWARE_VERSION: browser caches indefinitely on the same firmware and
     // automatically fetches the new file after a firmware update.
-    server.on("/core.css", HTTP_GET, [](AsyncWebServerRequest* request) {
+    registerPageGet("/core.css", [](AsyncWebServerRequest* request) {
         // Return 304 when browser already holds the current firmware's copy.
         if (request->hasHeader("If-None-Match") &&
             ifNoneMatchContainsEtag(request->header("If-None-Match"), FIRMWARE_BUILD)) {
@@ -261,7 +261,7 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
     // ETag = FIRMWARE_VERSION: browser caches indefinitely on the same firmware and
     // automatically fetches the new file after a firmware update.
     // Note: pages also append ?v=FIRMWARE_VERSION to the URL for extra safety.
-    server.on("/auto.js", HTTP_GET, [](AsyncWebServerRequest* request) {
+    registerPageGet("/auto.js", [](AsyncWebServerRequest* request) {
         // Return 304 when browser already holds the current firmware's copy.
         if (request->hasHeader("If-None-Match") &&
             ifNoneMatchContainsEtag(request->header("If-None-Match"), FIRMWARE_BUILD)) {
@@ -282,7 +282,7 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
     // Serve config-manager.js helper (small file, direct PROGMEM send).
     // ETag = FIRMWARE_VERSION: browser caches indefinitely on the same firmware and
     // automatically fetches the new file after a firmware update.
-    server.on("/config-manager.js", HTTP_GET, [](AsyncWebServerRequest* request) {
+    registerPageGet("/config-manager.js", [](AsyncWebServerRequest* request) {
         // Return 304 when browser already holds the current firmware's copy.
         if (request->hasHeader("If-None-Match") &&
             ifNoneMatchContainsEtag(request->header("If-None-Match"), FIRMWARE_BUILD)) {
@@ -300,7 +300,7 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
         request->send(response);
     });
 
-    server.on("/", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/", [&context](AsyncWebServerRequest* request) {
         // AP-only mode: serve minimal WiFi config page (no external assets)
         // AP-only + no Ethernet: serve minimal WiFi config page
         if (WiFi.getMode() == WIFI_AP && !ethernetHasIp()) {
@@ -344,7 +344,7 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
 #endif
     });
 
-    server.on("/printer", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/printer", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -366,7 +366,7 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
     });
 
 #if ENABLE_DB25==1
-    server.on("/lpt-db25", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/lpt-db25", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -389,7 +389,7 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
 #endif
 
 #if ENABLE_API_REFERENCE_PAGE==1
-    server.on("/api-reference", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api-reference", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (!context.allowHtmlClient(request)) return;
 
@@ -410,7 +410,7 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
 #endif
 
     // Serve active language JSON for JS i18n (data-i18n attribute replacement)
-    server.on("/api/lang", HTTP_GET, [](AsyncWebServerRequest* request) {
+    registerPageGet("/api/lang", [](AsyncWebServerRequest* request) {
         String langEtag = String(FIRMWARE_BUILD) + String("|lang|") + String(activeLangCode);
         if (request->hasHeader("If-None-Match") &&
             ifNoneMatchContainsEtag(request->header("If-None-Match"), langEtag.c_str())) {

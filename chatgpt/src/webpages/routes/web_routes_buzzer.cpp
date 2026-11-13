@@ -68,7 +68,7 @@ static void registerBuzzerApiRoutes(AsyncWebServer& server, const WebRouteContex
 void registerBuzzerRoutes(AsyncWebServer& server, const WebRouteContext& context) {
 #if ENABLE_BUZZER == 1
 
-    server.on("/buzzer", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/buzzer", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;

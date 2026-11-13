@@ -44,7 +44,7 @@ static void registerAccessApiRoutes(AsyncWebServer& server, const WebRouteContex
 void registerAccessRoutes(AsyncWebServer& server, const WebRouteContext& context) {
     registerAccessApiRoutes(server, context);
 
-    server.on("/access", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/access", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;

@@ -1,6 +1,7 @@
 // Handlers for lightweight RS232 template APIs.
 
 #include "../../languages/lang_active.h"
+#include "../routes/route_registry_api.h"
 #include "rs232_template_handler.h"
 #include "../../feature_flags.h"
 
@@ -266,7 +267,7 @@ bool addOrUpdateRs232TemplateFromJson(JsonObject templateObject) {
 }  // namespace
 
 void registerRs232TemplateRoutes(AsyncWebServer& server, const WebRouteContext& context) {
-    server.on("/api/rs232-templates", HTTP_GET, [](AsyncWebServerRequest* request) {
+    registerPageGet("/api/rs232-templates", [](AsyncWebServerRequest* request) {
         sendRs232TemplatesList(request);
     });
 

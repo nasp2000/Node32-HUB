@@ -1,6 +1,7 @@
 // Handlers for RS232 charts/history APIs.
 
 #include "rs232_history_handler.h"
+#include "../routes/route_registry_api.h"
 
 #include <Arduino.h>
 
@@ -94,7 +95,7 @@ bool rs232SendPsramJson(AsyncWebServerRequest* request, const std::vector<char, 
 
 void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& context) {
 #if ENABLE_RS232==1 && ENABLE_RS232_CHARTS==1 && ENABLE_SDCARD==1
-    server.on("/api/rs232-cols", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/rs232-cols", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (!configManager.getChartsPageEnabled()) {
             request->send(404, "application/json", "{\"error\":\"charts disabled\"}");
@@ -270,7 +271,7 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
         rs232SendPsramJson(request, cacheJson);
     });
 
-    server.on("/api/rs232-history-files", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/rs232-history-files", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (!configManager.getChartsPageEnabled()) {
             request->send(404, "application/json", "{\"error\":\"charts disabled\"}");
@@ -344,7 +345,7 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
         rs232SendPsramJson(request, cacheJson);
     });
 
-    server.on("/api/rs232-history", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/rs232-history", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (!configManager.getChartsPageEnabled()) {
             request->send(404, "application/json", "{\"error\":\"charts disabled\"}");
@@ -472,7 +473,7 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
 
     // GET /api/modbus-chart-files
     // Returns sorted list of dates (DD-MM-YYYY) for which Modbus .chart files exist on SD.
-    server.on("/api/modbus-chart-files", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/modbus-chart-files", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (!configManager.getChartsPageEnabled()) {
             request->send(404, "application/json", "{\"error\":\"charts disabled\"}");
@@ -519,7 +520,7 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
     // --- Modbus chart endpoints ---
     // GET /api/modbus-chart-cols?date=DD-MM-YYYY
     // Returns column metadata for the Modbus chart file for the given date.
-    server.on("/api/modbus-chart-cols", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/modbus-chart-cols", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (!configManager.getChartsPageEnabled()) {
             request->send(404, "application/json", "{\"error\":\"charts disabled\"}");
@@ -561,7 +562,7 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
 
     // GET /api/modbus-chart-data?date=DD-MM-YYYY&from=<epoch>&mode=day|8h|live
     // Streams a Modbus chart file as JSON time-series (same shape as /api/rs232-history).
-    server.on("/api/modbus-chart-data", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/modbus-chart-data", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (!configManager.getChartsPageEnabled()) {
             request->send(404, "application/json", "{\"error\":\"charts disabled\"}");
@@ -618,7 +619,7 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
     // GET /api/proximity-chart-files
     // Returns sorted list of dates (DD-MM-YYYY) for which proximity .chart files exist on SD.
     // Chart files are stored as /{sdcardName}/{sdcardName}_PROXIMITY_DD-MM-YYYY.chart.
-    server.on("/api/proximity-chart-files", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/proximity-chart-files", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (!configManager.getChartsPageEnabled()) {
             request->send(404, "application/json", "{\"error\":\"charts disabled\"}");
@@ -666,7 +667,7 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
 
     // GET /api/proximity-chart-cols?date=DD-MM-YYYY
     // Returns column metadata for the proximity chart file for the given date.
-    server.on("/api/proximity-chart-cols", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/proximity-chart-cols", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (!configManager.getChartsPageEnabled()) {
             request->send(404, "application/json", "{\"error\":\"charts disabled\"}");
@@ -708,7 +709,7 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
 
     // GET /api/proximity-chart-data?date=DD-MM-YYYY&from=<epoch>&mode=day|8h|live
     // Streams a proximity chart file as JSON time-series.
-    server.on("/api/proximity-chart-data", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/proximity-chart-data", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (!configManager.getChartsPageEnabled()) {
             request->send(404, "application/json", "{\"error\":\"charts disabled\"}");

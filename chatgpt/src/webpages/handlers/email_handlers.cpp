@@ -1,4 +1,5 @@
 #include "email_handlers.h"
+#include "../routes/route_registry_api.h"
 #include "../../feature_flags.h"
 
 #if ENABLE_SMTP==1 || ENABLE_GOOGLE_EMAIL==1
@@ -7,7 +8,7 @@
 
 void registerEmailApiRoutes(AsyncWebServer& server, const WebRouteContext& context) {
     // Serve Google Apps Script template as a downloadable file
-    server.on("/GoogleAppsScript_EmailHandler.js", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/GoogleAppsScript_EmailHandler.js", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         AsyncWebServerResponse* response = request->beginChunkedResponse(
             "application/javascript",

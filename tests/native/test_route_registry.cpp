@@ -237,3 +237,58 @@ TEST_CASE("A1: getCount splits the table (the GET share of the handlers saved)")
     CHECK(d.getCount() == 7);
     CHECK(r.count() - d.getCount() == 3);   // POST/PUT/DELETE stay individually registered
 }
+
+// ── A1b (2026-11-13): page GET routes live in one table, dispatched by the same
+// catch-all. Production keeps insertion order and dedupes by path (setupWebServer
+// can run twice), and only GET is dispatched from here.
+namespace {
+
+struct PageGetTable {
+    std::vector<std::pair<std::string, int>> entries;   // path -> handler token
+    static const size_t MAX_ENTRIES = 4;                // production PAGE_GET_MAX scaled down
+    bool capped = false;
+
+    void add(const std::string& path, int handler) {
+        for (const auto& e : entries) if (e.first == path) return;   // first wins (idempotent)
+        if (entries.size() >= MAX_ENTRIES) { capped = true; return; }
+        entries.push_back({path, handler});
+    }
+    int dispatch(const std::string& method, const std::string& url) const {
+        if (method != "GET") return 0;
+        for (const auto& e : entries) if (e.first == url) return e.second;
+        return 0;
+    }
+    size_t count() const { return entries.size(); }
+};
+
+}  // namespace
+
+TEST_CASE("A1b: page GET table dispatches exact paths in insertion order") {
+    PageGetTable t;
+    t.add("/status", 11);
+    t.add("/monitor", 12);
+    CHECK(t.dispatch("GET", "/status") == 11);
+    CHECK(t.dispatch("GET", "/monitor") == 12);
+    CHECK(t.dispatch("GET", "/status/") == 0);    // exact only
+    CHECK(t.dispatch("GET", "/stat") == 0);       // no prefix
+    CHECK(t.count() == 2);
+}
+
+TEST_CASE("A1b: duplicate registration keeps the first handler (setupWebServer may run twice)") {
+    PageGetTable t;
+    t.add("/email", 21);
+    t.add("/email", 99);                    // re-registration must not override or grow
+    CHECK(t.dispatch("GET", "/email") == 21);
+    CHECK(t.count() == 1);
+}
+
+TEST_CASE("A1b: table is GET-only and capped without crashing") {
+    PageGetTable t;
+    t.add("/a", 1); t.add("/b", 2); t.add("/c", 3); t.add("/d", 4);
+    CHECK_FALSE(t.capped);
+    t.add("/e", 5);
+    CHECK(t.capped);
+    CHECK(t.count() == 4);
+    CHECK(t.dispatch("POST", "/a") == 0);   // POST keeps its own handler
+    CHECK(t.dispatch("GET", "/a") == 1);
+}

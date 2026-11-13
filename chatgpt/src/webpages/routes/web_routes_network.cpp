@@ -59,7 +59,7 @@ static void registerNetworkApiRoutes(AsyncWebServer& server, const WebRouteConte
 #endif
 
     // --- GET: WiFi Scan (HeavyApiRequestGuard) ---
-    server.on("/api/wifi-scan", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/wifi-scan", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         HeavyApiRequestGuard heavyGuard(request, "/api/wifi-scan");
         if (!heavyGuard.allowed()) return;
@@ -70,7 +70,7 @@ static void registerNetworkApiRoutes(AsyncWebServer& server, const WebRouteConte
     });
 
     // --- GET: WiFi Status (separate shared function, not unified) ---
-    server.on("/api/wifi-status", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/wifi-status", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         StaticJsonDocument<1024> doc;
         fillNetworkWifiStatusJson(doc);
@@ -80,7 +80,7 @@ static void registerNetworkApiRoutes(AsyncWebServer& server, const WebRouteConte
     });
 
     // --- GET/POST/DELETE: Saved Networks ---
-    server.on("/api/config/saved_networks", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/config/saved_networks", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         HttpRequest hreq;
         HttpResponse hresp;
@@ -109,7 +109,7 @@ static void registerNetworkApiRoutes(AsyncWebServer& server, const WebRouteConte
     });
 
     // --- GET/POST: Access Point Config ---
-    server.on("/api/config/access-point", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/config/access-point", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         HttpRequest hreq;
         HttpResponse hresp;
@@ -171,7 +171,7 @@ static void registerNetworkApiRoutes(AsyncWebServer& server, const WebRouteConte
 void registerNetworkRoutes(AsyncWebServer& server, const WebRouteContext& context) {
     registerNetworkApiRoutes(server, context);
 
-    server.on("/wifi", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/wifi", [&context](AsyncWebServerRequest* request) {
         // AP-only + no Ethernet: serve minimal self-contained page (no external assets)
         if (WiFi.getMode() == WIFI_AP && !ethernetHasIp()) {
             AsyncWebServerResponse* r = request->beginResponse(200, "text/html; charset=utf-8", FPSTR(PAGE_WIFI_AP_MINIMAL));
@@ -200,7 +200,7 @@ void registerNetworkRoutes(AsyncWebServer& server, const WebRouteContext& contex
     });
 
 #if ENABLE_ETHERNET==1
-    server.on("/ethernet", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/ethernet", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -225,7 +225,7 @@ void registerNetworkRoutes(AsyncWebServer& server, const WebRouteContext& contex
 #endif
 
 #if ENABLE_PAGE_GOOGLE_SCRIPT==1
-    server.on("/google-script", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/google-script", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -248,7 +248,7 @@ void registerNetworkRoutes(AsyncWebServer& server, const WebRouteContext& contex
 #endif
 
 #if ENABLE_USBIP_SERVER==1
-    server.on("/usb-server", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/usb-server", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;

@@ -11,7 +11,7 @@ void registerIpgLaserRoutes(AsyncWebServer& server, const WebRouteContext& conte
     registerApiRoute("GET",  "/api/ipg-laser-available", handleIpgLaserAvailableGet);
     registerApiRoute("POST", "/api/ipg-laser-clear",     handleIpgLaserClearPost);
 #if ENABLE_IPG_LASER == 1
-    server.on("/ipg-laser", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/ipg-laser", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;

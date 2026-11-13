@@ -14,7 +14,7 @@
 void registerDoRoutes(AsyncWebServer& server, const WebRouteContext& context) {
 
     // HTML control page.
-    server.on("/do", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/do", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;

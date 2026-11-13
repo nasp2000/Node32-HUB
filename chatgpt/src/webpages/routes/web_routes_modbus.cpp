@@ -173,7 +173,7 @@ void registerModbusRoutes(AsyncWebServer& server, const WebRouteContext& context
 
 #if ENABLE_MODBUS_RTU==1
     // RTU config page: /modbus-rtu — chunked PROGMEM streaming (~55KB, no heap buffer)
-    server.on("/modbus-rtu", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/modbus-rtu", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -214,7 +214,7 @@ void registerModbusRoutes(AsyncWebServer& server, const WebRouteContext& context
 #if ENABLE_MODBUS_TCP==1
     // TCP config page: /modbus-tcp — chunked PROGMEM streaming (~18KB, no heap buffer)
     // PAGE_MODBUS_TCP already embeds auto.js and the init call, so includeAutoJs=false.
-    server.on("/modbus-tcp", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/modbus-tcp", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -251,7 +251,7 @@ void registerModbusRoutes(AsyncWebServer& server, const WebRouteContext& context
 
 #if ENABLE_MODBUS==1
     // Live data page: /modbus-live — chunked PROGMEM streaming (~25KB, no heap buffer)
-    server.on("/modbus-live", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/modbus-live", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         // Hide page when Modbus is not active in config (e.g. enabled but no RTU/TCP configured).
         {

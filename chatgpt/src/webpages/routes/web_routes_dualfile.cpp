@@ -11,7 +11,7 @@ void registerDualFileRoutes(AsyncWebServer& server, const WebRouteContext& conte
 #if ENABLE_DUALFILE==1
 
     // HTML page - manual route (streaming from PROGMEM)
-    server.on("/dualfile", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/dualfile", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (!context.allowHtmlClient(request)) return;
         sendDualFilePageResponse(request);

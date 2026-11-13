@@ -246,7 +246,7 @@ void registerAudioRoutes(AsyncWebServer& server, const WebRouteContext& context)
     registerUda1334aApiRoutes(server, context);
 
     // HTML page
-    server.on("/uda1334a", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/uda1334a", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -266,7 +266,7 @@ void registerAudioRoutes(AsyncWebServer& server, const WebRouteContext& context)
 #endif
     });
 
-    server.on("/radio-ui", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/radio-ui", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;

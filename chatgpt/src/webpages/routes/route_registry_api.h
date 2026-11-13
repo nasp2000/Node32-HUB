@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include <functional>
 #include "../http_abstraction.h"
 
 typedef void (*ApiRouteHandler)(HttpRequest& req, HttpResponse& res);
@@ -29,6 +30,21 @@ bool dispatchRegisteredGetRoute(class AsyncWebServerRequest* request,
 // How many registered routes are served by that catch-all (GET ones). Reported
 // at boot next to the total so the split is visible in the Web Serial Monitor.
 size_t registeredApiGetRouteCount();
+
+// ── Page GET routes (A1b, 2026-11-13) ───────────────────────────────────────
+// The page handlers used to call server.on("<page>", HTTP_GET, lambda) for every
+// page/asset: one AsyncCallbackWebHandler (URI String + std::functions + list
+// node, ~200 B) per route. They now hand the same lambda to registerPageGet(),
+// which keeps it in a table consulted by the single onNotFound catch-all.
+// No behaviour change: insertion order is preserved (first match wins, as
+// ESPAsyncWebServer does), the lambda itself still does auth and response.
+// Only for HTTP_GET routes with no onBody/onUpload (a GET carries no body).
+typedef std::function<void(class AsyncWebServerRequest*)> PageGetHandler;
+
+void registerPageGet(const char* path, PageGetHandler handler);
+
+// Routes held by that table (logged at boot; capped, see PAGE_GET_MAX).
+size_t registeredPageGetCount();
 
 // Returns true if the path is known to any registered or legacy route
 // (regardless of HTTP method). Used by ethernet_bootstrap_routes.h for

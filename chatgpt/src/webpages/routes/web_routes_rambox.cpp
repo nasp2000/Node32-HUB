@@ -4,13 +4,14 @@
 // they are; this route only serves the unified HTML shell+asset.
 
 #include "web_routes_rambox.h"
+#include "route_registry_api.h"
 #include "../assets/page_rambox_asset.h"
 #include "../renderers/page_render_common.h"
 #include "../../feature_flags.h"
 
 void registerRamboxRoutes(AsyncWebServer& server, const WebRouteContext& context) {
 #if ENABLE_UNIKON == 1 || ENABLE_BRICON == 1
-    server.on("/rambox", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/rambox", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;

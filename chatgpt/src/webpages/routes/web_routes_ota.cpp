@@ -11,7 +11,7 @@ void registerOtaRoutes(AsyncWebServer& server, const WebRouteContext& context) {
     registerApiRoute("POST", "/api/enable-ota", handleEnableOtaPost);
     registerOtaAdminRoutes(server, context);
 
-    server.on("/ota", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/ota", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;

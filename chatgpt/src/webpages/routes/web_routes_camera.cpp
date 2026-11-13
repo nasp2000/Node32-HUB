@@ -138,7 +138,7 @@ static void registerCameraApiRoutes(AsyncWebServer& server, const WebRouteContex
     (void)context;
 
     // Snapshot and stream remain manual (binary response, non-blocking MJPEG pump)
-    server.on("/cam/snapshot", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+    registerPageGet("/cam/snapshot", [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) return;
         HttpRequest hreq;
         HttpResponse hresp;
@@ -158,7 +158,7 @@ static void registerCameraApiRoutes(AsyncWebServer& server, const WebRouteContex
     });
 
     // Motion diff visualisation (same binary pattern as snapshot)
-    server.on("/cam/motion/diff", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+    registerPageGet("/cam/motion/diff", [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) return;
         HttpRequest hreq;
         HttpResponse hresp;
@@ -257,7 +257,7 @@ static auto fillAviPlayBuffer = [](AviPlayState* s, uint8_t* buf, size_t maxLen)
 #endif // ENABLE_SDCARD==1 (AVI playback pump)
 
     // ── MJPEG stream (multipart/x-mixed-replace) ────────────────
-    server.on("/cam/stream", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+    registerPageGet("/cam/stream", [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) { req->send(401); return; }
         if (!cameraIsReady()) { req->send(503, "text/plain", "Camera not ready"); return; }
         // Viewer policy: CAM_MAX_MJPEG_CLIENTS (1). Each viewer owns a private
@@ -333,7 +333,7 @@ static auto fillAviPlayBuffer = [](AviPlayState* s, uint8_t* buf, size_t maxLen)
     // inline retry below revives the img after a network hiccup — so the raw
     // view never closes while the "local pages never expire" choice is on
     // (or off — it simply has no expiry path at all).
-    server.on("/cam/raw", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+    registerPageGet("/cam/raw", [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) return;
         static const char kRaw[] PROGMEM =
             "<!DOCTYPE html><html><head><meta charset='utf-8'>"
@@ -364,7 +364,7 @@ static auto fillAviPlayBuffer = [](AviPlayState* s, uint8_t* buf, size_t maxLen)
 
     // ── AVI playback (recorded file as MJPEG) ────────────────────
 #if ENABLE_SDCARD==1
-    server.on("/cam/playback", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+    registerPageGet("/cam/playback", [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) { req->send(401); return; }
         String file = req->hasArg("file") ? req->arg("file") : String();
         file.replace("%2F", "/"); file.replace("%2f", "/");
@@ -463,7 +463,7 @@ static void registerCameraApiRoutes(AsyncWebServer& server, const WebRouteContex
 
 void registerCameraRoutes(AsyncWebServer& server, const WebRouteContext& context) {
 #if ENABLE_CAMERA==1
-    server.on("/camera", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+    registerPageGet("/camera", [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) return;
         if (sendNotModifiedIfCached(req)) return;
         if (!context.allowHtmlClient(req)) return;
@@ -500,7 +500,7 @@ void registerCameraRoutes(AsyncWebServer& server, const WebRouteContext& context
     registerCameraApiRoutes(server, context);
 
     // ── Camera Hub (other Node32-HUB cameras, browser-side only) ──
-    server.on("/hub", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+    registerPageGet("/hub", [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) return;
         if (sendNotModifiedIfCached(req)) return;
         if (!context.allowHtmlClient(req)) return;

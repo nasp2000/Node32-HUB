@@ -93,7 +93,7 @@ void registerConfigRoutes(AsyncWebServer& server, const WebRouteContext& context
 #endif
 
 #if ENABLE_SMTP==1 || ENABLE_GOOGLE_EMAIL==1
-    server.on("/email", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/email", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -116,7 +116,7 @@ void registerConfigRoutes(AsyncWebServer& server, const WebRouteContext& context
 #endif
 
 #if ENABLE_PAGE_FTP==1
-    server.on("/ftp", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/ftp", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -139,7 +139,7 @@ void registerConfigRoutes(AsyncWebServer& server, const WebRouteContext& context
 #endif
 
 #if ENABLE_STRUCTURES_PAGE==1
-    server.on("/structures", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/structures", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -162,7 +162,7 @@ void registerConfigRoutes(AsyncWebServer& server, const WebRouteContext& context
 #endif // ENABLE_STRUCTURES_PAGE
 
 #if ENABLE_PAGE_RECIPIENTS==1
-    server.on("/recipients", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/recipients", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (!context.allowHtmlClient(request)) return;
 
@@ -183,7 +183,7 @@ void registerConfigRoutes(AsyncWebServer& server, const WebRouteContext& context
 #endif // ENABLE_PAGE_RECIPIENTS
 
 #if ENABLE_PAGE_ALERTS==1
-    server.on("/alerts-config", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/alerts-config", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (!context.allowHtmlClient(request)) return;
 
@@ -203,7 +203,7 @@ void registerConfigRoutes(AsyncWebServer& server, const WebRouteContext& context
     });
 #endif // ENABLE_PAGE_ALERTS
 
-    server.on("/rs232", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/rs232", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -226,7 +226,7 @@ void registerConfigRoutes(AsyncWebServer& server, const WebRouteContext& context
     });
 
 #if ENABLE_MQ135==1
-    server.on("/mq135-config", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/mq135-config", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -263,7 +263,7 @@ void registerConfigRoutes(AsyncWebServer& server, const WebRouteContext& context
 #endif
 
 #if ENABLE_HX711==1
-    server.on("/hx711", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/hx711", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -286,7 +286,7 @@ void registerConfigRoutes(AsyncWebServer& server, const WebRouteContext& context
 #endif
 
 #if ENABLE_INA226==1
-    server.on("/ina226", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/ina226", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -309,7 +309,7 @@ void registerConfigRoutes(AsyncWebServer& server, const WebRouteContext& context
 #endif
 
 #if ENABLE_SOUND_SENSOR==1
-    server.on("/sound", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/sound", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -332,7 +332,7 @@ void registerConfigRoutes(AsyncWebServer& server, const WebRouteContext& context
 #endif
 
 #if ENABLE_MAX31865==1
-    server.on("/max31865", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/max31865", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -355,7 +355,7 @@ void registerConfigRoutes(AsyncWebServer& server, const WebRouteContext& context
 #endif
 
 #if ENABLE_AHT20_BMP280==1 && ENABLE_SENSOR_CONFIG_PAGE==1
-    server.on("/sensor-config", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/sensor-config", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -495,7 +495,7 @@ void registerSensorApiRoutes(AsyncWebServer& server, const WebRouteContext& cont
     registerApiRoute("GET",  "/api/sensor-flags", handleSensorFlagsGet);
 
     // ---- Chart capabilities ---------------------------------------
-    server.on("/api/chart-caps", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/chart-caps", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         HttpRequest hreq;
         HttpResponse hresp;

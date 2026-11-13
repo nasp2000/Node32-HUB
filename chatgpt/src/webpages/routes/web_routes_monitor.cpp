@@ -368,7 +368,7 @@ static void registerGrblControllerApiRoutes(AsyncWebServer& server, const WebRou
     registerApiRoute("POST", "/api/grbl/height-map-clear",  handleGrblHeightMapClearPost);
 
     // ---- Manual GET (SD streaming) ----
-    server.on("/api/grbl/read-gcode-text", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/grbl/read-gcode-text", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
 #if ENABLE_SDCARD == 1
         String path = grblSdNormalizePath(request->arg("path"));
@@ -447,7 +447,7 @@ void registerMonitorRoutes(AsyncWebServer& server, const WebRouteContext& contex
     registerGrblControllerApiRoutes(server, context);
 #endif
 
-    server.on("/status", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/status", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -468,7 +468,7 @@ void registerMonitorRoutes(AsyncWebServer& server, const WebRouteContext& contex
 #endif
     });
 
-    server.on("/monitor", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/monitor", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -487,7 +487,7 @@ void registerMonitorRoutes(AsyncWebServer& server, const WebRouteContext& contex
     });
 
 #if defined(SELECTED_PACK) && (SELECTED_PACK == PACK_P4_CNC || SELECTED_PACK == PACK_S3_CNC)
-    server.on("/grbl-controller", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/grbl-controller", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         // Phones get the mobile wizard by default (UID 288); desktop keeps this
         // page, byte-identical. `?desk=1` forces the full controller from any
@@ -520,7 +520,7 @@ void registerMonitorRoutes(AsyncWebServer& server, const WebRouteContext& contex
 
     // Mobile G-code wizard, step 1 ("Send G-code"). Vertical, no-scroll screen;
     // the PC controller page above is a separate asset and stays untouched.
-    server.on("/m", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/m", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -541,7 +541,7 @@ void registerMonitorRoutes(AsyncWebServer& server, const WebRouteContext& contex
     });
 #endif
 
-    server.on("/buffer-viewer", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/buffer-viewer", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -559,7 +559,7 @@ void registerMonitorRoutes(AsyncWebServer& server, const WebRouteContext& contex
         request->send(response);
     });
 
-    server.on("/serial-monitor", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/serial-monitor", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
@@ -578,7 +578,7 @@ void registerMonitorRoutes(AsyncWebServer& server, const WebRouteContext& contex
     });
 
 #if (ENABLE_AHT20_BMP280==1 && ENABLE_SENSOR_CONFIG_PAGE==1) || ENABLE_RS232_CHARTS==1 || ENABLE_MQ135==1
-    server.on("/sensor-charts", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/sensor-charts", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (!configManager.getChartsPageEnabled()) {
             request->redirect("/");

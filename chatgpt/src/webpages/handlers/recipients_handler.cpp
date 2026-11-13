@@ -1,6 +1,7 @@
 // Handlers for recipient slots and inactivity-alert configuration APIs.
 
 #include "../../languages/lang_active.h"
+#include "../routes/route_registry_api.h"
 #include "recipients_handler.h"
 
 #include <Arduino.h>
@@ -12,7 +13,7 @@
 extern ConfigManager configManager;
 
 void registerRecipientRoutes(AsyncWebServer& server, const WebRouteContext& context) {
-    server.on("/api/recipients", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/recipients", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
 
         unsigned long limit = 50;
@@ -72,7 +73,7 @@ void registerRecipientRoutes(AsyncWebServer& server, const WebRouteContext& cont
         request->send(response);
     });
 
-    server.on("/api/recipient-slots", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/recipient-slots", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
 
         SpiRamJsonDocument doc(4096);

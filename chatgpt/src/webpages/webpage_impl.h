@@ -147,12 +147,13 @@ inline void setupWebServer(AsyncWebServer& server) {
     // get_dispatch how many of those are served by the single onNotFound catch-all
     // (A1) instead of one handler each.
     {
-        char census[160];
+        char census[200];
         snprintf(census, sizeof(census),
-                 "[heap:A0] api_routes=%u get_dispatch=%u registered=%u handler_bytes=%u",
+                 "[heap:A0] api_routes=%u get_dispatch=%u registered=%u page_get=%u handler_bytes=%u",
                  (unsigned)registeredApiRouteCount(),
                  (unsigned)registeredApiGetRouteCount(),
                  (unsigned)(registeredApiRouteCount() - registeredApiGetRouteCount()),
+                 (unsigned)registeredPageGetCount(),
                  (unsigned)sizeof(AsyncCallbackWebHandler));
         sendVirtualMessage(String(census), INFO, false, true);
     }

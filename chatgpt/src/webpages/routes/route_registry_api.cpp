@@ -161,9 +161,65 @@ void registerApiRoutesToServer(AsyncWebServer& server, const WebRouteContext& co
     }
 }
 
+// ── Page GET table (A1b) ────────────────────────────────────────────────────
+// One entry per page/asset GET route that used to be server.on(path, HTTP_GET).
+// Lives in PSRAM (7 MB free) so the handler objects stop eating internal heap.
+struct PageGetEntry {
+    const char* path;
+    PageGetHandler fn;
+};
+
+static PageGetEntry* s_pageGet = nullptr;
+static size_t s_pageGetCount = 0;
+static const size_t PAGE_GET_MAX = 128;
+
+static bool pageGetEnsure() {
+    if (s_pageGet) return true;
+    void* mem = heap_caps_malloc(PAGE_GET_MAX * sizeof(PageGetEntry), MALLOC_CAP_SPIRAM);
+    if (!mem) {
+        // PSRAM unavailable: keep working from internal RAM (still cheaper than
+        // one AsyncWebServer handler per route).
+        mem = heap_caps_malloc(PAGE_GET_MAX * sizeof(PageGetEntry),
+                               MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    }
+    if (!mem) return false;
+    s_pageGet = (PageGetEntry*)mem;
+    for (size_t i = 0; i < PAGE_GET_MAX; i++) new (&s_pageGet[i]) PageGetEntry();
+    return true;
+}
+
+void registerPageGet(const char* path, PageGetHandler handler) {
+    if (!path || !handler) return;
+    if (!pageGetEnsure()) return;
+    // Idempotent: setupWebServer() can run a second time (process_line_impl.h
+    // re-registers handlers). First registration wins, exactly like the handler
+    // list did, and a repeat does not grow the table.
+    for (size_t i = 0; i < s_pageGetCount; i++) {
+        if (strcmp(s_pageGet[i].path, path) == 0) return;
+    }
+    if (s_pageGetCount >= PAGE_GET_MAX) return;   // capped; count is logged at boot
+    s_pageGet[s_pageGetCount].path = path;
+    s_pageGet[s_pageGetCount].fn = handler;
+    s_pageGetCount++;
+}
+
+size_t registeredPageGetCount() {
+    return s_pageGetCount;
+}
+
 bool dispatchRegisteredGetRoute(AsyncWebServerRequest* request, const WebRouteContext& context) {
     if (!request || request->method() != HTTP_GET) return false;
-    ApiRouteHandler handler = findApiRouteHandler(String(F("GET")), request->url());
+    const String url = request->url();
+    // Page GET routes first: they are registered before the unified API routes
+    // (registerXxxRoutes run ahead of registerApiRoutesToServer) and the old
+    // handler list resolved duplicates by first match — keep that precedence.
+    for (size_t i = 0; i < s_pageGetCount; i++) {
+        if (url == s_pageGet[i].path) {
+            s_pageGet[i].fn(request);
+            return true;
+        }
+    }
+    ApiRouteHandler handler = findApiRouteHandler(String(F("GET")), url);
     if (!handler) return false;
     apiDispatchRoute(request, context, handler);
     return true;

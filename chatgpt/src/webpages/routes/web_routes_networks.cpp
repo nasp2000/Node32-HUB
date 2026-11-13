@@ -17,7 +17,7 @@ void registerNetworksRoutes(AsyncWebServer& server, const WebRouteContext& conte
     registerApiRoute("POST", "/api/telnet-config", handleTelnetConfigPost);
 
     // HTML page: /networks
-    server.on("/networks", HTTP_GET, [&context](AsyncWebServerRequest* req) {
+    registerPageGet("/networks", [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) return;
         if (sendNotModifiedIfCached(req)) return;
         if (!context.allowHtmlClient(req)) return;

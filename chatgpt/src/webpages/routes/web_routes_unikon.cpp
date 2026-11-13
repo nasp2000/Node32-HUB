@@ -25,7 +25,7 @@ void registerUnikonRoutes(AsyncWebServer& server, const WebRouteContext& context
 
     // HTML page.
     // One page only: the unified Rambox page owns this device's UI.
-    server.on("/unikon", HTTP_GET, [](AsyncWebServerRequest* request) {
+    registerPageGet("/unikon", [](AsyncWebServerRequest* request) {
         request->redirect("/rambox?dev=unikon");
     });
 

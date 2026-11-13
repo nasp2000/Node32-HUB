@@ -3,6 +3,7 @@
 // Session tracking prevents heap overflow from too many concurrent listings.
 
 #include "files_page_handler.h"
+#include "../routes/route_registry_api.h"
 
 #include <atomic>
 #include <vector>
@@ -98,7 +99,7 @@ static bool registerSession(IPAddress ip) {
 
 void registerFilesPageRoute(AsyncWebServer& server, const WebRouteContext& context) {
     // File browser - SD, Flash (LittleFS), and PSRAM virtual filesystem.
-    server.on("/files", HTTP_GET, [context](AsyncWebServerRequest* request) {
+    registerPageGet("/files", [context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
 
         // Evict idle sessions before checking the limit.

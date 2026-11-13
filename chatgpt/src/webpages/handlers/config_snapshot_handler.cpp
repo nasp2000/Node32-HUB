@@ -1,6 +1,7 @@
 // Handler for the unified config snapshot API.
 
 #include "config_snapshot_handler.h"
+#include "../routes/route_registry_api.h"
 
 #include <Arduino.h>
 
@@ -24,7 +25,7 @@ void invalidateConfigsCache() {
 }
 
 void registerConfigSnapshotRoutes(AsyncWebServer& server, const WebRouteContext& context) {
-    server.on("/api/configs", HTTP_GET, [&context](AsyncWebServerRequest* request) {
+    registerPageGet("/api/configs", [&context](AsyncWebServerRequest* request) {
         // Fast path: serve from PSRAM cache if still fresh.
         unsigned long now = millis();
         if (s_configsCache && s_configsCacheLen > 0 && (now - s_configsCacheMs) < CONFIGS_CACHE_TTL_MS) {
