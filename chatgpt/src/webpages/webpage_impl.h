@@ -142,13 +142,17 @@ inline void setupWebServer(AsyncWebServer& server) {
     registerApiRoutesToServer(server, routeContext);
     heapTraceMark("web_api");
 
-    // Route/handler census for the heap plan (A0). sizeof(AsyncCallbackWebHandler)
-    // is compile-time; s_count is how many unified routes this pack registered.
+    // Route/handler census for the heap plan (A0/A1). sizeof(AsyncCallbackWebHandler)
+    // is compile-time; api_routes is how many unified routes this pack registered,
+    // get_dispatch how many of those are served by the single onNotFound catch-all
+    // (A1) instead of one handler each.
     {
-        char census[128];
+        char census[160];
         snprintf(census, sizeof(census),
-                 "[heap:A0] api_routes=%u handler_bytes=%u",
+                 "[heap:A0] api_routes=%u get_dispatch=%u registered=%u handler_bytes=%u",
                  (unsigned)registeredApiRouteCount(),
+                 (unsigned)registeredApiGetRouteCount(),
+                 (unsigned)(registeredApiRouteCount() - registeredApiGetRouteCount()),
                  (unsigned)sizeof(AsyncCallbackWebHandler));
         sendVirtualMessage(String(census), INFO, false, true);
     }

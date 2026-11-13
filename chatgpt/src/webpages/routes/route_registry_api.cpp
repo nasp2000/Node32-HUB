@@ -26,9 +26,127 @@ void registerApiRoute(const char* method, const char* path, ApiRouteHandler hand
     s_count++;
 }
 
+// ── Shared dispatcher ───────────────────────────────────────────────────────
+// One implementation for both registration styles: the routes still installed
+// individually (POST/PUT/DELETE/PATCH, which need the onBody stash) and the GET
+// routes served by the onNotFound catch-all (A1, 2026-11-13). Splitting these
+// used to be impossible without duplicating auth, heartbeat and response code.
+static void apiDispatchRoute(AsyncWebServerRequest* req, const WebRouteContext& context,
+                             ApiRouteHandler handler) {
+    // Raw-body stash (see apiBodyStash below) must be freed on EVERY exit.
+    auto freeRawBody = [&]() {
+        if (req->_tempObject) {
+            delete (String*)req->_tempObject;
+            req->_tempObject = nullptr;
+        }
+    };
+    if (!context.ensureBasicAuth(req)) { freeRawBody(); return; }
+    // Local-processing heartbeat: pages like /camera poll their
+    // status endpoint every few seconds; refresh the viewer's
+    // multi-track slot here so active local viewers are never
+    // kicked by the stale-tracker (webLocalPageHeartbeat).
+    webLocalPageHeartbeat(req);
+    HttpRequest hreq;
+    hreq.path = req->url();
+    hreq.method = (req->method() == HTTP_POST) ? "POST" : (req->method() == HTTP_GET) ? "GET" : "OTHER";
+    for (int i = 0; i < req->params(); i++) {
+        auto* p = req->getParam(i);
+        if (p->name() != "body" && p->name() != "_html") {
+            if (hreq.query.length() > 0) hreq.query += "&";
+            hreq.query += p->name() + "=" + p->value();
+            if (req->method() == HTTP_POST || req->method() == HTTP_DELETE || req->method() == HTTP_PUT || req->method() == HTTP_PATCH) {
+                if (hreq.body.length() > 0) hreq.body += "&";
+                hreq.body += p->name() + "=" + p->value();
+            }
+        }
+    }
+    if (hreq.body.length() > 0) {
+        hreq.contentType = F("application/x-www-form-urlencoded");
+    }
+    // Raw (non-form) bodies, e.g. JSON APIs: onBody stashed them in
+    // _tempObject (form/multipart traffic never touches it). Raw wins
+    // over params so handlers see the exact posted document.
+    if (req->_tempObject) {
+        String* raw = (String*)req->_tempObject;
+        req->_tempObject = nullptr;
+        if (raw->length() > 0) {
+            hreq.body = *raw;
+            hreq.contentType = req->contentType();
+        }
+        delete raw;
+    }
+    HttpResponse hresp;
+#if defined(SELECTED_PACK) && (SELECTED_PACK == PACK_S3_TOUCH7)
+    // TouchMeteo-7: with the RGB bounce buffer, ANY flash op while the
+    // panel streams panics (bounce ISR copies PSRAM during a cache
+    // suspend). Suspend (del) the panel around mutations so their flash
+    // writes are safe. Frequent non-flash actions (remote tap, peer
+    // refresh, weather refresh enqueue) skip the panel blackout.
+    const bool t7mut = (req->method() == HTTP_POST || req->method() == HTTP_PUT ||
+                        req->method() == HTTP_PATCH || req->method() == HTTP_DELETE);
+    const String t7url = req->url();
+    const bool t7noflash = t7url.indexOf("/api/touch7-tap") >= 0 ||
+                           t7url.indexOf("/api/touch7-peer-refresh") >= 0 ||
+                           t7url.indexOf("/api/touch7-weather-refresh") >= 0;
+    const bool t7hold = t7mut && !t7noflash;
+    if (t7hold) touch7PanelSuspend();
+#endif
+    handler(hreq, hresp);
+#if defined(SELECTED_PACK) && (SELECTED_PACK == PACK_S3_TOUCH7)
+    if (t7hold) touch7PanelResume();
+#endif
+    if (hresp.isBinary && hresp.binaryData) {
+        AsyncWebServerResponse* resp = req->beginResponse(hresp.code, hresp.contentType, hresp.binaryData, hresp.binaryLen);
+        resp->addHeader("Cache-Control", "no-cache");
+        if (hresp.frameHash.length() > 0) resp->addHeader("X-Frame-Hash", hresp.frameHash);
+        if (hresp.freeFn) {
+            const uint8_t* data = hresp.binaryData;
+            auto freeFn = hresp.freeFn;
+            req->onDisconnect([data, freeFn]() { freeFn(data); });
+        }
+        req->send(resp);
+    } else if (hresp.isRedirect) {
+        req->redirect(hresp.redirectUrl);
+    } else if (hresp.isNotModified) {
+        req->send(304);
+    } else {
+        req->send(hresp.code, hresp.contentType, hresp.body);
+    }
+}
+
+// Stash raw request bodies for apiDispatchRoute(). Form-urlencoded and multipart
+// traffic keep flowing through the params path untouched (zero extra RAM).
+static void apiBodyStash(AsyncWebServerRequest* req, uint8_t* data, size_t len,
+                         size_t index, size_t total) {
+    if (index == 0) {
+        if (req->_tempObject) {
+            delete (String*)req->_tempObject;
+            req->_tempObject = nullptr;
+        }
+        const String ct = req->contentType();
+        if (ct.startsWith(F("application/x-www-form-urlencoded")) || ct.startsWith(F("multipart/"))) return;
+        if (total > 4096) return;  // not ours to buffer; handler reports it
+        req->_tempObject = new String();
+        if (total > 0) ((String*)req->_tempObject)->reserve(total);
+    }
+    String* s = (String*)req->_tempObject;
+    if (s && data && len > 0) {
+        const size_t room = 4096 - s->length();
+        if (room > 0) s->concat((const char*)data, len < room ? len : room);
+    }
+}
+
 void registerApiRoutesToServer(AsyncWebServer& server, const WebRouteContext& context) {
     for (size_t i = 0; i < s_count; i++) {
         auto& r = s_routes[i];
+        // A1 (2026-11-13): GET routes are served by the single onNotFound
+        // catch-all (dispatchRegisteredGetRoute) instead of one
+        // AsyncCallbackWebHandler each — that is the heap this saves. They need
+        // no onBody (GET carries no form/JSON body), so nothing is lost.
+        // POST/PUT/DELETE/PATCH must stay individually registered: they rely on
+        // the body stash to see the posted document.
+        if (strcmp_P(r.method, PSTR("GET")) == 0) continue;
+
         auto httpMethod = HTTP_GET;
         if (strcmp_P(r.method, PSTR("POST")) == 0) httpMethod = HTTP_POST;
         else if (strcmp_P(r.method, PSTR("DELETE")) == 0) httpMethod = HTTP_DELETE;
@@ -36,109 +154,27 @@ void registerApiRoutesToServer(AsyncWebServer& server, const WebRouteContext& co
         else if (strcmp_P(r.method, PSTR("PATCH")) == 0) httpMethod = HTTP_PATCH;
 
         server.on(r.path, httpMethod, [&context, handler = r.handler](AsyncWebServerRequest* req) {
-            // Raw-body stash (see onBody below) must be freed on EVERY exit.
-            auto freeRawBody = [&]() {
-                if (req->_tempObject) {
-                    delete (String*)req->_tempObject;
-                    req->_tempObject = nullptr;
-                }
-            };
-            if (!context.ensureBasicAuth(req)) { freeRawBody(); return; }
-            // Local-processing heartbeat: pages like /camera poll their
-            // status endpoint every few seconds; refresh the viewer's
-            // multi-track slot here so active local viewers are never
-            // kicked by the stale-tracker (webLocalPageHeartbeat).
-            webLocalPageHeartbeat(req);
-            HttpRequest hreq;
-            hreq.path = req->url();
-            hreq.method = (req->method() == HTTP_POST) ? "POST" : (req->method() == HTTP_GET) ? "GET" : "OTHER";
-            for (int i = 0; i < req->params(); i++) {
-                auto* p = req->getParam(i);
-                if (p->name() != "body" && p->name() != "_html") {
-                    if (hreq.query.length() > 0) hreq.query += "&";
-                    hreq.query += p->name() + "=" + p->value();
-                    if (req->method() == HTTP_POST || req->method() == HTTP_DELETE || req->method() == HTTP_PUT || req->method() == HTTP_PATCH) {
-                        if (hreq.body.length() > 0) hreq.body += "&";
-                        hreq.body += p->name() + "=" + p->value();
-                    }
-                }
-            }
-            if (hreq.body.length() > 0) {
-                hreq.contentType = F("application/x-www-form-urlencoded");
-            }
-            // Raw (non-form) bodies, e.g. JSON APIs: onBody stashed them in
-            // _tempObject (form/multipart traffic never touches it). Raw wins
-            // over params so handlers see the exact posted document.
-            if (req->_tempObject) {
-                String* raw = (String*)req->_tempObject;
-                req->_tempObject = nullptr;
-                if (raw->length() > 0) {
-                    hreq.body = *raw;
-                    hreq.contentType = req->contentType();
-                }
-                delete raw;
-            }
-            HttpResponse hresp;
-#if defined(SELECTED_PACK) && (SELECTED_PACK == PACK_S3_TOUCH7)
-            // TouchMeteo-7: with the RGB bounce buffer, ANY flash op while the
-            // panel streams panics (bounce ISR copies PSRAM during a cache
-            // suspend). Suspend (del) the panel around mutations so their flash
-            // writes are safe. Frequent non-flash actions (remote tap, peer
-            // refresh, weather refresh enqueue) skip the panel blackout.
-            const bool t7mut = (req->method() == HTTP_POST || req->method() == HTTP_PUT ||
-                                req->method() == HTTP_PATCH || req->method() == HTTP_DELETE);
-            const String t7url = req->url();
-            const bool t7noflash = t7url.indexOf("/api/touch7-tap") >= 0 ||
-                                   t7url.indexOf("/api/touch7-peer-refresh") >= 0 ||
-                                   t7url.indexOf("/api/touch7-weather-refresh") >= 0;
-            const bool t7hold = t7mut && !t7noflash;
-            if (t7hold) touch7PanelSuspend();
-#endif
-            handler(hreq, hresp);
-#if defined(SELECTED_PACK) && (SELECTED_PACK == PACK_S3_TOUCH7)
-            if (t7hold) touch7PanelResume();
-#endif
-            if (hresp.isBinary && hresp.binaryData) {
-                AsyncWebServerResponse* resp = req->beginResponse(hresp.code, hresp.contentType, hresp.binaryData, hresp.binaryLen);
-                resp->addHeader("Cache-Control", "no-cache");
-                if (hresp.frameHash.length() > 0) resp->addHeader("X-Frame-Hash", hresp.frameHash);
-                if (hresp.freeFn) {
-                    const uint8_t* data = hresp.binaryData;
-                    auto freeFn = hresp.freeFn;
-                    req->onDisconnect([data, freeFn]() { freeFn(data); });
-                }
-                req->send(resp);
-            } else if (hresp.isRedirect) {
-                req->redirect(hresp.redirectUrl);
-            } else if (hresp.isNotModified) {
-                req->send(304);
-            } else {
-                req->send(hresp.code, hresp.contentType, hresp.body);
-            }
+            apiDispatchRoute(req, context, handler);
         },
         nullptr,
-        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t index, size_t total) {
-            // Stash raw request bodies for the onRequest handler above.
-            // Form-urlencoded and multipart traffic keep flowing through the
-            // params path untouched (zero extra RAM for those).
-            if (index == 0) {
-                if (req->_tempObject) {
-                    delete (String*)req->_tempObject;
-                    req->_tempObject = nullptr;
-                }
-                const String ct = req->contentType();
-                if (ct.startsWith(F("application/x-www-form-urlencoded")) || ct.startsWith(F("multipart/"))) return;
-                if (total > 4096) return;  // not ours to buffer; handler reports it
-                req->_tempObject = new String();
-                if (total > 0) ((String*)req->_tempObject)->reserve(total);
-            }
-            String* s = (String*)req->_tempObject;
-            if (s && data && len > 0) {
-                const size_t room = 4096 - s->length();
-                if (room > 0) s->concat((const char*)data, len < room ? len : room);
-            }
-        });
+        apiBodyStash);
     }
+}
+
+bool dispatchRegisteredGetRoute(AsyncWebServerRequest* request, const WebRouteContext& context) {
+    if (!request || request->method() != HTTP_GET) return false;
+    ApiRouteHandler handler = findApiRouteHandler(String(F("GET")), request->url());
+    if (!handler) return false;
+    apiDispatchRoute(request, context, handler);
+    return true;
+}
+
+size_t registeredApiGetRouteCount() {
+    size_t n = 0;
+    for (size_t i = 0; i < s_count; i++) {
+        if (strcmp_P(s_routes[i].method, PSTR("GET")) == 0) n++;
+    }
+    return n;
 }
 
 ApiRouteHandler findApiRouteHandler(const String& method, const String& path) {

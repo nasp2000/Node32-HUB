@@ -14,6 +14,22 @@ void registerApiRoutesToServer(class AsyncWebServer& server, const struct WebRou
 
 ApiRouteHandler findApiRouteHandler(const String& method, const String& path);
 
+// A1 (2026-11-13): registered GET routes are NOT registered one AsyncWebHandler
+// per path any more — registerApiRoutesToServer() only installs the non-GET ones
+// (they need the onBody stash). Every GET lands in the single server.onNotFound()
+// handler, which calls this first: exact method+path lookup in the registry table,
+// then the same dispatcher the individual routes used (auth, heartbeat, response).
+// Returns true when a route matched and the response was already sent, false to
+// let the caller's normal 404 / AP-fallback logic run.
+// Do NOT turn this into lazy per-page registration: a route that is missing only
+// because nobody visited its page would answer 404 with no diagnostic.
+bool dispatchRegisteredGetRoute(class AsyncWebServerRequest* request,
+                                const struct WebRouteContext& context);
+
+// How many registered routes are served by that catch-all (GET ones). Reported
+// at boot next to the total so the split is visible in the Web Serial Monitor.
+size_t registeredApiGetRouteCount();
+
 // Returns true if the path is known to any registered or legacy route
 // (regardless of HTTP method). Used by ethernet_bootstrap_routes.h for
 // 405 Method Not Allowed vs 404 Not Found distinction.

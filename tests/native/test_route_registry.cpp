@@ -170,3 +170,70 @@ TEST_CASE("enumerate all routes returns complete non-failing listing") {
     }
     CHECK(found == (size_t)N);
 }
+
+// ── A1 (2026-11-13): GET routes are dispatched from the onNotFound catch-all ──
+// production dispatches a registered GET from the single catch-all handler
+// (dispatchRegisteredGetRoute) instead of installing one AsyncWebHandler per
+// path. The decision is: HTTP_GET only, exact method+path lookup in the same
+// table. Mirrored here so a regression in those two rules has a host-side test.
+namespace {
+
+struct CatchAllDispatch {
+    const RouteRegistry& reg;
+    explicit CatchAllDispatch(const RouteRegistry& r) : reg(r) {}
+    // Returns true = the route matched and the catch-all answered.
+    bool dispatch(const std::string& method, const std::string& url) const {
+        if (method != "GET") return false;          // POST/PUT/DELETE stay individually registered
+        return reg.find("GET", url) != 0;           // handler 0 == null == no route
+    }
+    size_t getCount() const {
+        size_t n = 0;
+        for (size_t i = 0; i < reg.count(); ++i) {
+            if (reg.routes[i].method == "GET") ++n;
+        }
+        return n;
+    }
+};
+
+}  // namespace
+
+TEST_CASE("A1: catch-all serves a registered GET route") {
+    RouteRegistry r;
+    r.registerRoute("GET", "/api/status", 901);
+    r.registerRoute("POST", "/api/status", 902);
+    CatchAllDispatch d(r);
+    CHECK(d.dispatch("GET", "/api/status"));
+    CHECK(d.getCount() == 1);
+}
+
+TEST_CASE("A1: catch-all never serves non-GET, and GET never falls into a POST-only route") {
+    RouteRegistry r;
+    r.registerRoute("POST", "/api/config", 903);
+    r.registerRoute("DELETE", "/api/saved", 904);
+    r.registerRoute("GET", "/api/status", 905);
+    CatchAllDispatch d(r);
+    CHECK_FALSE(d.dispatch("POST", "/api/config"));   // stays on its own handler
+    CHECK_FALSE(d.dispatch("DELETE", "/api/saved"));
+    CHECK_FALSE(d.dispatch("GET", "/api/config"));    // GET on a POST-only path: no dispatch (404/405 path)
+    CHECK(d.dispatch("GET", "/api/status"));
+    CHECK(d.getCount() == 1);
+}
+
+TEST_CASE("A1: catch-all match is exact — no prefix, no trailing slash, no query") {
+    RouteRegistry r;
+    r.registerRoute("GET", "/api/status", 906);
+    CatchAllDispatch d(r);
+    CHECK_FALSE(d.dispatch("GET", "/api/stat"));       // prefix
+    CHECK_FALSE(d.dispatch("GET", "/api/status/"));    // trailing slash
+    CHECK_FALSE(d.dispatch("GET", "/api/status?x=1")); // url() excludes the query; a query here is a bug
+    CHECK_FALSE(d.dispatch("GET", "/API/STATUS"));     // case sensitive
+    CHECK(d.dispatch("GET", "/api/status"));
+}
+
+TEST_CASE("A1: getCount splits the table (the GET share of the handlers saved)") {
+    RouteRegistry r;
+    for (int i = 0; i < 10; ++i) r.registerRoute(i < 7 ? "GET" : "POST", "/api/r" + std::to_string(i), 1000 + i);
+    CatchAllDispatch d(r);
+    CHECK(d.getCount() == 7);
+    CHECK(r.count() - d.getCount() == 3);   // POST/PUT/DELETE stay individually registered
+}

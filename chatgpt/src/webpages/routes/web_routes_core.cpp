@@ -464,6 +464,11 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
     // Otherwise return 404 for unknown paths instead of a 302 redirect, so API
     // and page clients can reliably detect a non-existent route.
     server.onNotFound([&context](AsyncWebServerRequest* request) {
+        // A1 (2026-11-13): registered GET API routes live in the registry table
+        // and are dispatched from here (one AsyncWebHandler for all of them).
+        // This must run BEFORE the AP-only page fallback, otherwise every API
+        // GET would be swallowed by the minimal WiFi page when the AP is up.
+        if (dispatchRegisteredGetRoute(request, context)) return;
         if (WiFi.getMode() == WIFI_AP && !ethernetHasIp()) {
             AsyncWebServerResponse* r = request->beginResponse(200, "text/html; charset=utf-8", FPSTR(PAGE_WIFI_AP_MINIMAL));
             r->addHeader("Cache-Control", "no-cache");
