@@ -134,7 +134,24 @@ inline void setupWebServer(AsyncWebServer& server) {
     registerDualFileRoutes(server, routeContext);
 #endif
 
+    // A0 (2026-11-13): fine marks inside the web-server init so the 65 KB bucket
+    // can be split (legacy routes vs unified API routes vs server.begin()).
+    // Plain instrumentation: no route, order or behaviour change.
+    heapTraceMark("web_legacy");
+
     registerApiRoutesToServer(server, routeContext);
+    heapTraceMark("web_api");
+
+    // Route/handler census for the heap plan (A0). sizeof(AsyncCallbackWebHandler)
+    // is compile-time; s_count is how many unified routes this pack registered.
+    {
+        char census[128];
+        snprintf(census, sizeof(census),
+                 "[heap:A0] api_routes=%u handler_bytes=%u",
+                 (unsigned)registeredApiRouteCount(),
+                 (unsigned)sizeof(AsyncCallbackWebHandler));
+        sendVirtualMessage(String(census), INFO, false, true);
+    }
 
     sendVirtualMessage(F("WebServer ON"), INFO);
     heapTraceMark("webserver");

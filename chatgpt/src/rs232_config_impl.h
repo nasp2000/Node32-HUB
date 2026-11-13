@@ -434,9 +434,11 @@ void applyRS232Config() { // Apply RS232 configs or perform startup if first run
         T7LOG("boot: web server...");
 #endif
         setupConfigManagerEndpoints();
+        heapTraceMark("web_base");
         setupWebServer(server);
         delay(200); // Short wait to ensure TCP/IP stack & event loop are stable
         server.begin();
+        heapTraceMark("web_begin");   // A0: cost of server.begin() itself
 #if SCREEN_TYPE == 3
         T7LOG("boot: server begun");
 #endif

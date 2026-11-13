@@ -58,3 +58,12 @@ int32_t heapTraceDeltaFor(const char* label) {
     }
     return 0;
 }
+
+int32_t heapTraceDeltaSpan(const char* fromLabel, const char* toLabel) {
+    const HeapTracePoint* a = heapTraceFind(fromLabel);
+    const HeapTracePoint* b = heapTraceFind(toLabel);
+    if (!a || !b) return 0;
+    // Compare addresses (the trace is a contiguous array).
+    if (b < a) { const HeapTracePoint* t = a; a = b; b = t; }
+    return (b->heapFree <= a->heapFree) ? (int32_t)(a->heapFree - b->heapFree) : 0;
+}

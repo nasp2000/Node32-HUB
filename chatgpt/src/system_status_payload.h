@@ -648,7 +648,7 @@ inline void fillSystemStatusJson(JsonDocument& out, SystemStatusPayloadState& st
         // trace_key: checkpoint label whose MEASURED delta is this module's cost
         // ("" = no checkpoint -> measured unknown, est stays the only figure).
         auto addHb = [&](const char* name, int estKb, const char* color,
-                         const char* traceKey = "") {
+                         const char* traceKey = "", const char* traceKeyFrom = "") {
             JsonObject e = hb.createNestedObject();
             e["name"] = name;
             e["est_kb"] = estKb;
@@ -656,8 +656,15 @@ inline void fillSystemStatusJson(JsonDocument& out, SystemStatusPayloadState& st
             if (traceKey && traceKey[0]) {
                 const HeapTracePoint* tp = heapTraceFind(traceKey);
                 if (tp) {
-                    e["meas_kb"] = (int)((heapTraceDeltaFor(traceKey) + 512) / 1024);
+                    // traceKeyFrom: measure the SPAN (e.g. the whole web-server
+                    // init) when fine marks were inserted inside the bucket, so
+                    // the table keeps reporting the module total (A0, 2026-11-13).
+                    const int32_t d = (traceKeyFrom && traceKeyFrom[0])
+                        ? heapTraceDeltaSpan(traceKeyFrom, traceKey)
+                        : heapTraceDeltaFor(traceKey);
+                    e["meas_kb"] = (int)((d + 512) / 1024);
                     e["trace_key"] = traceKey;
+                    if (traceKeyFrom && traceKeyFrom[0]) e["trace_from"] = traceKeyFrom;
                 }
             }
         };
@@ -669,7 +676,7 @@ inline void fillSystemStatusJson(JsonDocument& out, SystemStatusPayloadState& st
         addHb("WiFi stack (lwIP+NVS)", 55, "#3b82f6", "wifi");
   #endif
   #if ENABLE_WIFI_WEB_SERVER == 1
-        addHb("AsyncWebServer", 14, "#0ea5e9", "webserver");
+        addHb("AsyncWebServer", 14, "#0ea5e9", "web_begin", "email");
   #endif
 #endif // ENABLE_WIFI
 #if ENABLE_ETHERNET == 1

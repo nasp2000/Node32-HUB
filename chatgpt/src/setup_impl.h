@@ -340,6 +340,7 @@ void setup(){ // setup function added (missing caused undefined reference at lin
 #endif
 
 #if ENABLE_PROXIMITY==1
+    heapTraceMark("pre_prox");   // A0: closes the applyRS232Config tail (NTP/crash-logger/config sync)
     proximityBegin();
 #endif
     heapTraceMark("proximity");

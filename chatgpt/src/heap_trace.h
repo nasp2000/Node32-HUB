@@ -50,3 +50,9 @@ const HeapTracePoint* heapTraceFind(const char* label);
 
 // Bytes consumed by the step that ends at `label` (0 when absent).
 int32_t heapTraceDeltaFor(const char* label);
+
+// Bytes consumed between two checkpoints, both inclusive of their own steps:
+// free(from) - free(to), clamped at 0. Lets a coarse bucket (e.g. the whole web
+// server init) keep reporting its total after finer marks are inserted inside
+// it. 0 when either label is absent or the heap grew.
+int32_t heapTraceDeltaSpan(const char* fromLabel, const char* toLabel);
