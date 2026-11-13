@@ -18,7 +18,9 @@
 
 #include <Arduino.h>
 
-#define HEAP_TRACE_MAX 16
+// 20 (was 16): A0/A0-b split the boot into more steps (network/NTP/web routes/
+// begin) and 16 no longer left room for the tail marks on the .29 build.
+#define HEAP_TRACE_MAX 20
 
 struct HeapTracePoint {
     const char* label;    // checkpoint name (static string)

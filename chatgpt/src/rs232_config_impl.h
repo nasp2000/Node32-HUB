@@ -271,6 +271,7 @@ void applyRS232Config() { // Apply RS232 configs or perform startup if first run
 #if SCREEN_TYPE == 3
     T7LOG("boot: wifi done");
 #endif
+    heapTraceMark("net_wifi");   // A0-b: RS232 template + AP config + WiFi connect
 
     if(fullBoot){ // NTP+Timezone only at boot to avoid repeated resets
         // Use configTzTime to apply timezone (with DST) and NTP server at once
@@ -366,6 +367,7 @@ void applyRS232Config() { // Apply RS232 configs or perform startup if first run
         T7LOG("boot: NTP done");
 #endif
     }
+    heapTraceMark("net_ntp");   // A0-b: configTzTime + NTP wait + crash-logger + log header
     
     // Configure RS232 (consolidated immediate application)
     // Redundant applyRS232Config call removed (already applied at startup)
@@ -437,8 +439,9 @@ void applyRS232Config() { // Apply RS232 configs or perform startup if first run
         heapTraceMark("web_base");
         setupWebServer(server);
         delay(200); // Short wait to ensure TCP/IP stack & event loop are stable
+        heapTraceMark("web_pre_begin");   // A0-b: closes the delay(200), so web_begin is begin() alone
         server.begin();
-        heapTraceMark("web_begin");   // A0: cost of server.begin() itself
+        heapTraceMark("web_begin");   // A0/A0-b: cost of server.begin() itself
 #if SCREEN_TYPE == 3
         T7LOG("boot: server begun");
 #endif
