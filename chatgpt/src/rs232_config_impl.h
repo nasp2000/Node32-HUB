@@ -109,6 +109,8 @@ void applyRS232Config() { // Apply RS232 configs or perform startup if first run
                                      (unsigned)(dram_free/1024), (unsigned)(dram_largest/1024), frag);
         }
 
+        heapTraceMark("cfg_head");   // A3: boot preamble (storage stats + system name) ends here
+
 #if ENABLE_RS232==1
         // DIAGNOSTIC: Show loaded RS232 settings (full)
         char diagBuf[384];
@@ -133,6 +135,7 @@ void applyRS232Config() { // Apply RS232 configs or perform startup if first run
             sendVirtualMessage(String(templateBuf), INFO);
         }
 #endif // ENABLE_RS232
+    heapTraceMark("cfg_rs232");   // A3: RS232 config apply (or nothing when compiled out)
 
 #if ENABLE_SDCARD==1
 #if defined(TARGET_BOARD_S3_TOUCH7) && TARGET_BOARD_S3_TOUCH7==1
@@ -154,6 +157,7 @@ void applyRS232Config() { // Apply RS232 configs or perform startup if first run
     // Stack size 12KB: loadFromLittleFS() + JSON parsing is stack-heavy (see taskInitFlash)
     xTaskCreate(taskInitFlash, "flashInit", 12288, nullptr, 1, nullptr);
 #endif
+    heapTraceMark("cfg_sd");   // A3: SD/LittleFS init task launch
 
 #if ENABLE_ETHERNET==1
     // Pin to Core 0: loopTask runs on Core 1; keeping ethInit on Core 0 prevents
@@ -238,8 +242,9 @@ void applyRS232Config() { // Apply RS232 configs or perform startup if first run
         sendVirtualMessage(F("❌ Failed to create recipient throttle mutex"), ERROR);
     }
 
+    heapTraceMark("cfg_tail");   // A3: end of the network/modbus/mutex tail
     runtimeEmailInitBackgroundTasks();
-    heapTraceMark("email");
+    heapTraceMark("email");      // A3: email mutexes + TCBs + PSRAM stacks only
 
     } else { syncGlobalVariables(false); } // Light reapply (ignore RS232)
     // Keep RS232 runtime settings stable at boot.

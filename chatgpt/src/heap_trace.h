@@ -18,10 +18,11 @@
 
 #include <Arduino.h>
 
-// 24 (was 16, then 20): A0/A0-b split the boot into more steps (network/NTP/web
-// routes/begin) and A5 adds five inside the WiFi bring-up; the WAVESHARE build
-// (ethernet + SD + email) records the most marks and must not drop the tail.
-#define HEAP_TRACE_MAX 24
+// 28 (was 16, 20, 24): A0/A0-b split the boot into more steps (network/NTP/web
+// routes/begin), A5 adds five inside the WiFi bring-up and A3 four inside the
+// applyRS232Config preamble; the WAVESHARE build (ethernet + SD + proximity)
+// records the most marks and must not drop the tail.
+#define HEAP_TRACE_MAX 28
 
 struct HeapTracePoint {
     const char* label;    // checkpoint name (static string)
