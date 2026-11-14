@@ -165,9 +165,13 @@ Passwords are **never** returned.
 
 ### `POST /api/access-config` (`:547`)
 
-Reads urlencoded form fields (WiFi route reconstructs body from POST params). Each field is
-applied only when present and valid; `getInt` returns `-1` and **skips** out-of-range/absent
-values silently:
+Reads urlencoded form fields (WiFi route reconstructs body from POST params). Absent keys
+mean "leave the current value alone" (partial POSTs stay legal). The three numeric fields are
+validated **as a group, before anything is written**: a key that is present but empty,
+non-numeric or out of its range fails the whole request with `400` and an explicit payload
+instead of being skipped while the rest is saved (ACC-2). Parsing is strict — `"12abc"`,
+`"1.5"`, `"--3"` and `"3 3"` are rejected, not truncated; surrounding blanks and a leading
+`+` are tolerated.
 
 | Field | Range | Setter |
 |---|---|---|
@@ -188,8 +192,12 @@ values silently:
 > (see ACC-3).
 
 Responses: no changes → 200 `{"success":true,"message":"No changes detected"}`; saved →
-200 `{"success":true,"message":"Access settings saved"}`; LittleFS failure → 500
-`{"success":false,"message":"Save error"}`.
+200 `{"success":true,"message":"Access settings saved"}`; unusable numeric field → 400
+`{"success":false,"field":"web_max_sessions","min":1,"max":5,"error":"out_of_range","message":"Invalid value for web_max_sessions: is out of range (1-5)."}`
+(`error` is `empty`, `not_a_number` or `out_of_range`; nothing is written); LittleFS failure
+→ 500 `{"success":false,"message":"Save error"}`. The page's submit handler already routes
+`d.success === false` to `customAlert('✗ Error: ' + d.message)`, so the field and its range
+reach the user without extra client code.
 
 ### `GET /api/session-history` (`:614`)
 
@@ -295,7 +303,7 @@ Tab labels use the tab keys themselves (`tabAccessSessions`, `tabAccessCharts`,
 | # | Finding | Severity | Suggested fix |
 |---|---|---|---|
 | 1 | **Kick-all and session-history have no UI.** `POST /api/access-kick-all` and `GET /api/session-history` are registered and documented in `/api-reference`, but the access page has no "terminate all sessions" button and no session list — admins can't use them from the UI. | Medium | Add a "Terminate all sessions" button (Sessions tab) and optionally a small history list fed by `/api/session-history`. |
-| 2 | **Invalid/absent values are silently ignored.** `getInt` returns `-1` → the field is skipped with no error; a form that posts an out-of-range value just keeps the old one. Silent failure makes debugging hard. | Low | Report an error for each out-of-range field (or clamp instead of skip). |
+| 2 | Invalid/absent values were silently ignored (`getInt` returned `-1` for absent, non-numeric and out-of-range alike). **Fixed (ACC-2):** the three numeric fields are parsed strictly and validated before any write; a present-but-unusable value returns 400 with `field`, `min`, `max`, `error` and a readable `message`, and nothing is saved. Absent keys still leave the current value. Pure parser/payload in `config_int_field.h`; tests: `test_config_int_field` (10 cases / 93 assertions). | Low | fixed |
 | 3 | **Dead PT password sentinel.** Handler compares `web_password_new`/`viewer_password` against `"(não alterado)"`/`"(nao alterado)"` while the client placeholder is English `(unchanged)`. The client never sends those strings (empty = skipped earlier), so the check is dead and its language is PT. | Low | Remove the sentinel comparison (empty field already means "keep current"). |
 | 4 | **Page routes not gated by `ENABLE_PAGE_ACCESS`.** `web_routes_access.cpp` registers page + APIs unconditionally (unlike `/sdcard` which is `#if ENABLE_PAGE_SDCARD==1`); the flag only gates the home button and self-test manifest. Setting the flag off still serves the page/APIs. | Low | Wrap page registration in `#if ENABLE_PAGE_ACCESS==1` (APIs may stay). |
 | 5 | UI ranges are narrower than the API accepts (`idle` UI 5–60 vs server 1–120; `abs` UI 15–120 vs server 5–240) — silent mismatch between what the user can pick and what is valid. | Low | Align ranges (UI ≤ API is acceptable, but pick one documented limit). |
@@ -313,6 +321,7 @@ Tab labels use the tab keys themselves (`tabAccessSessions`, `tabAccessCharts`,
 | Page HTML/JS (PROGMEM) | `chatgpt/src/webpages/assets/page_access_asset.h` |
 | Routes (WiFi + Ethernet) | `chatgpt/src/webpages/routes/web_routes_access.cpp`, `ethernet_bootstrap_routes.h:214` |
 | HTTP handlers | `chatgpt/src/webpages/handlers_unified/config_handler.cpp` (`handleAccessConfigGet/Post`, `handleSessionHistoryGet`, `handleAccessKickAllPost`) |
+| Numeric POST validation | `chatgpt/src/config_int_field.h` (`configIntParse`, `configIntErrorJson`) |
 | Ethernet API mirrors | `chatgpt/src/ethernet_bootstrap_handlers.h:515-541`, `ethernet_bootstrap_routes.h:733` |
 | Config storage | `chatgpt/src/ConfigManager.{h,cpp}` (`web` + `system` sections; `access.json` stem) |
 | Session engine | `chatgpt/src/webpages/webpage_state.cpp` (session history, `webclientForceReset`, `allowHtmlClient`) |

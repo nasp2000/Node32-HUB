@@ -18,6 +18,7 @@
 #include "../../network_saved_profiles.h"
 #include "../../web_shared_logic.h"
 #include "../../feature_flags.h"
+#include "../../config_int_field.h" // strict numeric POST validation (ACC-2)
 // Both modules can be enabled in the same build (pack RAMBOX), so both headers
 // are included independently — an #elif here left unikonGetConfig() undeclared.
 #if ENABLE_BRICON == 1
@@ -684,21 +685,40 @@ void handleAccessConfigPost(HttpRequest& req, HttpResponse& res) {
     bool upd = false;
     String msg;
 
-    auto getInt = [&](const char* key, int minVal, int maxVal) -> int {
-        String v = bodyValue(req.body, req.contentType, key);
-        if (!v.length()) return -1;
-        int val = v.toInt();
-        return (val >= minVal && val <= maxVal) ? val : -1;
+    // Numeric fields are validated as a GROUP before anything is written: a
+    // key that is present but unusable must fail the whole request with an
+    // explicit reason, never be skipped while the other fields are saved
+    // (BACKLOG ACC-2). Absent keys still mean "leave the current value alone",
+    // so partial POSTs (scripts, other pages) keep working.
+    static const struct { const char* key; int minVal; int maxVal; } kAccIntFields[] = {
+        { "web_max_sessions",     1,   5 },
+        { "web_idle_timeout_min", 1, 120 },
+        { "web_abs_timeout_min",  5, 240 },
     };
+    const int kAccIntCount = (int)(sizeof(kAccIntFields) / sizeof(kAccIntFields[0]));
+    int  accIntValue[3]   = { 0, 0, 0 };
+    bool accIntPresent[3] = { false, false, false };
+    for (int i = 0; i < kAccIntCount; i++) {
+        if (!bodyHasKey(req.body, req.contentType, kAccIntFields[i].key)) continue;
+        String raw = bodyValue(req.body, req.contentType, kAccIntFields[i].key);
+        ConfigIntParseResult parsed = configIntParse(raw.c_str(), (size_t)raw.length(),
+                                                    kAccIntFields[i].minVal,
+                                                    kAccIntFields[i].maxVal);
+        if (parsed.status != CONFIG_INT_OK) {
+            char errBuf[256];
+            configIntErrorJson(errBuf, sizeof(errBuf), kAccIntFields[i].key,
+                               kAccIntFields[i].minVal, kAccIntFields[i].maxVal,
+                               parsed.status);
+            res.send(400, "application/json", String(errBuf));
+            return;
+        }
+        accIntValue[i] = parsed.value;
+        accIntPresent[i] = true;
+    }
 
-    int val = getInt("web_max_sessions", 1, 5);
-    if (val >= 0) { configManager.setWebMaxSessions(val); appendToken(msg, upd, "MaxSessions "); }
-
-    val = getInt("web_idle_timeout_min", 1, 120);
-    if (val >= 0) { configManager.setWebIdleTimeoutMin(val); appendToken(msg, upd, "IdleTimeout "); }
-
-    val = getInt("web_abs_timeout_min", 5, 240);
-    if (val >= 0) { configManager.setWebAbsTimeoutMin(val); appendToken(msg, upd, "AbsTimeout "); }
+    if (accIntPresent[0]) { configManager.setWebMaxSessions(accIntValue[0]); appendToken(msg, upd, "MaxSessions "); }
+    if (accIntPresent[1]) { configManager.setWebIdleTimeoutMin(accIntValue[1]); appendToken(msg, upd, "IdleTimeout "); }
+    if (accIntPresent[2]) { configManager.setWebAbsTimeoutMin(accIntValue[2]); appendToken(msg, upd, "AbsTimeout "); }
 
     String v = bodyValue(req.body, req.contentType, "web_username");
     if (v.length() && v != configManager.getWebUsername()) { configManager.setWebUsername(v); appendToken(msg, upd, "WebUser "); }

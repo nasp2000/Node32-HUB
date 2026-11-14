@@ -93,11 +93,28 @@ setTimeout(function(){
       assert(capturedBody.indexOf('auth_enabled=on')>=0,'submit includes auth_enabled=on when checked');
       var found=alertCalls.some(function(m){return m.indexOf('Saved')>=0||m.indexOf('✓')>=0;});
       assert(found,'form submit with matching passwords shows success');
-      win.customAlert=origAlert;
 
-      dom.window.close();
-      console.log('\nResults: '+passed+'/'+(passed+failed)+' passed, '+failed+' failed\n');
-      if(failed>0)process.exit(1);
+      // ACC-2: a rejected numeric POST (400 + field/range from the server) must
+      // reach the user — the page routes d.success===false to customAlert.
+      alertCalls.length=0;
+      win.__MOCK_API__['/api/access-config']={
+        success:false,field:'web_max_sessions',min:1,max:5,error:'out_of_range',
+        message:'Invalid value for web_max_sessions: is out of range (1-5).'
+      };
+      form.dispatchEvent(new win.Event('submit'));
+      setTimeout(function(){
+        var rejected=alertCalls.some(function(m){
+          return m.indexOf('web_max_sessions')>=0 && m.indexOf('out of range')>=0;
+        });
+        assert(rejected,'rejected numeric POST shows the field and range');
+        var notSaved=!alertCalls.some(function(m){return m.indexOf('Saved')>=0;});
+        assert(notSaved,'rejected numeric POST does not show a success message');
+        win.customAlert=origAlert;
+
+        dom.window.close();
+        console.log('\nResults: '+passed+'/'+(passed+failed)+' passed, '+failed+' failed\n');
+        if(failed>0)process.exit(1);
+      },50);
     },50);
   },50);
 },50);

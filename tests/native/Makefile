@@ -691,6 +691,10 @@ test_email_event_fields$(BIN_EXT): test_email_event_fields.cpp $(SRC_DIR)/email_
 # --- ftp_status_store: persisted last-sends state (FTP page, survives reboot) ---
 test_ftp_status_store$(BIN_EXT): test_ftp_status_store.cpp $(SRC_DIR)/ftp_status_store.h $(STUBS_DIR)/Arduino.h $(STUBS_DIR)/ArduinoJson.h
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_ftp_status_store.cpp
+# --- config_int_field: strict numeric POST validation (ACC-2) ---
+test_config_int_field$(BIN_EXT): test_config_int_field.cpp $(SRC_DIR)/config_int_field.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_config_int_field.cpp
+
 # --- rs232_chart_serve: RS232 file+ring union serve pieces (SD-9) ---
 test_rs232_chart_serve$(BIN_EXT): test_rs232_chart_serve.cpp $(SRC_DIR)/rs232_chart_serve.h $(SRC_DIR)/chart_ring_serve.h
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_rs232_chart_serve.cpp
