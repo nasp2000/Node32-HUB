@@ -1,4 +1,5 @@
 #include "../../languages/lang_active.h"
+#include "../../alerts_slot_merge.h"   // disabled rows keep their stored values (ALERTS-6)
 #include "../../alerts_limits.h"   // ALERTS-4: max/day bounds shared with the UI
 #include "../../email_validation.h"   // shared alert e-mail rule (client mirrors it)
 #include "recipients_handler.h"
@@ -113,6 +114,11 @@ void handleInactivityAlertConfigPost(HttpRequest& req, HttpResponse& res) {
             }
         }
 
+        // ALERTS-6: the form posts every row; a disabled one keeps its stored
+        // timeout/max/e-mails instead of being reset to the form defaults.
+        timeoutInt   = alertsMergeInt(isEnabled, timeoutInt, configManager.getAlertSlotTimeout(i));
+        maxPerDayInt = alertsMergeInt(isEnabled, maxPerDayInt, configManager.getAlertSlotMaxPerDay(i));
+        emails       = alertsMergeText(isEnabled, emails, configManager.getAlertSlotEmails(i));
         configManager.setAlertSlot(i, isEnabled, timeoutInt, maxPerDayInt, emails);
     }
 
@@ -262,6 +268,12 @@ void handleOeeAlertConfigPost(HttpRequest& req, HttpResponse& res) {
             }
         }
 
+        // ALERTS-6: same rule on the OEE tab.
+        metric        = alertsMergeInt(isEnabled, metric, configManager.getOeeAlertMetric(i));
+        thresholdInt  = alertsMergeInt(isEnabled, thresholdInt, configManager.getOeeAlertThreshold(i));
+        persistMinInt = alertsMergeInt(isEnabled, persistMinInt, configManager.getOeeAlertPersistMin(i));
+        maxPerDayInt  = alertsMergeInt(isEnabled, maxPerDayInt, configManager.getOeeAlertMaxPerDay(i));
+        emails        = alertsMergeText(isEnabled, emails, configManager.getOeeAlertEmails(i));
         configManager.setOeeAlertSlot(i, isEnabled, metric, thresholdInt, persistMinInt, maxPerDayInt, emails);
     }
 

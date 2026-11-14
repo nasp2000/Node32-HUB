@@ -46,6 +46,7 @@ boundary, never at midnight), email only with valid recipients + wifi.
  └ <div class="wrap">
     ├ [🏠 Home]  ← home button is always the first child of .wrap (project rule)
     ├ H1 "🚨 Configure Alerts"
+    ├ SMTP banner (ALERTS-7): "Alerts are delivered by e-mail. Configure the SMTP server first:" + [✉️ E-mail settings] → /email
     ├ [tab bar — proximity builds only: Inactivity | OEE]
     ├ <div id='tabInact'>
     │  └ Blue card (#0f172a bg, #3b82f6 border)
@@ -212,8 +213,9 @@ Params: `i` (slot index, 0-based, `0..ALERT_SLOT_COUNT-1`), `emails` (recipients
 Validation aborts **before any slot is written** (fail-fast loop), so a bad value never
 half-saves the set.
 
-Disabled slots are still stored with whatever timeout/max were last sent
-(defaults `5` / `6` if absent) but are inert at runtime.
+Disabled slots are **not** overwritten any more: a save posts every row, so the handlers keep the
+stored timeout/max/e-mails of a disabled slot and only flip `enabled` (ALERTS-6,
+`alerts_slot_merge.h`). Re-enable a row to edit its numbers.(defaults `5` / `6` if absent) but are inert at runtime.
 
 ### `GET` + `POST /api/oee-alert-config` (proximity builds only)
 
