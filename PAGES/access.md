@@ -64,7 +64,8 @@ main.page.access > div.wrap
     │   │   └ #pwd-match-msg  (error line, hidden by default)
     │   └ Viewer section
     │       ├ checkbox #viewer_enabled  + hidden viewer_enabled_present=1
-    │       ├ #viewer_fields → input #viewer_username, #viewer_password
+    │       ├ #viewer_fields  (hidden until #viewer_enabled is checked — ACC-6)
+    │       │   → input #viewer_username, #viewer_password
     │       └ routes hint: /, /status, /sensor-charts, /monitor, /files (read-only)
     └ [💾 Save]  (submit button)
 ```
@@ -89,8 +90,8 @@ Tabs are injected by `accInitTabs()` — a `<button class='acc-tab-btn'>` per pa
 | Admin new password | `web_password_new` | password | empty = keep current; must match confirm |
 | Confirm password | `web_password_confirm` | password | client-side match check |
 | Enable viewer | `viewer_enabled` | checkbox | enables read-only viewer account |
-| Viewer username | `viewer_username` | text | default `viewer` |
-| Viewer password | `viewer_password` | password | empty = keep current |
+| Viewer username | `viewer_username` | text | default `viewer`; inside `#viewer_fields`, collapsed until `viewer_enabled` is checked (ACC-6) |
+| Viewer password | `viewer_password` | password | empty = keep current; same collapsed container |
 
 Checkboxes are protected by hidden `*_present` fields so the server can distinguish
 "untouched" from "false": `charts_exempt_present`, `serial_monitor_enabled_present`,
@@ -129,6 +130,10 @@ buttons are `type='button'` so they never submit `#access-form`.
   `web_idle_timeout_min` (10), `web_abs_timeout_min` (20), `charts_exempt`,
   `serial_monitor_enabled`, `web_username`, `auth_enabled`, `viewer_enabled`,
   `viewer_username` (viewer password is never returned/set — kept blank on purpose).
+- **`accApplyViewerVisibility()`** (on window load, on the `#viewer_enabled` change event
+  and after each config load) — sets `#viewer_fields.hidden = !#viewer_enabled.checked`, so
+  the viewer identity inputs stay collapsed until the account is enabled. Hiding never
+  disables the inputs: their posted values keep the existing keep-current rules.
 - **Submit handler** (`form#access-form`):
   1. `preventDefault`; read `web_password_new` vs `web_password_confirm`; if new password
      non-empty and mismatch → show `#pwd-match-msg`, abort;
@@ -310,7 +315,7 @@ Tab labels use the tab keys themselves (`tabAccessSessions`, `tabAccessCharts`,
 | 3 | Dead PT password sentinel (`"(não alterado)"`/`"(nao alterado)"`) compared against an English client whose hint `(unchanged)` is only a placeholder. **Fixed (ACC-3):** the sentinel comparison is gone from both password fields; the rule is the single `passwordFieldIsNew()` helper — empty (or absent) = keep the stored password, any non-empty value = new password. Tests: `test_password_field_input` (5 cases / 21 assertions, incl. the old dead check) + a web case proving an untouched submit posts empty values and no sentinel. | Low | fixed |
 | 4 | Page + APIs were registered unconditionally. **Fixed (ACC-4):** the `/access` page now follows the `/sdcard` scheme — `#if ENABLE_PAGE_ACCESS==1` around the WiFi registration, the same guard in the Ethernet branch (404 when off) and around the home button; the APIs stay registered in every build. Test: `test_access_page_gate` (5 cases / 33 assertions, source-contract on all three guards + API parity). | Low | fixed |
 | 5 | UI ranges were narrower than the API (`idle` select 5–60 vs server 1–120; `abs` select 15–120 vs server 5–240). **Fixed (ACC-5):** widened the UI to the API — both timeouts are now free number inputs bounded 1–120 / 5–240, so every accepted value is selectable and a script-stored value (e.g. idle 90) renders instead of blanking a select. One table (`chatgpt/src/access_limits.h`) feeds the handler and is compared with the markup by `test_access_limits` (4 cases / 41 assertions), so the two cannot drift again. | Low | fixed |
-| 6 | Viewer section is fully visible even when `viewer_enabled` is off — fields could be collapsed/hidden until the checkbox is checked. | Info | Toggle `#viewer_fields` visibility from the checkbox. |
+| 6 | Viewer section was fully visible even when `viewer_enabled` was off. **Fixed (ACC-6):** `#viewer_fields` starts `hidden` in the markup and `accApplyViewerVisibility()` mirrors the checkbox (`hidden = !checked`) on page load, on the change event and after each GET so a config with the viewer enabled reveals the fields. Hiding does not disable them, so the empty-password/keep-current rules are untouched. Tests: `test_access_page_markup` (2 new cases / 14 assertions) and `test_access.js` (6 new assertions: hidden when off, reveal on check, collapse on uncheck, loaded config with it on reveals). | Info | fixed |
 | 7 | **"Maximum simultaneous clients" limits distinct client IPs, not open tabs/pages** (owner decision: keep it this way). The page hint says "new browsers receive HTTP 429", which can read as a per-tab limit. Confirmed working: `allowHtmlClient()` multi-client path counts `multiTrack` unique IPs (8 slots, 15 s TTL) and returns 429 for a *new* IP when full; an already-tracked IP is admitted regardless of how many tabs it opens. Single-client mode adds a second cap (429 for any other IP) plus idle/absolute expiry (503). | Info | Documented here; no code change (owner chose per-IP). Optionally reword `accessMaxClientsHint` (EN+PT) to say "unique devices (IP)". |
 | 8 | Session list + terminate-all had no UI although `/api/session-history` and `/api/access-kick-all` were registered and documented. **Fixed (ACC-1):** the Web Sessions tab shows the history (newest first, escaped, capped 20, empty/failure states), a Refresh button and a confirmed Terminate all sessions action; both are `type='button'`. Tests: `test_access_page_markup` + `test_access_sessions.js`. | Medium | fixed |
 

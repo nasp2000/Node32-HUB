@@ -60,15 +60,30 @@ win.__MOCK_API__['/api/access-config']={web:{auth_enabled:true,username:'admin',
 win.loadAccessConfig();
 setTimeout(function(){
   assert(aeEl.checked===true,'auth_enabled checked when config true');
+
+  // ACC-6: viewer identity fields stay collapsed until the checkbox is on.
+  var vf=doc.getElementById('viewer_fields');
+  var veBox=doc.getElementById('viewer_enabled');
+  assert(!!vf && !!veBox,'viewer fields + checkbox exist');
+  assert(typeof win.accApplyViewerVisibility==='function','visibility helper exists');
+  assert(vf.hidden===true,'viewer fields hidden when the config has it off');
+  veBox.checked=true;
+  veBox.dispatchEvent(new win.Event('change'));
+  assert(vf.hidden===false,'checking reveals the viewer fields');
+  veBox.checked=false;
+  veBox.dispatchEvent(new win.Event('change'));
+  assert(vf.hidden===true,'unchecking collapses them again');
+
   // ACC-5: a value stored via the API (outside the old option lists) must be
   // displayed; the controls now use the same 1-120 / 5-240 range as the server.
   assert(doc.getElementById('web_idle_timeout_min').value==='90','API-only idle timeout renders');
   assert(doc.getElementById('web_abs_timeout_min').value==='200','API-only absolute timeout renders');
 
-  win.__MOCK_API__['/api/access-config']={web:{auth_enabled:false,username:''}};
+  win.__MOCK_API__['/api/access-config']={web:{auth_enabled:false,username:'',viewer_enabled:true}};
   win.loadAccessConfig();
   setTimeout(function(){
     assert(aeEl.checked===false,'auth_enabled unchecked when config false');
+    assert(doc.getElementById('viewer_fields').hidden===false,'loaded config with viewer on reveals the fields');
     assert(doc.getElementById('web_username').value==='','username defaults to empty (no root fallback)');
 
     // Mismatched passwords: no POST sent, no success alert.

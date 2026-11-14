@@ -106,3 +106,41 @@ TEST_CASE("labels are translatable with English fallbacks") {
     CHECK(html.find("accessKickAllDone") != std::string::npos);
     CHECK(html.find("accessKickAllFail") != std::string::npos);
 }
+
+// ---- ACC-6: viewer identity fields collapse until the account is enabled ----
+
+TEST_CASE("the viewer fields start collapsed and live in one container") {
+    const std::string html = page();
+    CHECK(countOf(html, "id='viewer_fields'") == 1);
+    const std::string box = tagOf(html, "id='viewer_fields'");
+    REQUIRE(!box.empty());
+    CHECK(box.find("hidden") != std::string::npos);   // collapsed in the markup
+
+    // The container holds exactly the two identity fields.
+    const size_t start = html.find("id='viewer_fields'");
+    const size_t end = html.find("</div>", start);
+    REQUIRE(end != std::string::npos);
+    const std::string inner = html.substr(start, end - start);
+    CHECK(inner.find("id='viewer_username'") != std::string::npos);
+    CHECK(inner.find("id='viewer_password'") != std::string::npos);
+    // Hidden, not disabled: the posted values keep their existing semantics.
+    CHECK(inner.find("disabled") == std::string::npos);
+}
+
+TEST_CASE("the checkbox drives the collapse") {
+    const std::string html = page();
+    // One helper owns the rule and reads the real checkbox.
+    CHECK(countOf(html, "function accApplyViewerVisibility()") == 1);
+    CHECK(html.find("getElementById('viewer_enabled')") != std::string::npos);
+    CHECK(html.find("vf.hidden = !(veEl && veEl.checked)") != std::string::npos);
+    // Wired to the checkbox's change event and applied on page load.
+    CHECK(html.find("veBox.addEventListener('change', accApplyViewerVisibility)") != std::string::npos);
+    const size_t load = html.find("window.addEventListener('load'");
+    const size_t call = html.find("accApplyViewerVisibility();", load);
+    CHECK(call != std::string::npos);
+    // A config that enables the viewer must reveal the fields after the fetch.
+    const size_t cfg = html.find("if (veEl) veEl.checked = ve;");
+    const size_t apply = html.find("accApplyViewerVisibility();", cfg);
+    CHECK(cfg != std::string::npos);
+    CHECK(apply != std::string::npos);
+}

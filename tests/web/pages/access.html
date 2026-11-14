@@ -125,7 +125,7 @@
   <span data-i18n='accessViewerEnableLbl'>Enable viewer user</span>
 </label>
 
-<div id='viewer_fields'>
+<div id='viewer_fields' hidden>
 <label class='acc-field'>
   <span data-i18n='accessViewerUsernameLbl'>Viewer username</span>
   <input type='text' name='viewer_username' id='viewer_username' autocomplete='off' title='Viewer username' data-i18n-title='accessTipViewerUser'>
@@ -239,6 +239,16 @@ function accInitTabs() {
   accSwitchTab(btns, panels, defaultIdx);
 }
 
+// ACC-6: the viewer identity fields only matter when the viewer account is
+// enabled, so they stay collapsed until the checkbox is on (and out of the way
+// when a config with it off is loaded). Hiding does not disable the inputs, so
+// their posted values still follow the existing keep-current rules.
+function accApplyViewerVisibility() {
+  var veEl = document.getElementById('viewer_enabled');
+  var vf = document.getElementById('viewer_fields');
+  if (vf) vf.hidden = !(veEl && veEl.checked);
+}
+
 function loadAccessConfig() {
   var npEl = document.getElementById('web_password_new');
   if (npEl) npEl.placeholder = _t('accessPwdNoChangePlaceholder', '(unchanged)');
@@ -277,6 +287,7 @@ function loadAccessConfig() {
       var ve = !!w.viewer_enabled;
       var veEl = document.getElementById('viewer_enabled');
       if (veEl) veEl.checked = ve;
+      accApplyViewerVisibility();
 
       var vu = document.getElementById('viewer_username');
       if (vu) vu.value = w.viewer_username || 'viewer';
@@ -392,6 +403,9 @@ function accKickAll() {
 
 window.addEventListener('load', function() {
   accInitTabs();
+  var veBox = document.getElementById('viewer_enabled');
+  if (veBox) veBox.addEventListener('change', accApplyViewerVisibility);
+  accApplyViewerVisibility();
   loadAccessConfig();
   accLoadSessions();
   var rb = document.getElementById('acc_sessions_refresh');
