@@ -7,6 +7,7 @@
 #include "usbip_server.h"
 #include "usb_host_manager.h"
 #include "littlefs_manager.h"
+#include "sd_status_flags.h"   // /api/sd-status "disabled" (BACKLOG SD-4)
 #include "sdcard.h"         // sdMutexGetSnapshot (SD mutex owner in /api/sd-status)
 #include <esp_task_wdt.h>   // feed the task WDT inside the long monitor JSON loops (async_tcp)
 
@@ -453,6 +454,15 @@ String sharedWebBuildSdStatusJson() {
     json += sharedWebJsonEscape(String(getStorageModeString()));
     json += F("\",\"is_psram\":");
     json += (currentStorageMode == STORAGE_MODE_PSRAM) ? F("true") : F("false");
+    // "SD disabled" state of the page: no SD backend in this build, or the user
+    // switched data saving off. A missing card is NOT disabled (shows Mounted=No).
+#if ENABLE_SDCARD==1
+    const bool sdSupported = true;
+#else
+    const bool sdSupported = false;
+#endif
+    json += F(",\"disabled\":");
+    json += sdStatusDisabled(sdSupported, configManager.getSdcardEnabled()) ? F("true") : F("false");
     // SD mutex ownership: owner task name + hold time. A name that stays put for
     // minutes means a leaked lock (/files answers 503 "SD Busy" meanwhile);
     // POST /api/sd/mutex-reset recovers it remotely.

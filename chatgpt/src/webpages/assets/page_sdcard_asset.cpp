@@ -56,6 +56,10 @@ const char PAGE_SDCARD[] PROGMEM = R"HTML(
                 <button type='button' class='btn' id='sd_unmount' style='background:#1e40af;color:white;padding:10px 16px;font-size:13px;border:1px solid #1e40af;white-space:nowrap' data-i18n='sdUnmountBtn' title='Unmount SD card' data-i18n-title='sdTipUnmount'>&#128228; Unmount</button>
                 <button type='button' class='btn' id='sd_refresh' style='background:#3b82f6;color:white;padding:10px 16px;font-size:13px;border:1px solid #3b82f6;white-space:nowrap' data-i18n='sdRefreshBtn' title='Refresh SD status' data-i18n-title='sdTipRefresh'>&#128260; Refresh</button>
           </div>
+          <!-- Action feedback (mount/unmount/refresh). auto.js writes it via
+               document.getElementById('sd_msg'); it must exist or the result
+               of those buttons is never shown (BACKLOG SD-4). -->
+          <div id='sd_msg' class='desc' style='margin-top:10px;text-align:center;font-size:12px' role='status' aria-live='polite'></div>
           </div>
         
         <div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'>

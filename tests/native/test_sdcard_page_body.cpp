@@ -15,6 +15,7 @@
 #include <Arduino.h>
 
 #include "webpages/renderers/sdcard_page_body.h"
+#include "sd_status_flags.h"
 
 #include <string>
 
@@ -86,7 +87,7 @@ TEST_CASE("SD-2: the dead inline init is gone and no script ships in the body") 
 TEST_CASE("the markup auto.js's initSdcardPage() needs is intact") {
     const std::string html = body();
     const char* ids[] = {
-        "sd_info", "sd_mount", "sd_unmount", "sd_refresh", "sd_save", "sd_config_msg",
+        "sd_info", "sd_mount", "sd_unmount", "sd_refresh", "sd_save", "sd_config_msg", "sd_msg",
         "sd_write_pause_ms", "sd_active", "sd_format", "sd_email",
         "sd_cleanup_threshold", "sd_keep_days",
     };
@@ -110,4 +111,30 @@ TEST_CASE("the body is well formed at the seams") {
     CHECK(commands < save);
     // nothing from the mobile wizard or another page leaked in
     CHECK(html.find("id='gm'") == std::string::npos);
+}
+
+TEST_CASE("SD-4: action feedback target exists and stays empty") {
+    // auto.js writes mount/unmount/refresh results into #sd_msg; without the
+    // element the alerts were silently dropped.
+    const std::string html = body();
+    CHECK(countOf(html, "id='sd_msg'") == 1);
+    // it sits in the status card, next to the mount/unmount/refresh buttons
+    const size_t refresh = html.find("id='sd_refresh'");
+    const size_t msg = html.find("id='sd_msg'");
+    const size_t saving = html.find("data-i18n='sdSavingTitle'");
+    CHECK(refresh != std::string::npos);
+    CHECK(msg != std::string::npos);
+    CHECK(saving != std::string::npos);
+    CHECK(refresh < msg);
+    CHECK(msg < saving);
+    // empty by default (no leftover text before the first action)
+    CHECK(html.find("id='sd_msg' class='desc' style='margin-top:10px;text-align:center;font-size:12px' role='status' aria-live='polite'></div>") != std::string::npos);
+}
+
+TEST_CASE("SD-4: /api/sd-status reports disabled for no backend or saving off") {
+    // auto.js: if (j.disabled) -> "SD disabled"; the payload never carried it.
+    CHECK(sdStatusDisabled(true, false));    // user switched saving off
+    CHECK(sdStatusDisabled(false, true));    // build without SD
+    CHECK(sdStatusDisabled(false, false));
+    CHECK_FALSE(sdStatusDisabled(true, true));   // normal: mounted/missing card handled by "mounted"
 }

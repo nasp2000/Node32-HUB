@@ -41,8 +41,10 @@ main.page.sdcard > div.wrap
   ├ [🏠 Home]                       ← always first child of .wrap (project rule)
   ├ H1 "💾 Configurar Armazenamento"
   ├ Status card (blue, #3b82f6)
-  │  ├ #sd_info   (mono status line left-aligned: "storage_mode | Mounted=Yes | Total=X MB | Used=X MB | Flash=used/total")
-  │  └ buttons: #sd_mount | #sd_unmount | #sd_refresh   (3-col grid, max-width 400px)
+  │  ├ #sd_info   (mono status line left-aligned: "storage_mode | Mounted=Yes | Total=X MB | Used=X MB | Flash=used/total",
+  │  │             or "SD disabled" when the payload says disabled)
+  │  ├ buttons: #sd_mount | #sd_unmount | #sd_refresh   (3-col grid, max-width 400px)
+  │  └ #sd_msg    (action feedback: "Action mount OK" / "Failed: mount"; role=status, aria-live=polite)
   ├ "⚙️ Save received data" card (all descriptions left-aligned)
   │  ├ info box: buffer write / active / format / email / 💾 where-it-saves (SD·Flash·PSRAM) / ⚠️ PSRAM volatile / folder name
   │  └ table: #sd_write_pause_ms | #sd_active | #sd_format | #sd_email
@@ -93,9 +95,9 @@ Server accepts exactly what the UI offers: `flush_interval ∈ {10m,30m,60m}`;
 | 🔄 Refresh | `#sd_refresh` → `act('refresh')` | `POST /api/sd-action` `action=refresh` → re-mounts if not mounted, else OK |
 | 💾 Save | `#sd_save` → `saveConfig()` | collects selects → `POST /api/sdcard-config-save`; button disabled while saving |
 
-Mount/unmount/refresh all trigger a `load()` status refresh afterwards. Action feedback is
-written to `#sd_msg` — an element that **does not exist** on the page (see finding SD-4),
-so action results are only visible through the status line refresh.
+Mount/unmount/refresh all trigger a `load()` status refresh afterwards, and the action
+result is written to `#sd_msg` (present since SD-4, under the buttons: "Action mount OK" /
+"Failed: mount", `role=status aria-live=polite`).
 
 ---
 
@@ -105,11 +107,12 @@ so action results are only visible through the status line refresh.
 inline asset script, so the auto.js definition wins the global name). Logic:
 
 1. **Init guard** `if(window.sdcardPageInitialized) return;` then grab elements
-   (`sd_info`, `sd_msg`→null, `sd_config_msg`, selects, `sd_save`). If `sd_info` missing →
+   (`sd_info`, `sd_msg`, `sd_config_msg`, selects, `sd_save`). If `sd_info` missing →
    abort; if `sd_save` missing → page becomes read-only (warn).
 2. **`load()`** — `GET /api/sd-status` → `render(j)`:
     - `j.status!=='ok'` → `"No SD data"` (EN fallback);
-    - `j.disabled` → `"SD desativado"` (never set by API — dead branch, see SD-4);
+    - `j.disabled` → `"SD disabled"`, set by `/api/sd-status` when the build has no SD backend
+      or data saving is off (`sd_status_flags.h`; a missing card is `Mounted=No`);
     - else line = `storage_mode | Mounted=Yes/No | Total=X MB | Used=X MB | Flash=used/total`
       (`flash_total_bytes/flash_used_bytes` shown whenever LittleFS is mounted,
       with or without SD), and tracks `isPsramMode = (j.is_psram===true)`.
@@ -149,7 +152,7 @@ All handlers in `handlers_unified/storage_handler.cpp`; response JSON uses
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/api/sd-status` | GET | `handleSdStatusGet` → `sharedWebBuildSdStatusJson()`: `{status,mounted,sd_status,storage_mode,is_psram,total_bytes,used_bytes,mutex:{owner,depth,held_ms}}` (sizes only when mounted) + `{flash_total_bytes,flash_used_bytes}` whenever LittleFS is mounted. `mutex` names the FreeRTOS task that owns the SD lock and how long it has held it — a name that stays put for minutes is a leaked lock (`/files` then answers 503 "SD Busy") |
+| `/api/sd-status` | GET | `handleSdStatusGet` → `sharedWebBuildSdStatusJson()`: `{status,mounted,sd_status,storage_mode,is_psram,disabled,total_bytes,used_bytes,mutex:{owner,depth,held_ms}}` (sizes only when mounted) + `{flash_total_bytes,flash_used_bytes}` whenever LittleFS is mounted. `disabled` = no SD backend in this build **or** data saving switched off (`sd_status_flags.h`); a missing card is `mounted:false`, not disabled. `mutex` names the FreeRTOS task that owns the SD lock and how long it has held it — a name that stays put for minutes is a leaked lock (`/files` then answers 503 "SD Busy") |
 | `/api/sdcard-config` | GET | `handleSdcardConfigGet` → `sharedWebBuildSdcardConfigJson()`: `{status,enabled,flush_interval,format,structured,email_send,email_from_sd,max_size_mb,emailday_extra_emails,auto_cleanup,cleanup_threshold,keep_days}` (`auto_cleanup` always `true`, kept for API compat) |
 | `/api/sdcard-config-save` | POST | `handleSdcardConfigSavePost` (guarded `ENABLE_SDCARD`) — form fields → `SharedSdcardConfigInput` (pre-seeded from current config; only **present** fields override) → `sharedWebApplySdcardConfig()` → `saveSection("sdcard")` |
 | `/api/sd-action` | POST | manual route (`web_routes_storage.cpp:52`, Ethernet `:783`) → `handleSdActionPost` → `sharedWebApplySdAction(action)` |
@@ -327,7 +330,7 @@ and `sdGettingStatus` (initial "Getting status..." cell), `sdUnmountConfirm`
 | 1 | **Save no longer wipes fields not exposed on this page.** `saveConfig()` now preserves and re-sends `structured`, `email_from_sd`, `max_size_mb`, `emailday_extra_emails` (cached from `GET /api/sdcard-config`), so a save here no longer erases EMAILDAY extra emails or resets those settings. | High | **fixed** (auto.js + client) |
 | 2 | **Dead duplicate `initSdcardPage()`** — shadowed by the auto.js version, undefined helpers, wrong endpoint. **Fixed:** removed with the inline script (5.8 KB); the renderer's footer call still uses the auto.js version, and `test_sdcard_page_body.cpp` asserts no `<script>`/`bindClick`/`apiGet`/`apiPost` remains in the body. | Medium | fixed |
 | 3 | **Commands card never rendered.** `SDCARD_COMMANDS_SECTION` (EMAILDAY/LOGDAY/SENSORDAY help) is defined but not printed by the renderer — users can't see it here. | Medium | open |
-| 4 | **`#sd_msg` element missing + dead `j.disabled` branch.** auto.js writes mount/unmount/refresh feedback to `#sd_msg` which doesn't exist (only `sd_info`/`sd_config_msg`), so action results are invisible; and `render()` checks `j.disabled` which `sharedWebBuildSdStatusJson` never emits ("SD desativado" unreachable). | Low | open |
+| 4 | **`#sd_msg` element missing + dead `j.disabled` branch.** **Fixed:** the feedback element is back under the mount/unmount/refresh buttons and `/api/sd-status` carries `disabled` (no SD backend, or data saving off). Proven by `test_sdcard_feedback.js` (mount/unmount feedback lands in `#sd_msg`; `disabled:true` renders "SD disabled") and the native flag/markup cases. | Low | fixed |
 | 5 | **PT runtime fallbacks in auto.js + server fixed.** Runtime fallbacks and server codes/messages are now English (`No SD data`, `Mounted`, `Configuration saved!`, `invalid_flush_interval`, `Config saved`, `Mount started in background`, `Counter reset`). | Low | **fixed** |
 | 6 | **`keep_days` "∞" semantics.** The option is back as default (0 = infinity): no age limit — files stay until usage crosses the threshold, then the oldest goes whatever its age to hold it. With 30/90/180/360, older files also go below threshold. | Medium | **fixed** |
 | 7 | Page shows status of buffer only via `/api/sd-buffers` (exists but unused here); no buffer-usage widget on the page. | Info | open |
