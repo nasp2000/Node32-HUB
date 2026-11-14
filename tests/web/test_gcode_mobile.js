@@ -246,8 +246,9 @@ async function run() {
       is(win.__test__.gmState.sdDir, SD_ROOT, 'back at the root');
     });
 
-    await test('the phone tab keeps the picker and uploads with sid + token', function () {
+    await test('the phone tab uploads to PSRAM when that destination is chosen', function () {
       win.__test__.gmSetTab('phone');
+      win.__test__.gmSetDest('psram');
       is(doc.getElementById('gmPrimary').textContent, 'SEND', 'phone upload action');
       var log = [], XHR = fakeXhr(log);
       win.XMLHttpRequest = XHR;
@@ -260,6 +261,22 @@ async function run() {
       is(last.headers['X-Filename'], 'job.gcode', 'X-Filename');
       last.finish(200, { success: true, file_path: '/psram/job.gcode', bytes: 2048 });
       is(win.__test__.gmState.job.src, 'psram', 'job stored in the workspace');
+    });
+
+    await test('the phone tab writes to the SD card by default (no 4 MB cap)', function () {
+      win.__test__.gmSetDest('sd');
+      var log = [], XHR = fakeXhr(log);
+      win.XMLHttpRequest = XHR;
+      win.__test__.gmSetFile({ name: 'big job.gcode', size: 9 * 1024 * 1024 });
+      ok(win.__test__.gmUpload() === true, 'upload started');
+      var last = XHR.last;
+      ok(last.url.indexOf('/api/grbl/upload-gcode-stream?') === 0, 'SD endpoint: ' + last.url);
+      ok(last.url.indexOf('overwrite=1') > 0, 'overwrite flag');
+      ok(decodeURIComponent(last.url).indexOf(SD_ROOT + '/big_job.gcode') > 0, 'target path');
+      is(last.headers['X-Filesize'], String(9 * 1024 * 1024), 'size header');
+      last.finish(200, { success: true, file_path: SD_ROOT + '/big_job.gcode' });
+      is(win.__test__.gmState.job.src, 'sd', 'job now points at the SD file');
+      is(win.__test__.gmState.job.path, SD_ROOT + '/big_job.gcode', 'path kept');
     });
 
     dom.window.close();
@@ -425,6 +442,51 @@ async function run() {
       ok(doc.getElementById('gmMsg').textContent.indexOf('stopped') >= 0, 'stopped message');
     });
 
+    await test('progress bar and ETA follow the job status', async function () {
+      win.__MOCK_API__['/api/grbl/status'] = { success: true, usb_running: true, machine_state: 'Run',
+        workflow_state: 'running', axis_count: 3, mpos_valid: true,
+        lines_total: 1000, lines_sent: 250, eta_sec: 65 };
+      g.gmSetStep(4);
+      await wait(dom, 400);
+      is(doc.getElementById('gmPlayFill').style.width, '25%', 'progress fill');
+      ok(doc.getElementById('gmPlayProgress').textContent.indexOf('250 / 1000') >= 0, 'lines');
+      ok(doc.getElementById('gmPlayEta').textContent.indexOf('1m 05s') >= 0,
+         'eta: ' + doc.getElementById('gmPlayEta').textContent);
+      ok(doc.getElementById('gmPlayState').className.indexOf('st-run') >= 0, 'RUN is green');
+    });
+
+    await test('an alarm shows the controller message with unlock + resume job', async function () {
+      win.__MOCK_API__['/api/grbl/status'] = { success: true, usb_running: true, machine_state: 'Alarm',
+        workflow_state: 'alarm', state: 'ALARM', axis_count: 3, alarm_active: true,
+        alarm_message: 'ALARM:1 Hard limit' };
+      g.gmSetStep(4);
+      await wait(dom, 400);
+      is(doc.getElementById('gmAlarm').className.indexOf('off'), -1, 'alarm block visible');
+      ok(doc.getElementById('gmAlarmMsg').textContent.indexOf('ALARM:1') >= 0, 'message');
+      ok(doc.getElementById('gmPlayState').className.indexOf('st-alarm') >= 0, 'ALARM is red');
+      win.__postBodies = [];
+      g.gmResumeAlarm();
+      ok(doc.getElementById('gmMsg').textContent.indexOf('Tap again') >= 0, 'resume asks for a second tap');
+      g.gmResumeAlarm();
+      await wait(dom, 300);
+      ok(sent(win).indexOf('/api/grbl/resume-alarm') >= 0, 'resume-alarm requested');
+      ok(/confirm=1/.test(sent(win)), 'confirm sent');
+    });
+
+    await test('feed and spindle overrides are sent together', async function () {
+      win.__MOCK_API__['/api/grbl/override'] = { success: true, message: 'ok' };
+      win.__postBodies = [];
+      g.gmSetStep(4);
+      g.gmOv('feed', 10);
+      await wait(dom, 300);
+      ok(sent(win).indexOf('/api/grbl/override') >= 0, 'override requested');
+      ok(/feed=110/.test(sent(win)) && /spin=100/.test(sent(win)), 'feed+spin sent: ' + sent(win));
+      is(doc.getElementById('gmOvVal').textContent, '110%', 'label updated');
+      g.gmOv('spin', -10);
+      await wait(dom, 300);
+      ok(/spin=90/.test(sent(win)), 'spindle down to 90%');
+    });
+
     dom.window.close();
   }
 
@@ -491,12 +553,6 @@ async function run() {
       ok(cmdsSent(win).indexOf('$H') >= 0, '$H sent after the second tap');
 
       win.__postBodies = [];
-      g.gmAct('zero');
-      g.gmAct('zero');
-      await wait(dom, 200);
-      ok(cmdsSent(win).join(' ').indexOf('G92 X0 Y0 Z0') >= 0, 'G92 zero sent');
-
-      win.__postBodies = [];
       g.gmAct('reset');
       g.gmAct('reset');
       await wait(dom, 200);
@@ -507,6 +563,40 @@ async function run() {
       g.gmAct('cancel');
       await wait(dom, 200);
       ok(sent(win).indexOf('/api/grbl/cancel') >= 0, 'cancel endpoint');
+    });
+
+    await test('work zero can be set per axis (X0 / Y0 / Z0)', async function () {
+      g.gmState.axisCount = 3;
+      win.__postBodies = [];
+      g.gmSetStep(5);
+      g.gmSetZero('X');
+      ok(doc.getElementById('gmMsg').textContent.indexOf('Tap again') >= 0, 'zero X armed');
+      g.gmSetZero('X');
+      await wait(dom, 200);
+      ok(cmdsSent(win).indexOf('G92 X0') >= 0, 'G92 X0 sent');
+      win.__postBodies = [];
+      g.gmSetZero('Y'); g.gmSetZero('Y');
+      await wait(dom, 200);
+      ok(cmdsSent(win).indexOf('G92 Y0') >= 0, 'G92 Y0 sent');
+      win.__postBodies = [];
+      g.gmSetZero('Z'); g.gmSetZero('Z');
+      await wait(dom, 200);
+      ok(cmdsSent(win).indexOf('G92 Z0') >= 0, 'G92 Z0 sent');
+      // and Z is refused on a 2-axis machine
+      g.gmState.axisCount = 2;
+      is(g.gmSetZero('Z'), false, 'Z zero refused');
+      ok(doc.getElementById('gmMsg').textContent.indexOf('no Z axis') >= 0, 'explains why');
+    });
+
+    await test('the MDI line sends a manual command and clears the input', async function () {
+      g.gmState.axisCount = 3;
+      win.__postBodies = [];
+      doc.getElementById('gmMdi').value = '$I';
+      g.gmSetStep(5);
+      ok(g.gmMdi() === true, 'mdi sent');
+      await wait(dom, 200);
+      ok(cmdsSent(win).indexOf('$I') >= 0, '$I sent');
+      is(doc.getElementById('gmMdi').value, '', 'input cleared');
     });
 
     dom.window.close();
@@ -529,11 +619,21 @@ async function run() {
       ok(doc.getElementById('gmMsg').textContent.indexOf('Another client') >= 0, 'explains the lock');
     });
 
-    await test('a phone file above the 4 MB workspace cap is refused', function () {
+    await test('a PSRAM file above the 4 MB workspace cap is refused', function () {
       win.__test__.gmState.canWrite = true;
+      win.__test__.gmSetTab('phone');
+      win.__test__.gmSetDest('psram');
       win.__test__.gmSetFile({ name: 'huge.nc', size: 5 * 1024 * 1024 });
       is(win.__test__.gmUpload(), false, 'refused');
       ok(doc.getElementById('gmMsg').textContent.indexOf('4 MB') >= 0, 'cap message');
+    });
+
+    await test('start pre-flight failures are translated, not shown as codes', function () {
+      ok(win.__test__.gmErrorText('preflight_homing_required').indexOf('Homing') >= 0, 'ALARM:9');
+      ok(win.__test__.gmErrorText('preflight_usb_not_running').indexOf('USB') >= 0, 'USB off');
+      ok(win.__test__.gmErrorText('preflight_door_open').indexOf('door') >= 0, 'door');
+      ok(win.__test__.gmErrorText('sd_busy').indexOf('busy') >= 0, 'sd busy');
+      ok(win.__test__.gmErrorText('no_resume').indexOf('resumed') >= 0, 'no resume');
     });
 
     await test('the SD list survives a controller error (message, no crash)', async function () {
@@ -542,6 +642,22 @@ async function run() {
       ok(bad.window.document.getElementById('gmSdList').textContent.indexOf('Could not read') >= 0,
          'error shown');
       bad.window.close();
+    });
+
+    await test('the USB restart button only shows when the host is down', async function () {
+      var off = loadPage(Object.assign({}, BASE_API, {
+        '/api/grbl/status': { success: true, usb_running: false, machine_state: 'IDLE', workflow_state: 'idle' },
+        '/api/grbl/usb-restart': { success: true, message: 'ok' }
+      }));
+      await wait(off, 400);
+      var w2 = off.window, d2 = w2.document;
+      is(d2.getElementById('gmUsb').className, 'mini on', 'visible when offline');
+      w2.__postBodies = [];
+      w2.__test__.gmUsb();
+      await wait(off, 300);
+      var body = (w2.__postBodies || []).map(function (b) { return b.url; }).join(' ');
+      ok(body.indexOf('/api/grbl/usb-restart') >= 0, 'restart requested');
+      off.window.close();
     });
 
     dom.window.close();

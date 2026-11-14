@@ -151,6 +151,51 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   #gm .playrow button.stop { border-color: #dc2626; background: #7f1d1d; color: #fff; }
   #gm .playrow button.stop:disabled { background: #0f172a; color: #64748b; border-color: #334155; }
 
+  /* step 4 — job progress, alarm block, overrides */
+  #gm .pbar { flex: 0 0 auto; width: 78%; height: 6px; border-radius: 3px; background: #1e293b; overflow: hidden; }
+  #gm .pbar span { display: block; height: 100%; width: 0%; background: #22c55e; transition: width .3s linear; }
+  #gm .alarm {
+    flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px;
+    border: 1px solid #dc2626; border-radius: 10px; background: #2a0f12;
+  }
+  #gm .alarm.off { display: none; }
+  #gm .alarm .amsg {
+    font-size: 12px; color: #fca5a5; font-weight: 700; word-break: break-all;
+    max-height: 2.6em; overflow: hidden;
+  }
+  #gm .alarm .arow { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  #gm .alarm button {
+    height: 34px; border-radius: 9px; border: 1px solid #dc2626; background: #7f1d1d;
+    color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .3px;
+  }
+  #gm .alarm button.arm { background: #b91c1c; }
+  #gm .ovr { flex: 0 0 auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  #gm .ovr button {
+    height: 32px; border-radius: 9px; border: 1px solid #334155; background: #0f172a;
+    color: #cbd5e1; font-size: 11px; font-weight: 700;
+  }
+  #gm .ovr button:active { background: #1d2b47; }
+  #gm .ovr button:disabled { opacity: .4; }
+
+  /* step 5 — MDI line */
+  #gm .mdi { flex: 0 0 auto; display: flex; gap: 6px; }
+  #gm .mdi input {
+    flex: 1 1 auto; min-width: 0; height: 34px; border-radius: 9px; border: 1px solid #334155;
+    background: #0f172a; color: #e6f1ff; font-size: 13px; padding: 0 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  #gm .mdi button {
+    flex: 0 0 auto; width: 48px; height: 34px; border-radius: 9px;
+    border: 1px solid #3b82f6; background: #1d2b47; color: #dbeafe; font-size: 15px;
+  }
+
+  /* machine state colours, readable from a step away */
+  #gm .st-run { color: #6ee7b7; }
+  #gm .st-hold { color: #fcd34d; }
+  #gm .st-alarm { color: #fca5a5; }
+  #gm #gmUsb { display: none; }
+  #gm #gmUsb.on { display: block; }
+
   #gm .nav { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; }
   #gm .nav .no { font-size: 12px; color: #94a3b8; }
   #gm .nav .arrow {
@@ -177,6 +222,7 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     <div class="steps"><i class="on"></i><i></i><i></i><i></i><i></i></div>
     <h1 id="gmTitle" data-i18n="gmTitle1">Send G-code</h1>
     <span class="badge" id="gmLink">--</span>
+    <button type="button" class="mini" id="gmUsb" data-i18n-title="gmUsbRestart" title="Restart the USB host">&#9889;</button>
   </header>
 
   <!-- ── Step 1: send ─────────────────────────────────────────────── -->
@@ -201,6 +247,10 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
         <span class="sz" id="gmSize">.gcode &middot; .nc &middot; .txt</span>
       </button>
       <input type="file" id="gmFile" accept=".gcode,.nc,.ngc,.txt,text/plain" hidden>
+      <div class="chips" id="gmDest">
+        <button type="button" class="chip on" data-dest="sd" data-i18n="gmDestSd">Save on the SD card</button>
+        <button type="button" class="chip" data-dest="psram" data-i18n="gmDestPsram">PSRAM (4 MB)</button>
+      </div>
     </div>
   </section>
 
@@ -229,7 +279,23 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
       <span class="ico">&#9654;&#65039;</span>
       <span class="nm" id="gmPlayJob">--</span>
       <span class="big" id="gmPlayState">--</span>
+      <div class="pbar"><span id="gmPlayFill"></span></div>
       <span class="kv" id="gmPlayProgress"></span>
+      <span class="kv" id="gmPlayEta"></span>
+    </div>
+    <div class="alarm off" id="gmAlarm">
+      <span class="amsg" id="gmAlarmMsg">ALARM</span>
+      <div class="arow">
+        <button type="button" id="gmAlarmUnlock" data-i18n="gmBtnUnlock">UNLOCK</button>
+        <button type="button" id="gmAlarmResume" data-i18n="gmAlarmResume">RESUME JOB</button>
+      </div>
+    </div>
+    <div class="ovr" id="gmOvr">
+      <button type="button" data-ov="feed:-10">F&#8722;</button>
+      <button type="button" data-ov="feed:+10">F+</button>
+      <button type="button" id="gmOvVal" title="100%">100%</button>
+      <button type="button" data-ov="spin:-10">S&#8722;</button>
+      <button type="button" data-ov="spin:+10">S+</button>
     </div>
     <div class="playrow">
       <button type="button" id="gmPause" data-i18n="gmPause">PAUSE</button>
@@ -262,11 +328,17 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     <div class="acts3" id="gmActions">
       <button type="button" class="actbtn" data-act="home" data-i18n="gmBtnHome">HOME</button>
       <button type="button" class="actbtn" data-act="unlock" data-i18n="gmBtnUnlock">UNLOCK</button>
-      <button type="button" class="actbtn" data-act="zero" data-i18n="gmBtnZero">ZERO</button>
+      <button type="button" class="actbtn" data-act="reset" data-i18n="gmBtnReset">RESET</button>
+      <button type="button" class="actbtn" data-zero="X" data-i18n="gmBtnZeroX">ZERO X</button>
+      <button type="button" class="actbtn" data-zero="Y" data-i18n="gmBtnZeroY">ZERO Y</button>
+      <button type="button" class="actbtn" data-zero="Z" data-i18n="gmBtnZeroZ">ZERO Z</button>
       <button type="button" class="actbtn" data-act="hold" data-i18n="gmBtnHold">HOLD</button>
       <button type="button" class="actbtn" data-act="resume" data-i18n="gmBtnResume">RESUME</button>
       <button type="button" class="actbtn" data-act="cancel" data-i18n="gmBtnCancel">CANCEL</button>
-      <button type="button" class="actbtn wide" data-act="reset" data-i18n="gmBtnReset">RESET</button>
+    </div>
+    <div class="mdi">
+      <input type="text" id="gmMdi" placeholder="MDI: G0 X0 Y0" autocapitalize="characters" autocomplete="off" spellcheck="false">
+      <button type="button" id="gmMdiSend" data-i18n-title="gmMdiSend" title="Send the command">&#10148;</button>
     </div>
   </section>
 
@@ -288,6 +360,7 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
 (function () {
   'use strict';
   var MAX_BYTES = 4 * 1024 * 1024;      // controller PSRAM workspace cap (phone uploads)
+  var SD_UPLOAD_MAX_BYTES = 48 * 1024 * 1024;  // server cap for the SD upload buffer
   var STORE_KEY = 'gm.sid';
   var STEPS = 5;
   var STEP_SEND = 1, STEP_PREVIEW = 2, STEP_FRAME = 3, STEP_PLAY = 4, STEP_JOG = 5;
@@ -325,6 +398,18 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     playJob: document.getElementById('gmPlayJob'),
     playState: document.getElementById('gmPlayState'),
     playProgress: document.getElementById('gmPlayProgress'),
+    playEta: document.getElementById('gmPlayEta'),
+    playFill: document.getElementById('gmPlayFill'),
+    alarm: document.getElementById('gmAlarm'),
+    alarmMsg: document.getElementById('gmAlarmMsg'),
+    alarmUnlock: document.getElementById('gmAlarmUnlock'),
+    alarmResume: document.getElementById('gmAlarmResume'),
+    ovr: document.getElementById('gmOvr'),
+    ovVal: document.getElementById('gmOvVal'),
+    dest: document.getElementById('gmDest'),
+    mdi: document.getElementById('gmMdi'),
+    mdiSend: document.getElementById('gmMdiSend'),
+    usb: document.getElementById('gmUsb'),
     jogState: document.getElementById('gmJogState'),
     jogPos: document.getElementById('gmJogPos'),
     jogPad: document.getElementById('gmJogPad'),
@@ -353,6 +438,8 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     bbox: null, measuring: false, measureFor: '',
     points: null, pointsFor: '', previewLoading: false, previewPartial: false, previewPoints: 0,
     busy: false, running: false, paused: false, axisCount: 0, mpos: null,
+    alarm: false, alarmMsg: '', thisPct: 0, etaSec: 0,
+    ovFeed: 100, ovSpin: 100, dest: 'sd', usbRunning: false,
     jogStep: 1,
     armedKey: '', armedUntil: 0,
     pollTimer: 0
@@ -433,7 +520,31 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     sd_measure_failed: ['gmMeasureFail', 'Could not measure the area.'],
     preview_failed: ['gmPreviewFail', 'Could not load the preview.'],
     send_failed: ['gmErrSend', 'The controller refused the command.'],
-    no_z_axis: ['gmErrNoZAxis', 'This machine has no Z axis.']
+    no_z_axis: ['gmErrNoZAxis', 'This machine has no Z axis.'],
+    // start pre-flight (server side)
+    preflight_usb_not_running: ['gmErrUsbOff', 'USB host is not running. Tap the ⚡ button to restart it.'],
+    preflight_slot_not_connected: ['gmErrNoMachine', 'No machine on the selected USB slot.'],
+    preflight_slot_invalid: ['gmErrNoMachine', 'No machine on the selected USB slot.'],
+    preflight_workflow_busy: ['gmErrBusy', 'The controller is already working on a job.'],
+    preflight_homing_required: ['gmErrHoming', 'Homing required (ALARM:9). Send HOME first ($H).'],
+    preflight_alarm_active: ['gmErrAlarm', 'The machine is in alarm. Unlock ($X) first.'],
+    preflight_door_open: ['gmErrDoor', 'Safety door is open. Close it and retry.'],
+    preflight_empty_path: ['gmErrBadFile', 'No file selected.'],
+    preflight_path_too_long: ['gmErrBadFile', 'The file path is too long.'],
+    preflight_invalid_extension: ['gmErrBadFile', 'The controller does not accept this file type.'],
+    preflight_empty_queue: ['gmErrBadFile', 'Empty job.'],
+    preflight_queue_too_large: ['gmErrBadFile', 'The job is too large.'],
+    preflight_line_too_long: ['gmErrBadFile', 'A line in the job is too long.'],
+    // resume-after-alarm
+    confirm_required: ['gmErrConfirm', 'Confirmation missing. Try again.'],
+    resume_busy: ['gmErrResumeBusy', 'A resume is already running.'],
+    job_active: ['gmErrBusy', 'The controller is already working on a job.'],
+    no_resume: ['gmErrNoResume', 'This job cannot be resumed from where it stopped.'],
+    // SD upload
+    file_exists: ['gmErrExists', 'A file with that name already exists.'],
+    sd_unavailable: ['gmErrSdOff', 'The SD card is not available.'],
+    sd_busy: ['gmErrSdBusy', 'The SD card is busy. Try again.'],
+    upload_incomplete: ['gmErrNetwork', 'The upload did not complete. Try again.']
   };
   function errorText(code) {
     var e = ERROR_TEXT[code];
@@ -454,6 +565,20 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   function linkBadge(on, text) {
     el.link.textContent = text;
     el.link.className = 'badge' + (on ? ' ok' : ' warn');
+  }
+
+  function fmtEta(sec) {
+    sec = Math.max(0, Math.round(Number(sec) || 0));
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return tf('gmEta', 'left {m}m {s}s', { m: m, s: (s < 10 ? '0' : '') + s });
+  }
+
+  function stateClass(label) {
+    var s = String(label || '').toUpperCase();
+    if (s.indexOf('ALARM') >= 0) return 'st-alarm';
+    if (s.indexOf('HOLD') >= 0 || s.indexOf('PAUSE') >= 0 || s === 'DOOR') return 'st-hold';
+    if (s.indexOf('RUN') >= 0 || s === 'JOG') return 'st-run';
+    return '';
   }
 
   // ── HTTP ───────────────────────────────────────────────────────────────
@@ -876,6 +1001,7 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   function upload() {
     if (!st.phoneFile || st.busy) return false;
     if (!st.canWrite) { setMsg(errorText('no_control'), 'err'); return false; }
+    if (st.dest === 'sd') return uploadToSd();
     if (st.phoneFile.size > MAX_BYTES) { setMsg(errorText('file_too_large'), 'err'); return false; }
     var name = cleanName(st.phoneFile.name);
     var query = 'name=' + encodeURIComponent(name) + '&sid=' + encodeURIComponent(sessionId());
@@ -901,6 +1027,68 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
         el.bar.className = 'bar';
         setMsg(tf('gmReady', 'Job ready: {path} ({size})',
                   { path: String(d.file_path || name), size: fmtBytes(st.job.bytes) }), 'ok');
+      } else {
+        progress(0);
+        setMsg(errorText((d && d.message) ? String(d.message) : ('http_' + xhr.status)), 'err');
+      }
+      render();
+    };
+    xhr.onerror = function () {
+      st.busy = false; progress(0);
+      setMsg(errorText('network'), 'err');
+      render();
+    };
+    xhr.send(st.phoneFile);
+    return true;
+  }
+
+  // Phone file written straight to the SD card (no 4 MB workspace cap). The
+  // controller buffers it in PSRAM and stores it at <job root>/<name>.
+  function uploadToSd() {
+    var name = cleanName(st.phoneFile.name);
+    if (st.phoneFile.size > SD_UPLOAD_MAX_BYTES) {
+      setMsg(errorText('file_too_large'), 'err');
+      return false;
+    }
+    var root = String(st.sdRoot || st.sdDir || '').replace(/\/+$/, '');
+    var target = (root ? root : '') + '/' + name;
+    var query = 'path=' + encodeURIComponent(target) +
+                '&name=' + encodeURIComponent(name) +
+                '&overwrite=1' +
+                '&sid=' + encodeURIComponent(sessionId());
+    if (st.token) query += '&token=' + encodeURIComponent(st.token);
+    var xhr = new XMLHttpRequest();
+    st.busy = true; render();
+    setMsg(tf('gmSendingSd', 'Saving {name} on the SD card\u2026', { name: name }), '');
+    progress(1);
+    xhr.open('POST', '/api/grbl/upload-gcode-stream?' + query, true);
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+    xhr.setRequestHeader('X-Filename', name);
+    xhr.setRequestHeader('X-Filesize', String(st.phoneFile.size || 0));
+    xhr.upload.onprogress = function (e) {
+      if (e && e.lengthComputable && e.total) progress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = function () {
+      st.busy = false;
+      var d = null;
+      try { d = JSON.parse(xhr.responseText || '{}'); } catch (e) { d = null; }
+      if (xhr.status === 200 && d && d.success === true) {
+        var saved = String(d.file_path || target);
+        progress(100);
+        el.bar.className = 'bar';
+        st.job = { src: 'sd', path: saved, name: name, bytes: Number(st.phoneFile.size) || 0 };
+        st.bbox = null;
+        st.points = null;
+        st.pointsFor = '';
+        st.previewPoints = 0;
+        st.previewPartial = false;
+        listSd(st.sdDir).then(function () {
+          st.sdPath = saved;
+          render();
+          measureSd();
+        });
+        setMsg(tf('gmReady', 'Job ready: {path} ({size})',
+                  { path: saved, size: fmtBytes(st.job.bytes) }), 'ok');
       } else {
         progress(0);
         setMsg(errorText((d && d.message) ? String(d.message) : ('http_' + xhr.status)), 'err');
@@ -1091,6 +1279,118 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     return false;
   }
 
+  // Work zero for one axis only (X/Y against the stock, Z on the surface).
+  function setZeroAxis(axis) {
+    if (st.busy || !st.canWrite) {
+      if (!st.canWrite) setMsg(errorText('no_control'), 'err');
+      return false;
+    }
+    if (axis === 'Z' && !hasZ()) { setMsg(errorText('no_z_axis'), 'err'); return false; }
+    return armOrRun('zero' + axis, function () {
+      var cmd = 'G92 ' + axis + '0';
+      st.busy = true; render();
+      setMsg(cmd, '');
+      sendCmd(cmd).then(function (ok) {
+        st.busy = false;
+        setMsg(ok ? tf('gmActZeroAxis', '{axis} work zero set.', { axis: axis })
+                  : errorText('send_failed'), ok ? 'ok' : 'err');
+        pollStatus(true);
+        render();
+      });
+    });
+  }
+
+  // Feed / spindle override (10..200 %), applied together like the PC page.
+  function setOverride(which, delta) {
+    if (st.busy) return false;
+    if (!st.canWrite) { setMsg(errorText('no_control'), 'err'); return false; }
+    var feed = st.ovFeed;
+    var spin = st.ovSpin;
+    if (which === 'feed') feed = Math.max(10, Math.min(200, feed + delta));
+    if (which === 'spin') spin = Math.max(10, Math.min(200, spin + delta));
+    var body = { slot: 0, feed: feed, spin: spin };
+    st.busy = true; render();
+    post('/api/grbl/override', body).then(function (res) {
+      st.busy = false;
+      var ok = !!(res.body && res.body.success === true);
+      if (ok) {
+        st.ovFeed = feed;
+        st.ovSpin = spin;
+        setMsg(tf('gmOvApplied', 'Feed {feed}% · spindle {spin}%', { feed: feed, spin: spin }), 'ok');
+      } else {
+        setMsg(errorText((res.body && res.body.message) ? String(res.body.message) : 'network'), 'err');
+      }
+      render();
+    }).catch(function () {
+      st.busy = false; render();
+      setMsg(errorText('network'), 'err');
+    });
+    return true;
+  }
+
+  function restartUsb() {
+    if (st.busy) return false;
+    st.busy = true; render();
+    setMsg(t('gmUsbRestarting', 'Restarting the USB host\u2026'), '');
+    post('/api/grbl/usb-restart', { slot: 0 }).then(function (res) {
+      st.busy = false;
+      var ok = !!(res.body && res.body.success === true);
+      setMsg(ok ? t('gmUsbRestarted', 'USB host restarted.')
+                : errorText((res.body && res.body.message) ? String(res.body.message) : 'network'),
+             ok ? 'ok' : 'err');
+      pollStatus(true);
+      render();
+    }).catch(function () {
+      st.busy = false; render();
+      setMsg(errorText('network'), 'err');
+    });
+    return true;
+  }
+
+  // Guided resume after an alarm: the controller unlocks, homes and restarts
+  // from the line where the job stopped. It moves the machine, so it is armed.
+  function resumeAfterAlarm() {
+    if (st.busy) return false;
+    if (!st.canWrite) { setMsg(errorText('no_control'), 'err'); return false; }
+    return armOrRun('resumeAlarm', function () {
+      st.busy = true; render();
+      setMsg(t('gmResuming', 'Resuming\u2026'), '');
+      post('/api/grbl/resume-alarm', { slot: 0, confirm: 1 }).then(function (res) {
+        st.busy = false;
+        var ok = !!(res.body && res.body.success === true);
+        setMsg(ok ? t('gmPlayResumed', 'Job resumed.')
+                  : errorText((res.body && res.body.message) ? String(res.body.message) : 'network'),
+               ok ? 'ok' : 'err');
+        pollStatus(true);
+        render();
+      }).catch(function () {
+        st.busy = false; render();
+        setMsg(errorText('network'), 'err');
+      });
+    });
+  }
+
+  function sendMdi() {
+    var raw = String(el.mdi && el.mdi.value ? el.mdi.value : '').trim();
+    if (!raw) return false;
+    if (st.busy) return false;
+    if (!st.canWrite) { setMsg(errorText('no_control'), 'err'); return false; }
+    st.busy = true; render();
+    setMsg(raw, '');
+    sendCmd(raw).then(function (ok) {
+      st.busy = false;
+      if (ok) {
+        if (el.mdi) el.mdi.value = '';
+        setMsg(tf('gmMdiSent', 'Sent: {cmd}', { cmd: raw }), 'ok');
+      } else {
+        setMsg(errorText('send_failed'), 'err');
+      }
+      pollStatus(true);
+      render();
+    });
+    return true;
+  }
+
   function act(kind) {
     if (st.busy) return false;
     if (!st.canWrite && kind !== 'cancel') { setMsg(errorText('no_control'), 'err'); return false; }
@@ -1155,13 +1455,22 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
         st.mpos = { x: Number(s.mpos_x) || 0, y: Number(s.mpos_y) || 0, z: Number(s.mpos_z) || 0 };
       }
       var label = String(s.machine_state || s.state || '').toUpperCase();
-      if (el.playState) el.playState.textContent = wf ? wf.toUpperCase() : '--';
-      if (el.playProgress) {
-        var tot = Number(s.lines_total) || 0;
-        var sent = Number(s.lines_sent) || 0;
-        el.playProgress.textContent = tot > 0 ? (sent + ' / ' + tot) : '';
+      st.alarm = !!s.alarm_active;
+      st.alarmMsg = String(s.alarm_message || '');
+      st.usbRunning = !!s.usb_running;
+      var tot = Number(s.lines_total) || 0;
+      var sent = Number(s.lines_sent) || 0;
+      st.thisPct = tot > 0 ? Math.max(0, Math.min(100, Math.round((sent / tot) * 100))) : 0;
+      st.etaSec = Number(s.eta_sec) || 0;
+      if (el.playState) {
+        el.playState.textContent = wf ? wf.toUpperCase() : '--';
+        el.playState.className = 'big ' + stateClass(label || wf);
       }
-      if (el.jogState) el.jogState.textContent = label || '--';
+      if (el.playProgress) el.playProgress.textContent = tot > 0 ? (sent + ' / ' + tot + ' · ' + st.thisPct + '%') : '';
+      if (el.jogState) {
+        el.jogState.textContent = label || '--';
+        el.jogState.className = stateClass(label);
+      }
       if (el.jogPos) {
         el.jogPos.textContent = st.mpos
           ? ('X' + st.mpos.x.toFixed(2) + ' Y' + st.mpos.y.toFixed(2) + (hasZ() ? ' Z' + st.mpos.z.toFixed(2) : ''))
@@ -1231,6 +1540,17 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     if (el.tabPhone) el.tabPhone.className = 'tab' + (st.tab === 'phone' ? ' on' : '');
     if (el.paneSd) el.paneSd.className = 'pane' + (st.tab === 'sd' ? ' on' : '');
     if (el.panePhone) el.panePhone.className = 'pane' + (st.tab === 'phone' ? ' on' : '');
+    render();
+  }
+
+  // Upload destination: the SD card (any size) or the PSRAM workspace (4 MB).
+  function setDest(dest) {
+    st.dest = (dest === 'psram') ? 'psram' : 'sd';
+    if (el.dest) {
+      el.dest.querySelectorAll('button[data-dest]').forEach(function (b) {
+        b.className = 'chip' + (String(b.getAttribute('data-dest')) === st.dest ? ' on' : '');
+      });
+    }
     render();
   }
 
@@ -1316,7 +1636,7 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     el.primary.disabled = st.busy || (useSd ? !st.sdPath : false) ||
       (is1 && !st.canWrite) ||
       (is3 && (!st.bbox || !st.canWrite)) ||
-      (is4 && (!st.canWrite || !jobReady() || st.running));
+      (is4 && (!st.canWrite || !jobReady() || st.running || st.alarm));
 
     el.stop.className = 'stop';
     el.acts.style.display = ((is2 || is5) || (is4 && st.running)) ? 'none' : 'flex';
@@ -1351,22 +1671,50 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     if (is4) {
       el.playJob.textContent = jobReady() ? st.job.name : t('gmPlayNoJob', 'No job selected.');
       if (!el.playState.textContent) el.playState.textContent = '--';
+      if (el.alarm) el.alarm.className = 'alarm' + (st.alarm ? '' : ' off');
+      if (el.alarmMsg) el.alarmMsg.textContent = st.alarmMsg || t('gmAlarmTitle', 'Alarm');
+      if (el.alarmResume) el.alarmResume.className = (st.armedKey === 'resumeAlarm') ? 'arm' : '';
+      if (el.alarmUnlock) el.alarmUnlock.disabled = st.busy;
+      if (el.alarmResume) el.alarmResume.disabled = st.busy;
+      if (el.ovVal) el.ovVal.textContent = String(st.ovFeed) + '%';
+      if (el.ovr) {
+        el.ovr.querySelectorAll('button[data-ov]').forEach(function (b) {
+          b.disabled = st.busy || !st.canWrite;
+        });
+      }
+      // progress + ETA only mean something while a job runs
+      if (el.playFill) el.playFill.style.width = (st.running ? st.thisPct : 0) + '%';
+      if (el.playEta) {
+        el.playEta.textContent = (st.running && st.etaSec > 0) ? fmtEta(st.etaSec) : '';
+      }
     }
-    // step 5 — Z column only on a 3-axis machine, armed button highlight
+    // step 5 — Z column/zero only on a 3-axis machine, armed button highlight
     if (is5 && el.jogPad) {
       var zDisabled = !hasZ();
       el.jogPad.querySelectorAll('button[data-jog]').forEach(function (b) {
         var axis = String(b.getAttribute('data-jog') || '').charAt(0);
         b.disabled = st.busy || (axis === 'Z' && zDisabled);
       });
+      if (el.actions) {
+        el.actions.querySelectorAll('button[data-zero]').forEach(function (b) {
+          b.disabled = st.busy || (String(b.getAttribute('data-zero')) === 'Z' && zDisabled);
+        });
+      }
     }
     if (el.actions) {
       el.actions.querySelectorAll('button[data-act]').forEach(function (b) {
         var kind = String(b.getAttribute('data-act') || '');
-        b.className = (kind === 'reset') ? 'actbtn wide' : 'actbtn';
+        b.className = 'actbtn';
         if (st.armedKey === kind) b.className += ' arm';
       });
+      el.actions.querySelectorAll('button[data-zero]').forEach(function (b) {
+        var kind = 'zero' + String(b.getAttribute('data-zero') || '');
+        if (st.armedKey === kind) b.className = 'actbtn arm';
+      });
     }
+
+    // the USB restart button only appears when the host is down
+    if (el.usb) el.usb.className = 'mini' + (st.usbRunning ? '' : ' on');
 
     // navigation: always usable between the screens (only the ends stop it)
     el.back.disabled = st.busy || st.step === 1;
@@ -1403,6 +1751,9 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     machineFresh().then(function (s) {
       if (s) {
         st.axisCount = Number(s.axis_count) || 0;
+        st.usbRunning = !!s.usb_running;
+        st.alarm = !!s.alarm_active;
+        st.alarmMsg = String(s.alarm_message || '');
         if (s.mpos_valid) st.mpos = { x: Number(s.mpos_x) || 0, y: Number(s.mpos_y) || 0, z: Number(s.mpos_z) || 0 };
         st.running = /running|paused|hold/.test(String(s.workflow_state || s.state || '').toLowerCase());
         st.paused = /paused|hold/.test(String(s.workflow_state || s.state || '').toLowerCase());
@@ -1414,9 +1765,34 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     });
 
     listSd('');
+    setDest('sd');
 
     el.tabSd.addEventListener('click', function () { setTab('sd'); });
     el.tabPhone.addEventListener('click', function () { setTab('phone'); });
+    if (el.dest) {
+      el.dest.addEventListener('click', function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest('button[data-dest]') : null;
+        if (b) setDest(String(b.getAttribute('data-dest') || 'sd'));
+      });
+    }
+    if (el.usb) el.usb.addEventListener('click', restartUsb);
+    if (el.alarmUnlock) el.alarmUnlock.addEventListener('click', function () { act('unlock'); });
+    if (el.alarmResume) el.alarmResume.addEventListener('click', resumeAfterAlarm);
+    if (el.ovr) {
+      el.ovr.addEventListener('click', function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest('button[data-ov]') : null;
+        if (!b) return;
+        var v = String(b.getAttribute('data-ov') || '');
+        var parts = v.split(':');
+        setOverride(parts[0], parseInt(parts[1], 10) || 0);
+      });
+    }
+    if (el.mdiSend) el.mdiSend.addEventListener('click', sendMdi);
+    if (el.mdi) {
+      el.mdi.addEventListener('keydown', function (ev) {
+        if (ev && (ev.key === 'Enter' || ev.keyCode === 13)) { sendMdi(); ev.preventDefault(); }
+      });
+    }
     el.sdReload.addEventListener('click', function () { listSd(st.sdDir); });
     el.prevLoad.addEventListener('click', function () {
       if (st.job && st.job.src === 'sd') loadPreviewFromSd();
@@ -1465,6 +1841,8 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
       render();
     });
     el.actions.addEventListener('click', function (ev) {
+      var z = ev.target && ev.target.closest ? ev.target.closest('button[data-zero]') : null;
+      if (z) { setZeroAxis(String(z.getAttribute('data-zero') || 'X')); return; }
       var b = ev.target && ev.target.closest ? ev.target.closest('button[data-act]') : null;
       if (!b) return;
       act(String(b.getAttribute('data-act') || ''));
@@ -1507,6 +1885,13 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   window.__test__.gmPointsFromText = function (txt) { return pointsFromText(txt); };
   window.__test__.gmJog = jog;
   window.__test__.gmAct = act;
+  window.__test__.gmSetZero = setZeroAxis;
+  window.__test__.gmOv = setOverride;
+  window.__test__.gmUsb = restartUsb;
+  window.__test__.gmMdi = sendMdi;
+  window.__test__.gmResumeAlarm = resumeAfterAlarm;
+  window.__test__.gmUploadSd = uploadToSd;
+  window.__test__.gmSetDest = setDest;
   window.__test__.gmUpload = upload;
   window.__test__.gmRunFrame = runFrame;
   window.__test__.gmStart = startJob;
