@@ -56,10 +56,14 @@ win.customAlert=function(m){alertCalls.push(m);};
 
 // loadAccessConfig populates the toggle from /api/access-config
 if(!win.__MOCK_API__)win.__MOCK_API__={};
-win.__MOCK_API__['/api/access-config']={web:{auth_enabled:true,username:'admin'}};
+win.__MOCK_API__['/api/access-config']={web:{auth_enabled:true,username:'admin',idle_timeout_min:90,abs_timeout_min:200}};
 win.loadAccessConfig();
 setTimeout(function(){
   assert(aeEl.checked===true,'auth_enabled checked when config true');
+  // ACC-5: a value stored via the API (outside the old option lists) must be
+  // displayed; the controls now use the same 1-120 / 5-240 range as the server.
+  assert(doc.getElementById('web_idle_timeout_min').value==='90','API-only idle timeout renders');
+  assert(doc.getElementById('web_abs_timeout_min').value==='200','API-only absolute timeout renders');
 
   win.__MOCK_API__['/api/access-config']={web:{auth_enabled:false,username:''}};
   win.loadAccessConfig();

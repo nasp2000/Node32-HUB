@@ -19,6 +19,7 @@
 #include "../../web_shared_logic.h"
 #include "../../feature_flags.h"
 #include "../../config_int_field.h" // strict numeric POST validation (ACC-2)
+#include "../../access_limits.h"    // one range table shared with the page (ACC-5)
 #include "../../password_field_input.h" // empty password = keep current (ACC-3)
 // Both modules can be enabled in the same build (pack RAMBOX), so both headers
 // are included independently — an #elif here left unikonGetConfig() undeclared.
@@ -691,24 +692,20 @@ void handleAccessConfigPost(HttpRequest& req, HttpResponse& res) {
     // explicit reason, never be skipped while the other fields are saved
     // (BACKLOG ACC-2). Absent keys still mean "leave the current value alone",
     // so partial POSTs (scripts, other pages) keep working.
-    static const struct { const char* key; int minVal; int maxVal; } kAccIntFields[] = {
-        { "web_max_sessions",     1,   5 },
-        { "web_idle_timeout_min", 1, 120 },
-        { "web_abs_timeout_min",  5, 240 },
-    };
-    const int kAccIntCount = (int)(sizeof(kAccIntFields) / sizeof(kAccIntFields[0]));
-    int  accIntValue[3]   = { 0, 0, 0 };
-    bool accIntPresent[3] = { false, false, false };
-    for (int i = 0; i < kAccIntCount; i++) {
-        if (!bodyHasKey(req.body, req.contentType, kAccIntFields[i].key)) continue;
-        String raw = bodyValue(req.body, req.contentType, kAccIntFields[i].key);
+    // Ranges come from access_limits.h — the same table the page controls are
+    // tested against, so UI and API can never accept different values (ACC-5).
+    int  accIntValue[kAccessIntFieldCount]   = { 0, 0, 0 };
+    bool accIntPresent[kAccessIntFieldCount] = { false, false, false };
+    for (int i = 0; i < kAccessIntFieldCount; i++) {
+        if (!bodyHasKey(req.body, req.contentType, kAccessIntFields[i].key)) continue;
+        String raw = bodyValue(req.body, req.contentType, kAccessIntFields[i].key);
         ConfigIntParseResult parsed = configIntParse(raw.c_str(), (size_t)raw.length(),
-                                                    kAccIntFields[i].minVal,
-                                                    kAccIntFields[i].maxVal);
+                                                    kAccessIntFields[i].minVal,
+                                                    kAccessIntFields[i].maxVal);
         if (parsed.status != CONFIG_INT_OK) {
             char errBuf[256];
-            configIntErrorJson(errBuf, sizeof(errBuf), kAccIntFields[i].key,
-                               kAccIntFields[i].minVal, kAccIntFields[i].maxVal,
+            configIntErrorJson(errBuf, sizeof(errBuf), kAccessIntFields[i].key,
+                               kAccessIntFields[i].minVal, kAccessIntFields[i].maxVal,
                                parsed.status);
             res.send(400, "application/json", String(errBuf));
             return;

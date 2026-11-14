@@ -27,26 +27,13 @@ const char PAGE_ACCESS[] PROGMEM = R"HTML(
 <label class='acc-field'>
   <span data-i18n='accessIdleTimeoutLbl'>Inactivity timeout (minutes)</span>
   <span class='acc-hint' data-i18n='accessIdleTimeoutHint'>Session is terminated after this period without requests.</span>
-  <select name='web_idle_timeout_min' id='web_idle_timeout_min' title='Inactivity timeout' data-i18n-title='accessTipIdleTimeout'>
-    <option value='5'>5 min</option>
-    <option value='10' selected>10 min</option>
-    <option value='15'>15 min</option>
-    <option value='20'>20 min</option>
-    <option value='30'>30 min</option>
-    <option value='60'>60 min</option>
-  </select>
+  <input type='number' name='web_idle_timeout_min' id='web_idle_timeout_min' min='1' max='120' step='1' value='10' title='Inactivity timeout (1-120 min)' data-i18n-title='accessTipIdleTimeout'>
 </label>
 
 <label class='acc-field'>
   <span data-i18n='accessAbsTimeoutLbl'>Absolute timeout (minutes)</span>
   <span class='acc-hint' data-i18n='accessAbsTimeoutHint'>Session is terminated regardless of activity.</span>
-  <select name='web_abs_timeout_min' id='web_abs_timeout_min' title='Absolute timeout' data-i18n-title='accessTipAbsTimeout'>
-    <option value='15'>15 min</option>
-    <option value='20' selected>20 min</option>
-    <option value='30'>30 min</option>
-    <option value='60'>60 min</option>
-    <option value='120'>120 min</option>
-  </select>
+  <input type='number' name='web_abs_timeout_min' id='web_abs_timeout_min' min='5' max='240' step='1' value='20' title='Absolute timeout (5-240 min)' data-i18n-title='accessTipAbsTimeout'>
 </label>
 
 <!-- Sessions list + terminate-all (ACC-1). Buttons are type=button so they

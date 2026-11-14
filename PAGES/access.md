@@ -44,8 +44,8 @@ main.page.access > div.wrap
  └ form#access-form
     ├ TAB "Web Sessions" (panel data-tab='tabAccessSessions')
     │   ├ input  #web_max_sessions        (number 1–5)
-    │   ├ select #web_idle_timeout_min    (5–60 min)
-    │   ├ select #web_abs_timeout_min     (15–120 min)
+    │   ├ input  #web_idle_timeout_min   (number, 1–120 min)
+    │   ├ input  #web_abs_timeout_min    (number, 5–240 min)
     │   └ #acc_sessions_box  (ACC-1)
     │       ├ #acc_sessions_list   ← /api/session-history rows (newest first, IP · type · when, capped 20)
     │       ├ #acc_sessions_refresh  (type=button)
@@ -80,8 +80,8 @@ Tabs are injected by `accInitTabs()` — a `<button class='acc-tab-btn'>` per pa
 | Input | ID / name | Type / range | Notes |
 |---|---|---|---|
 | Max simultaneous clients | `web_max_sessions` | number, 1–5 | server validates 1–5; counts **distinct client IPs** (not tabs/pages) with a 15 s TTL; a new IP when full gets HTTP 429; multiple tabs from the same PC count as **one** client |
-| Inactivity timeout | `web_idle_timeout_min` | select 5/10/15/20/30/60 | default 10; server accepts 1–120 (wider than UI) |
-| Absolute timeout | `web_abs_timeout_min` | select 15/20/30/60/120 | default 20; server accepts 5–240 |
+| Inactivity timeout | `web_idle_timeout_min` | number, 1–120 | default 10; same limit as the API (`access_limits.h`) |
+| Absolute timeout | `web_abs_timeout_min` | number, 5–240 | default 20; same limit as the API (`access_limits.h`) |
 | Local pages never expire | `charts_exempt` | checkbox | skips timeout kick on `/sensor-charts`/monitor/camera; still counts toward session limit |
 | Show Serial Monitor button | `serial_monitor_enabled` | checkbox | shows the 📺 Serial Monitor button in the home Monitoring section |
 | Require login | `auth_enabled` | checkbox | master HTTP Basic auth switch (off = open, no login) |
@@ -309,7 +309,7 @@ Tab labels use the tab keys themselves (`tabAccessSessions`, `tabAccessCharts`,
 | 2 | Invalid/absent values were silently ignored (`getInt` returned `-1` for absent, non-numeric and out-of-range alike). **Fixed (ACC-2):** the three numeric fields are parsed strictly and validated before any write; a present-but-unusable value returns 400 with `field`, `min`, `max`, `error` and a readable `message`, and nothing is saved. Absent keys still leave the current value. Pure parser/payload in `config_int_field.h`; tests: `test_config_int_field` (10 cases / 93 assertions). | Low | fixed |
 | 3 | Dead PT password sentinel (`"(não alterado)"`/`"(nao alterado)"`) compared against an English client whose hint `(unchanged)` is only a placeholder. **Fixed (ACC-3):** the sentinel comparison is gone from both password fields; the rule is the single `passwordFieldIsNew()` helper — empty (or absent) = keep the stored password, any non-empty value = new password. Tests: `test_password_field_input` (5 cases / 21 assertions, incl. the old dead check) + a web case proving an untouched submit posts empty values and no sentinel. | Low | fixed |
 | 4 | Page + APIs were registered unconditionally. **Fixed (ACC-4):** the `/access` page now follows the `/sdcard` scheme — `#if ENABLE_PAGE_ACCESS==1` around the WiFi registration, the same guard in the Ethernet branch (404 when off) and around the home button; the APIs stay registered in every build. Test: `test_access_page_gate` (5 cases / 33 assertions, source-contract on all three guards + API parity). | Low | fixed |
-| 5 | UI ranges are narrower than the API accepts (`idle` UI 5–60 vs server 1–120; `abs` UI 15–120 vs server 5–240) — silent mismatch between what the user can pick and what is valid. | Low | Align ranges (UI ≤ API is acceptable, but pick one documented limit). |
+| 5 | UI ranges were narrower than the API (`idle` select 5–60 vs server 1–120; `abs` select 15–120 vs server 5–240). **Fixed (ACC-5):** widened the UI to the API — both timeouts are now free number inputs bounded 1–120 / 5–240, so every accepted value is selectable and a script-stored value (e.g. idle 90) renders instead of blanking a select. One table (`chatgpt/src/access_limits.h`) feeds the handler and is compared with the markup by `test_access_limits` (4 cases / 41 assertions), so the two cannot drift again. | Low | fixed |
 | 6 | Viewer section is fully visible even when `viewer_enabled` is off — fields could be collapsed/hidden until the checkbox is checked. | Info | Toggle `#viewer_fields` visibility from the checkbox. |
 | 7 | **"Maximum simultaneous clients" limits distinct client IPs, not open tabs/pages** (owner decision: keep it this way). The page hint says "new browsers receive HTTP 429", which can read as a per-tab limit. Confirmed working: `allowHtmlClient()` multi-client path counts `multiTrack` unique IPs (8 slots, 15 s TTL) and returns 429 for a *new* IP when full; an already-tracked IP is admitted regardless of how many tabs it opens. Single-client mode adds a second cap (429 for any other IP) plus idle/absolute expiry (503). | Info | Documented here; no code change (owner chose per-IP). Optionally reword `accessMaxClientsHint` (EN+PT) to say "unique devices (IP)". |
 | 8 | Session list + terminate-all had no UI although `/api/session-history` and `/api/access-kick-all` were registered and documented. **Fixed (ACC-1):** the Web Sessions tab shows the history (newest first, escaped, capped 20, empty/failure states), a Refresh button and a confirmed Terminate all sessions action; both are `type='button'`. Tests: `test_access_page_markup` + `test_access_sessions.js`. | Medium | fixed |
@@ -326,6 +326,7 @@ Tab labels use the tab keys themselves (`tabAccessSessions`, `tabAccessCharts`,
 | HTTP handlers | `chatgpt/src/webpages/handlers_unified/config_handler.cpp` (`handleAccessConfigGet/Post`, `handleSessionHistoryGet`, `handleAccessKickAllPost`) |
 | Numeric POST validation | `chatgpt/src/config_int_field.h` (`configIntParse`, `configIntErrorJson`) |
 | Password fields | `chatgpt/src/password_field_input.h` (`passwordFieldIsNew`) |
+| Numeric field limits | `chatgpt/src/access_limits.h` (`kAccessIntFields`; page + API) |
 | Ethernet API mirrors | `chatgpt/src/ethernet_bootstrap_handlers.h:515-541`, `ethernet_bootstrap_routes.h:733` |
 | Config storage | `chatgpt/src/ConfigManager.{h,cpp}` (`web` + `system` sections; `access.json` stem) |
 | Session engine | `chatgpt/src/webpages/webpage_state.cpp` (session history, `webclientForceReset`, `allowHtmlClient`) |
