@@ -63,7 +63,7 @@ function fakeXhr(log) {
 }
 
 function screenOn(doc) {
-  var ids = ['gmS1', 'gmS2', 'gmS3', 'gmS4', 'gmS5'];
+  var ids = ['gmS1', 'gmS2', 'gmS3', 'gmS4', 'gmS5', 'gmSYS'];
   for (var i = 0; i < ids.length; i++) {
     if (doc.getElementById(ids[i]).className.indexOf('on') >= 0) return i + 1;
   }
@@ -103,7 +103,8 @@ async function run() {
   {
     var dom = loadPage(BASE_API);
     await wait(dom);
-    var win = dom.window, doc = win.document, css = doc.querySelector('style').textContent;
+    var win = dom.window, doc = win.document;
+    var css = Array.prototype.map.call(doc.querySelectorAll('style'), function (n) { return n.textContent; }).join('\n');
 
     await test('root is a fixed 100dvh column with no page scroll', function () {
       ok(/#gm\s*\{[^}]*display:\s*flex/.test(css), 'flex root');
@@ -120,11 +121,11 @@ async function run() {
       ok(/#gm\s*\.screen\s*\{[^}]*overflow:\s*hidden/.test(css), 'screen hidden');
     });
 
-    await test('exactly one of the five screens is visible', function () {
+    await test('exactly one of the six screens is visible', function () {
       is(screenOn(doc), 1, 'starts on step 1');
-      is(doc.querySelectorAll('#gm .screen').length, 5, 'five screens');
+      is(doc.querySelectorAll('#gm .screen').length, 6, 'six screens');
       is(doc.querySelectorAll('#gm .screen.on').length, 1, 'one screen on');
-      is(doc.getElementById('gmNo').textContent, '1 / 5', 'counter');
+      is(doc.getElementById('gmNo').textContent, '1 / 6', 'counter');
     });
 
     await test('navigation never waits for a job (arrows usable with nothing loaded)', function () {
@@ -134,8 +135,8 @@ async function run() {
       win.__test__.gmNext();
       is(screenOn(doc), 2, 'moved to preview');
       ok(!doc.getElementById('gmBack').disabled, 'back enabled on 2');
-      win.__test__.gmSetStep(5);
-      is(doc.getElementById('gmNo').textContent, '5 / 5', 'counter 5');
+      win.__test__.gmSetStep(6);
+      is(doc.getElementById('gmNo').textContent, '6 / 6', 'counter 6');
       ok(doc.getElementById('gmNext').disabled, 'next disabled on the last screen');
     });
 
@@ -156,6 +157,29 @@ async function run() {
       is(screenOn(doc), 1, 'swipe right -> back');
       swipe(320, 120, 300, 520);           // mostly vertical: ignored (list scroll)
       is(screenOn(doc), 1, 'vertical drag ignored');
+    });
+
+    await test('the top strip shows the current page, the visited ones and the ones to come', function () {
+      var tabs = doc.querySelectorAll('#gm .navstrip .ncol');
+      is(tabs.length, 6, 'six columns');
+      ok(tabs[0].className.indexOf('on') >= 0, 'first column active');
+      win.__test__.gmSetStep(3);
+      tabs = doc.querySelectorAll('#gm .navstrip .ncol');
+      ok(tabs[0].className.indexOf('done') >= 0, 'past column marked as visited');
+      ok(tabs[1].className.indexOf('done') >= 0, 'previous column visited');
+      ok(tabs[2].className.indexOf('on') >= 0, 'current column highlighted');
+      ok(tabs[3].className.indexOf('on') < 0 && tabs[3].className.indexOf('done') < 0,
+         'next column left dimmed');
+      is(doc.querySelectorAll('#gm .navstrip .nrail').length, 6, 'one line per column');
+      ok(tabs[2].querySelector('.nrail') !== null, 'each name has its own line');
+    });
+
+    await test('tapping a tab jumps to that page', function () {
+      win.__test__.gmSetStep(1);
+      doc.querySelector('#gm .navstrip .ncol[data-step-go="6"]').click();
+      is(screenOn(doc), 6, 'jumped to System');
+      doc.querySelector('#gm .navstrip .ncol[data-step-go="2"]').click();
+      is(screenOn(doc), 2, 'jumped to Preview');
     });
 
     await test('each screen shows its own title and primary action', function () {
@@ -597,6 +621,79 @@ async function run() {
       await wait(dom, 200);
       ok(cmdsSent(win).indexOf('$I') >= 0, '$I sent');
       is(doc.getElementById('gmMdi').value, '', 'input cleared');
+    });
+
+    dom.window.close();
+  }
+
+  // ── Step 6: system ────────────────────────────────────────────────────
+  {
+    var dom = loadPage(Object.assign({}, BASE_API, {
+      '/api/version': { version: 'v1.120', build: 'v1.120 - Nov 14 2026 16:24:07 WET' },
+      '/api/health': { status: 'ok', uptime_str: '0d 0h 24m 0s', reset_reason: 'POWER_ON',
+                       heap: { free: 233000, min_free: 83000, max_alloc: 57000 },
+                       psram: { free: 32293960, total: 33554432 }, pressure: 'critical' },
+      '/api/sd-status': { status: 'ok', total_bytes: 31716278272, used_bytes: 85409792 },
+      '/api/status': { wifi_connected: true, wifi_rssi: -43, ip_address: '192.168.1.7',
+                       free_heap: 233000, psram_free: 32293960 },
+      '/api/restart': { success: true, message: 'restarting' }
+    }));
+    await wait(dom, 400);
+    var win = dom.window, doc = win.document, g = win.__test__;
+
+    await test('the system page shows firmware, uptime, heap, PSRAM, SD and WiFi', async function () {
+      g.gmSetStep(6);
+      await wait(dom, 400);
+      is(doc.getElementById('gmNo').textContent, '6 / 6', 'counter');
+      ok(doc.getElementById('muFw').textContent.indexOf('v1.120') >= 0, 'firmware');
+      ok(doc.getElementById('muUp').textContent.indexOf('24m') >= 0, 'uptime');
+      ok(doc.getElementById('muHeap').textContent.indexOf('228') >= 0,
+         'heap: ' + doc.getElementById('muHeap').textContent);
+      ok(doc.getElementById('muPsram').textContent.indexOf('MB') >= 0, 'psram');
+      ok(doc.getElementById('muSd').textContent.indexOf('GB') >= 0 ||
+         doc.getElementById('muSd').textContent.indexOf('MB') >= 0, 'sd: ' + doc.getElementById('muSd').textContent);
+      ok(doc.getElementById('muWifi').textContent.indexOf('-43') >= 0, 'wifi');
+      ok(doc.getElementById('gmSYS').className.indexOf('on') >= 0, 'system screen shown');
+      is(doc.querySelectorAll('#gmSYS .subt').length, 6, 'summary/firmware/log tabs + log controls');
+    });
+
+    await test('the firmware tab and the log tab swap the visible pane', async function () {
+      win.MPSystem.tab('ota');
+      ok(doc.getElementById('muPaneOta').className.indexOf('on') >= 0, 'firmware pane');
+      ok(doc.getElementById('muPaneSum').className.indexOf('on') < 0, 'summary hidden');
+      win.MPSystem.tab('log');
+      ok(doc.getElementById('muPaneLog').className.indexOf('on') >= 0, 'log pane');
+      ok(doc.getElementById('muLog') !== null, 'log view');
+      win.MPSystem.tab('sum');
+    });
+
+    await test('restart asks for confirmation and then posts /api/restart', async function () {
+      win.__postBodies = [];
+      g.gmState.running = false;
+      win.MPSystem._state.busy = false;
+      win.MPSystem.reboot();
+      await wait(dom, 300);
+      var body = (win.__postBodies || []).map(function (b) { return b.url; }).join(' ');
+      ok(body.indexOf('/api/restart') >= 0, 'restart requested after the OK');
+    });
+
+    await test('declining the dialog sends nothing', async function () {
+      var before = (win.__postBodies || []).length;
+      var orig = win.customConfirm;
+      win.customConfirm = function (msg, cb) { if (cb) cb(false); };
+      win.MPSystem._state.busy = false;
+      win.MPSystem.reboot();
+      await wait(dom, 200);
+      is((win.__postBodies || []).length, before, 'no restart posted on cancel');
+      win.customConfirm = orig;
+    });
+
+    await test('restart is refused while a job is running', function () {
+      g.gmState.running = true;
+      win.MPSystem._state.busy = false;
+      is(win.MPSystem.reboot(), false, 'refused');
+      ok(doc.getElementById('muOtaMsg').textContent.indexOf('job is running') >= 0, 'explains why');
+      g.gmState.running = false;
     });
 
     dom.window.close();

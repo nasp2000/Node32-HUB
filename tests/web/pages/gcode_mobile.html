@@ -8,6 +8,59 @@
 <body>
 
 <style>
+  .mp .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .mp .tile {
+    display: flex; flex-direction: column; gap: 2px; padding: 8px 10px;
+    border: 1px solid #1e293b; border-radius: 10px; background: #0f172a; min-width: 0;
+  }
+  .mp .tile .k { font-size: 10px; letter-spacing: .4px; text-transform: uppercase; color: #64748b; }
+  .mp .tile b { font-size: 16px; color: #e6f1ff; word-break: break-all; }
+
+  .mp .subbar { display: flex; gap: 6px; }
+  .mp .subt {
+    flex: 1 1 0; height: 32px; border-radius: 9px; border: 1px solid #334155;
+    background: #0f172a; color: #94a3b8; font-size: 12px; font-weight: 700;
+  }
+  .mp .subt.on { border-color: #3b82f6; background: #1d2b47; color: #dbeafe; }
+  .mp .pane { flex: 1 1 auto; min-height: 0; display: none; flex-direction: column; gap: 6px; }
+  .mp .pane.on { display: flex; }
+
+  .mp .bar { height: 6px; border-radius: 3px; background: #1e293b; overflow: hidden; display: none; }
+  .mp .bar.on { display: block; }
+  .mp .bar span { display: block; height: 100%; width: 0%; background: #3b82f6; transition: width .15s linear; }
+  .mp .msg { font-size: 12px; line-height: 1.3; color: #94a3b8; min-height: 2.4em; }
+  .mp .msg.err { color: #fca5a5; }
+  .mp .msg.ok { color: #6ee7b7; }
+
+  .mp .btn {
+    height: 42px; border-radius: 10px; border: 1px solid #334155; background: #0f172a;
+    color: #cbd5e1; font-size: 13px; font-weight: 700;
+  }
+  .mp .btn:active { background: #1d2b47; }
+  .mp .btn:disabled { opacity: .45; }
+  .mp .primary {
+    height: 50px; border: 0; border-radius: 12px; background: #2563eb; color: #fff;
+    font-size: 16px; font-weight: 700;
+  }
+  .mp .primary:disabled { background: #1e293b; color: #64748b; }
+
+  .mp .log {
+    flex: 1 1 auto; min-height: 0; margin: 0; padding: 8px 10px; overflow-y: auto;
+    border: 1px solid #1e293b; border-radius: 10px; background: #0f172a; color: #cbd5e1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word; -webkit-overflow-scrolling: touch;
+  }
+
+  .mp .reboot {
+    height: 46px; border-radius: 11px; border: 1px solid #dc2626; background: #7f1d1d;
+    color: #fff; font-size: 13px; font-weight: 700; letter-spacing: .3px;
+  }
+  .mp .reboot.arm { background: #b91c1c; }
+  .mp .reboot:disabled { background: #0f172a; color: #64748b; border-color: #334155; }
+  .mp .note { font-size: 11px; color: #64748b; }
+</style>
+
+<style>
   html, body { height: 100%; margin: 0; overflow: hidden; background: #0b1220; }
   body { color: #e6f1ff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   #gm {
@@ -15,12 +68,34 @@
     gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
     box-sizing: border-box; height: 100dvh; overflow: hidden;
   }
-  #gm header { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
-  #gm .steps { display: flex; gap: 4px; }
-  #gm .steps i { width: 14px; height: 4px; border-radius: 2px; background: #24344d; display: block; }
-  #gm .steps i.on { background: #3b82f6; }
-  #gm .steps i.done { background: #1d4ed8; }
-  #gm h1 { font-size: 15px; margin: 0; font-weight: 700; letter-spacing: .2px; }
+  #gm header { flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; }
+  /* top navigation: one equal column per page — label on top, its line below */
+  #gm .navstrip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  #gm .ncol {
+    display: flex; flex-direction: column; gap: 4px; min-width: 0;
+    background: transparent; border: 0; padding: 0;
+  }
+  #gm .ncol .ntab {
+    display: block; height: 30px; line-height: 30px; border-radius: 8px;
+    border: 1px solid transparent; background: transparent; color: #64748b;
+    font-size: 12px; font-weight: 700; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #gm .ncol .nrail { display: block; height: 3px; border-radius: 2px; background: #24344d; }
+  #gm .ncol.done .ntab { color: #93c5fd; }
+  #gm .ncol.done .nrail { background: #1d4ed8; }
+  #gm .ncol.on .ntab { border-color: #3b82f6; background: #1d2b47; color: #e6f1ff; }
+  #gm .ncol.on .nrail { background: #3b82f6; }
+  #gm .hrow { display: flex; align-items: center; gap: 6px; height: 26px; }
+  #gm .hrow .no { font-size: 11px; color: #94a3b8; }
+  #gm .hrow .pack {
+    font-size: 12px; font-weight: 700; color: #93c5fd; letter-spacing: .2px;
+    max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #gm .sr {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
   #gm .badge {
     margin-left: auto; font-size: 11px; padding: 3px 8px; border-radius: 999px;
     border: 1px solid #334155; color: #94a3b8; white-space: nowrap;
@@ -52,8 +127,8 @@
     border: 1px solid #1e293b; border-radius: 12px; background: #0f172a;
   }
   #gm .row {
-    display: flex; align-items: center; gap: 8px; padding: 11px 12px;
-    border-bottom: 1px solid #16213a; font-size: 13px; background: transparent;
+    display: flex; align-items: center; gap: 8px; padding: 13px 12px;
+    border-bottom: 1px solid #16213a; font-size: 14px; background: transparent;
     width: 100%; text-align: left; color: #e6f1ff; border-left: 0; border-right: 0; border-top: 0;
   }
   #gm .row:last-child { border-bottom: 0; }
@@ -74,33 +149,44 @@
   #gm .card .ico { font-size: 38px; line-height: 1; }
   #gm .card .nm { font-weight: 700; word-break: break-all; max-height: 3.2em; overflow: hidden; }
   #gm .card .sz { font-size: 12px; color: #94a3b8; }
-  #gm .card .big { font-size: 24px; font-weight: 800; letter-spacing: .5px; }
+  #gm .card .big { font-size: 30px; font-weight: 800; letter-spacing: .5px; }
   #gm .card .row { font-size: 13px; color: #cbd5e1; }
-  #gm .card .kv { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #93c5fd; }
+  #gm .card .kv { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: #93c5fd; }
+  #gm #gmFrameArea { font-size: 16px; color: #dbeafe; }
+  #gm #gmFrameHint { font-size: 14px; }
 
   /* step 2 — preview canvas */
   #gm #gmCanvas {
-    flex: 1 1 auto; min-height: 0; width: 100%; display: block;
+    flex: 0 0 auto; width: 100%; height: auto; aspect-ratio: 1 / 1; display: block;
     border: 1px solid #1e293b; border-radius: 12px; background: #0f172a;
   }
 
   /* step 5 — jog + machine buttons */
-  #gm .state { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; }
-  #gm .state b { color: #e6f1ff; font-size: 13px; }
-  #gm .state .pos { margin-left: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #93c5fd; }
+  #gm .state { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #94a3b8; }
+  #gm .state b { color: #e6f1ff; font-size: 17px; }
+  #gm .state .pos { margin-left: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: #93c5fd; }
   #gm .chips { flex: 0 0 auto; display: flex; gap: 6px; }
   #gm .chip {
     flex: 1 1 0; height: 32px; border-radius: 9px; border: 1px solid #334155;
     background: #0f172a; color: #94a3b8; font-size: 12px; font-weight: 700;
   }
   #gm .chip.on { border-color: #3b82f6; background: #1d2b47; color: #dbeafe; }
-  #gm .jog { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
-  #gm .jog button {
+  /* jog pad: X/Y cross (same orientation as the PC page) + a Z row */
+  #gm #gmJogPad { flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; }
+  #gm .jogcross { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  #gm .jogcross .sp { display: block; }
+  #gm .jogcross .centre {
+    border: 1px dashed #3b82f6; border-radius: 12px; background: #0f1b33;
+    color: #93c5fd; font-size: 13px; font-weight: 700;
+  }
+  #gm .jogcross .centre.arm { border-style: solid; border-color: #dc2626; color: #fca5a5; }
+  #gm .jogz { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  #gm .jogcross button, #gm .jogz button {
     height: 56px; border-radius: 12px; border: 1px solid #334155; background: #0f172a;
     color: #dbeafe; font-size: 15px; font-weight: 700;
   }
-  #gm .jog button:active { background: #1d2b47; }
-  #gm .jog button:disabled { opacity: .3; }
+  #gm .jogcross button:active, #gm .jogz button:active { background: #1d2b47; }
+  #gm .jogcross button:disabled, #gm .jogz button:disabled { opacity: .3; }
   #gm .acts3 { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
   #gm .acts3 button {
     height: 40px; border-radius: 10px; border: 1px solid #334155; background: #0f172a;
@@ -120,9 +206,10 @@
   @keyframes gmslide { from { margin-left: -35%; } to { margin-left: 100%; } }
 
   #gm .acts { flex: 0 0 auto; display: flex; gap: 8px; }
-  #gm .primary {
-    flex: 1 1 auto; height: 52px; border: 0; border-radius: 12px;
-    background: #2563eb; color: #fff; font-size: 16px; font-weight: 700;
+  /* only the wizard's own action row grows; shared .primary keeps its size */
+  #gm .acts .primary {
+    flex: 1 1 auto; height: 54px; border: 0; border-radius: 12px;
+    background: #2563eb; color: #fff; font-size: 17px; font-weight: 700;
   }
   #gm .primary:disabled { background: #1e293b; color: #64748b; }
   #gm .primary.off { display: none; }
@@ -196,7 +283,8 @@
   @media (max-height: 620px) {
     #gm h1 { font-size: 13px; }
     #gm .card .ico { font-size: 26px; }
-    #gm .jog button { height: 44px; font-size: 13px; }
+    #gm .jogcross button, #gm .jogz button { height: 44px; font-size: 13px; }
+    #gm .jogcross .stepcell { min-height: 44px; }
     #gm .acts3 button { height: 34px; }
     #gm .primary, #gm .danger { height: 44px; font-size: 14px; }
     #gm .nav .arrow { width: 40px; height: 40px; }
@@ -204,12 +292,22 @@
   }
 </style>
 
-<div id="gm">
+<div id="gm" class="mp">
   <header>
-    <div class="steps"><i class="on"></i><i></i><i></i><i></i><i></i></div>
-    <h1 id="gmTitle" data-i18n="gmTitle1">Send G-code</h1>
-    <span class="badge" id="gmLink">--</span>
-    <button type="button" class="mini" id="gmUsb" data-i18n-title="gmUsbRestart" title="Restart the USB host">&#9889;</button>
+    <nav class="navstrip" id="gmNavStrip">
+      <button type="button" class="ncol on" data-step-go="1"><span class="ntab" data-i18n="gmNav1">Send</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="2"><span class="ntab" data-i18n="gmNav2">Preview</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="3"><span class="ntab" data-i18n="gmNav3">Frame</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="4"><span class="ntab" data-i18n="gmNav4">Play</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="5"><span class="ntab" data-i18n="gmNav5">Jog</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="6"><span class="ntab" data-i18n="gmNav6">System</span><i class="nrail"></i></button>
+    </nav>
+    <div class="hrow">
+      <span class="pack" id="gmPack"></span>
+      <h1 id="gmTitle" class="sr" data-i18n="gmTitle1">Send G-code</h1>
+      <span class="badge" id="gmLink">--</span>
+      <button type="button" class="mini" id="gmUsb" data-i18n-title="gmUsbRestart" title="Restart the USB host">&#9889;</button>
+    </div>
   </header>
 
   <!-- ── Step 1: send ─────────────────────────────────────────────── -->
@@ -304,13 +402,22 @@
       <button type="button" class="chip" data-step="10">10</button>
       <button type="button" class="chip" data-step="50">50</button>
     </div>
-    <div class="jog" id="gmJogPad">
-      <button type="button" data-jog="X-">X&#8722;</button>
-      <button type="button" data-jog="Y+">Y+</button>
-      <button type="button" data-jog="Z+">Z+</button>
-      <button type="button" data-jog="X+">X+</button>
-      <button type="button" data-jog="Y-">Y&#8722;</button>
-      <button type="button" data-jog="Z-">Z&#8722;</button>
+    <div id="gmJogPad">
+      <div class="jogcross">
+        <span class="sp"></span>
+        <button type="button" data-jog="Y+">Y+</button>
+        <span class="sp"></span>
+        <button type="button" data-jog="X-">X&#8722;</button>
+        <button type="button" class="centre" id="gmJogCentre" data-jogzero="1" data-i18n-title="gmJogZero" title="Go to X0 Y0">0,0</button>
+        <button type="button" data-jog="X+">X+</button>
+        <span class="sp"></span>
+        <button type="button" data-jog="Y-">Y&#8722;</button>
+        <span class="sp"></span>
+      </div>
+      <div class="jogz">
+        <button type="button" data-jog="Z-">Z&#8722;</button>
+        <button type="button" data-jog="Z+">Z+</button>
+      </div>
     </div>
     <div class="acts3" id="gmActions">
       <button type="button" class="actbtn" data-act="home" data-i18n="gmBtnHome">HOME</button>
@@ -329,6 +436,44 @@
     </div>
   </section>
 
+
+<section class="screen mpsys" id="gmSYS">
+  <div class="subbar">
+    <button type="button" class="subt on" id="muTabSum" data-mu-tab="sum">Summary</button>
+    <button type="button" class="subt" id="muTabOta" data-mu-tab="ota">Firmware</button>
+    <button type="button" class="subt" id="muTabLog" data-mu-tab="log">Log</button>
+  </div>
+
+  <div class="pane on" id="muPaneSum">
+    <div class="tiles">
+      <div class="tile"><span class="k" data-i18n="gmSysFw">Firmware</span><b id="muFw">--</b></div>
+      <div class="tile"><span class="k" data-i18n="gmSysUp">Uptime</span><b id="muUp">--</b></div>
+      <div class="tile"><span class="k" data-i18n="gmSysHeap">Heap</span><b id="muHeap">--</b></div>
+      <div class="tile"><span class="k" data-i18n="gmSysPsram">PSRAM</span><b id="muPsram">--</b></div>
+      <div class="tile"><span class="k" data-i18n="gmSysSdFree">SD card</span><b id="muSd">--</b></div>
+      <div class="tile"><span class="k" data-i18n="gmSysWifi">WiFi</span><b id="muWifi">--</b></div>
+    </div>
+    <button type="button" class="reboot" id="muReboot" data-i18n="gmSysReboot">Restart the controller</button>
+  </div>
+
+  <div class="pane" id="muPaneOta">
+    <div class="note" id="muOtaCur">--</div>
+    <button type="button" class="btn" id="muOtaPick" data-i18n="gmOtaPick">Choose the firmware (.bin)</button>
+    <input type="file" id="muOtaFile" accept=".bin,application/octet-stream" hidden>
+    <div class="bar" id="muOtaBar"><span id="muOtaFill"></span></div>
+    <div class="msg" id="muOtaMsg" data-i18n="gmOtaHint">Pick the .bin, upload it and the controller restarts.</div>
+    <button type="button" class="primary" id="muOtaGo" disabled data-i18n="gmOtaGo">Upload firmware</button>
+  </div>
+
+  <div class="pane" id="muPaneLog">
+    <pre class="log" id="muLog"></pre>
+    <div class="subbar">
+      <button type="button" class="subt" id="muLogPause" data-i18n="gmLogPause">Pause</button>
+      <button type="button" class="subt" id="muLogClear" data-i18n="gmLogClear">Clear</button>
+      <button type="button" class="subt" id="muLogBottom" data-i18n="gmLogBottom">Bottom</button>
+    </div>
+  </div>
+</section>
   <div class="msg" id="gmMsg" data-i18n="gmStep1Hint">Pick a file from the SD card or from this phone.</div>
   <div class="bar" id="gmBar"><span id="gmFill"></span></div>
 
@@ -338,10 +483,11 @@
 
   <div class="nav">
     <button type="button" class="arrow back" id="gmBack" disabled title="Back">&#8592;</button>
-    <span class="no" id="gmNo">1 / 5</span>
+    <span class="no" id="gmNo">1 / 6</span>
     <button type="button" class="arrow next" id="gmNext" data-i18n-title="gmNextTip">&#8594;</button>
   </div>
 </div>
+
 
 
 <script>
@@ -387,8 +533,8 @@
   var MAX_BYTES = 4 * 1024 * 1024;      // controller PSRAM workspace cap (phone uploads)
   var SD_UPLOAD_MAX_BYTES = 48 * 1024 * 1024;  // server cap for the SD upload buffer
   var STORE_KEY = 'gm.sid';
-  var STEPS = 5;
-  var STEP_SEND = 1, STEP_PREVIEW = 2, STEP_FRAME = 3, STEP_PLAY = 4, STEP_JOG = 5;
+  var STEPS = 6;
+  var STEP_SEND = 1, STEP_PREVIEW = 2, STEP_FRAME = 3, STEP_PLAY = 4, STEP_JOG = 5, STEP_SYS = 6;
   var FRAME_POWER_PCT = 5;
   var FRAME_FEED = 1200;
   var JOG_FEED = 1000;                  // XY jog feed (mm/min)
@@ -399,10 +545,10 @@
 
   var el = {
     title: document.getElementById('gmTitle'),
-    steps: document.querySelectorAll('#gm .steps i'),
+    navStrip: document.getElementById('gmNavStrip'),
     screens: [document.getElementById('gmS1'), document.getElementById('gmS2'),
               document.getElementById('gmS3'), document.getElementById('gmS4'),
-              document.getElementById('gmS5')],
+              document.getElementById('gmS5'), document.getElementById('gmSYS')],
     tabSd: document.getElementById('gmTabSd'),
     tabPhone: document.getElementById('gmTabPhone'),
     paneSd: document.getElementById('gmPaneSd'),
@@ -438,6 +584,7 @@
     jogState: document.getElementById('gmJogState'),
     jogPos: document.getElementById('gmJogPos'),
     jogPad: document.getElementById('gmJogPad'),
+    jogCentre: document.getElementById('gmJogCentre'),
     stepChips: document.getElementById('gmStepChips'),
     actions: document.getElementById('gmActions'),
     msg: document.getElementById('gmMsg'),
@@ -451,6 +598,7 @@
     back: document.getElementById('gmBack'),
     next: document.getElementById('gmNext'),
     no: document.getElementById('gmNo'),
+    pack: document.getElementById('gmPack'),
     link: document.getElementById('gmLink')
   };
 
@@ -746,6 +894,10 @@
     var b = boundsFromPoints(pts);
     if (!b) return;
     var spanX = Math.max(0.001, b.maxX - b.minX);
+    // Match the canvas box to the job so the drawing fills it (clamped so a
+    // very long or very tall job never pushes the info line off the screen).
+    var ratio = Math.max(0.45, Math.min(1.9, spanX / Math.max(0.001, b.maxY - b.minY)));
+    cv.style.aspectRatio = String(ratio);
     var spanY = Math.max(0.001, b.maxY - b.minY);
     var pad = 10;
     var scale = Math.min((cw - pad * 2) / spanX, (ch - pad * 2) / spanY);
@@ -968,9 +1120,13 @@
       progressBusy(false);
       if (b) st.bbox = b;
       if (!st.bbox && st.points) st.bbox = boundsFromPoints(st.points);
-      if (!st.bbox) setMsg(errorText('sd_measure_failed'), 'err');
-      else setMsg(tf('gmReady', 'Job ready: {path} ({size})',
-                     { path: st.job.name, size: fmtBytes(st.job.bytes) }), 'ok');
+      if (!st.bbox) {
+        // The Frame screen owns this message; on Play it would only be noise.
+        if (st.step === STEP_FRAME) setMsg(errorText('sd_measure_failed'), 'err');
+      } else {
+        setMsg(tf('gmReady', 'Job ready: {path} ({size})',
+                  { path: st.job.name, size: fmtBytes(st.job.bytes) }), 'ok');
+      }
       render();
     }
     var timer = setTimeout(function () { finish(null); }, MEASURE_TIMEOUT_MS);
@@ -1290,6 +1446,25 @@
     return true;
   }
 
+  // Centre of the jog cross: relative-free move to work X0 Y0 (armed).
+  function jogToZero() {
+    if (st.busy || !st.canWrite) {
+      if (!st.canWrite) setMsg(errorText('no_control'), 'err');
+      return false;
+    }
+    return armOrRun('jogzero', function () {
+      var line = '$J=G90 G21 X0 Y0 F' + String(JOG_FEED);
+      st.busy = true; render();
+      setMsg(t('gmActJogZero', 'Moving to X0 Y0\u2026'), '');
+      sendCmd('M5').then(function () { return sendCmd(line); }).then(function (ok) {
+        st.busy = false;
+        setMsg(ok ? t('gmActJogZeroOk', 'At X0 Y0.') : errorText('send_failed'), ok ? 'ok' : 'err');
+        pollStatus(true);
+        render();
+      });
+    });
+  }
+
   function armOrRun(kind, fn) {
     var now = Date.now();
     if (st.armedKey === kind && now < st.armedUntil) {
@@ -1515,7 +1690,8 @@
     else if (step === STEP_PREVIEW) setMsg(t('gmStep2Hint', 'Toolpath of the selected job.'), '');
     else if (step === STEP_FRAME) setMsg(t('gmStep3Hint', 'Check the job area on the machine before cutting.'), '');
     else if (step === STEP_PLAY) setMsg(t('gmStep4Hint', 'Starts the job selected in step 1.'), '');
-    else setMsg(t('gmStep5Hint', 'Jog with the arrows; machine buttons below.'), '');
+    else if (step === STEP_JOG) setMsg(t('gmStep5Hint', 'Jog with the arrows; machine buttons below.'), '');
+    else setMsg(t('gmStep6Hint', 'Controller health, the full pages and a restart.'), '');
   }
 
   function setStep(n) {
@@ -1525,16 +1701,18 @@
     el.screens.forEach(function (sec, i) {
       if (sec) sec.className = 'screen' + (i + 1 === st.step ? ' on' : '');
     });
-    el.steps.forEach(function (dot, i) {
-      dot.className = (i + 1 === st.step) ? 'on' : (i + 1 < st.step ? 'done' : '');
-    });
     el.no.textContent = st.step + ' / ' + STEPS;
+    updateNavStrip();
     // An SD job needs the controller to measure it: do that once, in the
     // background, as soon as the operator reaches Frame or Play (never blocks
     // the navigation, and Play does not depend on the bounds).
-    if (st.step >= STEP_FRAME && st.job && st.job.src === 'sd' && st.job.path &&
-        !st.bbox && !st.measuring && st.measureFor !== st.job.path) {
+    if (st.step >= STEP_FRAME && st.step <= STEP_PLAY && st.job && st.job.src === 'sd' &&
+        st.job.path && !st.bbox && !st.measuring && st.measureFor !== st.job.path) {
       measureSd();
+    }
+    if (window.MPSystem) {
+      if (st.step === STEP_SYS) MPSystem.open();
+      else MPSystem.close();
     }
     pollTimerForStep();
     try { history.replaceState(null, '', '#' + st.step); } catch (e) {}
@@ -1558,6 +1736,17 @@
 
   function goNext() { if (st.step < STEPS) setStep(st.step + 1); }
   function goPrev() { if (st.step > 1) setStep(st.step - 1); }
+
+  // Top strip: one column per page — the current one is highlighted and its
+  // line lights up, the visited ones keep a blue line, so what is on the left
+  // and on the right is always visible.
+  function updateNavStrip() {
+    if (!el.navStrip) return;
+    el.navStrip.querySelectorAll('.ncol').forEach(function (col) {
+      var n = parseInt(String(col.getAttribute('data-step-go') || '0'), 10);
+      col.className = 'ncol' + (n === st.step ? ' on' : (n < st.step ? ' done' : ''));
+    });
+  }
 
   function setTab(tab) {
     st.tab = (tab === 'phone') ? 'phone' : 'sd';
@@ -1641,14 +1830,15 @@
   function render() {
     if (typeof document === 'undefined' || !document) return;
     var is1 = st.step === STEP_SEND, is2 = st.step === STEP_PREVIEW,
-        is3 = st.step === STEP_FRAME, is4 = st.step === STEP_PLAY, is5 = st.step === STEP_JOG;
+        is3 = st.step === STEP_FRAME, is4 = st.step === STEP_PLAY, is5 = st.step === STEP_JOG,
+        is6 = st.step === STEP_SYS;
 
     el.title.textContent = t(is1 ? 'gmTitle1' : is2 ? 'gmTitlePreview' : is3 ? 'gmTitleFrame'
-                                 : is4 ? 'gmTitlePlay' : 'gmTitleJog',
+                                 : is4 ? 'gmTitlePlay' : is5 ? 'gmTitleJog' : 'gmTitleSys',
                                is1 ? 'Send G-code' : is2 ? 'Preview' : is3 ? 'Frame'
-                                 : is4 ? 'Play' : 'Jog');
+                                 : is4 ? 'Play' : is5 ? 'Jog' : 'System');
     el.title.setAttribute('data-i18n', is1 ? 'gmTitle1' : is2 ? 'gmTitlePreview' : is3 ? 'gmTitleFrame'
-                                            : is4 ? 'gmTitlePlay' : 'gmTitleJog');
+                                            : is4 ? 'gmTitlePlay' : is5 ? 'gmTitleJog' : 'gmTitleSys');
 
     // primary action per step ('USE' selects an SD file, 'SEND' uploads a phone file)
     var useSd = is1 && st.tab === 'sd';
@@ -1657,14 +1847,14 @@
                       : is3 ? t('gmFrameRun', 'FRAME')
                       : t('gmPlay', 'START');
     el.primary.setAttribute('data-i18n', useSd ? 'gmUse' : is1 ? 'gmSend' : is3 ? 'gmFrameRun' : 'gmPlay');
-    el.primary.className = 'primary' + ((is2 || is5) ? ' off' : '');
+    el.primary.className = 'primary' + ((is2 || is5 || is6) ? ' off' : '');
     el.primary.disabled = st.busy || (useSd ? !st.sdPath : false) ||
       (is1 && !st.canWrite) ||
       (is3 && (!st.bbox || !st.canWrite)) ||
       (is4 && (!st.canWrite || !jobReady() || st.running || st.alarm));
 
     el.stop.className = 'stop';
-    el.acts.style.display = ((is2 || is5) || (is4 && st.running)) ? 'none' : 'flex';
+    el.acts.style.display = ((is2 || is5 || is6) || (is4 && st.running)) ? 'none' : 'flex';
 
     // step 4 machine buttons: PAUSE while running, RESUME while paused, STOP
     if (el.pause) el.pause.disabled = st.busy || !st.canWrite || !st.running || st.paused;
@@ -1701,6 +1891,7 @@
       if (el.alarmResume) el.alarmResume.className = (st.armedKey === 'resumeAlarm') ? 'arm' : '';
       if (el.alarmUnlock) el.alarmUnlock.disabled = st.busy;
       if (el.alarmResume) el.alarmResume.disabled = st.busy;
+      if (el.ovr) el.ovr.style.display = (st.running || st.paused) ? 'grid' : 'none';
       if (el.ovVal) el.ovVal.textContent = String(st.ovFeed) + '%';
       if (el.ovr) {
         el.ovr.querySelectorAll('button[data-ov]').forEach(function (b) {
@@ -1715,6 +1906,10 @@
     }
     // step 5 — Z column/zero only on a 3-axis machine, armed button highlight
     if (is5 && el.jogPad) {
+      if (el.jogCentre) {
+        el.jogCentre.className = 'centre' + (st.armedKey === 'jogzero' ? ' arm' : '');
+        el.jogCentre.disabled = st.busy || !st.canWrite;
+      }
       var zDisabled = !hasZ();
       el.jogPad.querySelectorAll('button[data-jog]').forEach(function (b) {
         var axis = String(b.getAttribute('data-jog') || '').charAt(0);
@@ -1748,6 +1943,7 @@
 
   function init() {
     sessionId();
+    if (el.pack && window.PACK_NAME) el.pack.textContent = String(window.PACK_NAME);
     var h = parseInt(String(location.hash || '').replace('#', ''), 10);
     st.step = (h >= 1 && h <= STEPS) ? h : 1;
     setStep(st.step);
@@ -1791,6 +1987,9 @@
 
     listSd('');
     setDest('sd');
+    if (window.MPSystem) {
+      MPSystem.setBlocker(function () { return !!st.running; });
+    }
 
     el.tabSd.addEventListener('click', function () { setTab('sd'); });
     el.tabPhone.addEventListener('click', function () { setTab('phone'); });
@@ -1801,6 +2000,13 @@
       });
     }
     if (el.usb) el.usb.addEventListener('click', restartUsb);
+    if (el.navStrip) {
+      el.navStrip.addEventListener('click', function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest('.ncol[data-step-go]') : null;
+        if (!b) return;
+        setStep(parseInt(String(b.getAttribute('data-step-go') || '1'), 10));
+      });
+    }
     if (el.alarmUnlock) el.alarmUnlock.addEventListener('click', function () { act('unlock'); });
     if (el.alarmResume) el.alarmResume.addEventListener('click', resumeAfterAlarm);
     if (el.ovr) {
@@ -1851,6 +2057,8 @@
 
     // jog pad + step chips
     el.jogPad.addEventListener('click', function (ev) {
+      var z0 = ev.target && ev.target.closest ? ev.target.closest('button[data-jogzero]') : null;
+      if (z0) { jogToZero(); return; }
       var b = ev.target && ev.target.closest ? ev.target.closest('button[data-jog]') : null;
       if (!b || b.disabled) return;
       var v = String(b.getAttribute('data-jog') || '');
@@ -1863,7 +2071,7 @@
       el.stepChips.querySelectorAll('button[data-step]').forEach(function (x) {
         x.className = 'chip' + (Number(x.getAttribute('data-step')) === st.jogStep ? ' on' : '');
       });
-      render();
+        render();
     });
     el.actions.addEventListener('click', function (ev) {
       var z = ev.target && ev.target.closest ? ev.target.closest('button[data-zero]') : null;
@@ -1873,28 +2081,53 @@
       act(String(b.getAttribute('data-act') || ''));
     });
 
-    // swipe left/right changes screen (a vertical drag through the SD list is
-    // not a swipe: the horizontal distance has to clearly win).
-    var tx = 0, ty = 0, tracking = false;
+    // Swipe left/right changes screen. Works anywhere on the page (including
+    // over the SD list and the log, which also scroll vertically): the
+    // horizontal distance has to win, and the click that the browser fires
+    // after a swipe is swallowed so a swipe never presses a button.
+    var gmEl = document.getElementById('gm');
+    var touch = { active: false, x: 0, y: 0, swiped: false, swipedAt: 0 };
     function touchPoint(e) {
       var list = (e.touches && e.touches.length) ? e.touches : (e.changedTouches || []);
-      return list && list[0] ? list[0] : null;
+      return (list && list[0]) ? list[0] : null;
     }
-    document.getElementById('gm').addEventListener('touchstart', function (e) {
+    gmEl.addEventListener('touchstart', function (e) {
+      if (e.touches && e.touches.length > 1) { touch.active = false; return; }
       var p = touchPoint(e);
-      if (!p) { tracking = false; return; }
-      tracking = true;
-      tx = p.clientX; ty = p.clientY;
+      if (!p) { touch.active = false; return; }
+      touch.active = true;
+      touch.x = p.clientX;
+      touch.y = p.clientY;
     }, { passive: true });
-    document.getElementById('gm').addEventListener('touchend', function (e) {
-      if (!tracking) return;
-      tracking = false;
+    gmEl.addEventListener('touchmove', function (e) {
+      if (!touch.active) return;
       var p = touchPoint(e);
       if (!p) return;
-      var dx = p.clientX - tx, dy = p.clientY - ty;
-      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      if (Math.abs(p.clientX - touch.x) > 40 && Math.abs(p.clientX - touch.x) > Math.abs(p.clientY - touch.y)) {
+        touch.swiped = true;
+      }
+    }, { passive: true });
+    gmEl.addEventListener('touchend', function (e) {
+      if (!touch.active) return;
+      touch.active = false;
+      var p = touchPoint(e);
+      if (!p) return;
+      var dx = p.clientX - touch.x;
+      var dy = p.clientY - touch.y;
+      if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) { touch.swiped = false; return; }
+      touch.swiped = true;
+      touch.swipedAt = Date.now();
       if (dx < 0) goNext(); else goPrev();
     }, { passive: true });
+    gmEl.addEventListener('touchcancel', function () { touch.active = false; }, { passive: true });
+    // A swipe must not also press whatever was under the finger.
+    document.addEventListener('click', function (e) {
+      if (touch.swiped && (Date.now() - touch.swipedAt) < 600) {
+        touch.swiped = false;
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    }, true);
   }
 
   window.__test__ = window.__test__ || {};
@@ -1934,6 +2167,376 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
+})();
+</script>
+
+<script>
+// window.MU — helpers shared by every phone page. No DOM assumptions besides
+// the ids each page passes in; the host page owns its own state.
+window.MU = (function () {
+  'use strict';
+  var armedKey = '', armedUntil = 0;
+
+  function t(k, fb) {
+    try {
+      if (typeof window._t === 'function') {
+        var v = window._t(k, fb);
+        if (v !== undefined && v !== null && v !== '' && v !== k) return v;
+      }
+      var raw = localStorage.getItem('ui_lang_cache');
+      if (raw) {
+        var p = JSON.parse(raw);
+        if (p && p[k] !== undefined) return p[k];
+      }
+    } catch (e) {}
+    return fb !== undefined ? fb : k;
+  }
+  function tf(k, fb, vars) {
+    var s = String(t(k, fb));
+    for (var key in (vars || {})) {
+      if (Object.prototype.hasOwnProperty.call(vars, key)) s = s.replace('{' + key + '}', String(vars[key]));
+    }
+    return s;
+  }
+
+  function get(url) {
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      return r.json().then(function (d) { return { status: r.status, body: d || {} }; },
+                         function () { return { status: r.status, body: {} }; });
+    });
+  }
+
+  function post(url, payload) {
+    var body = payload || {};
+    var enc = [];
+    for (var k in body) {
+      if (Object.prototype.hasOwnProperty.call(body, k)) {
+        enc.push(encodeURIComponent(k) + '=' + encodeURIComponent(body[k]));
+      }
+    }
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: enc.join('&')
+    }).then(function (r) {
+      return r.json().then(function (d) { return { status: r.status, body: d || {} }; },
+                         function () { return { status: r.status, body: {} }; });
+    });
+  }
+
+  function fmtSize(bytes) {
+    var b = Number(bytes) || 0;
+    if (b < 1024) return b + ' B';
+    var kb = b / 1024;
+    if (kb < 1024) return kb.toFixed(kb < 10 ? 1 : 0) + ' kB';
+    var mb = kb / 1024;
+    if (mb < 1024) return mb.toFixed(1) + ' MB';
+    return (mb / 1024).toFixed(1) + ' GB';
+  }
+
+  function fmtEta(sec) {
+    sec = Math.max(0, Math.round(Number(sec) || 0));
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return tf('gmEta', 'left {m}m {s}s', { m: m, s: (s < 10 ? '0' : '') + s });
+  }
+
+  function msg(el, text, kind) {
+    if (!el) return;
+    el.textContent = text || '';
+    el.className = 'msg' + (kind === 'err' ? ' err' : kind === 'ok' ? ' ok' : '');
+  }
+
+  // Two-tap arming for destructive actions (no modal on a phone).
+  function arm(key, windowMs) {
+    var now = Date.now();
+    if (armedKey === key && now < armedUntil) {
+      armedKey = '';
+      return true;
+    }
+    armedKey = key;
+    armedUntil = now + (windowMs || 4000);
+    return false;
+  }
+  function armed(key) { return armedKey === key && Date.now() < armedUntil; }
+  function disarm() { armedKey = ''; }
+
+  // Minimum press time for every button/link on the page: a finger that only
+  // brushes the glass (or a swipe that ends on a control) must not press it.
+  // Touch only, so desktop clicks and the jsdom tests are unaffected.
+  var MIN_PRESS_MS = 180;
+  var press = { target: null, at: 0, touch: false };
+
+  function installTapGuard() {
+    document.addEventListener('touchstart', function (e) {
+      var el = e.target && e.target.closest ? e.target.closest('button, a, input[type=file], [data-mu-tap]') : null;
+      press.target = el;
+      press.touch = !!el;
+      press.at = Date.now();
+    }, true);
+    document.addEventListener('click', function (e) {
+      if (!press.touch) return;
+      var dt = Date.now() - press.at;
+      press.touch = false;
+      if (dt < MIN_PRESS_MS) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    }, true);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', installTapGuard);
+  else installTapGuard();
+
+  return {
+    t: t, tf: tf, get: get, post: post,
+    fmtSize: fmtSize, fmtEta: fmtEta, msg: msg,
+    arm: arm, armed: armed, disarm: disarm,
+    minPressMs: MIN_PRESS_MS
+  };
+})();
+</script>
+
+<script>
+// MPSystem — the shared System screen. Reads only public endpoints:
+//   /api/version, /api/health, /api/status, /api/sd-status  (summary)
+//   /api/enable-ota + /api/firmware-upload                 (OTA)
+//   /api/serial-monitor                                    (log)
+//   /api/restart                                           (restart)
+window.MPSystem = (function () {
+  'use strict';
+  var el = {
+    tabSum: document.getElementById('muTabSum'),
+    tabOta: document.getElementById('muTabOta'),
+    tabLog: document.getElementById('muTabLog'),
+    paneSum: document.getElementById('muPaneSum'),
+    paneOta: document.getElementById('muPaneOta'),
+    paneLog: document.getElementById('muPaneLog'),
+    fw: document.getElementById('muFw'),
+    up: document.getElementById('muUp'),
+    heap: document.getElementById('muHeap'),
+    psram: document.getElementById('muPsram'),
+    sd: document.getElementById('muSd'),
+    wifi: document.getElementById('muWifi'),
+    reboot: document.getElementById('muReboot'),
+    otaCur: document.getElementById('muOtaCur'),
+    otaPick: document.getElementById('muOtaPick'),
+    otaFile: document.getElementById('muOtaFile'),
+    otaBar: document.getElementById('muOtaBar'),
+    otaFill: document.getElementById('muOtaFill'),
+    otaMsg: document.getElementById('muOtaMsg'),
+    otaGo: document.getElementById('muOtaGo'),
+    log: document.getElementById('muLog'),
+    logPause: document.getElementById('muLogPause'),
+    logClear: document.getElementById('muLogClear'),
+    logBottom: document.getElementById('muLogBottom')
+  };
+
+  var st = {
+    open: false, tab: 'sum',
+    busy: false, blocked: false,
+    otaFile: null, otaBusy: false,
+    logTimer: 0, logPaused: false, logSeq: 0, logLines: []
+  };
+  var blocker = null;
+
+  function setText(node, txt) { if (node) node.textContent = txt || '--'; }
+
+  // Destructive actions ask first. The dialog is the firmware's own
+  // customConfirm (same as every page); if it is not there yet (script order,
+  // very old client) the two-tap arming takes over.
+  function confirmAction(text, cb) {
+    if (typeof window.customConfirm === 'function') {
+      window.customConfirm(text, function (ok) { if (ok) cb(); });
+      return;
+    }
+    if (MU.arm('confirm')) { cb(); return; }
+    MU.msg(el.otaMsg, MU.t('gmConfirmAgain', 'Tap again to confirm.'), 'err');
+  }
+
+  async function refreshSummary() {
+    var res = await Promise.all([
+      MU.get('/api/version').catch(function () { return { body: {} }; }),
+      MU.get('/api/health').catch(function () { return { body: {} }; }),
+      MU.get('/api/status').catch(function () { return { body: {} }; }),
+      MU.get('/api/sd-status').catch(function () { return { body: {} }; })
+    ]);
+    var ver = res[0].body || {}, hl = res[1].body || {}, sys = res[2].body || {}, sd = res[3].body || {};
+    setText(el.fw, ver.version || '--');
+    if (el.otaCur) {
+      el.otaCur.textContent = MU.tf('gmOtaCurrent', 'Current firmware: {v}', { v: (ver.version || '--') });
+    }
+    setText(el.up, hl.uptime_str || '--');
+    setText(el.heap, hl.heap ? MU.fmtSize(hl.heap.free) : (sys.free_heap ? MU.fmtSize(sys.free_heap) : '--'));
+    setText(el.psram, hl.psram ? MU.fmtSize(hl.psram.free) : (sys.psram_free ? MU.fmtSize(sys.psram_free) : '--'));
+    var sdFree = (sd.total_bytes ? (Number(sd.total_bytes) - Number(sd.used_bytes)) : 0);
+    setText(el.sd, sdFree > 0 ? (MU.fmtSize(sdFree) + ' ' + MU.t('gmSysFree', 'free')) : '--');
+    if (el.sd && sd.total_bytes) el.sd.title = MU.fmtSize(sd.total_bytes) + ' total';
+    setText(el.wifi, (sys.wifi_rssi !== undefined) ? (String(sys.wifi_rssi) + ' dBm') : '--');
+  }
+
+  async function refreshLog() {
+    if (st.logPaused) return;
+    try {
+      var r = await MU.get('/api/serial-monitor?limit=120&no_cmds=1&last_seq=' + String(st.logSeq));
+      var d = r.body || {};
+      var msgs = Array.isArray(d.messages) ? d.messages : [];
+      var changed = false;
+      for (var i = 0; i < msgs.length; i++) {
+        var line = String(msgs[i].data !== undefined ? msgs[i].data : (msgs[i].text || ''));
+        if (!line) continue;
+        st.logLines.push(line);
+        changed = true;
+      }
+      if (d.current_seq !== undefined) st.logSeq = Number(d.current_seq) || st.logSeq;
+      if (st.logLines.length > 400) st.logLines = st.logLines.slice(-400);
+      if (changed && el.log) {
+        var atBottom = (el.log.scrollHeight - el.log.scrollTop - el.log.clientHeight) < 24;
+        el.log.textContent = st.logLines.join('\n');
+        if (atBottom) el.log.scrollTop = el.log.scrollHeight;
+      }
+    } catch (e) {}
+  }
+
+  function tab(name) {
+    st.tab = (name === 'ota' || name === 'log') ? name : 'sum';
+    if (el.tabSum) el.tabSum.className = 'subt' + (st.tab === 'sum' ? ' on' : '');
+    if (el.tabOta) el.tabOta.className = 'subt' + (st.tab === 'ota' ? ' on' : '');
+    if (el.tabLog) el.tabLog.className = 'subt' + (st.tab === 'log' ? ' on' : '');
+    if (el.paneSum) el.paneSum.className = 'pane' + (st.tab === 'sum' ? ' on' : '');
+    if (el.paneOta) el.paneOta.className = 'pane' + (st.tab === 'ota' ? ' on' : '');
+    if (el.paneLog) el.paneLog.className = 'pane' + (st.tab === 'log' ? ' on' : '');
+    if (st.tab === 'sum') refreshSummary();
+    if (st.tab === 'log') refreshLog();
+  }
+
+  function open() {
+    st.open = true;
+    tab(st.tab || 'sum');
+    if (!st.logTimer) st.logTimer = setInterval(function () {
+      if (!st.open) return;
+      if (st.tab === 'sum') refreshSummary();
+      else if (st.tab === 'log') refreshLog();
+    }, 2000);
+  }
+
+  function close() {
+    st.open = false;
+    if (st.logTimer) { clearInterval(st.logTimer); st.logTimer = 0; }
+  }
+
+  function setBlocker(fn) { blocker = fn; }
+
+  function reboot() {
+    if (st.busy) return false;
+    if (blocker && blocker()) {
+      MU.msg(el.otaMsg, MU.t('gmSysBlocked', 'A job is running - stop it before restarting.'), 'err');
+      return false;
+    }
+    confirmAction(MU.t('gmSysRebootConfirm', 'Restart the controller? The job in progress is cancelled.'),
+      function () {
+        st.busy = true;
+        MU.post('/api/restart', {}).catch(function () {}).then(function () {
+          st.busy = false;
+        });
+      });
+    return true;
+  }
+
+  function pickOta() {
+    if (el.otaFile) { el.otaFile.value = ''; el.otaFile.click(); }
+  }
+
+  function uploadOta() {
+    if (!st.otaFile || st.otaBusy) return false;
+    confirmAction(MU.tf('gmOtaConfirm', 'Write {name} ({size}) to the controller? It restarts when done.',
+                        { name: st.otaFile.name, size: MU.fmtSize(st.otaFile.size) }),
+      function () { doUploadOta(); });
+    return true;
+  }
+
+  function doUploadOta() {
+    st.otaBusy = true;
+    if (el.otaGo) el.otaGo.disabled = true;
+    if (el.otaBar) el.otaBar.className = 'bar on';
+    if (el.otaFill) el.otaFill.style.width = '0%';
+    MU.msg(el.otaMsg, MU.t('gmOtaEnabling', 'Enabling OTA...'), '');
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/firmware-upload', true);
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+    xhr.setRequestHeader('X-Filename', encodeURIComponent(st.otaFile.name));
+    xhr.setRequestHeader('X-Filesize', String(st.otaFile.size || 0));
+    xhr.upload.onprogress = function (e) {
+      if (e && e.lengthComputable && e.total && el.otaFill) {
+        el.otaFill.style.width = Math.round((e.loaded / e.total) * 100) + '%';
+      }
+    };
+    xhr.onload = function () {
+      st.otaBusy = false;
+      var ok = (xhr.status === 200);
+      if (ok) {
+        if (el.otaFill) el.otaFill.style.width = '100%';
+        MU.msg(el.otaMsg, MU.t('gmOtaDone', 'Firmware uploaded. The controller restarts now.'), 'ok');
+        setTimeout(function () { MU.post('/api/restart', {}).catch(function () {}); }, 1200);
+      } else {
+        if (el.otaBar) el.otaBar.className = 'bar';
+        MU.msg(el.otaMsg, MU.t('gmOtaFail', 'Firmware upload failed.'), 'err');
+        if (el.otaGo) el.otaGo.disabled = false;
+      }
+    };
+    xhr.onerror = function () {
+      st.otaBusy = false;
+      if (el.otaBar) el.otaBar.className = 'bar';
+      MU.msg(el.otaMsg, MU.t('gmOtaFail', 'Firmware upload failed.'), 'err');
+      if (el.otaGo) el.otaGo.disabled = false;
+    };
+
+    // OTA has to be armed in the firmware before the first byte.
+    MU.post('/api/enable-ota', {}).catch(function () {}).then(function () {
+      MU.msg(el.otaMsg, MU.t('gmOtaUploading', 'Uploading...'), '');
+      xhr.send(st.otaFile);
+    });
+  }
+
+  function init() {
+    if (el.tabSum) el.tabSum.addEventListener('click', function () { tab('sum'); });
+    if (el.tabOta) el.tabOta.addEventListener('click', function () { tab('ota'); });
+    if (el.tabLog) el.tabLog.addEventListener('click', function () { tab('log'); });
+    if (el.reboot) el.reboot.addEventListener('click', reboot);
+    if (el.otaPick) el.otaPick.addEventListener('click', pickOta);
+    if (el.otaFile) el.otaFile.addEventListener('change', function () {
+      st.otaFile = (el.otaFile.files && el.otaFile.files[0]) || null;
+      if (st.otaFile) {
+        MU.msg(el.otaMsg, MU.tf('gmOtaReady', 'Ready to upload {name} ({size})',
+                { name: st.otaFile.name, size: MU.fmtSize(st.otaFile.size) }), 'ok');
+      }
+      if (el.otaGo) {
+        el.otaGo.disabled = !st.otaFile;
+        el.otaGo.textContent = st.otaFile ? MU.t('gmOtaGo', 'Upload firmware') : MU.t('gmOtaGo', 'Upload firmware');
+      }
+    });
+    if (el.otaGo) el.otaGo.addEventListener('click', uploadOta);
+    if (el.logPause) el.logPause.addEventListener('click', function () {
+      st.logPaused = !st.logPaused;
+      el.logPause.className = 'subt' + (st.logPaused ? ' on' : '');
+      el.logPause.textContent = st.logPaused ? MU.t('gmLogResume', 'Resume') : MU.t('gmLogPause', 'Pause');
+    });
+    if (el.logClear) el.logClear.addEventListener('click', function () {
+      st.logLines = [];
+      if (el.log) el.log.textContent = '';
+    });
+    if (el.logBottom) el.logBottom.addEventListener('click', function () {
+      if (el.log) el.log.scrollTop = el.log.scrollHeight;
+    });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+  }
+
+  return {
+    open: open, close: close, tab: tab,
+    refresh: refreshSummary, refreshLog: refreshLog,
+    reboot: reboot, setBlocker: setBlocker,
+    _state: st
+  };
 
 // ===== TEST HOOKS (inside page IIFE scope) =====
 // Preserve hooks the page already installed (e.g. page_ecra_asset sets

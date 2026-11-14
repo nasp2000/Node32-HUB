@@ -28,12 +28,34 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
     box-sizing: border-box; height: 100dvh; overflow: hidden;
   }
-  #gm header { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
-  #gm .steps { display: flex; gap: 4px; }
-  #gm .steps i { width: 14px; height: 4px; border-radius: 2px; background: #24344d; display: block; }
-  #gm .steps i.on { background: #3b82f6; }
-  #gm .steps i.done { background: #1d4ed8; }
-  #gm h1 { font-size: 15px; margin: 0; font-weight: 700; letter-spacing: .2px; }
+  #gm header { flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; }
+  /* top navigation: one equal column per page — label on top, its line below */
+  #gm .navstrip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  #gm .ncol {
+    display: flex; flex-direction: column; gap: 4px; min-width: 0;
+    background: transparent; border: 0; padding: 0;
+  }
+  #gm .ncol .ntab {
+    display: block; height: 30px; line-height: 30px; border-radius: 8px;
+    border: 1px solid transparent; background: transparent; color: #64748b;
+    font-size: 12px; font-weight: 700; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #gm .ncol .nrail { display: block; height: 3px; border-radius: 2px; background: #24344d; }
+  #gm .ncol.done .ntab { color: #93c5fd; }
+  #gm .ncol.done .nrail { background: #1d4ed8; }
+  #gm .ncol.on .ntab { border-color: #3b82f6; background: #1d2b47; color: #e6f1ff; }
+  #gm .ncol.on .nrail { background: #3b82f6; }
+  #gm .hrow { display: flex; align-items: center; gap: 6px; height: 26px; }
+  #gm .hrow .no { font-size: 11px; color: #94a3b8; }
+  #gm .hrow .pack {
+    font-size: 12px; font-weight: 700; color: #93c5fd; letter-spacing: .2px;
+    max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #gm .sr {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
   #gm .badge {
     margin-left: auto; font-size: 11px; padding: 3px 8px; border-radius: 999px;
     border: 1px solid #334155; color: #94a3b8; white-space: nowrap;
@@ -65,8 +87,8 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     border: 1px solid #1e293b; border-radius: 12px; background: #0f172a;
   }
   #gm .row {
-    display: flex; align-items: center; gap: 8px; padding: 11px 12px;
-    border-bottom: 1px solid #16213a; font-size: 13px; background: transparent;
+    display: flex; align-items: center; gap: 8px; padding: 13px 12px;
+    border-bottom: 1px solid #16213a; font-size: 14px; background: transparent;
     width: 100%; text-align: left; color: #e6f1ff; border-left: 0; border-right: 0; border-top: 0;
   }
   #gm .row:last-child { border-bottom: 0; }
@@ -87,33 +109,44 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   #gm .card .ico { font-size: 38px; line-height: 1; }
   #gm .card .nm { font-weight: 700; word-break: break-all; max-height: 3.2em; overflow: hidden; }
   #gm .card .sz { font-size: 12px; color: #94a3b8; }
-  #gm .card .big { font-size: 24px; font-weight: 800; letter-spacing: .5px; }
+  #gm .card .big { font-size: 30px; font-weight: 800; letter-spacing: .5px; }
   #gm .card .row { font-size: 13px; color: #cbd5e1; }
-  #gm .card .kv { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #93c5fd; }
+  #gm .card .kv { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: #93c5fd; }
+  #gm #gmFrameArea { font-size: 16px; color: #dbeafe; }
+  #gm #gmFrameHint { font-size: 14px; }
 
   /* step 2 — preview canvas */
   #gm #gmCanvas {
-    flex: 1 1 auto; min-height: 0; width: 100%; display: block;
+    flex: 0 0 auto; width: 100%; height: auto; aspect-ratio: 1 / 1; display: block;
     border: 1px solid #1e293b; border-radius: 12px; background: #0f172a;
   }
 
   /* step 5 — jog + machine buttons */
-  #gm .state { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #94a3b8; }
-  #gm .state b { color: #e6f1ff; font-size: 13px; }
-  #gm .state .pos { margin-left: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #93c5fd; }
+  #gm .state { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; font-size: 13px; color: #94a3b8; }
+  #gm .state b { color: #e6f1ff; font-size: 17px; }
+  #gm .state .pos { margin-left: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: #93c5fd; }
   #gm .chips { flex: 0 0 auto; display: flex; gap: 6px; }
   #gm .chip {
     flex: 1 1 0; height: 32px; border-radius: 9px; border: 1px solid #334155;
     background: #0f172a; color: #94a3b8; font-size: 12px; font-weight: 700;
   }
   #gm .chip.on { border-color: #3b82f6; background: #1d2b47; color: #dbeafe; }
-  #gm .jog { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
-  #gm .jog button {
+  /* jog pad: X/Y cross (same orientation as the PC page) + a Z row */
+  #gm #gmJogPad { flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; }
+  #gm .jogcross { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  #gm .jogcross .sp { display: block; }
+  #gm .jogcross .centre {
+    border: 1px dashed #3b82f6; border-radius: 12px; background: #0f1b33;
+    color: #93c5fd; font-size: 13px; font-weight: 700;
+  }
+  #gm .jogcross .centre.arm { border-style: solid; border-color: #dc2626; color: #fca5a5; }
+  #gm .jogz { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  #gm .jogcross button, #gm .jogz button {
     height: 56px; border-radius: 12px; border: 1px solid #334155; background: #0f172a;
     color: #dbeafe; font-size: 15px; font-weight: 700;
   }
-  #gm .jog button:active { background: #1d2b47; }
-  #gm .jog button:disabled { opacity: .3; }
+  #gm .jogcross button:active, #gm .jogz button:active { background: #1d2b47; }
+  #gm .jogcross button:disabled, #gm .jogz button:disabled { opacity: .3; }
   #gm .acts3 { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
   #gm .acts3 button {
     height: 40px; border-radius: 10px; border: 1px solid #334155; background: #0f172a;
@@ -133,9 +166,10 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   @keyframes gmslide { from { margin-left: -35%; } to { margin-left: 100%; } }
 
   #gm .acts { flex: 0 0 auto; display: flex; gap: 8px; }
-  #gm .primary {
-    flex: 1 1 auto; height: 52px; border: 0; border-radius: 12px;
-    background: #2563eb; color: #fff; font-size: 16px; font-weight: 700;
+  /* only the wizard's own action row grows; shared .primary keeps its size */
+  #gm .acts .primary {
+    flex: 1 1 auto; height: 54px; border: 0; border-radius: 12px;
+    background: #2563eb; color: #fff; font-size: 17px; font-weight: 700;
   }
   #gm .primary:disabled { background: #1e293b; color: #64748b; }
   #gm .primary.off { display: none; }
@@ -209,7 +243,8 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   @media (max-height: 620px) {
     #gm h1 { font-size: 13px; }
     #gm .card .ico { font-size: 26px; }
-    #gm .jog button { height: 44px; font-size: 13px; }
+    #gm .jogcross button, #gm .jogz button { height: 44px; font-size: 13px; }
+    #gm .jogcross .stepcell { min-height: 44px; }
     #gm .acts3 button { height: 34px; }
     #gm .primary, #gm .danger { height: 44px; font-size: 14px; }
     #gm .nav .arrow { width: 40px; height: 40px; }
@@ -217,12 +252,22 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   }
 </style>
 
-<div id="gm">
+<div id="gm" class="mp">
   <header>
-    <div class="steps"><i class="on"></i><i></i><i></i><i></i><i></i></div>
-    <h1 id="gmTitle" data-i18n="gmTitle1">Send G-code</h1>
-    <span class="badge" id="gmLink">--</span>
-    <button type="button" class="mini" id="gmUsb" data-i18n-title="gmUsbRestart" title="Restart the USB host">&#9889;</button>
+    <nav class="navstrip" id="gmNavStrip">
+      <button type="button" class="ncol on" data-step-go="1"><span class="ntab" data-i18n="gmNav1">Send</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="2"><span class="ntab" data-i18n="gmNav2">Preview</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="3"><span class="ntab" data-i18n="gmNav3">Frame</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="4"><span class="ntab" data-i18n="gmNav4">Play</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="5"><span class="ntab" data-i18n="gmNav5">Jog</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="6"><span class="ntab" data-i18n="gmNav6">System</span><i class="nrail"></i></button>
+    </nav>
+    <div class="hrow">
+      <span class="pack" id="gmPack"></span>
+      <h1 id="gmTitle" class="sr" data-i18n="gmTitle1">Send G-code</h1>
+      <span class="badge" id="gmLink">--</span>
+      <button type="button" class="mini" id="gmUsb" data-i18n-title="gmUsbRestart" title="Restart the USB host">&#9889;</button>
+    </div>
   </header>
 
   <!-- ── Step 1: send ─────────────────────────────────────────────── -->
@@ -317,13 +362,22 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
       <button type="button" class="chip" data-step="10">10</button>
       <button type="button" class="chip" data-step="50">50</button>
     </div>
-    <div class="jog" id="gmJogPad">
-      <button type="button" data-jog="X-">X&#8722;</button>
-      <button type="button" data-jog="Y+">Y+</button>
-      <button type="button" data-jog="Z+">Z+</button>
-      <button type="button" data-jog="X+">X+</button>
-      <button type="button" data-jog="Y-">Y&#8722;</button>
-      <button type="button" data-jog="Z-">Z&#8722;</button>
+    <div id="gmJogPad">
+      <div class="jogcross">
+        <span class="sp"></span>
+        <button type="button" data-jog="Y+">Y+</button>
+        <span class="sp"></span>
+        <button type="button" data-jog="X-">X&#8722;</button>
+        <button type="button" class="centre" id="gmJogCentre" data-jogzero="1" data-i18n-title="gmJogZero" title="Go to X0 Y0">0,0</button>
+        <button type="button" data-jog="X+">X+</button>
+        <span class="sp"></span>
+        <button type="button" data-jog="Y-">Y&#8722;</button>
+        <span class="sp"></span>
+      </div>
+      <div class="jogz">
+        <button type="button" data-jog="Z-">Z&#8722;</button>
+        <button type="button" data-jog="Z+">Z+</button>
+      </div>
     </div>
     <div class="acts3" id="gmActions">
       <button type="button" class="actbtn" data-act="home" data-i18n="gmBtnHome">HOME</button>
@@ -342,7 +396,11 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     </div>
   </section>
 
-  <div class="msg" id="gmMsg" data-i18n="gmStep1Hint">Pick a file from the SD card or from this phone.</div>
+)GMOBILE";
+
+// Tail: message bar, progress, primary action, footer navigation and the
+// wizard script. The shared System screen is printed between both parts.
+const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" id="gmMsg" data-i18n="gmStep1Hint">Pick a file from the SD card or from this phone.</div>
   <div class="bar" id="gmBar"><span id="gmFill"></span></div>
 
   <div class="acts">
@@ -351,10 +409,11 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
 
   <div class="nav">
     <button type="button" class="arrow back" id="gmBack" disabled title="Back">&#8592;</button>
-    <span class="no" id="gmNo">1 / 5</span>
+    <span class="no" id="gmNo">1 / 6</span>
     <button type="button" class="arrow next" id="gmNext" data-i18n-title="gmNextTip">&#8594;</button>
   </div>
 </div>
+
 
 <script>
 (function () {
@@ -362,8 +421,8 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   var MAX_BYTES = 4 * 1024 * 1024;      // controller PSRAM workspace cap (phone uploads)
   var SD_UPLOAD_MAX_BYTES = 48 * 1024 * 1024;  // server cap for the SD upload buffer
   var STORE_KEY = 'gm.sid';
-  var STEPS = 5;
-  var STEP_SEND = 1, STEP_PREVIEW = 2, STEP_FRAME = 3, STEP_PLAY = 4, STEP_JOG = 5;
+  var STEPS = 6;
+  var STEP_SEND = 1, STEP_PREVIEW = 2, STEP_FRAME = 3, STEP_PLAY = 4, STEP_JOG = 5, STEP_SYS = 6;
   var FRAME_POWER_PCT = 5;
   var FRAME_FEED = 1200;
   var JOG_FEED = 1000;                  // XY jog feed (mm/min)
@@ -374,10 +433,10 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
 
   var el = {
     title: document.getElementById('gmTitle'),
-    steps: document.querySelectorAll('#gm .steps i'),
+    navStrip: document.getElementById('gmNavStrip'),
     screens: [document.getElementById('gmS1'), document.getElementById('gmS2'),
               document.getElementById('gmS3'), document.getElementById('gmS4'),
-              document.getElementById('gmS5')],
+              document.getElementById('gmS5'), document.getElementById('gmSYS')],
     tabSd: document.getElementById('gmTabSd'),
     tabPhone: document.getElementById('gmTabPhone'),
     paneSd: document.getElementById('gmPaneSd'),
@@ -413,6 +472,7 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     jogState: document.getElementById('gmJogState'),
     jogPos: document.getElementById('gmJogPos'),
     jogPad: document.getElementById('gmJogPad'),
+    jogCentre: document.getElementById('gmJogCentre'),
     stepChips: document.getElementById('gmStepChips'),
     actions: document.getElementById('gmActions'),
     msg: document.getElementById('gmMsg'),
@@ -426,6 +486,7 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     back: document.getElementById('gmBack'),
     next: document.getElementById('gmNext'),
     no: document.getElementById('gmNo'),
+    pack: document.getElementById('gmPack'),
     link: document.getElementById('gmLink')
   };
 
@@ -721,6 +782,10 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     var b = boundsFromPoints(pts);
     if (!b) return;
     var spanX = Math.max(0.001, b.maxX - b.minX);
+    // Match the canvas box to the job so the drawing fills it (clamped so a
+    // very long or very tall job never pushes the info line off the screen).
+    var ratio = Math.max(0.45, Math.min(1.9, spanX / Math.max(0.001, b.maxY - b.minY)));
+    cv.style.aspectRatio = String(ratio);
     var spanY = Math.max(0.001, b.maxY - b.minY);
     var pad = 10;
     var scale = Math.min((cw - pad * 2) / spanX, (ch - pad * 2) / spanY);
@@ -943,9 +1008,13 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
       progressBusy(false);
       if (b) st.bbox = b;
       if (!st.bbox && st.points) st.bbox = boundsFromPoints(st.points);
-      if (!st.bbox) setMsg(errorText('sd_measure_failed'), 'err');
-      else setMsg(tf('gmReady', 'Job ready: {path} ({size})',
-                     { path: st.job.name, size: fmtBytes(st.job.bytes) }), 'ok');
+      if (!st.bbox) {
+        // The Frame screen owns this message; on Play it would only be noise.
+        if (st.step === STEP_FRAME) setMsg(errorText('sd_measure_failed'), 'err');
+      } else {
+        setMsg(tf('gmReady', 'Job ready: {path} ({size})',
+                  { path: st.job.name, size: fmtBytes(st.job.bytes) }), 'ok');
+      }
       render();
     }
     var timer = setTimeout(function () { finish(null); }, MEASURE_TIMEOUT_MS);
@@ -1265,6 +1334,25 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     return true;
   }
 
+  // Centre of the jog cross: relative-free move to work X0 Y0 (armed).
+  function jogToZero() {
+    if (st.busy || !st.canWrite) {
+      if (!st.canWrite) setMsg(errorText('no_control'), 'err');
+      return false;
+    }
+    return armOrRun('jogzero', function () {
+      var line = '$J=G90 G21 X0 Y0 F' + String(JOG_FEED);
+      st.busy = true; render();
+      setMsg(t('gmActJogZero', 'Moving to X0 Y0\u2026'), '');
+      sendCmd('M5').then(function () { return sendCmd(line); }).then(function (ok) {
+        st.busy = false;
+        setMsg(ok ? t('gmActJogZeroOk', 'At X0 Y0.') : errorText('send_failed'), ok ? 'ok' : 'err');
+        pollStatus(true);
+        render();
+      });
+    });
+  }
+
   function armOrRun(kind, fn) {
     var now = Date.now();
     if (st.armedKey === kind && now < st.armedUntil) {
@@ -1490,7 +1578,8 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     else if (step === STEP_PREVIEW) setMsg(t('gmStep2Hint', 'Toolpath of the selected job.'), '');
     else if (step === STEP_FRAME) setMsg(t('gmStep3Hint', 'Check the job area on the machine before cutting.'), '');
     else if (step === STEP_PLAY) setMsg(t('gmStep4Hint', 'Starts the job selected in step 1.'), '');
-    else setMsg(t('gmStep5Hint', 'Jog with the arrows; machine buttons below.'), '');
+    else if (step === STEP_JOG) setMsg(t('gmStep5Hint', 'Jog with the arrows; machine buttons below.'), '');
+    else setMsg(t('gmStep6Hint', 'Controller health, the full pages and a restart.'), '');
   }
 
   function setStep(n) {
@@ -1500,16 +1589,18 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     el.screens.forEach(function (sec, i) {
       if (sec) sec.className = 'screen' + (i + 1 === st.step ? ' on' : '');
     });
-    el.steps.forEach(function (dot, i) {
-      dot.className = (i + 1 === st.step) ? 'on' : (i + 1 < st.step ? 'done' : '');
-    });
     el.no.textContent = st.step + ' / ' + STEPS;
+    updateNavStrip();
     // An SD job needs the controller to measure it: do that once, in the
     // background, as soon as the operator reaches Frame or Play (never blocks
     // the navigation, and Play does not depend on the bounds).
-    if (st.step >= STEP_FRAME && st.job && st.job.src === 'sd' && st.job.path &&
-        !st.bbox && !st.measuring && st.measureFor !== st.job.path) {
+    if (st.step >= STEP_FRAME && st.step <= STEP_PLAY && st.job && st.job.src === 'sd' &&
+        st.job.path && !st.bbox && !st.measuring && st.measureFor !== st.job.path) {
       measureSd();
+    }
+    if (window.MPSystem) {
+      if (st.step === STEP_SYS) MPSystem.open();
+      else MPSystem.close();
     }
     pollTimerForStep();
     try { history.replaceState(null, '', '#' + st.step); } catch (e) {}
@@ -1533,6 +1624,17 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
 
   function goNext() { if (st.step < STEPS) setStep(st.step + 1); }
   function goPrev() { if (st.step > 1) setStep(st.step - 1); }
+
+  // Top strip: one column per page — the current one is highlighted and its
+  // line lights up, the visited ones keep a blue line, so what is on the left
+  // and on the right is always visible.
+  function updateNavStrip() {
+    if (!el.navStrip) return;
+    el.navStrip.querySelectorAll('.ncol').forEach(function (col) {
+      var n = parseInt(String(col.getAttribute('data-step-go') || '0'), 10);
+      col.className = 'ncol' + (n === st.step ? ' on' : (n < st.step ? ' done' : ''));
+    });
+  }
 
   function setTab(tab) {
     st.tab = (tab === 'phone') ? 'phone' : 'sd';
@@ -1616,14 +1718,15 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   function render() {
     if (typeof document === 'undefined' || !document) return;
     var is1 = st.step === STEP_SEND, is2 = st.step === STEP_PREVIEW,
-        is3 = st.step === STEP_FRAME, is4 = st.step === STEP_PLAY, is5 = st.step === STEP_JOG;
+        is3 = st.step === STEP_FRAME, is4 = st.step === STEP_PLAY, is5 = st.step === STEP_JOG,
+        is6 = st.step === STEP_SYS;
 
     el.title.textContent = t(is1 ? 'gmTitle1' : is2 ? 'gmTitlePreview' : is3 ? 'gmTitleFrame'
-                                 : is4 ? 'gmTitlePlay' : 'gmTitleJog',
+                                 : is4 ? 'gmTitlePlay' : is5 ? 'gmTitleJog' : 'gmTitleSys',
                                is1 ? 'Send G-code' : is2 ? 'Preview' : is3 ? 'Frame'
-                                 : is4 ? 'Play' : 'Jog');
+                                 : is4 ? 'Play' : is5 ? 'Jog' : 'System');
     el.title.setAttribute('data-i18n', is1 ? 'gmTitle1' : is2 ? 'gmTitlePreview' : is3 ? 'gmTitleFrame'
-                                            : is4 ? 'gmTitlePlay' : 'gmTitleJog');
+                                            : is4 ? 'gmTitlePlay' : is5 ? 'gmTitleJog' : 'gmTitleSys');
 
     // primary action per step ('USE' selects an SD file, 'SEND' uploads a phone file)
     var useSd = is1 && st.tab === 'sd';
@@ -1632,14 +1735,14 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
                       : is3 ? t('gmFrameRun', 'FRAME')
                       : t('gmPlay', 'START');
     el.primary.setAttribute('data-i18n', useSd ? 'gmUse' : is1 ? 'gmSend' : is3 ? 'gmFrameRun' : 'gmPlay');
-    el.primary.className = 'primary' + ((is2 || is5) ? ' off' : '');
+    el.primary.className = 'primary' + ((is2 || is5 || is6) ? ' off' : '');
     el.primary.disabled = st.busy || (useSd ? !st.sdPath : false) ||
       (is1 && !st.canWrite) ||
       (is3 && (!st.bbox || !st.canWrite)) ||
       (is4 && (!st.canWrite || !jobReady() || st.running || st.alarm));
 
     el.stop.className = 'stop';
-    el.acts.style.display = ((is2 || is5) || (is4 && st.running)) ? 'none' : 'flex';
+    el.acts.style.display = ((is2 || is5 || is6) || (is4 && st.running)) ? 'none' : 'flex';
 
     // step 4 machine buttons: PAUSE while running, RESUME while paused, STOP
     if (el.pause) el.pause.disabled = st.busy || !st.canWrite || !st.running || st.paused;
@@ -1676,6 +1779,7 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
       if (el.alarmResume) el.alarmResume.className = (st.armedKey === 'resumeAlarm') ? 'arm' : '';
       if (el.alarmUnlock) el.alarmUnlock.disabled = st.busy;
       if (el.alarmResume) el.alarmResume.disabled = st.busy;
+      if (el.ovr) el.ovr.style.display = (st.running || st.paused) ? 'grid' : 'none';
       if (el.ovVal) el.ovVal.textContent = String(st.ovFeed) + '%';
       if (el.ovr) {
         el.ovr.querySelectorAll('button[data-ov]').forEach(function (b) {
@@ -1690,6 +1794,10 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     }
     // step 5 — Z column/zero only on a 3-axis machine, armed button highlight
     if (is5 && el.jogPad) {
+      if (el.jogCentre) {
+        el.jogCentre.className = 'centre' + (st.armedKey === 'jogzero' ? ' arm' : '');
+        el.jogCentre.disabled = st.busy || !st.canWrite;
+      }
       var zDisabled = !hasZ();
       el.jogPad.querySelectorAll('button[data-jog]').forEach(function (b) {
         var axis = String(b.getAttribute('data-jog') || '').charAt(0);
@@ -1723,6 +1831,7 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
 
   function init() {
     sessionId();
+    if (el.pack && window.PACK_NAME) el.pack.textContent = String(window.PACK_NAME);
     var h = parseInt(String(location.hash || '').replace('#', ''), 10);
     st.step = (h >= 1 && h <= STEPS) ? h : 1;
     setStep(st.step);
@@ -1766,6 +1875,9 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
 
     listSd('');
     setDest('sd');
+    if (window.MPSystem) {
+      MPSystem.setBlocker(function () { return !!st.running; });
+    }
 
     el.tabSd.addEventListener('click', function () { setTab('sd'); });
     el.tabPhone.addEventListener('click', function () { setTab('phone'); });
@@ -1776,6 +1888,13 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
       });
     }
     if (el.usb) el.usb.addEventListener('click', restartUsb);
+    if (el.navStrip) {
+      el.navStrip.addEventListener('click', function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest('.ncol[data-step-go]') : null;
+        if (!b) return;
+        setStep(parseInt(String(b.getAttribute('data-step-go') || '1'), 10));
+      });
+    }
     if (el.alarmUnlock) el.alarmUnlock.addEventListener('click', function () { act('unlock'); });
     if (el.alarmResume) el.alarmResume.addEventListener('click', resumeAfterAlarm);
     if (el.ovr) {
@@ -1826,6 +1945,8 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
 
     // jog pad + step chips
     el.jogPad.addEventListener('click', function (ev) {
+      var z0 = ev.target && ev.target.closest ? ev.target.closest('button[data-jogzero]') : null;
+      if (z0) { jogToZero(); return; }
       var b = ev.target && ev.target.closest ? ev.target.closest('button[data-jog]') : null;
       if (!b || b.disabled) return;
       var v = String(b.getAttribute('data-jog') || '');
@@ -1838,7 +1959,7 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
       el.stepChips.querySelectorAll('button[data-step]').forEach(function (x) {
         x.className = 'chip' + (Number(x.getAttribute('data-step')) === st.jogStep ? ' on' : '');
       });
-      render();
+        render();
     });
     el.actions.addEventListener('click', function (ev) {
       var z = ev.target && ev.target.closest ? ev.target.closest('button[data-zero]') : null;
@@ -1848,28 +1969,53 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
       act(String(b.getAttribute('data-act') || ''));
     });
 
-    // swipe left/right changes screen (a vertical drag through the SD list is
-    // not a swipe: the horizontal distance has to clearly win).
-    var tx = 0, ty = 0, tracking = false;
+    // Swipe left/right changes screen. Works anywhere on the page (including
+    // over the SD list and the log, which also scroll vertically): the
+    // horizontal distance has to win, and the click that the browser fires
+    // after a swipe is swallowed so a swipe never presses a button.
+    var gmEl = document.getElementById('gm');
+    var touch = { active: false, x: 0, y: 0, swiped: false, swipedAt: 0 };
     function touchPoint(e) {
       var list = (e.touches && e.touches.length) ? e.touches : (e.changedTouches || []);
-      return list && list[0] ? list[0] : null;
+      return (list && list[0]) ? list[0] : null;
     }
-    document.getElementById('gm').addEventListener('touchstart', function (e) {
+    gmEl.addEventListener('touchstart', function (e) {
+      if (e.touches && e.touches.length > 1) { touch.active = false; return; }
       var p = touchPoint(e);
-      if (!p) { tracking = false; return; }
-      tracking = true;
-      tx = p.clientX; ty = p.clientY;
+      if (!p) { touch.active = false; return; }
+      touch.active = true;
+      touch.x = p.clientX;
+      touch.y = p.clientY;
     }, { passive: true });
-    document.getElementById('gm').addEventListener('touchend', function (e) {
-      if (!tracking) return;
-      tracking = false;
+    gmEl.addEventListener('touchmove', function (e) {
+      if (!touch.active) return;
       var p = touchPoint(e);
       if (!p) return;
-      var dx = p.clientX - tx, dy = p.clientY - ty;
-      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      if (Math.abs(p.clientX - touch.x) > 40 && Math.abs(p.clientX - touch.x) > Math.abs(p.clientY - touch.y)) {
+        touch.swiped = true;
+      }
+    }, { passive: true });
+    gmEl.addEventListener('touchend', function (e) {
+      if (!touch.active) return;
+      touch.active = false;
+      var p = touchPoint(e);
+      if (!p) return;
+      var dx = p.clientX - touch.x;
+      var dy = p.clientY - touch.y;
+      if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) { touch.swiped = false; return; }
+      touch.swiped = true;
+      touch.swipedAt = Date.now();
       if (dx < 0) goNext(); else goPrev();
     }, { passive: true });
+    gmEl.addEventListener('touchcancel', function () { touch.active = false; }, { passive: true });
+    // A swipe must not also press whatever was under the finger.
+    document.addEventListener('click', function (e) {
+      if (touch.swiped && (Date.now() - touch.swipedAt) < 600) {
+        touch.swiped = false;
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    }, true);
   }
 
   window.__test__ = window.__test__ || {};
@@ -1911,4 +2057,4 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   else init();
 })();
 </script>
-)GMOBILE";
+)GMOBILETAIL";

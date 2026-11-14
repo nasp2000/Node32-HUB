@@ -91,17 +91,18 @@ test('the policy lives in one header (no second UA table in the route)', functio
   ok(h.indexOf('strstr(') < 0, 'route does not re-implement UA parsing');
 });
 
-test('the wizard fixture is the five-screen mobile page', function () {
+test('the wizard fixture is the six-screen mobile page', function () {
   const html = fs.readFileSync(WIZARD, 'utf8');
   const dom = new JSDOM(html, { url: 'http://localhost/m', runScripts: 'dangerously', pretendToBeVisual: true });
   const doc = dom.window.document;
-  is(doc.querySelectorAll('#gm .screen').length, 5, 'five screens');
+  is(doc.querySelectorAll('#gm .screen').length, 6, 'six screens');
   ok(doc.getElementById('gmPrimary') !== null, 'primary action');
-  ok(doc.querySelectorAll('#gm .steps i').length === 5, 'five step dots');
+  ok(doc.querySelectorAll('#gm .navstrip .ncol').length === 6, 'top navigation strip: six columns');
+  ok(doc.querySelectorAll('#gm .navstrip .nrail').length === 6, 'one line under each name');
   ok(doc.getElementById('gmSdList') !== null, 'SD list on step 1');
   ok(doc.getElementById('gmCanvas') !== null, 'preview canvas');
   ok(doc.getElementById('gmPause') !== null && doc.getElementById('gmStop') !== null, 'play machine buttons');
-  ok(doc.querySelectorAll('#gmJogPad button').length === 6, 'jog pad');
+  ok(doc.querySelectorAll('#gmJogPad button').length === 7, 'jog pad + centre 0,0');
   dom.window.close();
 });
 
