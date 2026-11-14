@@ -612,19 +612,19 @@ static bool ethernetBootstrapHandleClient() {
     } else if (method == F("GET") && path == F("/api/sd-buffers")) {
         ethernetHandleSdBuffersGet(client);
     } else if (method == F("GET") && path == F("/api/rs232-cols")) {
-        #if ENABLE_RS232==1 && ENABLE_RS232_CHARTS==1 && ENABLE_SDCARD==1
+        #if ENABLE_RS232==1 && ENABLE_RS232_CHARTS==1
         ethernetHandleRs232ColsGet(client, query);
         #else
         ethernetBootstrapSendResponse(client, "404 Not Found", "application/json", String(F("{\"error\":\"not found\"}")));
         #endif
     } else if (method == F("GET") && path == F("/api/rs232-history-files")) {
-        #if ENABLE_RS232==1 && ENABLE_RS232_CHARTS==1 && ENABLE_SDCARD==1
+        #if ENABLE_RS232==1 && ENABLE_RS232_CHARTS==1
         ethernetHandleRs232HistoryFilesGet(client);
         #else
         ethernetBootstrapSendResponse(client, "404 Not Found", "application/json", String(F("{\"error\":\"not found\"}")));
         #endif
     } else if (method == F("GET") && path == F("/api/rs232-history")) {
-        #if ENABLE_RS232==1 && ENABLE_RS232_CHARTS==1 && ENABLE_SDCARD==1
+        #if ENABLE_RS232==1 && ENABLE_RS232_CHARTS==1
         ethernetHandleRs232HistoryGet(client, query);
         #else
         ethernetBootstrapSendResponse(client, "404 Not Found", "application/json", String(F("{\"error\":\"not found\"}")));

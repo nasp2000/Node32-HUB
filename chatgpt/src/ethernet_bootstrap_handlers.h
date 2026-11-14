@@ -3537,11 +3537,11 @@ static void ethernetHandleRs232ColsGet(EthernetClient& client, const String& que
     char ds[11];
     snprintf(ds, sizeof(ds), "%02d-%02d-%04d", ti.tm_mday, ti.tm_mon + 1, ti.tm_year + 1900);
     String resolvedDate = requestedDate.length() == 10 ? requestedDate : String(ds);
-#if ENABLE_SDCARD==1
+    // Metadata is read on whichever backend holds the day file (SD or the
+    // LittleFS mirror at the identical path — SD-9).
     String chartPath = chartHistoryRs232PathForDate(configManager.getSystemName(), resolvedDate);
     uint8_t chartCols = 0;
     ChartColumnDef chartDefs[CHART_HISTORY_RS232_MAX_COLUMNS] = {};
-#endif
     int cols = 0;
     bool useLiveColumns = requestedDate.length() == 0 && resolvedDate == String(ds);
 #if ENABLE_RS232==1 && ENABLE_SDCARD==1
@@ -3549,9 +3549,9 @@ static void ethernetHandleRs232ColsGet(EthernetClient& client, const String& que
         if (!rs232LiveBuffer.isEmpty()) cols = rs232LiveBuffer.last().valueCount;
         xSemaphoreGiveRecursive(rs232LiveMutex);
     }
+#endif
     chartHistoryReadRs232Meta(chartPath, chartCols, chartDefs);
     if (cols == 0) cols = chartCols;
-#endif
 
     String json = String(F("{\"cols\":")) + String(cols) + String(F(",\"date\":\"")) + ethernetJsonEscapeActive(resolvedDate) + String(F("\""));
     if (cols > 0) {
@@ -3559,12 +3559,10 @@ static void ethernetHandleRs232ColsGet(EthernetClient& client, const String& que
         for (int ci = 0; ci < cols; ++ci) {
             if (ci > 0) json += ',';
             String chosenName;
-#if ENABLE_SDCARD==1
             if (chartCols > ci) {
                 chosenName = chartDefs[ci].label[0] ? String(chartDefs[ci].label) : String(chartDefs[ci].key);
                 chosenName.trim();
             }
-#endif
             if (chosenName.length() == 0) chosenName = String(F("RS232 Col ")) + String(ci + 1);
             json += '"';
             json += ethernetJsonEscapeActive(chosenName);
@@ -3576,39 +3574,46 @@ static void ethernetHandleRs232ColsGet(EthernetClient& client, const String& que
     ethernetBootstrapSendResponse(client, "200 OK", "application/json", json);
 }
 
+// /api/rs232-history-files context (RS232 day files, both backends — SD-9).
+struct EthRs232DateListCtx {
+    String *json;
+    String prefix;
+    bool first;
+};
+
+static bool ethRs232DateListEntry(const char *name, void *rawCtx) {
+    if (!name || !rawCtx) return false;
+    EthRs232DateListCtx *ctx = (EthRs232DateListCtx *)rawCtx;
+    String base(name);
+    if (!base.startsWith(ctx->prefix) || !base.endsWith(".chart")) return true;
+    if (base.indexOf("_MODBUS_") >= 0 || base.indexOf("_PROXIMITY_") >= 0) return true;
+    String datePart = base.substring(ctx->prefix.length(), base.length() - 6);
+    if (datePart.length() != 10 || datePart.charAt(2) != '-' || datePart.charAt(5) != '-') return true;
+    if (!ctx->first) *ctx->json += ',';
+    *ctx->json += '"';
+    *ctx->json += ethernetJsonEscapeActive(datePart);
+    *ctx->json += '"';
+    ctx->first = false;
+    return true;
+}
+
 static void ethernetHandleRs232HistoryFilesGet(EthernetClient& client) {
     if (!configManager.getChartsPageEnabled()) {
         ethernetBootstrapSendResponse(client, "404 Not Found", "application/json", String(F("{\"error\":\"charts disabled\"}")));
         return;
     }
 
+    // Same source as the WiFi handler: {sys}/{sys}_<DD-MM-YYYY>.chart on the
+    // active backend (SD, or the LittleFS mirror at the identical path).
+    String safeName = chartHistorySanitizeSystemName(configManager.getSystemName());
+    String dir    = "/" + safeName;
+    String prefix = safeName + "_";
     String json = F("[");
-    bool first = true;
-    if (sdMutexLock(pdMS_TO_TICKS(3000))) {
-        File root = SD_MMC.open("/");
-        if (root && root.isDirectory()) {
-            File entry = root.openNextFile();
-            while (entry) {
-                if (entry.isDirectory()) {
-                    String name = String(entry.name());
-                    if (name.length() >= 11) {
-                        String datePart = name.substring(name.length() - 10);
-                        if (datePart.charAt(2) == '-' && datePart.charAt(5) == '-') {
-                            if (!first) json += ',';
-                            json += '"';
-                            json += ethernetJsonEscapeActive(datePart);
-                            json += '"';
-                            first = false;
-                        }
-                    }
-                }
-                entry.close();
-                entry = root.openNextFile();
-            }
-            root.close();
-        }
-        sdMutexUnlock();
-    }
+    EthRs232DateListCtx ctx;
+    ctx.json = &json;
+    ctx.prefix = prefix;
+    ctx.first = true;
+    chartHistoryForEachChartFile(dir, ethRs232DateListEntry, &ctx);
     json += ']';
     ethernetBootstrapSendResponse(client, "200 OK", "application/json", json);
 }
@@ -3660,66 +3665,21 @@ static void ethernetHandleRs232HistoryGet(EthernetClient& client, const String& 
     uint32_t rangeSeconds = (minTs > 0 && nowTs > minTs) ? (uint32_t)(nowTs - minTs) : 86400UL;
     const int maxOut = (rangeSeconds <= 3600) ? 72 : ((rangeSeconds <= 28800) ? 288 : 1440);
     const int targetOut = maxOut;
-    // Merged serving (file history + live ring tail, always minute-fresh —
-    // same envelope as WiFi, one stride budget over the union).
-#if ENABLE_RS232==1 && ENABLE_SDCARD==1
-    ChartServePoint* raw = (ChartServePoint*)ps_malloc((size_t)1500 * sizeof(ChartServePoint));
-    ChartServePoint* tail = (ChartServePoint*)ps_malloc((size_t)512 * sizeof(ChartServePoint));
-    if (!raw || !tail) {
-        if (raw) free(raw);
-        if (tail) free(tail);
-        ethernetBootstrapSendResponse(client, "500 Internal Server Error", "application/json",
-                                      String(F("{\"error\":\"no memory\"}")));
-        return;
-    }
-    String chartPath = chartHistoryRs232PathForDate(configManager.getSystemName(), date);
-    uint16_t nRaw = chartHistoryReadRawPoints(chartPath, CHART_HISTORY_SOURCE_RS232,
-                                              CHART_HISTORY_RS232_MAX_COLUMNS,
-                                              (uint32_t)minTs, raw, 1500);
-    uint16_t nTail = 0;
-    uint8_t nCols = 0;
-    if (rs232LiveMutex && xSemaphoreTakeRecursive(rs232LiveMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-        size_t liveSize = rs232LiveBuffer.size();
-        for (size_t i = 0; i < liveSize && nTail < 512; i++) {
-            const Rs232LivePoint& pt = rs232LiveBuffer[i];
-            if (minTs != 0 && (time_t)pt.timestamp < minTs) continue;
-            ChartServePoint* q = &tail[nTail++];
-            q->timestamp = pt.timestamp;
-            q->valueCount = (pt.valueCount > CHART_SERVE_MAX_COLS) ? CHART_SERVE_MAX_COLS : pt.valueCount;
-            for (uint8_t c = 0; c < CHART_SERVE_MAX_COLS; c++) {
-                q->values[c] = (c < RS232_LIVE_MAX_COLS) ? pt.values[c] : NAN;
-            }
-            if (pt.valueCount > nCols) nCols = pt.valueCount;
-        }
-        xSemaphoreGiveRecursive(rs232LiveMutex);
-    }
-    if (nCols > CHART_HISTORY_RS232_MAX_COLUMNS) nCols = CHART_HISTORY_RS232_MAX_COLUMNS;
-    if (nCols == 0) {
-        for (uint16_t i = 0; i < nRaw; i++) {
-            if (raw[i].valueCount > nCols) nCols = raw[i].valueCount;
-        }
-        if (nCols > CHART_HISTORY_RS232_MAX_COLUMNS) nCols = CHART_HISTORY_RS232_MAX_COLUMNS;
-    }
-    char keys[CHART_HISTORY_RS232_MAX_COLUMNS][16];
-    int8_t decs[CHART_HISTORY_RS232_MAX_COLUMNS];
-    for (uint8_t c = 0; c < nCols; c++) {
-        snprintf(keys[c], sizeof(keys[c]), "rs232_col%u", (unsigned)(c + 1));
-        decs[c] = 4;
-    }
-    uint16_t mCap = nRaw + nTail;
-    ChartServePoint* merged = (ChartServePoint*)ps_malloc(((size_t)mCap + 1) * sizeof(ChartServePoint));
+    // Merged serving (persisted history + PSRAM tail, one stride budget over
+    // the union) — shared with the WiFi handler (SD-9). The ring always holds
+    // "now", so a past-date request bounds the tail to that day.
+    uint32_t untilTs = (date != String(todayBuf))
+                           ? (uint32_t)chartHistoryDayStartFromRs232DateId(date) + 86400UL
+                           : 0UL;
     ethernetBootstrapBeginStreamResponse(client, "200 OK", "application/json");
-    if (merged) {
-        uint32_t n = chartMergePoints(raw, nRaw, tail, nTail, merged, mCap + 1);
-        chartHistoryServePointsJson(client, merged, n, keys, decs, nCols, (uint16_t)targetOut);
-        free(merged);
-    } else {
+#if ENABLE_RS232==1 && ENABLE_RS232_CHARTS==1
+    String chartPath = chartHistoryRs232PathForDate(configManager.getSystemName(), date);
+    extern bool rs232ChartServeMergedJson(Print& out, const String& path, uint32_t fromTs,
+                                          uint32_t untilTs, uint16_t maxOut);
+    if (!rs232ChartServeMergedJson(client, chartPath, (uint32_t)minTs, untilTs, (uint16_t)targetOut)) {
         client.print(F("{\"count\":0,\"stride\":1,\"labels\":[],\"timestamps\":[]}"));
     }
-    free(raw);
-    free(tail);
 #else
-    ethernetBootstrapBeginStreamResponse(client, "200 OK", "application/json");
     client.print(F("{\"count\":0,\"stride\":1,\"labels\":[],\"timestamps\":[]}"));
 #endif
 }

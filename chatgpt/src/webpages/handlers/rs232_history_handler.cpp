@@ -17,14 +17,16 @@
 #include "heavy_api_request_guard.h"
 
 extern ConfigManager configManager;
-#if ENABLE_RS232==1
+#if ENABLE_RS232==1 && ENABLE_SDCARD==1
 extern PsramCircularBuffer<Rs232LivePoint> rs232LiveBuffer;
 extern SemaphoreHandle_t rs232LiveMutex;
 #else
 // Stubs: mutex nullptr prevents all live-buffer code paths from executing.
+// (The ring is allocated with the SD pipeline; a no-SD build serves the
+// LittleFS mirror only — SD-9.)
 static PsramCircularBuffer<Rs232LivePoint> rs232LiveBuffer(1, true);
 static SemaphoreHandle_t rs232LiveMutex = nullptr;
-#endif // ENABLE_RS232
+#endif // ENABLE_RS232 && ENABLE_SDCARD
 
 namespace {
 
@@ -91,10 +93,42 @@ bool rs232SendPsramJson(AsyncWebServerRequest* request, const std::vector<char, 
     return true;
 }
 
+
+// Directory-listing context for /api/rs232-history-files: collects the
+// DD-MM-YYYY ids of {prefix}{date}.chart files on whichever backend is active
+// (SD or the LittleFS mirror at the identical path — SD-9).
+struct Rs232DateListCtx {
+    std::vector<char, PsramAllocatorStd<char>> *json;
+    String prefix;
+    bool first;
+    bool oom;
+};
+
+bool rs232DateListEntry(const char *name, void *rawCtx) {
+    if (!name || !rawCtx) return false;
+    Rs232DateListCtx *ctx = (Rs232DateListCtx *)rawCtx;
+    String base(name);
+    // Same filter as before: only this system's RS232 day files, never the
+    // _MODBUS_ / _PROXIMITY_ variants that share the folder.
+    if (!base.startsWith(ctx->prefix) || !base.endsWith(".chart")) return true;
+    if (base.indexOf("_MODBUS_") >= 0 || base.indexOf("_PROXIMITY_") >= 0) return true;
+    String datePart = base.substring(ctx->prefix.length(), base.length() - 6);
+    if (datePart.length() != 10 || datePart.charAt(2) != '-' || datePart.charAt(5) != '-') return true;
+    if ((!ctx->first && !rs232PsramJsonAppendRaw(*ctx->json, ",")) ||
+        !rs232PsramJsonAppendRaw(*ctx->json, "\"") ||
+        !rs232PsramJsonAppendEscaped(*ctx->json, datePart) ||
+        !rs232PsramJsonAppendRaw(*ctx->json, "\"")) {
+        ctx->oom = true;
+        return false;
+    }
+    ctx->first = false;
+    return true;
+}
+
 }  // namespace
 
 void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& context) {
-#if ENABLE_RS232==1 && ENABLE_RS232_CHARTS==1 && ENABLE_SDCARD==1
+#if ENABLE_RS232==1 && ENABLE_RS232_CHARTS==1
     registerPageGet("/api/rs232-cols", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (!configManager.getChartsPageEnabled()) {
@@ -132,6 +166,7 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
             xSemaphoreGiveRecursive(rs232LiveMutex);
         }
         chartHistoryReadRs232Meta(chartPath, chartCols, chartDefs);
+#if ENABLE_SDCARD==1
         if (cols == 0 && chartCols == 0 && !request->hasParam("date")) {
             int bestRank = -1;
             String bestDate;
@@ -178,6 +213,7 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
                 }
             }
         }
+#endif // ENABLE_SDCARD (root-dir fallback)
         if (cols == 0) cols = chartCols;
 
         bool mtf1Active = configManager.getAmadaISQ20MTF1Enabled();
@@ -298,44 +334,17 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
             request->send(500, "application/json", "{\"error\":\"OOM\"}");
             return;
         }
-        bool first = true;
-        if (sdcardShouldUseSD() && sdMutexLock(pdMS_TO_TICKS(3000))) {
-            File root = SD_MMC.open(dir.c_str());
-            if (root && root.isDirectory()) {
-                File entry = root.openNextFile();
-                while (entry) {
-                    if (!entry.isDirectory()) {
-                        String fname = String(entry.name());
-                        int sl = fname.lastIndexOf('/');
-                        String base = sl >= 0 ? fname.substring(sl + 1) : fname;
-                        // Match {safeName}_{dateId}.chart, but NOT _MODBUS_ or _PROXIMITY_ variants.
-                        if (base.startsWith(prefix) && base.endsWith(".chart") &&
-                            base.indexOf("_MODBUS_") < 0 && base.indexOf("_PROXIMITY_") < 0) {
-                            String datePart = base.substring(prefix.length(), base.length() - 6);
-                            if (datePart.length() == 10 &&
-                                datePart.charAt(2) == '-' && datePart.charAt(5) == '-') {
-                                if ((!first && !rs232PsramJsonAppendRaw(cacheJson, ",")) ||
-                                    !rs232PsramJsonAppendRaw(cacheJson, "\"") ||
-                                    !rs232PsramJsonAppendEscaped(cacheJson, datePart) ||
-                                    !rs232PsramJsonAppendRaw(cacheJson, "\"")) {
-                                    entry.close();
-                                    root.close();
-                                    sdMutexUnlock();
-                                    request->send(500, "application/json", "{\"error\":\"OOM\"}");
-                                    return;
-                                }
-                                first = false;
-                            }
-                        }
-                    }
-                    entry.close();
-                    vTaskDelay(pdMS_TO_TICKS(2));
-                    entry = root.openNextFile();
-                    yield();
-                }
-                root.close();
-            }
-            sdMutexUnlock();
+        Rs232DateListCtx listCtx;
+        listCtx.json = &cacheJson;
+        listCtx.prefix = prefix;
+        listCtx.first = true;
+        listCtx.oom = false;
+        // Dual sink: SD when in use, else the LittleFS mirror — same folder and
+        // file names, so the page lists both backends identically (SD-9).
+        chartHistoryForEachChartFile(dir, rs232DateListEntry, &listCtx);
+        if (listCtx.oom) {
+            request->send(500, "application/json", "{\"error\":\"OOM\"}");
+            return;
         }
         if (!rs232PsramJsonAppendRaw(cacheJson, "]") || !rs232PsramJsonTerminate(cacheJson)) {
             request->send(500, "application/json", "{\"error\":\"OOM\"}");
@@ -405,71 +414,31 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
         // Keep RS232 payloads symmetric with sensor limits and small enough for ESP32.
         uint32_t rangeSeconds = (minTs > 0 && nowTs > minTs) ? (uint32_t)(nowTs - minTs) : 86400UL;
         const int maxOut = (rangeSeconds <= 3600UL) ? 72 : ((rangeSeconds <= 28800UL) ? 144 : 288);
-        const int targetOut = maxOut;
-        // Merged serving (file history + live ring tail, always minute-fresh —
-        // same envelope as before, one stride budget over the union).
-        ChartServePoint* raw = (ChartServePoint*)ps_malloc((size_t)1500 * sizeof(ChartServePoint));
-        ChartServePoint* tail = (ChartServePoint*)ps_malloc((size_t)512 * sizeof(ChartServePoint));
-        if (!raw || !tail) {
-            if (raw) free(raw);
-            if (tail) free(tail);
+        // The ring always holds "now": bound the tail to the requested day so a
+        // past-date request never gets today's samples appended (SD-9).
+        uint32_t untilTs = (date != String(today))
+                               ? (uint32_t)chartHistoryDayStartFromRs232DateId(date) + 86400UL
+                               : 0UL;
+        // Merged serving (persisted history + PSRAM tail, one stride budget
+        // over the union) — shared with the Ethernet handler.
+        AsyncResponseStream* response = request->beginResponseStream("application/json");
+        if (!response) {
             busy = false;
             request->send(500, "application/json", "{\"error\":\"no memory\"}");
             return;
         }
-        uint16_t nRaw = chartHistoryReadRawPoints(chartPath, CHART_HISTORY_SOURCE_RS232,
-                                                  CHART_HISTORY_RS232_MAX_COLUMNS,
-                                                  (uint32_t)minTs, raw, 1500);
-        uint16_t nTail = 0;
-        uint8_t nCols = 0;
-        if (rs232LiveMutex && xSemaphoreTakeRecursive(rs232LiveMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-            size_t liveSize = rs232LiveBuffer.size();
-            for (size_t i = 0; i < liveSize && nTail < 512; i++) {
-                const Rs232LivePoint& pt = rs232LiveBuffer[i];
-                if (minTs != 0 && (time_t)pt.timestamp < minTs) continue;
-                ChartServePoint* q = &tail[nTail++];
-                q->timestamp = pt.timestamp;
-                q->valueCount = (pt.valueCount > CHART_SERVE_MAX_COLS) ? CHART_SERVE_MAX_COLS : pt.valueCount;
-                for (uint8_t c = 0; c < CHART_SERVE_MAX_COLS; c++) {
-                    q->values[c] = (c < RS232_LIVE_MAX_COLS) ? pt.values[c] : NAN;
-                }
-                if (pt.valueCount > nCols) nCols = pt.valueCount;
-            }
-            xSemaphoreGiveRecursive(rs232LiveMutex);
-        }
-        if (nCols > CHART_HISTORY_RS232_MAX_COLUMNS) nCols = CHART_HISTORY_RS232_MAX_COLUMNS;
-        if (nCols == 0) {
-            for (uint16_t i = 0; i < nRaw; i++) {
-                if (raw[i].valueCount > nCols) nCols = raw[i].valueCount;
-            }
-            if (nCols > CHART_HISTORY_RS232_MAX_COLUMNS) nCols = CHART_HISTORY_RS232_MAX_COLUMNS;
-        }
-        char keys[CHART_HISTORY_RS232_MAX_COLUMNS][16];
-        int8_t decs[CHART_HISTORY_RS232_MAX_COLUMNS];
-        for (uint8_t c = 0; c < nCols; c++) {
-            snprintf(keys[c], sizeof(keys[c]), "rs232_col%u", (unsigned)(c + 1));
-            decs[c] = 4;
-        }
-        uint16_t mCap = nRaw + nTail;
-        ChartServePoint* merged = (ChartServePoint*)ps_malloc(((size_t)mCap + 1) * sizeof(ChartServePoint));
-        AsyncResponseStream* response = request->beginResponseStream("application/json");
-        if (!response || !merged) {
-            if (merged) free(merged);
-            free(raw);
-            free(tail);
-            busy = false;
-            if (!response) request->send(500, "application/json", "{\"error\":\"no memory\"}");
-            else request->send(response);
-            return;
-        }
         response->addHeader("Cache-Control", "no-store");
-        uint32_t n = chartMergePoints(raw, nRaw, tail, nTail, merged, mCap + 1);
-        chartHistoryServePointsJson(*response, merged, n, keys, decs, nCols, (uint16_t)targetOut);
-        free(raw);
-        free(tail);
-        free(merged);
+        extern bool rs232ChartServeMergedJson(Print& out, const String& path, uint32_t fromTs,
+                                              uint32_t untilTs, uint16_t maxOut);
+        if (!rs232ChartServeMergedJson(*response, chartPath, (uint32_t)minTs, untilTs, (uint16_t)maxOut)) {
+            response->print(F("{\"count\":0,\"stride\":1,\"labels\":[],\"timestamps\":[]}"));
+        }
         busy = false;
         request->send(response);
+    });
+
+    // --- Modbus chart API: still SD-backed (unchanged scope) ---
+#if ENABLE_RS232==1 && ENABLE_RS232_CHARTS==1 && ENABLE_SDCARD==1
 
     // GET /api/modbus-chart-files
     // Returns sorted list of dates (DD-MM-YYYY) for which Modbus .chart files exist on SD.
@@ -611,7 +580,8 @@ void registerRs232HistoryRoutes(AsyncWebServer& server, const WebRouteContext& c
         request->send(response);
     });
 
-#endif // ENABLE_RS232==1 && ENABLE_RS232_CHARTS==1 && ENABLE_SDCARD==1
+#endif // Modbus chart API (SD)
+#endif // ENABLE_RS232==1 && ENABLE_RS232_CHARTS==1
 
 // --- Proximity chart API endpoints ---
 #if ENABLE_PROXIMITY_CHARTS==1

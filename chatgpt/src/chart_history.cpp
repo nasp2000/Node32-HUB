@@ -1,4 +1,6 @@
 #include "chart_history.h"
+#include "rs232_chart_serve.h"   // RS232 live-tail/keys pieces (SD-9)
+#include "structures.h"          // Rs232LivePoint (ring tail)
 #include "chart_record_write.h"   // .chart record byte layout (native-tested)
 
 #include "feature_flags.h"
@@ -231,14 +233,72 @@ void chartHistoryCloseSensorWriter(ChartSensorWriter &writer) {
 // Resolve the writable chart backend: SD when mounted, else the LittleFS
 // mirror (same rule as the sensor CSV/.chart flush). Flash writes keep a 1MB
 // /config reserve, mirroring sensor_config.h.
+fs::FS *chartHistoryActiveFS() {
+    if (sdcardShouldUseSD()) return &SD_MMC;
+    if (!littlefsBegin() || !littlefsMounted()) return nullptr;
+    if (littlefsFreeBytes() < (1024ULL * 1024ULL)) return nullptr;
+    return &getLittleFS();
+}
+
 static bool chartHistoryResolveChartFS(fs::FS *&outFs) {
+    outFs = chartHistoryActiveFS();
+    return outFs != nullptr;
+}
+
+// One lock for whichever backend is active, so directory listings cannot race
+// the writers (SD task on the card, sensor/email/cleanup tasks on flash).
+bool chartHistoryStorageLock(uint32_t timeoutMs) {
+    const TickType_t ticks = pdMS_TO_TICKS(timeoutMs);
+#if ENABLE_SDCARD==1
+    if (sdcardShouldUseSD()) return sdMutexLock(ticks);
+#endif
+#if ENABLE_FILESYSTEM==1
+    extern bool lfsMutexLock(TickType_t timeoutTicks);
+    return lfsMutexLock(ticks);
+#else
+    (void)ticks;
+    return false;
+#endif
+}
+
+void chartHistoryStorageUnlock() {
+#if ENABLE_SDCARD==1
     if (sdcardShouldUseSD()) {
-        outFs = &SD_MMC;
-        return true;
+        sdMutexUnlock();
+        return;
     }
-    if (!littlefsBegin() || !littlefsMounted()) return false;
-    if (littlefsFreeBytes() < (1024ULL * 1024ULL)) return false;
-    outFs = &getLittleFS();
+#endif
+#if ENABLE_FILESYSTEM==1
+    extern void lfsMutexUnlock();
+    lfsMutexUnlock();
+#endif
+}
+
+bool chartHistoryForEachChartFile(const String &dir, ChartDirEntryFn onEntry, void *ctx) {
+    if (!onEntry) return false;
+    fs::FS *fs = chartHistoryActiveFS();
+    if (!fs) return false;
+    if (!chartHistoryStorageLock(5000)) return false;
+    File root = fs->open(dir.c_str());
+    if (root && root.isDirectory()) {
+        File entry = root.openNextFile();
+        while (entry) {
+            if (!entry.isDirectory()) {
+                String name = String(entry.name());
+                int slash = name.lastIndexOf('/');
+                String base = (slash >= 0) ? name.substring(slash + 1) : name;
+                if (!onEntry(base.c_str(), ctx)) {
+                    entry.close();
+                    break;
+                }
+            }
+            entry.close();
+            vTaskDelay(pdMS_TO_TICKS(2));   // reset TWDT on the flash backend
+            entry = root.openNextFile();
+        }
+        root.close();
+    }
+    chartHistoryStorageUnlock();
     return true;
 }
 
@@ -1166,3 +1226,60 @@ bool chartHistoryServePointsJson(Print &out, const ChartServePoint* pts, uint32_
     return true;
 }
 
+// ---- RS232 merged serving (SD-9) ----
+#if ENABLE_RS232_CHARTS==1
+#if ENABLE_SDCARD==1
+// The volatile ring is allocated with the SD pipeline (sd_tasks_impl.h).
+extern PsramCircularBuffer<Rs232LivePoint> rs232LiveBuffer;
+extern SemaphoreHandle_t rs232LiveMutex;
+#endif
+// Merged serving for GET /api/rs232-history: persisted .chart history (SD, or
+// the LittleFS mirror at the IDENTICAL path) + PSRAM live tail — one union, one
+// stride budget (same rule as Modbus/proximity). `untilTs` bounds the live tail
+// to the requested day (0 = unbounded): the ring always holds "now", so a
+// past-date request must not get today's samples appended.
+// Non-static: called from the WiFi and Ethernet handler TUs.
+bool rs232ChartServeMergedJson(Print& out, const String& path, uint32_t fromTs,
+                               uint32_t untilTs, uint16_t maxOut) {
+    const uint16_t kRawCap = 1500;   // legacy 1-min day (1440) + margin
+    const uint16_t kTailCap = 512;   // RS232 live ring capacity
+    ChartServePoint* raw = (ChartServePoint*)ps_malloc((size_t)kRawCap * sizeof(ChartServePoint));
+    if (!raw) return false;
+    uint16_t nRaw = chartHistoryReadRawPoints(path, CHART_HISTORY_SOURCE_RS232,
+                                              CHART_HISTORY_RS232_MAX_COLUMNS, fromTs, raw, kRawCap);
+    ChartServePoint* tail = (ChartServePoint*)ps_malloc((size_t)kTailCap * sizeof(ChartServePoint));
+    uint16_t nTail = 0;
+    uint8_t nCols = 0;
+#if ENABLE_SDCARD==1
+    // The live ring is allocated with the SD pipeline; without it the mirror
+    // alone is served (nTail stays 0).
+    if (tail && rs232LiveMutex && xSemaphoreTakeRecursive(rs232LiveMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        size_t liveSize = rs232LiveBuffer.size();
+        for (size_t i = 0; i < liveSize && nTail < kTailCap; i++) {
+            const Rs232LivePoint& pt = rs232LiveBuffer[i];
+            if (!rs232ChartCopyLivePoint(pt, fromTs, untilTs, tail[nTail], RS232_LIVE_MAX_COLS)) continue;
+            if (pt.valueCount > nCols) nCols = pt.valueCount;
+            nTail++;
+        }
+        xSemaphoreGiveRecursive(rs232LiveMutex);
+    }
+#endif
+    nCols = rs232ChartResolveCols(nCols, raw, nRaw, tail, nTail, CHART_HISTORY_RS232_MAX_COLUMNS);
+    char keys[CHART_HISTORY_RS232_MAX_COLUMNS][16];
+    int8_t decs[CHART_HISTORY_RS232_MAX_COLUMNS];
+    rs232ChartFillKeys(nCols, keys, decs);
+    uint16_t mCap = nRaw + nTail;
+    ChartServePoint* merged = (ChartServePoint*)ps_malloc(((size_t)mCap + 1) * sizeof(ChartServePoint));
+    bool ok = false;
+    if (merged) {
+        uint32_t n = chartMergePoints(raw, nRaw, tail ? tail : raw, tail ? nTail : 0, merged, mCap + 1);
+        ok = chartHistoryServePointsJson(out, merged, n, keys, decs, nCols, maxOut);
+        free(merged);
+    }
+    free(raw);
+    if (tail) free(tail);
+    return ok;
+}
+
+
+#endif // ENABLE_RS232_CHARTS

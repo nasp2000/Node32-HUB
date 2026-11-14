@@ -134,6 +134,8 @@ File list JSON array; single-day archive streamed as JSON. 400 on missing date.
 
 `{"sensors","aht20","gas","rs232","modbus","proximity":bool}` derived from compile flags (`modbus = MODBUS && RS232_CHARTS && SDCARD`). 404 when charts page disabled. RS232/Modbus/Proximity `-cols` endpoints return `{cols, date, col_names}`; `-history`/`-data` return the same time-series shape with family keys.
 
+**RS232 serve rule (SD-9).** `/api/rs232-history` serves the persisted day file **plus** the PSRAM live tail as one union — the same `ReadRawPoints` + merge + single stride budget as Modbus/proximity — through one shared helper (`rs232ChartServeMergedJson`, `chart_history.cpp`) used by both the WiFi and the Ethernet handler. The file half resolves SD or the LittleFS mirror at the **identical path** (`chartHistoryActiveFS()`), so a build with no SD backend still serves the day chart recorded by the mirror. `minTs` filters the file, and a past-date request passes `untilTs` (end of that day) so today's ring samples are never appended to yesterday's response. Tail conversion/columns/keys are the pure helpers in `rs232_chart_serve.h` (native-tested). `/api/rs232-history-files` and `/api/rs232-cols` list/read through the same active backend, so the date list shows the mirror too; the routes are no longer gated on `ENABLE_SDCARD` (the Modbus endpoints in `rs232_history_handler.cpp` remain SD-only).
+
 ---
 
 ## 8. Persistence

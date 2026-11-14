@@ -114,6 +114,20 @@ struct ChartSensorJsonSet {
     uint32_t count;
     ChartSensorJsonSet() : count(0) {}
 };
+// Active chart backend: SD when in use, else the LittleFS mirror. nullptr when
+// neither is available (no SD card and flash unmounted/too full). Callers list
+// or read through it instead of opening SD_MMC directly, so a build without an
+// SD backend still serves the mirror (ARCHITECTURE §6.1 rule 1).
+fs::FS *chartHistoryActiveFS();
+// Locks the storage that chartHistoryActiveFS() returned (SD mutex or the
+// LittleFS mutex) for a directory listing. Lock/unlock must be paired.
+bool chartHistoryStorageLock(uint32_t timeoutMs);
+void chartHistoryStorageUnlock();
+// Calls `onEntry(entryName, ctx)` for every file in `dir` on the active chart
+// backend, under the right storage lock. Returns false when no backend or the
+// lock is unavailable; `dir` missing counts as an empty listing (true).
+typedef bool (*ChartDirEntryFn)(const char *name, void *ctx);
+bool chartHistoryForEachChartFile(const String &dir, ChartDirEntryFn onEntry, void *ctx);
 String chartHistoryRs232PathForDate(const String &systemName, const String &dateId);
 String chartHistoryRs232PathForTm(const String &systemName, const struct tm &ti);
 uint32_t chartHistoryDayStartFromRs232DateId(const String &dateId);
@@ -250,6 +264,16 @@ uint16_t chartHistoryReadRawPoints(const String &path, uint8_t sourceType, uint8
 bool chartHistoryServePointsJson(Print &out, const ChartServePoint* pts, uint32_t nPts,
                                  const char keys[][16], const int8_t* decimals, uint8_t nSeries,
                                  uint16_t maxOut);
+
+#if ENABLE_RS232_CHARTS==1
+// Merged serving for GET /api/rs232-history (SD-9): persisted RS232 history
+// (SD, or the LittleFS mirror at the identical path) + the PSRAM live tail as
+// one union under a single stride budget. `fromTs` filters the file, `untilTs`
+// (0 = unbounded) bounds the tail to the requested day, `maxOut` caps the
+// emitted points. Shared by the WiFi and Ethernet handlers.
+bool rs232ChartServeMergedJson(Print &out, const String &path, uint32_t fromTs,
+                               uint32_t untilTs, uint16_t maxOut);
+#endif
 
 #endif
 
