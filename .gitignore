@@ -144,3 +144,6 @@ third-party/
 tests/hw/night_cycle.sh
 scripts/reminder_cam_p4_30m.sh
 tests/packs/homee32/testes_api_resultado.txt
+
+# Local working notes/screenshots (never code, never published)
+SHARE/
