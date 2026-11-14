@@ -691,6 +691,10 @@ test_email_event_fields$(BIN_EXT): test_email_event_fields.cpp $(SRC_DIR)/email_
 # --- ftp_status_store: persisted last-sends state (FTP page, survives reboot) ---
 test_ftp_status_store$(BIN_EXT): test_ftp_status_store.cpp $(SRC_DIR)/ftp_status_store.h $(STUBS_DIR)/Arduino.h $(STUBS_DIR)/ArduinoJson.h
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_ftp_status_store.cpp
+# --- access_page_gate: ENABLE_PAGE_ACCESS guards the /access page (ACC-4) ---
+test_access_page_gate$(BIN_EXT): test_access_page_gate.cpp
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -DSRC_DIR_PATH='"$(abspath $(SRC_DIR))"' -o $@ test_access_page_gate.cpp
+
 # --- password_field_input: empty password = keep current (ACC-3) ---
 test_password_field_input$(BIN_EXT): test_password_field_input.cpp $(SRC_DIR)/password_field_input.h
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_password_field_input.cpp

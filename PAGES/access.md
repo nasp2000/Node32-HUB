@@ -20,7 +20,7 @@ settings take effect **without reboot** (read at request time).
 | Item | Value |
 |---|---|
 | Page URL | `GET /access` |
-| Feature flag | `ENABLE_PAGE_ACCESS` (`config_defaults.h:276`, default `1`) — gates the page in manifests; routes are registered unconditionally (see ACC-4) |
+| Feature flag | `ENABLE_PAGE_ACCESS` (`config_defaults.h:304`, default `1`) — gates the page route on **both transports** (WiFi not registered, Ethernet 404), the home button and the self-test manifest, exactly like `/sdcard` with `ENABLE_PAGE_SDCARD`; the APIs below stay registered in every build (ACC-4) |
 | WiFi server | `web_routes_access.cpp:47` — streams via `streamAccessPageToPrint()` |
 | Ethernet (W5500) | `ethernet_bootstrap_routes.h:214` → `streamSharedAccessPage` (`web_shared_pages.cpp:156`) |
 | API (GET) | `GET /api/access-config` (`registerApiRoute`; Ethernet mirror `ethernet_bootstrap_handlers.h:515`) |
@@ -308,7 +308,7 @@ Tab labels use the tab keys themselves (`tabAccessSessions`, `tabAccessCharts`,
 | 1 | **Kick-all and session-history have no UI.** `POST /api/access-kick-all` and `GET /api/session-history` are registered and documented in `/api-reference`, but the access page has no "terminate all sessions" button and no session list — admins can't use them from the UI. | Medium | Add a "Terminate all sessions" button (Sessions tab) and optionally a small history list fed by `/api/session-history`. |
 | 2 | Invalid/absent values were silently ignored (`getInt` returned `-1` for absent, non-numeric and out-of-range alike). **Fixed (ACC-2):** the three numeric fields are parsed strictly and validated before any write; a present-but-unusable value returns 400 with `field`, `min`, `max`, `error` and a readable `message`, and nothing is saved. Absent keys still leave the current value. Pure parser/payload in `config_int_field.h`; tests: `test_config_int_field` (10 cases / 93 assertions). | Low | fixed |
 | 3 | Dead PT password sentinel (`"(não alterado)"`/`"(nao alterado)"`) compared against an English client whose hint `(unchanged)` is only a placeholder. **Fixed (ACC-3):** the sentinel comparison is gone from both password fields; the rule is the single `passwordFieldIsNew()` helper — empty (or absent) = keep the stored password, any non-empty value = new password. Tests: `test_password_field_input` (5 cases / 21 assertions, incl. the old dead check) + a web case proving an untouched submit posts empty values and no sentinel. | Low | fixed |
-| 4 | **Page routes not gated by `ENABLE_PAGE_ACCESS`.** `web_routes_access.cpp` registers page + APIs unconditionally (unlike `/sdcard` which is `#if ENABLE_PAGE_SDCARD==1`); the flag only gates the home button and self-test manifest. Setting the flag off still serves the page/APIs. | Low | Wrap page registration in `#if ENABLE_PAGE_ACCESS==1` (APIs may stay). |
+| 4 | Page + APIs were registered unconditionally. **Fixed (ACC-4):** the `/access` page now follows the `/sdcard` scheme — `#if ENABLE_PAGE_ACCESS==1` around the WiFi registration, the same guard in the Ethernet branch (404 when off) and around the home button; the APIs stay registered in every build. Test: `test_access_page_gate` (5 cases / 33 assertions, source-contract on all three guards + API parity). | Low | fixed |
 | 5 | UI ranges are narrower than the API accepts (`idle` UI 5–60 vs server 1–120; `abs` UI 15–120 vs server 5–240) — silent mismatch between what the user can pick and what is valid. | Low | Align ranges (UI ≤ API is acceptable, but pick one documented limit). |
 | 6 | Viewer section is fully visible even when `viewer_enabled` is off — fields could be collapsed/hidden until the checkbox is checked. | Info | Toggle `#viewer_fields` visibility from the checkbox. |
 | 7 | **"Maximum simultaneous clients" limits distinct client IPs, not open tabs/pages** (owner decision: keep it this way). The page hint says "new browsers receive HTTP 429", which can read as a per-tab limit. Confirmed working: `allowHtmlClient()` multi-client path counts `multiTrack` unique IPs (8 slots, 15 s TTL) and returns 429 for a *new* IP when full; an already-tracked IP is admitted regardless of how many tabs it opens. Single-client mode adds a second cap (429 for any other IP) plus idle/absolute expiry (503). | Info | Documented here; no code change (owner chose per-IP). Optionally reword `accessMaxClientsHint` (EN+PT) to say "unique devices (IP)". |
@@ -322,7 +322,7 @@ Tab labels use the tab keys themselves (`tabAccessSessions`, `tabAccessCharts`,
 |---|---|
 | Renderer + tabs CSS | `chatgpt/src/webpages/renderers/access_page_renderer.{h,cpp}` |
 | Page HTML/JS (PROGMEM) | `chatgpt/src/webpages/assets/page_access_asset.h` |
-| Routes (WiFi + Ethernet) | `chatgpt/src/webpages/routes/web_routes_access.cpp`, `ethernet_bootstrap_routes.h:214` |
+| Routes (WiFi + Ethernet) | `chatgpt/src/webpages/routes/web_routes_access.cpp` (page gated by `ENABLE_PAGE_ACCESS`), `ethernet_bootstrap_routes.h:218` |
 | HTTP handlers | `chatgpt/src/webpages/handlers_unified/config_handler.cpp` (`handleAccessConfigGet/Post`, `handleSessionHistoryGet`, `handleAccessKickAllPost`) |
 | Numeric POST validation | `chatgpt/src/config_int_field.h` (`configIntParse`, `configIntErrorJson`) |
 | Password fields | `chatgpt/src/password_field_input.h` (`passwordFieldIsNew`) |

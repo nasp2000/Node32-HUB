@@ -216,8 +216,12 @@ static bool ethernetBootstrapHandleClient() {
         ethernetBootstrapBeginStreamResponse(client, "200 OK", "text/html; charset=utf-8");
         streamSharedRecipientsPage(chunked);
     } else if (method == F("GET") && path == F("/access")) {
+#if ENABLE_PAGE_ACCESS==1
         ethernetBootstrapBeginStreamResponse(client, "200 OK", "text/html; charset=utf-8");
         streamSharedAccessPage(chunked);
+#else
+        ethernetBootstrapSendResponse(client, "404 Not Found", "text/plain", String(F("not found")));
+#endif
     } else if (method == F("GET") && path == F("/alerts-config")) {
         #if ENABLE_PAGE_ALERTS==1
         ethernetBootstrapBeginStreamResponse(client, "200 OK", "text/html; charset=utf-8");

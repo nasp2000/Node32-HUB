@@ -408,7 +408,9 @@ inline void streamHomePageToPrint(Print& out,
 #if ENABLE_API_REFERENCE_PAGE==1
                 out.print(FPSTR(SYSTEM_SECTION_API_REF_BUTTON));
 #endif
+#if ENABLE_PAGE_ACCESS==1
                 out.print(FPSTR(SYSTEM_SECTION_ACCESS_BUTTON));
+#endif
 #if ENABLE_OTA==1
                 out.print(FPSTR(systemSectionOtaButton));
 #endif

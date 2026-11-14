@@ -1,6 +1,8 @@
 #include "web_routes_access.h"
 #include "route_registry_api.h"
 
+#include "../../feature_flags.h" // ENABLE_PAGE_ACCESS (page gate, ACC-4)
+
 #include "../http_abstraction.h"
 #include "../handlers_unified/config_handler.h"
 #include "../handlers/heavy_api_request_guard.h"
@@ -42,8 +44,13 @@ static void registerAccessApiRoutes(AsyncWebServer& server, const WebRouteContex
 }
 
 void registerAccessRoutes(AsyncWebServer& server, const WebRouteContext& context) {
+    // APIs stay available in every build (scripts, diagnostics, self-test);
+    // only the page is gated, exactly like /sdcard (ENABLE_PAGE_SDCARD).
     registerAccessApiRoutes(server, context);
 
+#if ENABLE_PAGE_ACCESS==1
+    // Access page (/access). With the flag off the route is not registered at
+    // all (404 on both transports) and the home button is not emitted (ACC-4).
     registerPageGet("/access", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
         if (sendNotModifiedIfCached(request)) return;
@@ -64,4 +71,5 @@ void registerAccessRoutes(AsyncWebServer& server, const WebRouteContext& context
         context.logServed(request, "/access", bytes, false);
 #endif
     });
+#endif // ENABLE_PAGE_ACCESS
 }
