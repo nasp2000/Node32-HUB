@@ -24,7 +24,7 @@ const char MOBILE_COMMON_CSS[] PROGMEM = R"MCCSS(
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .mp .ncol .nrail { display: block; height: 3px; border-radius: 2px; background: #24344d; }
-  .mp .ncol.done .ntab { color: #93c5fd; }
+  .mp .ncol.done .ntab { color: #bfdbfe; }
   .mp .ncol.done .nrail { background: #1d4ed8; }
   .mp .ncol.on .ntab { border-color: #3b82f6; background: #1d2b47; color: #e6f1ff; }
   .mp .ncol.on .nrail { background: #3b82f6; }
@@ -142,6 +142,7 @@ const char MOBILE_COMMON_CSS[] PROGMEM = R"MCCSS(
   .mp .reboot.arm { background: #b91c1c; }
   .mp .reboot:disabled { background: #0f172a; color: #64748b; border-color: #334155; }
   .mp .note { font-size: 11px; color: #64748b; }
+
   /* visible while a finger is down (the 250 ms gate needs feedback) */
   .mp button.pressing, .mp a.pressing { opacity: .6; transform: scale(.97); }
   .mp button, .mp a { transition: opacity .08s linear, transform .08s linear; }

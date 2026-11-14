@@ -39,7 +39,7 @@ function loadPage(api, hash) {
 function wait(dom, ms) { return new Promise(function (r) { setTimeout(function () { r(dom); }, ms || 250); }); }
 
 function screenOn(doc) {
-  var ids = ['gmS1', 'gmS2', 'gmSYS'];
+  var ids = ['gmS1', 'gmS2', 'gmS3', 'gmS4', 'gmSYS'];
   for (var i = 0; i < ids.length; i++) {
     var el = doc.getElementById(ids[i]);
     if (el && el.className.indexOf('on') >= 0) return i + 1;
@@ -80,10 +80,10 @@ async function run() {
     var g = win.__test__;
 
     await test('three screens with the strip and one visible at a time', function () {
-      is(doc.querySelectorAll('#gm .screen').length, 3, 'three screens');
-      is(doc.querySelectorAll('#gm .navstrip .ncol').length, 3, 'three strip columns');
+      is(doc.querySelectorAll('#gm .screen').length, 5, 'five screens');
+      is(doc.querySelectorAll('#gm .navstrip .ncol').length, 5, 'five strip columns');
       is(screenOn(doc), 1, 'starts on Live');
-      is(doc.getElementById('gmNo').textContent, '1 / 3', 'counter');
+      is(doc.getElementById('gmNo').textContent, '1 / 5', 'counter');
     });
 
     await test('live view opens the MJPEG stream and shows the camera info', function () {
@@ -133,13 +133,58 @@ async function run() {
       ok(decodeURIComponent(posted(win)).indexOf('rec_1.avi') >= 0, 'path sent');
     });
 
-    await test('the system screen is the shared block', async function () {
+    await test('the camera screen loads the modes and saves them', async function () {
+      win.__MOCK_API__['/api/camera/config'] = { framesize: 5, quality: 12, fps: 15, brightness: 0,
+        contrast: 0, saturation: 0, hmirror: 0, vflip: 0, lamp: 0, lampAvail: true };
+      win.__MOCK_API__['/api/camera/config'] = { framesize: 5, quality: 12, fps: 15, brightness: 0,
+        contrast: 0, saturation: 0, hmirror: 0, vflip: 0, lamp: 0, lampAvail: true };
       g.cmSetStep(3);
+      await wait(dom, 350);
+      is(screenOn(doc), 3, 'camera screen');
+      ok(doc.querySelectorAll('#cmRes option').length >= 1, 'resolution options');
+      ok(doc.querySelectorAll('#cmFps option').length >= 10, 'fps options');
+      is(doc.getElementById('gmPrimary').textContent, 'SAVE', 'save action');
+      win.__postBodies = [];
+      g.cmSave();
       await wait(dom, 300);
-      is(screenOn(doc), 3, 'system screen');
+      var body = posted(win);
+      ok(body.indexOf('/api/camera/config') >= 0, 'config posted');
+      ok(/fps=/.test(body) && /quality=/.test(body), 'fps + quality sent');
+    });
+
+    await test('the FTP screen shows the server and the last uploads', async function () {
+      win.__MOCK_API__['/api/ftp-status'] = { enabled: true, host: '192.168.1.50', port: 21,
+        remote_path: '/Cam-P4', last_file: 'rec_0931.avi', ok_count: 12, fail_count: 1,
+        recent: [{ file: 'rec_0931.avi', ok: true, time_str: '14/11 09:41' },
+                 { file: 'rec_0845.avi', ok: false, time_str: '14/11 08:47' }] };
+      winget: { }
+      g.cmSetStep(4);
+      await wait(dom, 350);
+      is(screenOn(doc), 4, 'ftp screen');
+      ok(doc.getElementById('cmFtpHost').textContent.indexOf('192.168.1.50') >= 0, 'host');
+      ok(doc.getElementById('cmFtpCount').textContent.indexOf('12') >= 0, 'counters');
+      is(doc.querySelectorAll('#cmFtpList .row').length, 2, 'recent uploads');
+      win.__postBodies = [];
+      g.cmFtpAction('send');
+      await wait(dom, 300);
+      ok(posted(win).indexOf('/api/ftp-upload-now') >= 0, 'send now posted');
+    });
+
+    await test('the system screen is the shared block', async function () {
+      g.cmSetStep(5);
+      await wait(dom, 300);
+      is(screenOn(doc), 5, 'system screen');
       ok(doc.getElementById('muFw').textContent.indexOf('v1.120') >= 0, 'firmware');
       is(doc.querySelectorAll('#gmSYS .subt').length, 6, '3 tabs + 3 log controls');
       ok(doc.getElementById('muReboot') !== null, 'restart button');
+    });
+
+    await test('full screen fills the page and comes back', function () {
+      g.cmSetStep(1);
+      is(g.cmFull(), true, 'entered full screen');
+      ok(doc.getElementById('cmView').className.indexOf('immersive') >= 0, 'immersive class');
+      is(g.cmFull(), false, 'left full screen');
+      ok(doc.getElementById('cmView').className.indexOf('immersive') < 0, 'class removed');
     });
 
     await test('navigation works with no recording selected', function () {

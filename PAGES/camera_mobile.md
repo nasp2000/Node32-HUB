@@ -20,15 +20,19 @@ shared System screen (summary / OTA / log / restart).
 
 ## 3. Layout
 
-Three screens inside one fixed 100dvh column (no page scroll, content centred):
+Five screens inside one fixed 100dvh column (no page scroll, content centred):
 
 ```
-header  strip Live · Files · System (one column per page, line under each) + pack name + badge
+header  strip Live · Files · Camera · FTP · System (one column per page, line under each) + pack name + badge
 S1 Live   <img> /cam/stream in a 16:9 box (aspect taken from /api/camera/status)
           info pill (fps · resolution · SD free · viewers)
           actions: PHOTO | REC (toggles to STOP)
-S2 Files  row per recording: name (opens /cam/playback) · size · ✕ delete
-S3 System shared block (summary / firmware / log) + restart
+S2 Files  row per recording: name (opens /cam/playback) · size · ⬇ download · ✕ delete
+S3 Camera resolution (sensor resList or framesize table) · fps · quality ·
+          brightness/contrast/saturation (−2…+2) · mirror/flip/lamp · SAVE
+S4 FTP    server / remote folder / last send / counters · SEND NOW · TEST ·
+          recent uploads
+S5 System shared block (summary / firmware / log) + restart
 msg/bar   status line
 nav       ← · n / 3 · →
 ```
@@ -41,6 +45,9 @@ nav       ← · n / 3 · →
 | PHOTO | `POST /api/camera/photo` (saved on the SD card) |
 | REC / STOP | `POST /api/camera/recording/start` / `stop` |
 | File row | opens `/cam/playback?f=<path>` in a new tab |
+| ⬇ | same URL with `download` → saves the recording on the phone |
+| ⛶ | immersive view (CSS full screen, works on iOS); ✕ returns |
+| SEND NOW / TEST | `POST /api/ftp-upload-now` / `/api/ftp-test` (disabled when FTP is off) |
 | ✕ | `POST /api/camera/delete` after `customConfirm` |
 | ↻ | reloads `/api/camera/files` |
 | Arrows / swipe / strip | change screen (never blocked by data) |
@@ -53,6 +60,17 @@ nav       ← · n / 3 · →
 - Recording state drives the REC button and the "Recording (Ns, N frames)" line.
 - Restart is vetoed while recording (`MPSystem.setBlocker`).
 - Shared 250 ms tap guard + swipe + press feedback come from `MOBILE_COMMON_JS`.
+
+## 5b. Camera modes
+
+`GET /api/camera/config` fills the form and `POST /api/camera/config` saves it:
+`resolution` (WxH from `/api/camera/status` → `resList`, or `framesize` on boards
+without a mode list), `fps` (capped by `fpsMax`), `quality` 0…63,
+`brightness`/`contrast`/`saturation` −2…+2, `hmirror`, `vflip`, `lamp`
+(hidden when `lampAvail:false`), `auto_mode` (0 off · 1 photo · 2 video ·
+3 motion · 4 timelapse), `timelapse_secs`, `motion_enabled`,
+`motion_sensitivity` (+ `POST /api/camera/motion/reset`). The SAVE button is the
+screen's primary action.
 
 ## 6. Server API
 

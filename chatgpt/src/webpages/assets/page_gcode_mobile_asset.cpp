@@ -98,7 +98,8 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     width: 100%; text-align: left; color: #e6f1ff; border-left: 0; border-right: 0; border-top: 0;
   }
   #gm .row:last-child { border-bottom: 0; }
-  #gm .row.sel { background: #1d2b47; }
+  #gm .row.sel { background: #16233d; box-shadow: inset 3px 0 0 #3b82f6; }
+  #gm .row.sel .n { color: #fff; font-weight: 700; }
   #gm .row .n { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #gm .row .s { flex: 0 0 auto; font-size: 11px; color: #94a3b8; }
   #gm .note { padding: 14px 12px; font-size: 12px; color: #94a3b8; }
