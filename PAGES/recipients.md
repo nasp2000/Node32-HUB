@@ -104,7 +104,7 @@ not fetched.
 | 💾 per-row | `button[data-save='<i>']` → `saveSlot(i, btn)` | posts one slot → `POST /api/recipient-slot` |
 | 🗑️ per-row | `button[data-del='<i>']` → `removeRow(i)` | confirm → rebuild table without that slot (contiguous indices) + `preload()` |
 | ➕ Add Rule | `#add_rule` → `addRow()` | appends a new row up to `MAX=50`; alert at the cap |
-| 💾 Save All | `#save_all` → `attachSaveAll` | sequentially calls `saveSlot(i)` for rows `1..currentCount`, 120 ms apart |
+| 💾 Save All | `#save_all` → `saveAll()` | posts one row at a time (`postSlot(i)`, 120 ms apart); stops at the first failure and reports it once; silent on full success (RECIP-4) |
 | 💾 Save Sends | `#save_day_emails` (inline IIFE) | posts the 3 day-command email fields in parallel (`POST /api/{emailday,logday,sensorday}-extra-emails`), waits for all 3 |
 
 ---
@@ -121,9 +121,12 @@ not fetched.
 4. **`saveSlot(i, btn)`** — builds FormData `{i, name, op, emails, freq, active}` →
    `POST /api/recipient-slot` (urlencoded). `status==='ok'` → `customAlert('✅ …')` +
    `showSavedCard()`, else error / network alert. `disableBtn`+`showLoading` around request.
-5. **`attachSaveAll()`** — `#save_all` loops rows 1..`currentCount` calling `saveSlot`
-   sequentially every 120 ms (non-atomic — RECIP-4); also binds
-   `email_dont_copy_sender` change → `saveDontCopy()`.
+5. **`attachSaveAll()`** — binds `#save_all` → `saveAll()` (and the sender-copy toggle →
+   `saveDontCopy()`). **`saveAll()`** posts rows 1..`currentCount` one at a time via
+   `postSlot(i)` (no per-row alerts, 120 ms apart), disables the button for the run and
+   **stops at the first failure**: it re-enables the button and raises one
+   `customAlert('❌ recipSaveAllFail <n>/<total> — <reason>. recipSaveAllPartial')`
+   (network vs server rejection distinguished). A fully successful run is silent (RECIP-4).
 6. **`saveDontCopy()`** — `POST /api/config` `{section:recipients, email_dont_copy_sender:1|0}`;
    parses the response (`r.ok` + `success`) and only alerts on failure: it restores the
    checkbox to the previous value and raises `customAlert('❌ ' + recipDontCopySaveFail)`
@@ -219,7 +222,7 @@ Validation style: server is lenient (clamps/truncates, unknown op → `I`); erro
 `recipTipSaveAll`, `recipTipName`, `recipTipRuleOp`, `recipTipEmails`, `recipTipFreq`,
 `recipTipActive`, `recipTipSaveRow`, `opEqual/Diff/Gt/Lt/Gte/Lte/Range/OutRange/Variation/
 Count/Presence/Window/Hysteresis`, `freq3m…freq24h`, `opYes/opNo`, `recipSaved`,
-`recipError`, `recipNetError`, `recipDontCopySaveFail`, `recipErrNetwork`, `recipTipDayEmailday/Logday/Sensorday`, `recipTipDaySave`.
+`recipError`, `recipNetError`, `recipDontCopySaveFail`, `recipErrNetwork`, `recipSaveAllFail`, `recipSaveAllPartial`, `recipTipDayEmailday/Logday/Sensorday`, `recipTipDaySave`.
 
 Known inconsistency: the **Day Command Sends card uses hardcoded PT text** (`Emails adicionais…`,
 `Envie estes comandos pela página de comandos ou Telnet…`) — no `data-i18n` attributes
@@ -234,7 +237,7 @@ Known inconsistency: the **Day Command Sends card uses hardcoded PT text** (`Ema
 | 1 | **UI now supports up to 50 rows.** `MAX` raised to 50 (matches backend), a **➕ Add Rule** button appends rows, and each row has a **🗑️ remove** button that rebuilds the table with contiguous indices. Slots 11–50 are now editable/creatable. | High | **fixed** |
 | 2 | **Day Command Sends card text is hardcoded PT (no `data-i18n`)**, and the page sends `Content-Language: pt` — violates the EN-fallback rule. Text converted to English; `Content-Language: pt` removed. | Medium | **fixed** (text + header) |
 | 3 | `saveDontCopy()` was fire-and-forget (`.catch(function(){})`), so a failed save of the sender-copy option was silent. **Fixed (RECIP-3):** the response is parsed (`r.ok` + `success:false`), a failure reverts the checkbox to the stored state and shows `customAlert('❌ ' + recipDontCopySaveFail)` (network errors append `recipErrNetwork`); success stays silent. Tests: `test_recipients_dont_copy` (4 cases / 23 assertions) + `test_recipients.js` (success silent, rejected save visible + revert, network failure visible). | Medium | **fixed** |
-| 4 | **"Save All" is non-atomic** — N sequential 120 ms-apart POSTs; a mid-loop failure leaves a partially saved table with no error surfaced. | Low | open |
+| 4 | "Save All" was non-atomic: N sequential 120 ms-apart POSTs, each row raising its own alert, and a mid-loop failure left a partially saved table with the error buried. **Fixed (RECIP-4):** one `saveAll()` posts rows via `postSlot()` (no per-row UI), stops at the first failure and reports it once — `recipSaveAllFail <n>/<total> — <reason>. recipSaveAllPartial`, network vs server rejection distinguished; full success is silent and the button is disabled for the run. Tests: `test_recipients_save_all` (3 cases / 23 assertions) + `test_recipients.js` (success silent, mid-loop failure visible + stops at row 3, network failure visible). | Low | **fixed** |
 | 5 | **`freq` gap:** server default is `0` (= always) but the UI option list starts at `180` — a stored `freq:0` silently renders as the selected `600`, and any save converts it to `600`. | Medium | open |
 | 6 | **`/api/recipients` omits the `active` field** (only `/api/recipient-slots` includes it) — inconsistent consumer API. | Low | open |
 | 7 | `saveSlot` falls back to `freq:'0'` when the select is missing — `0` is not in the option list. | Low | open |

@@ -190,9 +190,9 @@
             preload();
         });
     }
-    function saveSlot(i,btn){
+    function slotForm(i){
         var tr=b.querySelector("tr[data-i='"+i+"']");
-        if(!tr) return;
+        if(!tr) return null;
         var fd=new FormData();
         fd.append('i',i);
         fd.append('name',(tr.querySelector("input[name='r_name_"+i+"']")||{}).value||'');
@@ -200,6 +200,24 @@
         fd.append('emails',(tr.querySelector("input[name='r_emails_"+i+"']")||{}).value||'');
         fd.append('freq',(tr.querySelector("select[name='r_freq_"+i+"']")||{}).value||'0');
         fd.append('active',(tr.querySelector("select[name='r_active_"+i+"']")||{}).value||'1');
+        return fd;
+    }
+    // One row POST without UI side effects: Save All needs the result of each
+    // request without raising one alert per row (RECIP-4).
+    function postSlot(i){
+        var fd=slotForm(i);
+        if(!fd) return Promise.resolve({ok:true,index:i,skipped:true,net:false});
+        return fetch('/api/recipient-slot',{method:'POST',body:new URLSearchParams(fd),headers:{'Content-Type':'application/x-www-form-urlencoded'}})
+          .then(function(r){return r.text().then(function(t){return {ok:r.ok,txt:t};});})
+          .then(function(o){
+              var j=null; try{j=JSON.parse(o.txt);}catch(e){}
+              return {ok:!!(o.ok&&j&&j.status==='ok'),index:i,skipped:false,net:false};
+          })
+          .catch(function(){ return {ok:false,index:i,skipped:false,net:true}; });
+    }
+    function saveSlot(i,btn){
+        var fd=slotForm(i);
+        if(!fd) return;
         if(btn){disableBtn(btn);showLoading();}
         fetch('/api/recipient-slot',{method:'POST',body:new URLSearchParams(fd),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).then(function(r){return r.text().then(function(t){return {ok:r.ok,txt:t};});}).then(function(o){
             var j=null; try{j=JSON.parse(o.txt);}catch(e){}
@@ -209,11 +227,36 @@
             customAlert('\u274C '+rt('recipNetError','Network error saving recipient'));
         }).finally(function(){if(btn){hideLoading();enableBtn(btn);}});
     }
+    // Save All: sequential (one request at a time, 120 ms apart) and it stops
+    // at the FIRST failure, because rows are saved one by one and a later row
+    // must not hide which one broke. The failure alert names the row and the
+    // partial state; a fully successful run is silent (the table already
+    // reflects it), like the sender-copy toggle (RECIP-3/RECIP-4).
+    function saveAll(){
+        if(!saveAllBtn||saveAllBusy) return;
+        var total=currentCount, i=1, failedAt=0, failNet=false;
+        saveAllBusy=true; disableBtn(saveAllBtn); showLoading();
+        function finish(){
+            saveAllBusy=false; hideLoading(); enableBtn(saveAllBtn);
+            if(!failedAt) return;
+            var reason=failNet?rt('recipErrNetwork','Network error'):rt('recipErrSave','Error');
+            customAlert('\u274C '+rt('recipSaveAllFail','Save All failed at rule')+' '+failedAt+'/'+total
+                        +' \u2014 '+reason+'. '+rt('recipSaveAllPartial','Rules saved before the failure stay stored; the rest were not saved.'));
+        }
+        function next(){
+            if(i>total){ finish(); return; }
+            var at=i;
+            postSlot(i).then(function(res){
+                if(!res.ok&&!res.skipped){ failedAt=at; failNet=!!res.net; finish(); return; }
+                i++;
+                setTimeout(next,120);
+            });
+        }
+        next();
+    }
+    var saveAllBusy=false;
     function attachSaveAll(){
-        if(saveAllBtn) saveAllBtn.addEventListener('click',function(){
-            var i=1;
-            (function seq(){ if(i>currentCount) return; var tr=b.querySelector("tr[data-i='"+i+"']"); var btn=tr?tr.querySelector('[data-save]'):null; if(btn){ saveSlot(i,btn); setTimeout(function(){ i++; seq(); },120);} else { i++; seq(); } })();
-        });
+        if(saveAllBtn) saveAllBtn.addEventListener('click',saveAll);
         var addBtn=document.getElementById('add_rule');
         if(addBtn) addBtn.addEventListener('click',function(){
             if(currentCount >= MAX){ customAlert(rt('recipMaxRules','Maximum of '+MAX+' rules reached')); return; }

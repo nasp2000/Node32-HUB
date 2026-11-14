@@ -691,6 +691,10 @@ test_email_event_fields$(BIN_EXT): test_email_event_fields.cpp $(SRC_DIR)/email_
 # --- ftp_status_store: persisted last-sends state (FTP page, survives reboot) ---
 test_ftp_status_store$(BIN_EXT): test_ftp_status_store.cpp $(SRC_DIR)/ftp_status_store.h $(STUBS_DIR)/Arduino.h $(STUBS_DIR)/ArduinoJson.h
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_ftp_status_store.cpp
+# --- recipients_save_all: aggregate Save All feedback (RECIP-4) ---
+test_recipients_save_all$(BIN_EXT): test_recipients_save_all.cpp $(SRC_DIR)/webpages/assets/page_recipients_asset.cpp
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_recipients_save_all.cpp
+
 # --- recipients_dont_copy: sender-copy save feedback (RECIP-3) ---
 test_recipients_dont_copy$(BIN_EXT): test_recipients_dont_copy.cpp $(SRC_DIR)/webpages/assets/page_recipients_asset.cpp
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_recipients_dont_copy.cpp
