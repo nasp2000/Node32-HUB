@@ -402,6 +402,14 @@ static void registerGrblControllerApiRoutes(AsyncWebServer& server, const WebRou
         file.close();
         AsyncWebServerResponse* response = request->beginResponse(SD_MMC, path, "text/plain; charset=utf-8");
         response->addHeader("Cache-Control", "no-store");
+        // The SD mutex is held for the whole transfer (the file is streamed
+        // straight from the card). onDisconnect fires when the response is done
+        // or the client goes away, exactly like /api/files/download does.
+        // Without this the recursive lock stayed owned by async_tcp forever
+        // (depth stuck at 1), so every other SD user (email, camera, files,
+        // streamer) waited its full timeout and then failed with sd_busy until
+        // the 120 s watchdog rebuilt the mutex.
+        request->onDisconnect([]() { releaseSDAccess(); });
         request->send(response);
 #else
         request->send(503, "text/plain; charset=utf-8", "sd_disabled");

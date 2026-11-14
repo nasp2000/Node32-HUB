@@ -137,7 +137,7 @@ in `handlers_unified/grbl_handler.cpp`; engine in `grbl_web_api.cpp` / `grbl_sen
 | `/api/grbl/frame-bbox` | GET | frame bounding box |
 | `/api/grbl/psram-file` | GET | read PSRAM g-code file |
 | `/api/grbl/psram-read-text` | GET | read PSRAM file as text |
-| `/api/grbl/read-gcode-text` | GET | stream SD file text (≤50 MB, path-safe) |
+| `/api/grbl/read-gcode-text` | GET | stream SD file text (≤50 MB, path-safe); holds the SD mutex and releases it in `onDisconnect` |
 | `/api/grbl/usb-restart` | POST | restart USB/serial (404 when `ENABLE_USB_HOST==0`) |
 | `/api/grbl/transport` | POST | set transport (`mode=usb` launches async begin → `"starting":true` until `usb_running`; `mode=uart` stops host; 409 `switch_rejected` while a job runs; non-S3 packs: 404) |
 | `/api/grbl/usb-line-coding` | POST | set USB line coding (404 when `ENABLE_USB_HOST==0`) |
