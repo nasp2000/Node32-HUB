@@ -91,13 +91,17 @@ test('the policy lives in one header (no second UA table in the route)', functio
   ok(h.indexOf('strstr(') < 0, 'route does not re-implement UA parsing');
 });
 
-test('the wizard fixture is the three-screen mobile page', function () {
+test('the wizard fixture is the five-screen mobile page', function () {
   const html = fs.readFileSync(WIZARD, 'utf8');
   const dom = new JSDOM(html, { url: 'http://localhost/m', runScripts: 'dangerously', pretendToBeVisual: true });
   const doc = dom.window.document;
-  is(doc.querySelectorAll('#gm .screen').length, 3, 'three screens');
+  is(doc.querySelectorAll('#gm .screen').length, 5, 'five screens');
   ok(doc.getElementById('gmPrimary') !== null, 'primary action');
-  ok(doc.querySelectorAll('#gm .steps i').length === 3, 'three step dots');
+  ok(doc.querySelectorAll('#gm .steps i').length === 5, 'five step dots');
+  ok(doc.getElementById('gmSdList') !== null, 'SD list on step 1');
+  ok(doc.getElementById('gmCanvas') !== null, 'preview canvas');
+  ok(doc.getElementById('gmPause') !== null && doc.getElementById('gmStop') !== null, 'play machine buttons');
+  ok(doc.querySelectorAll('#gmJogPad button').length === 6, 'jog pad');
   dom.window.close();
 });
 
