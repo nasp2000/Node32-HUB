@@ -691,6 +691,10 @@ test_email_event_fields$(BIN_EXT): test_email_event_fields.cpp $(SRC_DIR)/email_
 # --- ftp_status_store: persisted last-sends state (FTP page, survives reboot) ---
 test_ftp_status_store$(BIN_EXT): test_ftp_status_store.cpp $(SRC_DIR)/ftp_status_store.h $(STUBS_DIR)/Arduino.h $(STUBS_DIR)/ArduinoJson.h
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_ftp_status_store.cpp
+# --- lang_gzip_tx: /api/lang gzip truncation accounting (SD-11) ---
+test_lang_gzip_tx$(BIN_EXT): test_lang_gzip_tx.cpp $(SRC_DIR)/lang_gzip_tx.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_lang_gzip_tx.cpp
+
 # --- config_int_field: strict numeric POST validation (ACC-2) ---
 test_config_int_field$(BIN_EXT): test_config_int_field.cpp $(SRC_DIR)/config_int_field.h
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_config_int_field.cpp

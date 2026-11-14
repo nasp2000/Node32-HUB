@@ -2,6 +2,7 @@
 #include "../../feature_flags.h"
 #include "../../memory_pressure_guard.h"
 #include "../../observability.h"
+#include "../../lang_gzip_tx.h" // /api/lang gzip truncation counter (SD-11)
 #include <Arduino.h>
 #include <esp_system.h>
 #include <esp_chip_info.h>
@@ -12,6 +13,8 @@
 #endif
 
 extern unsigned long bootTime;
+// Defined in web_routes_core.cpp (owner of /api/lang): gzip truncation tally.
+extern LangGzipTxStats gLangGzipTx;
 extern uint64_t nvsGetWriteCount();
 extern uint64_t nvsGetBytesWritten();
 extern unsigned long wifiReconnectCount;
@@ -66,7 +69,7 @@ void handleHealthGet(HttpRequest& req, HttpResponse& res) {
         }
     }
 
-    char buf[2048];
+    char buf[2560];
     int pos = 0;
     pos += snprintf(buf + pos, sizeof(buf) - pos,
         "{\"status\":\"ok\",\"uptime_s\":%lu,\"uptime_str\":\"%lud %luh %lum %lus\""
@@ -77,6 +80,8 @@ void handleHealthGet(HttpRequest& req, HttpResponse& res) {
         ",\"pressure\":\"%s\""
         ",\"nvs_writes\":%llu,\"nvs_bytes\":%llu"
         ",\"wifi_reconnects\":%lu"
+        ",\"lang_gzip\":{\"served\":%lu,\"incomplete\":%lu,"
+        "\"last_declared\":%lu,\"last_sent\":%lu}"
         ",\"idle_hwm\":[%lu,%lu]"
         ",\"modules\":[",
         (unsigned long)uptimeSec,
@@ -89,6 +94,8 @@ void handleHealthGet(HttpRequest& req, HttpResponse& res) {
         memoryPressureLevelName(memoryPressureCurrentLevel()),
         (unsigned long long)nvsGetWriteCount(), (unsigned long long)nvsGetBytesWritten(),
         (unsigned long)wifiReconnectCount,
+        (unsigned long)gLangGzipTx.served, (unsigned long)gLangGzipTx.incomplete,
+        (unsigned long)gLangGzipTx.lastDeclared, (unsigned long)gLangGzipTx.lastSent,
         (unsigned long)idleHwm[0], (unsigned long)idleHwm[1]);
 
     unsigned long nowMs = millis();

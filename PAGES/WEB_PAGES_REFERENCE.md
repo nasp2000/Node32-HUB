@@ -87,7 +87,7 @@ Every page is bilingual (PT/EN). The default is **English**.
 | Pack EN | `chatgpt/src/languages/lang_en_ui.h` | 2765 keys, `R"JSON(...)JSON"` PROGMEM |
 | Pack PT | `chatgpt/src/languages/lang_pt_ui.h` | 2765 keys, byte-for-byte key parity |
 | Selection | `system_language` config (`"en"` default) | `ConfigManager`, applied by `setupLanguage()` |
-| Delivery | `GET /api/lang` (ETag) → `window._t(key, fallback)` | `web_routes_core.cpp`, `auto_js.h` |
+| Delivery | `GET /api/lang` (ETag) → `window._t(key, fallback)` | `web_routes_core.cpp`, `auto_js.h`; the gzip path counts declared vs sent at client close (WARN + `/api/health` `lang_gzip`, SD-11) |
 | Markup | `data-i18n` · `data-i18n-title` · `data-i18n-html` | inner text = **English** fallback |
 | OLED screen | `LangStrings` struct + `L(activeLang->…)` | `lang_types.h`, `lang_active.cpp`, `screen.cpp` |
 | TouchMeteo-7 OLED | same pack (`touch7*` fields) | `touch7_display.cpp`, `touch7_weather.cpp` |

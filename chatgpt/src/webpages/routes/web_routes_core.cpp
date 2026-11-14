@@ -2,6 +2,7 @@
 
 #include <WiFi.h>
 #include "../../feature_flags.h"
+#include <new>                    // std::nothrow
 #include "../assets/config_manager_js_asset.h"
 #include "../assets/fragments_system_asset.h"
 #include "../assets/page_charts_vendor.h"
@@ -25,14 +26,66 @@
 #include "../../languages/lang_active.h"
 #include "../../runtime_environment.h"
 #include "../assets/generated_gzip_assets.h"
+#include "../../lang_gzip_tx.h" // /api/lang gzip truncation accounting (SD-11)
+#include "../../log.h"           // LogLevel (WARN) for the truncation report
+// Same declaration as commands.h/config headers; not included whole here to
+// keep this route TU light.
+extern void sendVirtualMessage(const String &msg, int msgType, bool alreadyFormatted, bool bypassDedup);
 
 extern const char* FIRMWARE_VERSION;
 extern const char* FIRMWARE_BUILD;
+
+// /api/lang gzip transfer accounting (SD-11). Non-static so /api/health can
+// report the counter; definition lives in this TU (owner of the route).
+LangGzipTxStats gLangGzipTx = {};
 
 namespace {
 // Pre-compressed payloads come from generated_gzip_assets.h (built by
 // scripts/gen_gzip_assets.py). The ROM tdefl is a stub on ESP32-S3, so gzip is
 // done at build time and served straight from flash — no runtime CPU, no RAM.
+
+// AsyncProgmemResponse with its protected byte counters exposed, so the
+// close handler can compare the declared Content-Length with the bytes the
+// response actually handed to TCP (BACKLOG SD-11). No behaviour changes: the
+// payload still streams straight from PROGMEM, only a few fields are added.
+class LangGzipResponse : public AsyncProgmemResponse {
+public:
+    LangGzipResponse(int code, const char* contentType, const uint8_t* content, size_t len)
+        : AsyncProgmemResponse(code, contentType, content, len) {}
+    size_t sentLength() const { return _sentLength; }
+    size_t declaredLength() const { return _contentLength; }
+    bool complete() const { return _state == RESPONSE_END; }
+    // Heap snapshot taken when the response started (for the truncation log).
+    uint32_t declared = 0;
+    uint32_t heapFree = 0;
+    uint32_t heapMinFree = 0;
+    uint32_t heapMaxAlloc = 0;
+};
+
+// Records one /api/lang gzip transfer when the client goes away: the library
+// sets RESPONSE_END only after the whole body was handed to TCP, so
+// !complete || sent < declared is a transfer that stopped short. Under heap
+// pressure the send buffer allocation can fail mid-stream, which is exactly
+// the ERR_CONTENT_LENGTH_MISMATCH class this counter exists for.
+inline void armLangGzipTxProbe(AsyncWebServerRequest* request, LangGzipResponse* resp) {
+    if (!request || !resp) return;
+    resp->declared = (uint32_t)resp->declaredLength();
+    resp->heapFree = (uint32_t)ESP.getFreeHeap();
+    resp->heapMinFree = (uint32_t)ESP.getMinFreeHeap();
+    resp->heapMaxAlloc = (uint32_t)ESP.getMaxAllocHeap();
+    // Captures one pointer only, so std::function stays inside its small-object
+    // buffer and does not add an allocation under the very pressure we watch.
+    request->onDisconnect([resp]() {
+        if (!langGzipTxRecord(&gLangGzipTx, resp->declared, (uint32_t)resp->sentLength(),
+                              resp->complete(), resp->heapFree, resp->heapMinFree,
+                              resp->heapMaxAlloc)) {
+            return;
+        }
+        char line[192];
+        langGzipTxFormat(line, sizeof(line), &gLangGzipTx);
+        sendVirtualMessage(String(line), WARN, true, true);
+    });
+}
 
 inline bool clientAcceptsGzip(AsyncWebServerRequest* request) {
     static const char* kHdr = "Accept-Encoding";
@@ -431,16 +484,23 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
             const uint8_t* gzData = pt ? GZ_LANG_UI_PT : GZ_LANG_UI_EN;
             const size_t   gzLen  = pt ? GZ_LANG_UI_PT_LEN : GZ_LANG_UI_EN_LEN;
             if (clientAcceptsGzip(request)) {
-                AsyncWebServerResponse* gz = request->beginResponse_P(
+                // Same PROGMEM stream as beginResponse_P, but the response keeps
+                // its byte counters readable so the close probe can report a
+                // truncated send (SD-11). Falls through to the identity copy
+                // below when even the response object cannot be allocated.
+                LangGzipResponse* gz = new (std::nothrow) LangGzipResponse(
                     200, "application/json; charset=utf-8", gzData, gzLen);
-                gz->addHeader("Content-Encoding", "gzip");
-                gz->addHeader("Vary", "Accept-Encoding");
-                gz->addHeader("Cache-Control", "private, max-age=300, must-revalidate");
-                gz->addHeader("ETag", langEtag + "|gz");
-                gz->addHeader("Content-Language", activeLangCode);
-                gz->addHeader("X-UI-Lang", activeLangCode);
-                request->send(gz);
-                return;
+                if (gz) {
+                    gz->addHeader("Content-Encoding", "gzip");
+                    gz->addHeader("Vary", "Accept-Encoding");
+                    gz->addHeader("Cache-Control", "private, max-age=300, must-revalidate");
+                    gz->addHeader("ETag", langEtag + "|gz");
+                    gz->addHeader("Content-Language", activeLangCode);
+                    gz->addHeader("X-UI-Lang", activeLangCode);
+                    armLangGzipTxProbe(request, gz);
+                    request->send(gz);
+                    return;
+                }
             }
         }
         AsyncWebServerResponse* response = request->beginChunkedResponse(
