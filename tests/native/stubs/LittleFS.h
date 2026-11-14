@@ -46,6 +46,15 @@ public:
         if (!_readBuf || _pos >= _readBuf->size()) return -1;
         return (unsigned char)((*_readBuf)[_pos]);
     }
+    // Arduino parity: bulk read (used by the .chart byte-layout test).
+    size_t read(uint8_t* buf, size_t n) {
+        if (!_readBuf || !buf || n == 0 || _pos >= _readBuf->size()) return 0;
+        size_t avail = _readBuf->size() - _pos;
+        size_t k = (n < avail) ? n : avail;
+        for (size_t i = 0; i < k; i++) buf[i] = (uint8_t)(*_readBuf)[_pos + i];
+        _pos += k;
+        return k;
+    }
 
     size_t size() const { return _readBuf ? _readBuf->size() : 0; }
     size_t position() const { return _pos; }

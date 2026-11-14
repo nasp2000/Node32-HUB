@@ -592,8 +592,9 @@ static void appendRs232LivePoints(const String &processedData) {
     static unsigned long lastFlashChartMs = 0;
     const bool chartUseFlash = !chartPath.isEmpty() && !sdcardShouldUseSD();
     bool wantChart = !chartPath.isEmpty();
-    if (chartUseFlash && lastFlashChartMs != 0 &&
-        (millis() - lastFlashChartMs) < flashFbWindowMs()) {
+    // SD writes with the chunk; the LittleFS mirror follows the configured
+    // interval (chart_mirror_guard.h, native-tested).
+    if (!chartMirrorDue(chartUseFlash, millis(), lastFlashChartMs, flashFbWindowMs())) {
         wantChart = false;
     }
 
@@ -2270,6 +2271,7 @@ static void sdAutoCleanupIfNeeded() {
 #endif
 
 #include "flash_fallback_cleanup.h"
+#include "chart_mirror_guard.h"   // RS232 .chart mirror cadence (SD-8)
 
 // Smart flush logic - flush after configured interval + first reception pause
 // Rule: After flush_interval elapsed since last flush, wait for first reception pause to flush

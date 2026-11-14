@@ -1,7 +1,8 @@
 #include "chart_history.h"
+#include "chart_record_write.h"   // .chart record byte layout (native-tested)
 
 #include "feature_flags.h"
-#if ENABLE_SDCARD==1
+// No SD needed: without a card the writers use the LittleFS mirror (SD-8).
 
 #include "sdcard.h"
 #include "littlefs_manager.h" // no-SD LittleFS mirror reads (begin/mounted)
@@ -334,11 +335,8 @@ bool chartHistoryOpenRs232Writer(ChartRs232Writer &writer, const String &path,
 
 bool chartHistoryAppendRs232Record(ChartRs232Writer &writer, const Rs232ChartRecord &record) {
     if (!writer.valid || !writer.file || writer.columnCount == 0) return false;
-    if (writer.file.write((const uint8_t*)&record.timestamp, sizeof(record.timestamp)) != sizeof(record.timestamp)) return false;
-    if (writer.file.write((const uint8_t*)&record.valueCount, sizeof(record.valueCount)) != sizeof(record.valueCount)) return false;
-    if (writer.file.write((const uint8_t*)record.reserved, sizeof(record.reserved)) != sizeof(record.reserved)) return false;
-    size_t valuesBytes = (size_t)writer.columnCount * sizeof(float);
-    return writer.file.write((const uint8_t*)record.values, valuesBytes) == valuesBytes;
+    // Byte layout lives in chart_record_write.h (native-tested).
+    return chartWriteRecord(writer.file, record, writer.columnCount);
 }
 
 void chartHistoryCloseRs232Writer(ChartRs232Writer &writer) {
@@ -1168,4 +1166,3 @@ bool chartHistoryServePointsJson(Print &out, const ChartServePoint* pts, uint32_
     return true;
 }
 
-#endif

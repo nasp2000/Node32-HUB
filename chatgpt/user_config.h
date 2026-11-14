@@ -462,16 +462,10 @@
   #endif
 #endif
 
-// RS232 charts persist to SD; the identical-path LittleFS mirror is still open
-// (backlog §6.1). Serving already has a PSRAM equivalent (rs232LiveBuffer,
-// PSRAM-first when it covers the range) — only the persisted flash history
-// is missing, not the live path.
-#if ENABLE_SDCARD==0
-  #if defined(ENABLE_RS232_CHARTS) && ENABLE_RS232_CHARTS==1
-    #undef  ENABLE_RS232_CHARTS
-    #define ENABLE_RS232_CHARTS 0
-  #endif
-#endif
+// RS232 charts use the standard dual-sink rule (§6.1 rule 1): SD when the card
+// is in use, else the identical path on LittleFS (throttled to the configured
+// flush interval — chart_mirror_guard.h). Serving the flash mirror from the
+// chart page is SD-9; the write side does not depend on SD any more (SD-8).
 
 // Proximity charts are independent of RS232 — they record per-channel counts to SD.
 // Always re-evaluate after packs (which may change ENABLE_PROXIMITY or ENABLE_SDCARD).

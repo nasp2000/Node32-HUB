@@ -3,7 +3,8 @@
 
 #include "feature_flags.h"
 
-#if ENABLE_SDCARD==1
+// Compiled on every build: without an SD card the same writers target the
+// LittleFS mirror at the identical path (SD-8, ARCHITECTURE §6.1 rule 1).
 
 #include <Arduino.h>
 #include <Print.h>
@@ -252,4 +253,3 @@ bool chartHistoryServePointsJson(Print &out, const ChartServePoint* pts, uint32_
 
 #endif
 
-#endif
