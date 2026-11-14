@@ -8,6 +8,7 @@
 #include "sd_layout.h"   // standard SD layout: flat day-files, dated subdirs, aggregates
 #include "flash_fallback_store.h" // no-SD LittleFS writers + email collect (stub when disabled)
 #include "chart_ring_serve.h" // PSRAM-first serve math shared by all .chart endpoints
+#include "chart_mirror_guard.h" // RS232 .chart mirror cadence (SD-8)
 // QUEUE PROCESSOR TASK - Runs independently every 5s
 // GARANTEE: Emails in queue are ALWAYS processed, even without RS232/LPT data
 // ============================================================================
@@ -2271,7 +2272,6 @@ static void sdAutoCleanupIfNeeded() {
 #endif
 
 #include "flash_fallback_cleanup.h"
-#include "chart_mirror_guard.h"   // RS232 .chart mirror cadence (SD-8)
 
 // Smart flush logic - flush after configured interval + first reception pause
 // Rule: After flush_interval elapsed since last flush, wait for first reception pause to flush
