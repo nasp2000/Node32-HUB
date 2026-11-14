@@ -447,6 +447,7 @@ static const LegacyRoute s_legacyRoutes[] = {
     {"POST", "/api/bricon-config"},
     {"POST", "/api/bricon-poll"},
     {"POST", "/api/bricon-reset"},
+    {"POST", "/api/bricon-email-pombal"},
     {"POST", "/api/bricon-sync-calendar"},
     {"POST", "/api/bricon-sync-pombal"},
     {"POST", "/api/buzzer-config"},

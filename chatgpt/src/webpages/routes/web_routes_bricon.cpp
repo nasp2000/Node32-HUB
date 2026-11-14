@@ -17,6 +17,8 @@ void registerBriconRoutes(AsyncWebServer& server, const WebRouteContext& context
     registerApiRoute("POST", "/api/bricon-poll",          handleBriconPollPost);
     registerApiRoute("POST", "/api/bricon-sync-pombal",   handleBriconSyncPombalPost);
     registerApiRoute("POST", "/api/bricon-sync-calendar", handleBriconSyncCalendarPost);
+    registerApiRoute("POST", "/api/bricon-reset",         handleBriconResetPost);
+    registerApiRoute("POST", "/api/bricon-email-pombal",  handleBriconEmailPombalPost);
 
     // HTML page.
     // One page only: the unified Rambox page owns this device's UI.

@@ -45,7 +45,8 @@ nav         ← · n / 4 · →
 - **RS232** — `POST /api/config?section=rs232` with `rs232_enabled`, `baudrate`,
   `parity`, `data_bits`, `stop_bits` (only in MANUAL).
 - **Resend email** — `POST /api/<clock>-email-pombal`; the device already emails
-  automatically, this only asks for it again (Unikon only today).
+  the arrivals automatically, this asks for the **season-loft report** again
+  (Bricon and Unikon both expose it now, same layout via `rambox_email.h`).
 - **Pombal / Races** — `/api/<clock>-pombal` (`registrations[]`) and
   `/api/<clock>-contests` (`contests[]`); both fall back to Unikon when Bricon is
   not compiled in.
@@ -65,7 +66,6 @@ nav         ← · n / 4 · →
 | # | Finding | Status |
 |---|---|---|
 | 1 | No command/MDI screen on the phone (removed by request) — RS232 commands stay on the desktop page | by design |
-| 5 | Bricon has no email-resend endpoint: the button reports it instead of pretending | by design |
 | 2 | Switching clock disables the other one (shared RS232) and asks for confirmation | by design |
 | 3 | Only status/interval/RS232 basics are exposed; baud tables, templates and battery stay on the desktop page | by design |
 | 4 | Unikon fallback keeps a Unikon-only build usable without a second page | implemented |

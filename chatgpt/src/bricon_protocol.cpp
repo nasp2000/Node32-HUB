@@ -578,6 +578,72 @@ static void briconEmailTick() {
 #endif
 }
 
+// Manual "season loft" email — same report the Unikon side can resend, built
+// with the Bricon data (registrations + newest contest) and the shared layout.
+bool briconQueuePombalSeasonEmail(String& messageOut) {
+    messageOut = "";
+#if ENABLE_SMTP == 1 || ENABLE_GOOGLE_EMAIL == 1
+    if (!s_cfg.enabled) {
+        messageOut = String(rmbT("Modulo Bricon esta desativado.", "Bricon module is disabled."));
+        return false;
+    }
+    if (!briconStorageReady()) {
+        messageOut = String(rmbT("Armazenamento do Bricon indisponivel.", "Bricon storage unavailable."));
+        return false;
+    }
+    if (s_registrationCount == 0) {
+        messageOut = String(rmbT("Sem pombos no pombal para enviar.", "No pigeons in the loft to send."));
+        return false;
+    }
+
+    const BriconContest* rc = (s_contestCount > 0) ? &s_contests[s_contestCount - 1] : nullptr;
+    String subject = String(F("Rambox32 - Bricon - "))
+                   + String(rmbT("Pombal da Epoca (", "Season loft ("))
+                   + String((unsigned)s_registrationCount)
+                   + String(F(")"));
+
+    String body;
+    body.reserve(640 + (size_t)s_registrationCount * 48u);
+    String clubStr = String(s_cfg.clubId);
+    if (s_cfg.flightId[0]) clubStr += String(F(" / voo ")) + String(s_cfg.flightId);
+    ramboxEmailHeader(body, "Bricon", clubStr.c_str(), s_cfg.clubId,
+                      s_status.fancierName, rc ? rc->name : "", rc ? rc->date : "", "");
+    body += String(rmbT("Relatorio manual do pombal da epoca\n\n",
+                        "Manual season-loft report\n\n"));
+    appendBriconRegistrationsSection(body);
+    body += buildEmailSignature();
+
+#if ENABLE_SMTP == 1
+    if (startUnikonEmailAsync(subject, body)) {
+        messageOut = String(rmbT("Email do pombal em fila.", "Loft email queued."));
+        sendVirtualMessage(F("[BRICON] Manual pombal email queued"), WARN, false, true);
+        return true;
+    }
+    messageOut = String(rmbT("Transporte de email ocupado; tente de novo.",
+                             "Email transport busy; try again."));
+    return false;
+#else
+    {
+        String dest = configManager.getEmailDestination();
+        if (dest.length() > 0 && googleEmailIsAvailable()) {
+            extern bool emailArchiveSaveBody(const String&, const String&);
+            emailArchiveSaveBody(F("BRICON"), body);
+            googleEmailSendSimple(dest, subject, body);
+            messageOut = String(rmbT("Email do pombal em fila.", "Loft email queued."));
+            return true;
+        }
+        messageOut = String(rmbT("Destino de email nao configurado.",
+                                 "No email destination configured."));
+        return false;
+    }
+#endif
+#else
+    messageOut = String(rmbT("SMTP nao compilado neste build.",
+                             "SMTP is not compiled in this build."));
+    return false;
+#endif
+}
+
 // ----- Poll/calendar/pombal requests (structure ready, wire driver TBD) -----
 void briconRequestPoll() { s_pollPending = true; }
 void briconRequestWOnlyPoll() { s_wPollPending = true; }

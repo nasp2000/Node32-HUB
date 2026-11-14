@@ -137,6 +137,7 @@ uint16_t briconGetRegistrations(BriconArrival* buf, uint16_t maxCount);
 uint16_t briconGetContests(BriconContest* buf, uint16_t maxCount);
 uint16_t briconGetArrivalCount();
 uint16_t briconGetRegistrationCount();
+bool briconQueuePombalSeasonEmail(String& messageOut);
 
 // ----- Ingestion funnel (single entry point for poll parser AND spontaneous frames) -----
 // Returns true when the record was stored/updated. Never blocks.

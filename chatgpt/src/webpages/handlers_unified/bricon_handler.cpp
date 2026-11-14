@@ -160,6 +160,15 @@ void handleBriconContestsGet(HttpRequest& req, HttpResponse& res) {
     res.sendJson(json);
 }
 
+void handleBriconEmailPombalPost(HttpRequest& req, HttpResponse& res) {
+    (void)req;
+    String msg;
+    bool ok = briconQueuePombalSeasonEmail(msg);
+    String json = String(F("{\"success\":")) + (ok ? "true" : "false") +
+                  String(F(",\"message\":\"")) + msg + String(F("\"}"));
+    res.sendJson(json);
+}
+
 void handleBriconPombalGet(HttpRequest& req, HttpResponse& res) {
     handleBriconRegistrationsGet(req, res);
 }
@@ -292,6 +301,7 @@ void handleBriconArrivalsGet(HttpRequest& req, HttpResponse& res) { (void)req; s
 void handleBriconRegistrationsGet(HttpRequest& req, HttpResponse& res) { (void)req; stubNotFound(res); }
 void handleBriconContestsGet(HttpRequest& req, HttpResponse& res) { (void)req; stubNotFound(res); }
 void handleBriconPombalGet(HttpRequest& req, HttpResponse& res) { (void)req; stubNotFound(res); }
+void handleBriconEmailPombalPost(HttpRequest& req, HttpResponse& res) { (void)req; (void)res; }
 void handleBriconConfigPost(HttpRequest& req, HttpResponse& res) { (void)req; stubNotFound(res); }
 void handleBriconPollPost(HttpRequest& req, HttpResponse& res) { (void)req; stubNotFound(res); }
 void handleBriconSyncPombalPost(HttpRequest& req, HttpResponse& res) { (void)req; stubNotFound(res); }
