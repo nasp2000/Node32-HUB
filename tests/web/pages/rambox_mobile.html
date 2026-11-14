@@ -219,6 +219,7 @@
     <div class="rowhdr">
       <span class="dir" id="rbArrTitle" data-i18n="rbArrivals">Arrivals</span>
       <button type="button" class="mini" id="rbReload" data-i18n-title="rbReload" title="Reload">&#8635;</button>
+      <button type="button" class="mini" id="rbEmail" data-i18n-title="rbEmailResend" title="Resend the email">&#9993;</button>
       <button type="button" class="mini" id="rbReset" data-i18n-title="rbReset" title="Clear">&#10005;</button>
     </div>
     <div class="list" id="rbList"></div>
@@ -238,6 +239,13 @@
       </div>
     </div>
     <label class="opt"><span data-i18n="rbInterval">Every</span><select id="rbInterval"></select></label>
+    <div class="opt"><span data-i18n="rbSerial">Serial</span>
+      <div class="chips" style="flex:1 1 auto">
+        <button type="button" class="chip" id="rbSerialClock" data-i18n="rbSerialClock">CLOCK</button>
+        <button type="button" class="chip" id="rbSerialManual" data-i18n="rbSerialManual">MANUAL</button>
+      </div>
+    </div>
+    <div class="note" id="rbSerialHint">--</div>
     <label class="opt"><span>RS232</span>
       <div class="chips" style="flex:1 1 auto">
         <button type="button" class="chip" id="rbRsOn" data-i18n="rbOn">ON</button>
@@ -370,6 +378,9 @@
     pollOn: document.getElementById('rbPollOn'),
     pollOff: document.getElementById('rbPollOff'),
     interval: document.getElementById('rbInterval'),
+    serialClock: document.getElementById('rbSerialClock'),
+    serialManual: document.getElementById('rbSerialManual'),
+    serialHint: document.getElementById('rbSerialHint'),
     rsOn: document.getElementById('rbRsOn'),
     rsOff: document.getElementById('rbRsOff'),
     baud: document.getElementById('rbBaud'),
@@ -382,6 +393,7 @@
     tabPombal: document.getElementById('rbTabPombal'),
     tabRaces: document.getElementById('rbTabRaces'),
     reload: document.getElementById('rbReload'),
+    email: document.getElementById('rbEmail'),
     reset: document.getElementById('rbReset'),
     msg: document.getElementById('gmMsg'),
     bar: document.getElementById('gmBar'),
@@ -397,7 +409,8 @@
   // Bricon first and falls back to Unikon (same JSON shape) when it 404s.
   var st = { step: 1, busy: false, arrivals: [], status: null, rs: null, timer: 0,
              clock: 'bricon', clocks: { bricon: false, unikon: false },
-             tab: 'arr', pombal: [], races: [], intervalSec: 15, rsEnabled: true };
+             tab: 'arr', pombal: [], races: [], intervalSec: 15, rsEnabled: true,
+             manualSerial: false };
 
   function t(k, fb) { return window.MU ? MU.t(k, fb) : (fb !== undefined ? fb : k); }
   function tf(k, fb, v) { return window.MU ? MU.tf(k, fb, v) : (fb !== undefined ? fb : k); }
@@ -598,6 +611,27 @@
     return true;
   }
 
+  // The clock already emails the arrivals/report on its own; this asks for a
+  // resend (only the Unikon side exposes it today).
+  function resendEmail() {
+    if (st.busy || !window.MU) return false;
+    st.busy = true; render();
+    msg(t('rbEmailSending', 'Asking for the email\u2026'), '');
+    return MU.post('/api/' + st.clock + '-email-pombal', {}).then(function (res) {
+      st.busy = false;
+      var ok = !!(res.body && res.body.success === true);
+      msg(ok ? t('rbEmailQueued', 'Email queued to be resent.')
+             : t('rbEmailUnavailable', 'The active clock has no email resend.'),
+          ok ? 'ok' : 'err');
+      render();
+      return ok;
+    }).catch(function () {
+      st.busy = false; render();
+      msg(t('rbEmailUnavailable', 'The active clock has no email resend.'), 'err');
+      return false;
+    });
+  }
+
   function action(kind) {
     if (st.busy) return false;
     var url = kind === 'poll' ? ('/api/' + st.clock + '-poll')
@@ -642,6 +676,38 @@
     if (offBtn) offBtn.className = 'chip' + (on ? '' : ' on');
   }
 
+  // Each clock has its own serial profile (Bricon 9600 8N2, Unikon 9600 8N1) and
+  // applies it when enabled; `manual_serial` makes it use the RS232 page values.
+  function clockProfile(clock) {
+    return (clock === 'unikon') ? { baud: 9600, data: 8, parity: 'none', stop: 1 }
+                                : { baud: 9600, data: 8, parity: 'none', stop: 2 };
+  }
+
+  function paintSerial() {
+    var manual = !!st.manualSerial;
+    if (el.serialClock) el.serialClock.className = 'chip' + (manual ? '' : ' on');
+    if (el.serialManual) el.serialManual.className = 'chip' + (manual ? ' on' : '');
+    if (el.serialHint) {
+      var prof = clockProfile(st.clock);
+      el.serialHint.textContent = manual
+        ? t('rbSerialManualHint', 'Uses the RS232 settings below.')
+        : tf('rbSerialClockHint', '{name} profile: {baud} 8{bp}', {
+            name: st.clock.toUpperCase(), baud: String(prof.baud), bp: (prof.parity === 'none' ? 'N' : prof.parity.charAt(0).toUpperCase()) + String(prof.stop)
+          });
+    }
+    var locked = !manual;
+    [el.baud, el.parity, el.data, el.stop].forEach(function (node) {
+      if (node) node.disabled = locked;
+    });
+    if (locked) {
+      var pr = clockProfile(st.clock);
+      if (el.baud) el.baud.value = String(pr.baud);
+      if (el.parity) el.parity.value = pr.parity;
+      if (el.data) el.data.value = String(pr.data);
+      if (el.stop) el.stop.value = String(pr.stop);
+    }
+  }
+
   function loadConfig() {
     if (!window.MU) return;
     return Promise.all([
@@ -656,6 +722,7 @@
       var act = (st.clock === 'unikon') ? un : br;
       st.intervalSec = Number(act.intervalSec) || 15;
       st.rsEnabled = (rs.enabled !== false);
+      st.manualSerial = (act.manualSerial === true);
 
       if (el.clocks) {
         var chips = el.clocks.querySelectorAll('button[data-clock]');
@@ -671,6 +738,7 @@
       if (el.parity) el.parity.value = String(rs.parity || 'none');
       if (el.data) el.data.value = String(rs.data_bits || 8);
       if (el.stop) el.stop.value = String(rs.stop_bits || 1);
+      paintSerial();
       render();
     }).catch(function () {});
   }
@@ -685,17 +753,22 @@
     var rsOn = el.rsOn ? el.rsOn.className.indexOf('on') >= 0 : true;
     st.busy = true; render();
     msg(t('rbSaving', 'Saving\u2026'), '');
+    var manual = !!st.manualSerial;
     var jobs = [
-      MU.post('/api/' + clock + '-config', { enabled: clockOn ? 1 : 0, interval: interval }),
-      MU.post('/api/' + other + '-config', { enabled: 0 }),
-      MU.post('/api/config?section=rs232', {
+      MU.post('/api/' + clock + '-config', {
+        enabled: clockOn ? 1 : 0, interval: interval, manual: manual ? 1 : 0
+      }),
+      MU.post('/api/' + other + '-config', { enabled: 0 })
+    ];
+    if (manual) {
+      jobs.push(MU.post('/api/config?section=rs232', {
         rs232_enabled: rsOn ? 1 : 0,
         baudrate: el.baud ? el.baud.value : 9600,
         parity: el.parity ? el.parity.value : 'none',
         data_bits: el.data ? el.data.value : 8,
         stop_bits: el.stop ? el.stop.value : 1
-      })
-    ];
+      }));
+    }
     return Promise.all(jobs).then(function () {
       st.busy = false;
       msg(t('rbSaved', 'Settings saved.'), 'ok');
@@ -759,6 +832,13 @@
     });
     if (el.sync) el.sync.addEventListener('click', function () { action('sync'); });
     [el.pollOn, el.pollOff].forEach(function (b) { if (b) b.addEventListener('click', function () { paintToggle(el.pollOn, el.pollOff, b === el.pollOn); }); });
+    [el.serialClock, el.serialManual].forEach(function (b) {
+      if (!b) return;
+      b.addEventListener('click', function () {
+        st.manualSerial = (b === el.serialManual);
+        paintSerial();
+      });
+    });
     [el.rsOn, el.rsOff].forEach(function (b) { if (b) b.addEventListener('click', function () { paintToggle(el.rsOn, el.rsOff, b === el.rsOn); }); });
     if (el.clocks) {
       el.clocks.addEventListener('click', function (ev) {
@@ -775,6 +855,7 @@
     [el.tabArr, el.tabPombal, el.tabRaces].forEach(function (b) {
       if (b) b.addEventListener('click', function () { setArrTab(String(b.getAttribute('data-arr'))); });
     });
+    if (el.email) el.email.addEventListener('click', resendEmail);
     if (el.reset) el.reset.addEventListener('click', function () {
       if (typeof window.customConfirm === 'function') {
         window.customConfirm(t('rbResetConfirm', 'Clear the arrivals list?'), function (ok) {
@@ -800,6 +881,7 @@
   window.__test__.rbConfig = loadConfig;
   window.__test__.rbSave = saveConfig;
   window.__test__.rbTab = setArrTab;
+  window.__test__.rbEmail = resendEmail;
   window.__test__.rbState = st;
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

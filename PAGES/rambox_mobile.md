@@ -25,9 +25,9 @@ Four vertical screens (no page scroll, content centred):
 ```
 header  strip Status · Arrivals · Config · System + pack name + badge
 S1 Status   tiles: clock, fancier, race, arrivals, RS232, last poll · SYNC CLOCK
-S2 Arrivals sub-tabs Arrivals | Pombal | Races · ↻ reload · ✕ clear
-S3 Config   Bricon/Unikon · polling ON/OFF · interval · RS232 ON/OFF · baud ·
-            parity · data/stop · SAVE
+S2 Arrivals sub-tabs Arrivals | Pombal | Races · ↻ reload · ✉ resend email · ✕ clear
+S3 Config   Bricon/Unikon · polling ON/OFF · interval · Serial CLOCK|MANUAL ·
+            RS232 ON/OFF · baud · parity · data/stop · SAVE
 S4 System   shared block (summary / firmware / log / restart)
 nav         ← · n / 4 · →
 ```
@@ -38,8 +38,14 @@ nav         ← · n / 4 · →
 - **Clock selection** — only one clock can be active (shared RS232): SAVE posts
   `enabled=1` for the chosen one and `enabled=0` for the other, plus the interval.
 - **Polling** — `enabled` + `interval` on `/api/<clock>-config`.
+- **Serial source** — each clock owns its profile (Bricon 9600 8N2, Unikon
+  9600 8N1) and the RS232 fields are locked to it; **MANUAL** posts
+  `manual=1` to the clock and saves the RS232 section so the module runs on our
+  own framing (`manual=0` returns to the clock profile).
 - **RS232** — `POST /api/config?section=rs232` with `rs232_enabled`, `baudrate`,
-  `parity`, `data_bits`, `stop_bits`.
+  `parity`, `data_bits`, `stop_bits` (only in MANUAL).
+- **Resend email** — `POST /api/<clock>-email-pombal`; the device already emails
+  automatically, this only asks for it again (Unikon only today).
 - **Pombal / Races** — `/api/<clock>-pombal` (`registrations[]`) and
   `/api/<clock>-contests` (`contests[]`); both fall back to Unikon when Bricon is
   not compiled in.
@@ -59,6 +65,7 @@ nav         ← · n / 4 · →
 | # | Finding | Status |
 |---|---|---|
 | 1 | No command/MDI screen on the phone (removed by request) — RS232 commands stay on the desktop page | by design |
+| 5 | Bricon has no email-resend endpoint: the button reports it instead of pretending | by design |
 | 2 | Switching clock disables the other one (shared RS232) and asks for confirmation | by design |
 | 3 | Only status/interval/RS232 basics are exposed; baud tables, templates and battery stay on the desktop page | by design |
 | 4 | Unikon fallback keeps a Unikon-only build usable without a second page | implemented |

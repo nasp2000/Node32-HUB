@@ -157,13 +157,35 @@ async function run() {
       ok(doc.querySelectorAll('#rbInterval option').length >= 3, 'interval options');
       ok(doc.querySelectorAll('#rbBaud option').length >= 3, 'baud options');
       is(doc.getElementById('gmPrimary').textContent, 'SAVE', 'save action');
+      // clock profile mode: only the clock config is posted (its own 9600 8N2/8N1)
       win.__postBodies = [];
+      doc.getElementById('rbSerialClock').click();
       g.rbSave();
       await wait(dom, 350);
       var body = posted(win);
       ok(body.indexOf('-config') >= 0, 'clock config posted');
+      ok(/manual=0/.test(body), 'manual=0 sent');
+      ok(body.indexOf('section=rs232') < 0, 'rs232 untouched in clock mode');
+      // manual mode: the RS232 section is saved too
+      win.__postBodies = [];
+      doc.getElementById('rbSerialManual').click();
+      g.rbSave();
+      await wait(dom, 350);
+      body = posted(win);
+      ok(/manual=1/.test(body), 'manual=1 sent');
       ok(body.indexOf('section=rs232') >= 0, 'rs232 config posted');
       ok(/baudrate=/.test(body), 'baud sent');
+    });
+
+    await test('the arrivals screen can ask for the email again', async function () {
+      win.__MOCK_API__['/api/bricon-email-pombal'] = { success: false };
+      win.__MOCK_API__['/api/unikon-email-pombal'] = { success: true };
+      g.rbSetStep(2);
+      await wait(dom, 250);
+      win.__postBodies = [];
+      g.rbEmail();
+      await wait(dom, 300);
+      ok(posted(win).indexOf('-email-pombal') >= 0, 'email endpoint posted');
     });
 
     await test('the system screen is the shared block', async function () {
