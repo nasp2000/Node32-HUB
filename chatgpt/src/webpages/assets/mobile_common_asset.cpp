@@ -13,6 +13,84 @@
 //   .reboot             destructive button (armed with a second tap)
 const char MOBILE_COMMON_CSS[] PROGMEM = R"MCCSS(
 <style>
+
+  /* ── generic page chrome (any pack) ───────────────────────────────── */
+  .mp header { display: flex; flex-direction: column; gap: 4px; }
+  .mp .navstrip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
+  .mp .ncol { display: flex; flex-direction: column; gap: 4px; min-width: 0; background: transparent; border: 0; padding: 0; }
+  .mp .ncol .ntab {
+    display: block; height: 30px; line-height: 30px; border-radius: 8px; border: 1px solid transparent;
+    background: transparent; color: #64748b; font-size: 12px; font-weight: 700; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mp .ncol .nrail { display: block; height: 3px; border-radius: 2px; background: #24344d; }
+  .mp .ncol.done .ntab { color: #93c5fd; }
+  .mp .ncol.done .nrail { background: #1d4ed8; }
+  .mp .ncol.on .ntab { border-color: #3b82f6; background: #1d2b47; color: #e6f1ff; }
+  .mp .ncol.on .nrail { background: #3b82f6; }
+  .mp .hrow { display: flex; align-items: center; gap: 6px; min-height: 26px; }
+  .mp .hrow .no { font-size: 11px; color: #94a3b8; }
+  .mp .hrow .pack {
+    font-size: 12px; font-weight: 700; color: #93c5fd; letter-spacing: .2px;
+    max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .mp .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  .mp .badge {
+    margin-left: auto; font-size: 11px; padding: 3px 8px; border-radius: 999px;
+    border: 1px solid #334155; color: #94a3b8; white-space: nowrap;
+  }
+  .mp .badge.ok { border-color: #10b981; color: #6ee7b7; }
+  .mp .badge.warn { border-color: #f59e0b; color: #fcd34d; }
+
+  .mp .screen {
+    flex: 1 1 auto; min-height: 0; display: none; flex-direction: column; gap: 6px;
+    overflow: hidden; justify-content: center; justify-content: safe center;
+  }
+  .mp .screen.on { display: flex; }
+  .mp .screen.fill.on { justify-content: flex-start; }
+
+  .mp .rowhdr { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #94a3b8; }
+  .mp .rowhdr .dir { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mp .mini {
+    width: 32px; height: 32px; border-radius: 9px; border: 1px solid #334155;
+    background: #0f172a; color: #cbd5e1; font-size: 15px; line-height: 1;
+  }
+  .mp .list {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    border: 1px solid #1e293b; border-radius: 12px; background: #0f172a;
+  }
+  .mp .row {
+    display: flex; align-items: center; gap: 8px; padding: 13px 12px;
+    border-bottom: 1px solid #16213a; font-size: 14px; color: #e6f1ff;
+  }
+  .mp .row:last-child { border-bottom: 0; }
+  .mp .row.sel { background: #1d2b47; }
+  .mp .row .n { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mp .row .s { flex: 0 0 auto; font-size: 11px; color: #94a3b8; }
+
+  .mp .acts { display: flex; gap: 8px; }
+  .mp .nav { display: flex; align-items: center; gap: 10px; }
+  .mp .nav .no { font-size: 12px; color: #94a3b8; }
+  .mp .nav .arrow {
+    width: 46px; height: 46px; border-radius: 50%; border: 1px solid #3b82f6;
+    background: #0f172a; color: #e6f1ff; font-size: 20px;
+  }
+  .mp .nav .arrow:disabled { opacity: .3; border-color: #334155; color: #64748b; }
+  .mp .nav .back { margin-left: 0; }
+  .mp .nav .next { margin-left: auto; }
+
+  .mp .chips { display: flex; gap: 6px; }
+  .mp .chip {
+    flex: 1 1 0; height: 32px; border-radius: 9px; border: 1px solid #334155;
+    background: #0f172a; color: #94a3b8; font-size: 12px; font-weight: 700;
+  }
+  .mp .chip.on { border-color: #3b82f6; background: #1d2b47; color: #dbeafe; }
+  .mp .acts3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .mp .acts3 .actbtn {
+    height: 40px; border-radius: 10px; border: 1px solid #334155; background: #0f172a;
+    color: #cbd5e1; font-size: 11px; font-weight: 700; letter-spacing: .3px;
+  }
+
   .mp .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .mp .tile {
     display: flex; flex-direction: column; gap: 2px; padding: 8px 10px;
@@ -64,6 +142,9 @@ const char MOBILE_COMMON_CSS[] PROGMEM = R"MCCSS(
   .mp .reboot.arm { background: #b91c1c; }
   .mp .reboot:disabled { background: #0f172a; color: #64748b; border-color: #334155; }
   .mp .note { font-size: 11px; color: #64748b; }
+  /* visible while a finger is down (the 250 ms gate needs feedback) */
+  .mp button.pressing, .mp a.pressing { opacity: .6; transform: scale(.97); }
+  .mp button, .mp a { transition: opacity .08s linear, transform .08s linear; }
 </style>
 )MCCSS";
 
@@ -158,20 +239,93 @@ window.MU = (function () {
   function armed(key) { return armedKey === key && Date.now() < armedUntil; }
   function disarm() { armedKey = ''; }
 
+  // ── page strip (one column per screen) + swipe ───────────────────────────
+  // The host page owns the markup; MU only reflects the current page and turns
+  // clicks/swipes into step changes.
+  function stripActive(root, step) {
+    if (!root) return;
+    var cols = root.querySelectorAll('.ncol');
+    for (var i = 0; i < cols.length; i++) {
+      var n = parseInt(String(cols[i].getAttribute('data-step-go') || '0'), 10);
+      cols[i].className = 'ncol' + (n === step ? ' on' : (n < step ? ' done' : ''));
+    }
+  }
+
+  function strip(root, onGo) {
+    if (!root) return;
+    root.addEventListener('click', function (ev) {
+      var b = ev.target && ev.target.closest ? ev.target.closest('.ncol[data-step-go]') : null;
+      if (!b) return;
+      onGo(parseInt(String(b.getAttribute('data-step-go') || '1'), 10));
+    });
+  }
+
+  // Horizontal swipe anywhere in `root`. A swipe never presses the control
+  // under the finger (the click the browser fires afterwards is swallowed).
+  function swipe(root, onNext, onPrev) {
+    if (!root) return;
+    var t = { active: false, x: 0, y: 0, swiped: false, at: 0 };
+    function pt(e) {
+      var list = (e.touches && e.touches.length) ? e.touches : (e.changedTouches || []);
+      return (list && list[0]) ? list[0] : null;
+    }
+    root.addEventListener('touchstart', function (e) {
+      if (e.touches && e.touches.length > 1) { t.active = false; return; }
+      var p = pt(e);
+      if (!p) { t.active = false; return; }
+      t.active = true; t.x = p.clientX; t.y = p.clientY;
+    }, { passive: true });
+    root.addEventListener('touchmove', function (e) {
+      if (!t.active) return;
+      var p = pt(e);
+      if (!p) return;
+      if (Math.abs(p.clientX - t.x) > 40 && Math.abs(p.clientX - t.x) > Math.abs(p.clientY - t.y)) t.swiped = true;
+    }, { passive: true });
+    root.addEventListener('touchend', function (e) {
+      if (!t.active) return;
+      t.active = false;
+      var p = pt(e);
+      if (!p) return;
+      var dx = p.clientX - t.x, dy = p.clientY - t.y;
+      if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) { t.swiped = false; return; }
+      t.swiped = true; t.at = Date.now();
+      if (dx < 0) onNext(); else onPrev();
+    }, { passive: true });
+    root.addEventListener('touchcancel', function () { t.active = false; }, { passive: true });
+    document.addEventListener('click', function (e) {
+      if (t.swiped && (Date.now() - t.at) < 600) {
+        t.swiped = false;
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    }, true);
+  }
+
   // Minimum press time for every button/link on the page: a finger that only
   // brushes the glass (or a swipe that ends on a control) must not press it.
   // Touch only, so desktop clicks and the jsdom tests are unaffected.
-  var MIN_PRESS_MS = 180;
+  var MIN_PRESS_MS = 250;   // deliberado: um toque acidental dura < 150 ms
   var press = { target: null, at: 0, touch: false };
+
+  function clearPressMark() {
+    if (press.target && press.target.classList) press.target.classList.remove('pressing');
+  }
 
   function installTapGuard() {
     document.addEventListener('touchstart', function (e) {
       var el = e.target && e.target.closest ? e.target.closest('button, a, input[type=file], [data-mu-tap]') : null;
+      clearPressMark();
       press.target = el;
       press.touch = !!el;
       press.at = Date.now();
+      // visual feedback while the finger is down: without it a 250 ms gate
+      // feels broken ("tap and nothing happens").
+      if (el && el.classList) el.classList.add('pressing');
     }, true);
+    document.addEventListener('touchend', clearPressMark, true);
+    document.addEventListener('touchcancel', clearPressMark, true);
     document.addEventListener('click', function (e) {
+      clearPressMark();
       if (!press.touch) return;
       var dt = Date.now() - press.at;
       press.touch = false;
@@ -188,6 +342,7 @@ window.MU = (function () {
     t: t, tf: tf, get: get, post: post,
     fmtSize: fmtSize, fmtEta: fmtEta, msg: msg,
     arm: arm, armed: armed, disarm: disarm,
+    strip: strip, stripActive: stripActive, swipe: swipe,
     minPressMs: MIN_PRESS_MS
   };
 })();

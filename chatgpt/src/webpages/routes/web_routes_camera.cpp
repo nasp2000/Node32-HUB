@@ -5,6 +5,8 @@
 #include "../http_abstraction.h"
 #include "../handlers_unified/camera_handler.h"
 #include "../renderers/page_render_common.h"
+#include "../renderers/cam_mobile_page_renderer.h"
+#include "../../ua_classify.h"
 #include "../../feature_flags.h"
 #include "../../camera_manager.h"
 #include "../../camera_stream_policy.h"  // CAM_MAX_MJPEG_CLIENTS + admission
@@ -453,6 +455,25 @@ static auto fillAviPlayBuffer = [](AviPlayState* s, uint8_t* buf, size_t maxLen)
     registerApiRoute("POST",   "/api/camera/delete",         handleCameraDeletePost);
     registerApiRoute("POST",   "/api/camera/motion/reset",   handleCameraMotionResetPost);
     registerApiRoute("POST",   "/api/camera/vision/burst",   handleCameraVisionBurstPost);
+    // Phone page: Live view + recordings + the shared System screen.
+    registerPageGet("/m", [&context](AsyncWebServerRequest* req) {
+        if (!context.ensureBasicAuth(req)) return;
+        if (sendNotModifiedIfCached(req)) return;
+        if (!context.allowHtmlClient(req)) return;
+        AsyncResponseStream* response = req->beginResponseStream("text/html; charset=utf-8");
+        if (!response) {
+            context.decrementActiveHtmlSessions();
+            req->send(500, "text/plain", "Internal Server Error");
+            return;
+        }
+        response->addHeader("ETag", FIRMWARE_BUILD);
+        response->addHeader("Cache-Control", "private, max-age=15, must-revalidate");
+        const size_t bytes = streamCamMobilePageToPrint(*response);
+        req->send(response);
+#ifndef QUIET_HTTP_LOGS
+        context.logServed(req, "/m", bytes, false);
+#endif
+    });
     registerApiRoute("POST",   "/api/camera/vision/reset",   handleCameraVisionResetPost);
 }
 #else
@@ -465,6 +486,14 @@ void registerCameraRoutes(AsyncWebServer& server, const WebRouteContext& context
 #if ENABLE_CAMERA==1
     registerPageGet("/camera", [&context](AsyncWebServerRequest* req) {
         if (!context.ensureBasicAuth(req)) return;
+        // Phones get the mobile page; `?desk=1` keeps the full page reachable.
+        if (!req->hasParam("desk")) {
+            const AsyncWebHeader* uaHdr = req->getHeader("User-Agent");
+            if (uaWantsMobileWizard(uaHdr ? uaHdr->value().c_str() : nullptr)) {
+                req->redirect("/m");
+                return;
+            }
+        }
         if (sendNotModifiedIfCached(req)) return;
         if (!context.allowHtmlClient(req)) return;
         webLocalPageHeartbeat(req);

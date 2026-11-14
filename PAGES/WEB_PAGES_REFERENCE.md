@@ -43,6 +43,7 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/grbl-controller` | CNC/GRBL: jog, MDI, files, height map. **Phones are redirected to `/m`** (UA-based, `?desk=1` forces this page) | hybrid | WS 100 ms / REST 800 ms | B | **A** | `ENABLE_GRBL` |
 | `/m` (phone default) | Mobile wizard **Send · Preview(+FRAME) · Play · Jog · System**, own screens (SD list, preview canvas, jog cross, OTA/log/restart); vertical, no page scroll, content centred, arrows+swipe always navigate, 180 ms tap guard | hybrid | on load: token/psram-file/status/SD list; status 1 s on Play/Jog; summary+log 2 s only while the System tab is open | B | no | `ENABLE_GRBL` + CNC packs |
 | `/camera` | Live camera + motion/playback (MJPG) | local | img poll 5 s | B | **A** | `ENABLE_CAMERA` + `ENABLE_SDCARD` |
+| `/m` (camera packs) | Camera phone page: **Live (MJPEG, PHOTO, REC) · Files (recordings, delete) · System (shared)**; `GET /camera` from a phone → 302 here (`?desk=1` keeps the desktop page) | hybrid | status 2 s only on Live; System 2 s while its tab is open | B | no | `ENABLE_CAMERA` + Cam-M/Cam-P4 |
 | `/hub` | Camera hub/aggregator | local | 10 s | B | **A** | `ENABLE_CAMERA` |
 | `/cam/snapshot` · `/cam/stream` · `/cam/raw` · `/cam/playback` · `/cam/motion/diff` | JPEG/MJPEG/raw/motion/playback streams | stream | on demand / long-lived; raw +10 s status watchdog (CAM-63) | B | **A** (~) | `ENABLE_CAMERA` |
 | `/proximity` | Proximity config + OEE shift/day | local | 2 s | B | **A** | `ENABLE_PROXIMITY` |

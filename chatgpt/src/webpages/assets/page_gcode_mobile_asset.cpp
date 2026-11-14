@@ -1625,6 +1625,15 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
   function goPrev() { if (st.step > 1) setStep(st.step - 1); }
 
   // Top strip: one column per page — the current one is highlighted and its
+  // line lights up, the visited ones keep a blue line (MU owns the classes).
+  function updateNavStrip() {
+    if (window.MU && MU.stripActive) MU.stripActive(el.navStrip, st.step);
+  }
+
+  function goNext() { if (st.step < STEPS) setStep(st.step + 1); }
+  function goPrev() { if (st.step > 1) setStep(st.step - 1); }
+
+  // Top strip: one column per page — the current one is highlighted and its
   // line lights up, the visited ones keep a blue line, so what is on the left
   // and on the right is always visible.
   function updateNavStrip() {
@@ -1967,53 +1976,10 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
       act(String(b.getAttribute('data-act') || ''));
     });
 
-    // Swipe left/right changes screen. Works anywhere on the page (including
-    // over the SD list and the log, which also scroll vertically): the
-    // horizontal distance has to win, and the click that the browser fires
-    // after a swipe is swallowed so a swipe never presses a button.
-    var gmEl = document.getElementById('gm');
-    var touch = { active: false, x: 0, y: 0, swiped: false, swipedAt: 0 };
-    function touchPoint(e) {
-      var list = (e.touches && e.touches.length) ? e.touches : (e.changedTouches || []);
-      return (list && list[0]) ? list[0] : null;
-    }
-    gmEl.addEventListener('touchstart', function (e) {
-      if (e.touches && e.touches.length > 1) { touch.active = false; return; }
-      var p = touchPoint(e);
-      if (!p) { touch.active = false; return; }
-      touch.active = true;
-      touch.x = p.clientX;
-      touch.y = p.clientY;
-    }, { passive: true });
-    gmEl.addEventListener('touchmove', function (e) {
-      if (!touch.active) return;
-      var p = touchPoint(e);
-      if (!p) return;
-      if (Math.abs(p.clientX - touch.x) > 40 && Math.abs(p.clientX - touch.x) > Math.abs(p.clientY - touch.y)) {
-        touch.swiped = true;
-      }
-    }, { passive: true });
-    gmEl.addEventListener('touchend', function (e) {
-      if (!touch.active) return;
-      touch.active = false;
-      var p = touchPoint(e);
-      if (!p) return;
-      var dx = p.clientX - touch.x;
-      var dy = p.clientY - touch.y;
-      if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) { touch.swiped = false; return; }
-      touch.swiped = true;
-      touch.swipedAt = Date.now();
-      if (dx < 0) goNext(); else goPrev();
-    }, { passive: true });
-    gmEl.addEventListener('touchcancel', function () { touch.active = false; }, { passive: true });
-    // A swipe must not also press whatever was under the finger.
-    document.addEventListener('click', function (e) {
-      if (touch.swiped && (Date.now() - touch.swipedAt) < 600) {
-        touch.swiped = false;
-        e.stopPropagation();
-        e.preventDefault();
-      }
-    }, true);
+    // Swipe left/right changes screen (shared implementation: works over the
+    // scrollers too and never presses the button under the finger).
+    if (window.MU && MU.swipe) MU.swipe(document.getElementById('gm'), goNext, goPrev);
+    if (window.MU && MU.strip) MU.strip(el.navStrip, setStep);
   }
 
   window.__test__ = window.__test__ || {};
