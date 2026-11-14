@@ -27,7 +27,8 @@ const char MOBILE_COMMON_CSS[] PROGMEM = R"MCCSS(
     background: #0f172a; color: #94a3b8; font-size: 12px; font-weight: 700;
   }
   .mp .subt.on { border-color: #3b82f6; background: #1d2b47; color: #dbeafe; }
-  .mp .pane { flex: 1 1 auto; min-height: 0; display: none; flex-direction: column; gap: 6px; }
+  .mp .pane { flex: 0 1 auto; min-height: 0; display: none; flex-direction: column; gap: 6px; }
+  .mp #muPaneLog { flex: 1 1 auto; }   /* the log fills, the rest centres */
   .mp .pane.on { display: flex; }
 
   .mp .bar { height: 6px; border-radius: 3px; background: #1e293b; overflow: hidden; display: none; }

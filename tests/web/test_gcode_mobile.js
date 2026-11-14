@@ -63,7 +63,7 @@ function fakeXhr(log) {
 }
 
 function screenOn(doc) {
-  var ids = ['gmS1', 'gmS2', 'gmS3', 'gmS4', 'gmS5', 'gmSYS'];
+  var ids = ['gmS1', 'gmS2', 'gmS4', 'gmS5', 'gmSYS'];
   for (var i = 0; i < ids.length; i++) {
     if (doc.getElementById(ids[i]).className.indexOf('on') >= 0) return i + 1;
   }
@@ -121,11 +121,11 @@ async function run() {
       ok(/#gm\s*\.screen\s*\{[^}]*overflow:\s*hidden/.test(css), 'screen hidden');
     });
 
-    await test('exactly one of the six screens is visible', function () {
+    await test('exactly one of the five screens is visible', function () {
       is(screenOn(doc), 1, 'starts on step 1');
-      is(doc.querySelectorAll('#gm .screen').length, 6, 'six screens');
+      is(doc.querySelectorAll('#gm .screen').length, 5, 'five screens');
       is(doc.querySelectorAll('#gm .screen.on').length, 1, 'one screen on');
-      is(doc.getElementById('gmNo').textContent, '1 / 6', 'counter');
+      is(doc.getElementById('gmNo').textContent, '1 / 5', 'counter');
     });
 
     await test('navigation never waits for a job (arrows usable with nothing loaded)', function () {
@@ -135,8 +135,8 @@ async function run() {
       win.__test__.gmNext();
       is(screenOn(doc), 2, 'moved to preview');
       ok(!doc.getElementById('gmBack').disabled, 'back enabled on 2');
-      win.__test__.gmSetStep(6);
-      is(doc.getElementById('gmNo').textContent, '6 / 6', 'counter 6');
+      win.__test__.gmSetStep(5);
+      is(doc.getElementById('gmNo').textContent, '5 / 5', 'counter 5');
       ok(doc.getElementById('gmNext').disabled, 'next disabled on the last screen');
     });
 
@@ -161,7 +161,7 @@ async function run() {
 
     await test('the top strip shows the current page, the visited ones and the ones to come', function () {
       var tabs = doc.querySelectorAll('#gm .navstrip .ncol');
-      is(tabs.length, 6, 'six columns');
+      is(tabs.length, 5, 'five columns');
       ok(tabs[0].className.indexOf('on') >= 0, 'first column active');
       win.__test__.gmSetStep(3);
       tabs = doc.querySelectorAll('#gm .navstrip .ncol');
@@ -170,14 +170,14 @@ async function run() {
       ok(tabs[2].className.indexOf('on') >= 0, 'current column highlighted');
       ok(tabs[3].className.indexOf('on') < 0 && tabs[3].className.indexOf('done') < 0,
          'next column left dimmed');
-      is(doc.querySelectorAll('#gm .navstrip .nrail').length, 6, 'one line per column');
+      is(doc.querySelectorAll('#gm .navstrip .nrail').length, 5, 'one line per column');
       ok(tabs[2].querySelector('.nrail') !== null, 'each name has its own line');
     });
 
     await test('tapping a tab jumps to that page', function () {
       win.__test__.gmSetStep(1);
-      doc.querySelector('#gm .navstrip .ncol[data-step-go="6"]').click();
-      is(screenOn(doc), 6, 'jumped to System');
+      doc.querySelector('#gm .navstrip .ncol[data-step-go="5"]').click();
+      is(screenOn(doc), 5, 'jumped to System');
       doc.querySelector('#gm .navstrip .ncol[data-step-go="2"]').click();
       is(screenOn(doc), 2, 'jumped to Preview');
     });
@@ -188,15 +188,14 @@ async function run() {
       is(doc.getElementById('gmPrimary').textContent, 'USE', 'SD tab acts on a selected file');
       win.__test__.gmSetStep(2);
       is(doc.getElementById('gmTitle').textContent, 'Preview', 'step 2 title');
-      ok(doc.getElementById('gmPrimary').className.indexOf('off') >= 0, 'preview has no primary');
+      is(doc.getElementById('gmPrimary').textContent, 'FRAME', 'preview carries FRAME');
       win.__test__.gmSetStep(3);
-      is(doc.getElementById('gmTitle').textContent, 'Frame', 'step 3 title');
-      is(doc.getElementById('gmPrimary').textContent, 'FRAME', 'step 3 action');
+      is(doc.getElementById('gmTitle').textContent, 'Play', 'step 3 title');
+      is(doc.getElementById('gmPrimary').textContent, 'START', 'step 3 action');
       win.__test__.gmSetStep(4);
-      is(doc.getElementById('gmTitle').textContent, 'Play', 'step 4 title');
-      is(doc.getElementById('gmPrimary').textContent, 'START', 'step 4 action');
+      is(doc.getElementById('gmTitle').textContent, 'Jog', 'step 4 title');
       win.__test__.gmSetStep(5);
-      is(doc.getElementById('gmTitle').textContent, 'Jog', 'step 5 title');
+      is(doc.getElementById('gmTitle').textContent, 'System', 'step 5 title');
     });
 
     dom.window.close();
@@ -241,8 +240,8 @@ async function run() {
       doc.getElementById('gmPrimary').click();
       await wait(dom, 300);
       eq(win.__test__.gmState.bbox, { minX: -10, maxX: 20, minY: -5, maxY: 15 }, 'bounds stored');
-      win.__test__.gmSetStep(3);
-      is(doc.getElementById('gmFrameArea').textContent, 'X[-10.00..20.00]  Y[-5.00..15.00]  30.00 x 20.00', 'area on step 3');
+      win.__test__.gmSetStep(2);
+      is(doc.getElementById('gmFrameArea').textContent, 'X[-10.00..20.00]  Y[-5.00..15.00]  30.00 x 20.00', 'area on the preview');
     });
 
     await test('a folder opens and the parent row goes back', async function () {
@@ -367,7 +366,7 @@ async function run() {
     var win = dom.window, doc = win.document;
     win.__test__.gmSelectSd({ path: SD_ROOT + '/Cachola.gc', name: 'Cachola.gc', size: 517814 });
     win.__test__.gmState.bbox = { minX: 0, maxX: 10, minY: 0, maxY: 20 };
-    win.__test__.gmSetStep(3);
+    win.__test__.gmSetStep(2);
     win.__postBodies = [];
 
     await test('frame needs bounds and sends the outline batch', async function () {
@@ -385,7 +384,7 @@ async function run() {
 
     await test('without bounds the frame action stays disabled', function () {
       win.__test__.gmState.bbox = null;
-      win.__test__.gmSetStep(3);
+      win.__test__.gmSetStep(2);
       ok(doc.getElementById('gmPrimary').disabled, 'frame disabled');
     });
 
@@ -406,7 +405,7 @@ async function run() {
     var g = win.__test__;
 
     await test('machine buttons are always rendered and disabled while idle', function () {
-      g.gmSetStep(4);
+      g.gmSetStep(3);
       ok(doc.getElementById('gmPause'), 'pause button');
       ok(doc.getElementById('gmResume'), 'resume button');
       ok(doc.getElementById('gmStop'), 'stop button');
@@ -418,7 +417,7 @@ async function run() {
     await test('start from the PSRAM workspace posts psram-stream', async function () {
       g.gmState.job = { src: 'psram', name: 'job.gcode', bytes: 2048, path: '' };
       win.__postBodies = [];
-      g.gmSetStep(4);
+      g.gmSetStep(3);
       ok(g.gmStart() === true, 'start called');
       await wait(dom, 300);
       ok(sent(win).indexOf('/api/grbl/psram-stream') >= 0, 'psram-stream requested');
@@ -438,7 +437,7 @@ async function run() {
 
     await test('pause and resume are enabled by the machine state', async function () {
       g.gmState.running = true; g.gmState.paused = false;
-      g.gmSetStep(4);
+      g.gmSetStep(3);
       ok(!doc.getElementById('gmPause').disabled, 'pause enabled while running');
       ok(doc.getElementById('gmResume').disabled, 'resume disabled while running');
       win.__postBodies = [];
@@ -447,7 +446,7 @@ async function run() {
       ok(sent(win).indexOf('/api/grbl/pause') >= 0, 'pause requested');
       g.gmState.paused = true;
       g.gmState.running = true;
-      g.gmSetStep(4);
+      g.gmSetStep(3);
       ok(doc.getElementById('gmResume').disabled === false, 'resume enabled while paused');
       win.__postBodies = [];
       g.gmResume();
@@ -457,7 +456,7 @@ async function run() {
 
     await test('stop cancels the job and clears the running state', async function () {
       g.gmState.running = true;
-      g.gmSetStep(4);
+      g.gmSetStep(3);
       win.__postBodies = [];
       g.gmStop();
       await wait(dom, 300);
@@ -470,7 +469,7 @@ async function run() {
       win.__MOCK_API__['/api/grbl/status'] = { success: true, usb_running: true, machine_state: 'Run',
         workflow_state: 'running', axis_count: 3, mpos_valid: true,
         lines_total: 1000, lines_sent: 250, eta_sec: 65 };
-      g.gmSetStep(4);
+      g.gmSetStep(3);
       await wait(dom, 400);
       is(doc.getElementById('gmPlayFill').style.width, '25%', 'progress fill');
       ok(doc.getElementById('gmPlayProgress').textContent.indexOf('250 / 1000') >= 0, 'lines');
@@ -483,7 +482,7 @@ async function run() {
       win.__MOCK_API__['/api/grbl/status'] = { success: true, usb_running: true, machine_state: 'Alarm',
         workflow_state: 'alarm', state: 'ALARM', axis_count: 3, alarm_active: true,
         alarm_message: 'ALARM:1 Hard limit' };
-      g.gmSetStep(4);
+      g.gmSetStep(3);
       await wait(dom, 400);
       is(doc.getElementById('gmAlarm').className.indexOf('off'), -1, 'alarm block visible');
       ok(doc.getElementById('gmAlarmMsg').textContent.indexOf('ALARM:1') >= 0, 'message');
@@ -500,7 +499,7 @@ async function run() {
     await test('feed and spindle overrides are sent together', async function () {
       win.__MOCK_API__['/api/grbl/override'] = { success: true, message: 'ok' };
       win.__postBodies = [];
-      g.gmSetStep(4);
+      g.gmSetStep(3);
       g.gmOv('feed', 10);
       await wait(dom, 300);
       ok(sent(win).indexOf('/api/grbl/override') >= 0, 'override requested');
@@ -524,7 +523,7 @@ async function run() {
     await wait(dom, 400);
     var win = dom.window, doc = win.document;
     var g = win.__test__;
-    g.gmSetStep(5);
+    g.gmSetStep(4);
     win.__postBodies = [];
 
     await test('jog sends M5 then a relative $J move with the chosen step', async function () {
@@ -552,7 +551,7 @@ async function run() {
 
     await test('Z jog is blocked on a 2-axis machine', async function () {
       g.gmState.axisCount = 2;
-      g.gmSetStep(5);
+      g.gmSetStep(4);
       var zBtn = doc.querySelector('#gmJogPad button[data-jog="Z+"]');
       ok(zBtn.disabled, 'Z button disabled');
       win.__postBodies = [];
@@ -563,7 +562,7 @@ async function run() {
     await test('the machine buttons send the GRBL commands', async function () {
       g.gmState.axisCount = 3;
       win.__postBodies = [];
-      g.gmSetStep(5);
+      g.gmSetStep(4);
 
       g.gmAct('unlock');
       await wait(dom, 200);
@@ -592,7 +591,7 @@ async function run() {
     await test('work zero can be set per axis (X0 / Y0 / Z0)', async function () {
       g.gmState.axisCount = 3;
       win.__postBodies = [];
-      g.gmSetStep(5);
+      g.gmSetStep(4);
       g.gmSetZero('X');
       ok(doc.getElementById('gmMsg').textContent.indexOf('Tap again') >= 0, 'zero X armed');
       g.gmSetZero('X');
@@ -616,7 +615,7 @@ async function run() {
       g.gmState.axisCount = 3;
       win.__postBodies = [];
       doc.getElementById('gmMdi').value = '$I';
-      g.gmSetStep(5);
+      g.gmSetStep(4);
       ok(g.gmMdi() === true, 'mdi sent');
       await wait(dom, 200);
       ok(cmdsSent(win).indexOf('$I') >= 0, '$I sent');
@@ -642,9 +641,9 @@ async function run() {
     var win = dom.window, doc = win.document, g = win.__test__;
 
     await test('the system page shows firmware, uptime, heap, PSRAM, SD and WiFi', async function () {
-      g.gmSetStep(6);
+      g.gmSetStep(5);
       await wait(dom, 400);
-      is(doc.getElementById('gmNo').textContent, '6 / 6', 'counter');
+      is(doc.getElementById('gmNo').textContent, '5 / 5', 'counter');
       ok(doc.getElementById('muFw').textContent.indexOf('v1.120') >= 0, 'firmware');
       ok(doc.getElementById('muUp').textContent.indexOf('24m') >= 0, 'uptime');
       ok(doc.getElementById('muHeap').textContent.indexOf('228') >= 0,
@@ -711,7 +710,7 @@ async function run() {
       win.__test__.gmSetTab('phone');
       win.__test__.gmSetFile({ name: 'job.gcode', size: 100 });
       ok(doc.getElementById('gmPrimary').disabled, 'send disabled');
-      win.__test__.gmSetStep(5);
+      win.__test__.gmSetStep(4);
       ok(win.__test__.gmJog('X', 1) === false, 'jog refused');
       ok(doc.getElementById('gmMsg').textContent.indexOf('Another client') >= 0, 'explains the lock');
     });

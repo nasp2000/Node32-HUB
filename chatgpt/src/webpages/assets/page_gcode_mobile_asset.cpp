@@ -63,8 +63,14 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   #gm .badge.ok { border-color: #10b981; color: #6ee7b7; }
   #gm .badge.warn { border-color: #f59e0b; color: #fcd34d; }
 
-  #gm .screen { flex: 1 1 auto; min-height: 0; display: none; flex-direction: column; gap: 6px; overflow: hidden; }
+  /* content sits in the middle of the free area instead of stacking from the
+     top; `safe center` keeps the first row reachable when it does not fit */
+  #gm .screen {
+    flex: 1 1 auto; min-height: 0; display: none; flex-direction: column; gap: 6px;
+    overflow: hidden; justify-content: center; justify-content: safe center;
+  }
   #gm .screen.on { display: flex; }
+  #gm #gmS1.on, #gm #muPaneLog.on { justify-content: flex-start; }
   #gm #gmS5 { overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
   /* step 1 — source tabs + SD list */
@@ -74,8 +80,8 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     background: #0f172a; color: #94a3b8; font-size: 13px; font-weight: 700;
   }
   #gm .tab.on { border-color: #3b82f6; background: #1d2b47; color: #dbeafe; }
-  #gm .pane { flex: 1 1 auto; min-height: 0; display: none; flex-direction: column; gap: 6px; }
-  #gm .pane.on { display: flex; }
+  #gm #gmS1 .pane { flex: 1 1 auto; min-height: 0; display: none; flex-direction: column; gap: 6px; }
+  #gm #gmS1 .pane.on { display: flex; }
   #gm .rowhdr { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; font-size: 11px; color: #94a3b8; }
   #gm .rowhdr .dir { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #gm .mini {
@@ -112,8 +118,9 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   #gm .card .big { font-size: 30px; font-weight: 800; letter-spacing: .5px; }
   #gm .card .row { font-size: 13px; color: #cbd5e1; }
   #gm .card .kv { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: #93c5fd; }
-  #gm #gmFrameArea { font-size: 16px; color: #dbeafe; }
-  #gm #gmFrameHint { font-size: 14px; }
+  #gm .frameline { display: flex; flex-direction: column; gap: 2px; }
+  #gm #gmFrameArea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; color: #dbeafe; }
+  #gm #gmFrameHint { font-size: 12px; color: #94a3b8; }
 
   /* step 2 — preview canvas */
   #gm #gmCanvas {
@@ -257,10 +264,9 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     <nav class="navstrip" id="gmNavStrip">
       <button type="button" class="ncol on" data-step-go="1"><span class="ntab" data-i18n="gmNav1">Send</span><i class="nrail"></i></button>
       <button type="button" class="ncol" data-step-go="2"><span class="ntab" data-i18n="gmNav2">Preview</span><i class="nrail"></i></button>
-      <button type="button" class="ncol" data-step-go="3"><span class="ntab" data-i18n="gmNav3">Frame</span><i class="nrail"></i></button>
-      <button type="button" class="ncol" data-step-go="4"><span class="ntab" data-i18n="gmNav4">Play</span><i class="nrail"></i></button>
-      <button type="button" class="ncol" data-step-go="5"><span class="ntab" data-i18n="gmNav5">Jog</span><i class="nrail"></i></button>
-      <button type="button" class="ncol" data-step-go="6"><span class="ntab" data-i18n="gmNav6">System</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="3"><span class="ntab" data-i18n="gmNav4">Play</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="4"><span class="ntab" data-i18n="gmNav5">Jog</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="5"><span class="ntab" data-i18n="gmNav6">System</span><i class="nrail"></i></button>
     </nav>
     <div class="hrow">
       <span class="pack" id="gmPack"></span>
@@ -306,15 +312,9 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
       <span class="dir" id="gmPrevInfo">--</span>
       <button type="button" class="mini" id="gmPrevLoad" data-i18n-title="gmPreviewLoad" title="Load the preview">&#8635;</button>
     </div>
-  </section>
-
-  <!-- ── Step 3: frame ────────────────────────────────────────────── -->
-  <section class="screen" id="gmS3">
-    <div class="card solid">
-      <span class="ico">&#128207;</span>
-      <span class="nm" id="gmFrameJob">--</span>
+    <div class="frameline">
       <span class="kv" id="gmFrameArea">--</span>
-      <span class="row" id="gmFrameHint" data-i18n="gmFrameHint">Outlines the job area with the spindle at 5%.</span>
+      <span class="note" id="gmFrameHint" data-i18n="gmFrameHint">Outlines the job area with the spindle at 5%.</span>
     </div>
   </section>
 
@@ -409,7 +409,7 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
 
   <div class="nav">
     <button type="button" class="arrow back" id="gmBack" disabled title="Back">&#8592;</button>
-    <span class="no" id="gmNo">1 / 6</span>
+    <span class="no" id="gmNo">1 / 5</span>
     <button type="button" class="arrow next" id="gmNext" data-i18n-title="gmNextTip">&#8594;</button>
   </div>
 </div>
@@ -421,8 +421,8 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
   var MAX_BYTES = 4 * 1024 * 1024;      // controller PSRAM workspace cap (phone uploads)
   var SD_UPLOAD_MAX_BYTES = 48 * 1024 * 1024;  // server cap for the SD upload buffer
   var STORE_KEY = 'gm.sid';
-  var STEPS = 6;
-  var STEP_SEND = 1, STEP_PREVIEW = 2, STEP_FRAME = 3, STEP_PLAY = 4, STEP_JOG = 5, STEP_SYS = 6;
+  var STEPS = 5;
+  var STEP_SEND = 1, STEP_PREVIEW = 2, STEP_PLAY = 3, STEP_JOG = 4, STEP_SYS = 5;
   var FRAME_POWER_PCT = 5;
   var FRAME_FEED = 1200;
   var JOG_FEED = 1000;                  // XY jog feed (mm/min)
@@ -435,8 +435,8 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
     title: document.getElementById('gmTitle'),
     navStrip: document.getElementById('gmNavStrip'),
     screens: [document.getElementById('gmS1'), document.getElementById('gmS2'),
-              document.getElementById('gmS3'), document.getElementById('gmS4'),
-              document.getElementById('gmS5'), document.getElementById('gmSYS')],
+              document.getElementById('gmS4'), document.getElementById('gmS5'),
+              document.getElementById('gmSYS')],
     tabSd: document.getElementById('gmTabSd'),
     tabPhone: document.getElementById('gmTabPhone'),
     paneSd: document.getElementById('gmPaneSd'),
@@ -451,7 +451,6 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
     file: document.getElementById('gmFile'),
     name: document.getElementById('gmName'),
     size: document.getElementById('gmSize'),
-    frameJob: document.getElementById('gmFrameJob'),
     frameArea: document.getElementById('gmFrameArea'),
     frameHint: document.getElementById('gmFrameHint'),
     playJob: document.getElementById('gmPlayJob'),
@@ -1010,7 +1009,7 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
       if (!st.bbox && st.points) st.bbox = boundsFromPoints(st.points);
       if (!st.bbox) {
         // The Frame screen owns this message; on Play it would only be noise.
-        if (st.step === STEP_FRAME) setMsg(errorText('sd_measure_failed'), 'err');
+        if (st.step === STEP_PREVIEW) setMsg(errorText('sd_measure_failed'), 'err');
       } else {
         setMsg(tf('gmReady', 'Job ready: {path} ({size})',
                   { path: st.job.name, size: fmtBytes(st.job.bytes) }), 'ok');
@@ -1576,7 +1575,7 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
   function defaultMsg(step) {
     if (step === STEP_SEND) setMsg(t('gmStep1Hint', 'Pick a file from the SD card or from this phone.'), '');
     else if (step === STEP_PREVIEW) setMsg(t('gmStep2Hint', 'Toolpath of the selected job.'), '');
-    else if (step === STEP_FRAME) setMsg(t('gmStep3Hint', 'Check the job area on the machine before cutting.'), '');
+    else if (step === STEP_PREVIEW) setMsg(t('gmStep3Hint', 'The outline traces this area on the machine (spindle 5%).'), '');
     else if (step === STEP_PLAY) setMsg(t('gmStep4Hint', 'Starts the job selected in step 1.'), '');
     else if (step === STEP_JOG) setMsg(t('gmStep5Hint', 'Jog with the arrows; machine buttons below.'), '');
     else setMsg(t('gmStep6Hint', 'Controller health, the full pages and a restart.'), '');
@@ -1594,7 +1593,7 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
     // An SD job needs the controller to measure it: do that once, in the
     // background, as soon as the operator reaches Frame or Play (never blocks
     // the navigation, and Play does not depend on the bounds).
-    if (st.step >= STEP_FRAME && st.step <= STEP_PLAY && st.job && st.job.src === 'sd' &&
+    if (st.step >= STEP_PREVIEW && st.step <= STEP_PLAY && st.job && st.job.src === 'sd' &&
         st.job.path && !st.bbox && !st.measuring && st.measureFor !== st.job.path) {
       measureSd();
     }
@@ -1718,31 +1717,31 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
   function render() {
     if (typeof document === 'undefined' || !document) return;
     var is1 = st.step === STEP_SEND, is2 = st.step === STEP_PREVIEW,
-        is3 = st.step === STEP_FRAME, is4 = st.step === STEP_PLAY, is5 = st.step === STEP_JOG,
+        is4 = st.step === STEP_PLAY, is5 = st.step === STEP_JOG,
         is6 = st.step === STEP_SYS;
 
-    el.title.textContent = t(is1 ? 'gmTitle1' : is2 ? 'gmTitlePreview' : is3 ? 'gmTitleFrame'
+    el.title.textContent = t(is1 ? 'gmTitle1' : is2 ? 'gmTitlePreview'
                                  : is4 ? 'gmTitlePlay' : is5 ? 'gmTitleJog' : 'gmTitleSys',
-                               is1 ? 'Send G-code' : is2 ? 'Preview' : is3 ? 'Frame'
+                               is1 ? 'Send G-code' : is2 ? 'Preview'
                                  : is4 ? 'Play' : is5 ? 'Jog' : 'System');
-    el.title.setAttribute('data-i18n', is1 ? 'gmTitle1' : is2 ? 'gmTitlePreview' : is3 ? 'gmTitleFrame'
+    el.title.setAttribute('data-i18n', is1 ? 'gmTitle1' : is2 ? 'gmTitlePreview'
                                             : is4 ? 'gmTitlePlay' : is5 ? 'gmTitleJog' : 'gmTitleSys');
 
     // primary action per step ('USE' selects an SD file, 'SEND' uploads a phone file)
     var useSd = is1 && st.tab === 'sd';
     el.primary.textContent = useSd ? t('gmUse', 'USE')
                       : is1 ? t('gmSend', 'SEND')
-                      : is3 ? t('gmFrameRun', 'FRAME')
+                      : is2 ? t('gmFrameRun', 'FRAME')
                       : t('gmPlay', 'START');
-    el.primary.setAttribute('data-i18n', useSd ? 'gmUse' : is1 ? 'gmSend' : is3 ? 'gmFrameRun' : 'gmPlay');
-    el.primary.className = 'primary' + ((is2 || is5 || is6) ? ' off' : '');
+    el.primary.setAttribute('data-i18n', useSd ? 'gmUse' : is1 ? 'gmSend' : is2 ? 'gmFrameRun' : 'gmPlay');
+    el.primary.className = 'primary' + ((is5 || is6) ? ' off' : '');
     el.primary.disabled = st.busy || (useSd ? !st.sdPath : false) ||
       (is1 && !st.canWrite) ||
-      (is3 && (!st.bbox || !st.canWrite)) ||
+      (is2 && (!st.bbox || !st.canWrite)) ||
       (is4 && (!st.canWrite || !jobReady() || st.running || st.alarm));
 
     el.stop.className = 'stop';
-    el.acts.style.display = ((is2 || is5 || is6) || (is4 && st.running)) ? 'none' : 'flex';
+    el.acts.style.display = ((is5 || is6) || (is4 && st.running)) ? 'none' : 'flex';
 
     // step 4 machine buttons: PAUSE while running, RESUME while paused, STOP
     if (el.pause) el.pause.disabled = st.busy || !st.canWrite || !st.running || st.paused;
@@ -1754,21 +1753,20 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
       if (el.sdDir) el.sdDir.textContent = String(st.sdDir || st.sdRoot || '/');
       renderSdList();
     }
-    // step 2 preview
+    // step 2 preview (+ the FRAME action and the area readout)
     if (is2) {
       if (el.prevInfo) el.prevInfo.textContent = previewInfoText();
       drawPreview();
-    }
-    // step 3 frame
-    if (is3) {
-      el.frameJob.textContent = jobReady() ? (st.job.name || t('gmJobOnController', 'Job on the controller'))
-                                           : t('gmFrameNoJob', 'Pick a job first (step 1).');
-      var showBounds = st.bbox && jobReady();
-      el.frameArea.textContent = showBounds ? areaText(st.bbox) : (jobReady() ? (st.measuring ? '\u2026' : '') : '');
-      el.frameHint.setAttribute('data-i18n', (jobReady() && !st.bbox && !st.measuring) ? 'gmMeasureFail' : 'gmFrameHint');
-      el.frameHint.textContent = (jobReady() && !st.bbox && !st.measuring)
-        ? t('gmMeasureFail', 'Could not measure the area.')
-        : t('gmFrameHint', 'Outlines the job area with the spindle at 5%.');
+      if (el.frameArea) {
+        el.frameArea.textContent = (st.bbox && jobReady()) ? areaText(st.bbox)
+                                  : (jobReady() ? (st.measuring ? '\u2026' : '') : '');
+      }
+      if (el.frameHint) {
+        el.frameHint.setAttribute('data-i18n', (jobReady() && !st.bbox && !st.measuring) ? 'gmMeasureFail' : 'gmFrameHint');
+        el.frameHint.textContent = (jobReady() && !st.bbox && !st.measuring)
+          ? t('gmMeasureFail', 'Could not measure the area.')
+          : t('gmFrameHint', 'Outlines the job area with the spindle at 5%.');
+      }
     }
     // step 4 play
     if (is4) {
@@ -1934,7 +1932,7 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
           else measureSd();
         } else upload();
       }
-      else if (st.step === STEP_FRAME) runFrame();
+      else if (st.step === STEP_PREVIEW) runFrame();
       else if (st.step === STEP_PLAY) startJob();
     });
     el.stop.addEventListener('click', stopJob);
