@@ -7,12 +7,22 @@
 #include "route_registry_api.h"
 #include "../assets/page_rambox_asset.h"
 #include "../renderers/page_render_common.h"
+#include "../renderers/rambox_mobile_page_renderer.h"
+#include "../../ua_classify.h"
 #include "../../feature_flags.h"
 
 void registerRamboxRoutes(AsyncWebServer& server, const WebRouteContext& context) {
 #if ENABLE_UNIKON == 1 || ENABLE_BRICON == 1
     registerPageGet("/rambox", [&context](AsyncWebServerRequest* request) {
         if (!context.ensureBasicAuth(request)) return;
+        // Phones get the mobile page; ?desk=1 keeps the full page on any device.
+        if (!request->hasParam("desk")) {
+            const AsyncWebHeader* uaHdr = request->getHeader("User-Agent");
+            if (uaWantsMobileWizard(uaHdr ? uaHdr->value().c_str() : nullptr)) {
+                request->redirect("/m");
+                return;
+            }
+        }
         if (sendNotModifiedIfCached(request)) return;
         if (!context.allowHtmlClient(request)) return;
 
@@ -44,6 +54,26 @@ void registerRamboxRoutes(AsyncWebServer& server, const WebRouteContext& context
         request->send(response);
 #ifndef QUIET_HTTP_LOGS
         context.logServed(request, "/rambox", pLen + aLen + sLen, false);
+#endif
+    });
+
+    // Phone page: clock status, arrivals and RS232 commands + the shared System screen.
+    registerPageGet("/m", [&context](AsyncWebServerRequest* request) {
+        if (!context.ensureBasicAuth(request)) return;
+        if (sendNotModifiedIfCached(request)) return;
+        if (!context.allowHtmlClient(request)) return;
+        AsyncResponseStream* response = request->beginResponseStream("text/html; charset=utf-8");
+        if (!response) {
+            context.decrementActiveHtmlSessions();
+            request->send(500, "text/plain", "Internal Server Error");
+            return;
+        }
+        response->addHeader("ETag", FIRMWARE_BUILD);
+        response->addHeader("Cache-Control", "private, max-age=15, must-revalidate");
+        const size_t bytes = streamRamboxMobilePageToPrint(*response);
+        request->send(response);
+#ifndef QUIET_HTTP_LOGS
+        context.logServed(request, "/m", bytes, false);
 #endif
     });
 #else

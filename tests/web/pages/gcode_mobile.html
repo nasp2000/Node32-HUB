@@ -9,6 +9,15 @@
 
 <style>
 
+  /* ── page root: fixed column, never scrolls (every pack) ─────────────── */
+  html, body { height: 100%; margin: 0; overflow: hidden; background: #0b1220; }
+  body { color: #e6f1ff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #gm {
+    position: fixed; inset: 0; display: flex; flex-direction: column; gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    box-sizing: border-box; height: 100dvh; overflow: hidden;
+  }
+
   /* ── generic page chrome (any pack) ───────────────────────────────── */
   .mp header { display: flex; flex-direction: column; gap: 4px; }
   .mp .navstrip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }

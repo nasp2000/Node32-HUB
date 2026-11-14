@@ -54,6 +54,7 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/uda1334a` | Audio DAC/PCM test | static | manual | B | no | `ENABLE_UDA1334A` |
 | `/ipg-laser` | IPG laser control/monitor | local | 3 setInterval | B | **A** | `ENABLE_IPG_LASER` |
 | `/rambox` | Unified RAMBOX page: device selector (Unikon RAMBOX / Bricon) + 5 tabs (Config/Arrivals/Pigeons/Race/Status); first status load adopts `activeModule`; shared poll interval in minutes (1/3/5/10/15/30/60, default 3); bench mode (`manual_serial`) switches the module to the RS232 page settings | local | 5 s (arrivals/status tabs only) | B | **A** | `ENABLE_UNIKON` \|\| `ENABLE_BRICON` |
+| `/m` (Rambox32) | Clock phone page: **Status (fancier/race/arrivals/RS232) · Arrivals (Pombal/Races tabs) · Config (Bricon/Unikon, polling on-off+interval, RS232 baud/parity) · System (shared)**; `GET /rambox` from a phone → 302 here (`?desk=1` escape) | hybrid | status 3 s only on Status | B | no | `ENABLE_UNIKON`/`ENABLE_BRICON` |
 | `/unikon` | Unikon device page — **302** to `/rambox?dev=unikon` | local | 5 s | B | **A** | `ENABLE_UNIKON` |
 | `/bricon` | Bricon module page — **302** to `/rambox?dev=bricon` (wire driver implemented from REA; exclusive with Unikon — the choice sets the RS232 profile: Bricon 9600 8N2, Unikon 9600 8N1) | local | 5 s | B | **A** | `ENABLE_BRICON` |
 | `/ecra` | Touch7 exact LCD framebuffer mirror + weather/location/status | hybrid | conditional RGB565 frame 0.25–2 fps; weather status on load and 1 s while updating | B | **A** | `PACK_S3_TOUCH7` |

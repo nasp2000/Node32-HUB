@@ -14,6 +14,15 @@
 const char MOBILE_COMMON_CSS[] PROGMEM = R"MCCSS(
 <style>
 
+  /* ── page root: fixed column, never scrolls (every pack) ─────────────── */
+  html, body { height: 100%; margin: 0; overflow: hidden; background: #0b1220; }
+  body { color: #e6f1ff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #gm {
+    position: fixed; inset: 0; display: flex; flex-direction: column; gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    box-sizing: border-box; height: 100dvh; overflow: hidden;
+  }
+
   /* ── generic page chrome (any pack) ───────────────────────────────── */
   .mp header { display: flex; flex-direction: column; gap: 4px; }
   .mp .navstrip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
@@ -97,7 +106,7 @@ const char MOBILE_COMMON_CSS[] PROGMEM = R"MCCSS(
     border: 1px solid #1e293b; border-radius: 10px; background: #0f172a; min-width: 0;
   }
   .mp .tile .k { font-size: 10px; letter-spacing: .4px; text-transform: uppercase; color: #64748b; }
-  .mp .tile b { font-size: 16px; color: #e6f1ff; word-break: break-all; }
+  .mp .tile b { font-size: 16px; color: #e6f1ff; overflow-wrap: anywhere; word-break: normal; }
 
   .mp .subbar { display: flex; gap: 6px; }
   .mp .subt {
@@ -142,6 +151,33 @@ const char MOBILE_COMMON_CSS[] PROGMEM = R"MCCSS(
   .mp .reboot.arm { background: #b91c1c; }
   .mp .reboot:disabled { background: #0f172a; color: #64748b; border-color: #334155; }
   .mp .note { font-size: 11px; color: #64748b; }
+  /* option rows (any pack: camera modes, RS232, clock…) */
+  .mp .opts { display: flex; flex-direction: column; gap: 6px; }
+  .mp .opt { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #cbd5e1; }
+  .mp .opt > span { flex: 0 0 96px; color: #94a3b8; font-size: 12px; }
+  .mp .opt select {
+    flex: 1 1 auto; height: 34px; border-radius: 9px; border: 1px solid #334155;
+    background: #0f172a; color: #e6f1ff; font-size: 13px; padding: 0 8px;
+  }
+  .mp .opt input[type=range] { flex: 1 1 auto; accent-color: #3b82f6; }
+  .mp .opt b { flex: 0 0 28px; text-align: center; color: #93c5fd; font-size: 13px; }
+  .mp .stepper { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; }
+  .mp .stepper button {
+    width: 40px; height: 34px; border-radius: 9px; border: 1px solid #334155;
+    background: #0f172a; color: #cbd5e1; font-size: 16px;
+  }
+  .mp .stepper b { flex: 1 1 auto; text-align: center; color: #93c5fd; }
+  /* one-line command input (any pack: MDI, RS232, ...) */
+  .mp .mdi { display: flex; gap: 6px; }
+  .mp .mdi input {
+    flex: 1 1 auto; min-width: 0; height: 36px; border-radius: 9px; border: 1px solid #334155;
+    background: #0f172a; color: #e6f1ff; font-size: 13px; padding: 0 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .mp .mdi button {
+    flex: 0 0 auto; width: 48px; height: 36px; border-radius: 9px;
+    border: 1px solid #3b82f6; background: #1d2b47; color: #dbeafe; font-size: 15px;
+  }
 
   /* visible while a finger is down (the 250 ms gate needs feedback) */
   .mp button.pressing, .mp a.pressing { opacity: .6; transform: scale(.97); }

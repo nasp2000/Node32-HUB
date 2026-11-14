@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width,initial-scale=1'>
+  <title>Rambox32 (Test)</title>
+</head>
+<body>
+
+<style>
+
+  /* ── page root: fixed column, never scrolls (every pack) ─────────────── */
+  html, body { height: 100%; margin: 0; overflow: hidden; background: #0b1220; }
+  body { color: #e6f1ff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #gm {
+    position: fixed; inset: 0; display: flex; flex-direction: column; gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    box-sizing: border-box; height: 100dvh; overflow: hidden;
+  }
+
+  /* ── generic page chrome (any pack) ───────────────────────────────── */
+  .mp header { display: flex; flex-direction: column; gap: 4px; }
+  .mp .navstrip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
+  .mp .ncol { display: flex; flex-direction: column; gap: 4px; min-width: 0; background: transparent; border: 0; padding: 0; }
+  .mp .ncol .ntab {
+    display: block; height: 30px; line-height: 30px; border-radius: 8px; border: 1px solid transparent;
+    background: transparent; color: #64748b; font-size: 12px; font-weight: 700; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mp .ncol .nrail { display: block; height: 3px; border-radius: 2px; background: #24344d; }
+  .mp .ncol.done .ntab { color: #bfdbfe; }
+  .mp .ncol.done .nrail { background: #1d4ed8; }
+  .mp .ncol.on .ntab { border-color: #3b82f6; background: #1d2b47; color: #e6f1ff; }
+  .mp .ncol.on .nrail { background: #3b82f6; }
+  .mp .hrow { display: flex; align-items: center; gap: 6px; min-height: 26px; }
+  .mp .hrow .no { font-size: 11px; color: #94a3b8; }
+  .mp .hrow .pack {
+    font-size: 12px; font-weight: 700; color: #93c5fd; letter-spacing: .2px;
+    max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .mp .sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  .mp .badge {
+    margin-left: auto; font-size: 11px; padding: 3px 8px; border-radius: 999px;
+    border: 1px solid #334155; color: #94a3b8; white-space: nowrap;
+  }
+  .mp .badge.ok { border-color: #10b981; color: #6ee7b7; }
+  .mp .badge.warn { border-color: #f59e0b; color: #fcd34d; }
+
+  .mp .screen {
+    flex: 1 1 auto; min-height: 0; display: none; flex-direction: column; gap: 6px;
+    overflow: hidden; justify-content: center; justify-content: safe center;
+  }
+  .mp .screen.on { display: flex; }
+  .mp .screen.fill.on { justify-content: flex-start; }
+
+  .mp .rowhdr { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #94a3b8; }
+  .mp .rowhdr .dir { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mp .mini {
+    width: 32px; height: 32px; border-radius: 9px; border: 1px solid #334155;
+    background: #0f172a; color: #cbd5e1; font-size: 15px; line-height: 1;
+  }
+  .mp .list {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    border: 1px solid #1e293b; border-radius: 12px; background: #0f172a;
+  }
+  .mp .row {
+    display: flex; align-items: center; gap: 8px; padding: 13px 12px;
+    border-bottom: 1px solid #16213a; font-size: 14px; color: #e6f1ff;
+  }
+  .mp .row:last-child { border-bottom: 0; }
+  .mp .row.sel { background: #1d2b47; }
+  .mp .row .n { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mp .row .s { flex: 0 0 auto; font-size: 11px; color: #94a3b8; }
+
+  .mp .acts { display: flex; gap: 8px; }
+  .mp .nav { display: flex; align-items: center; gap: 10px; }
+  .mp .nav .no { font-size: 12px; color: #94a3b8; }
+  .mp .nav .arrow {
+    width: 46px; height: 46px; border-radius: 50%; border: 1px solid #3b82f6;
+    background: #0f172a; color: #e6f1ff; font-size: 20px;
+  }
+  .mp .nav .arrow:disabled { opacity: .3; border-color: #334155; color: #64748b; }
+  .mp .nav .back { margin-left: 0; }
+  .mp .nav .next { margin-left: auto; }
+
+  .mp .chips { display: flex; gap: 6px; }
+  .mp .chip {
+    flex: 1 1 0; height: 32px; border-radius: 9px; border: 1px solid #334155;
+    background: #0f172a; color: #94a3b8; font-size: 12px; font-weight: 700;
+  }
+  .mp .chip.on { border-color: #3b82f6; background: #1d2b47; color: #dbeafe; }
+  .mp .acts3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .mp .acts3 .actbtn {
+    height: 40px; border-radius: 10px; border: 1px solid #334155; background: #0f172a;
+    color: #cbd5e1; font-size: 11px; font-weight: 700; letter-spacing: .3px;
+  }
+
+  .mp .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .mp .tile {
+    display: flex; flex-direction: column; gap: 2px; padding: 8px 10px;
+    border: 1px solid #1e293b; border-radius: 10px; background: #0f172a; min-width: 0;
+  }
+  .mp .tile .k { font-size: 10px; letter-spacing: .4px; text-transform: uppercase; color: #64748b; }
+  .mp .tile b { font-size: 16px; color: #e6f1ff; overflow-wrap: anywhere; word-break: normal; }
+
+  .mp .subbar { display: flex; gap: 6px; }
+  .mp .subt {
+    flex: 1 1 0; height: 32px; border-radius: 9px; border: 1px solid #334155;
+    background: #0f172a; color: #94a3b8; font-size: 12px; font-weight: 700;
+  }
+  .mp .subt.on { border-color: #3b82f6; background: #1d2b47; color: #dbeafe; }
+  .mp .pane { flex: 0 1 auto; min-height: 0; display: none; flex-direction: column; gap: 6px; }
+  .mp #muPaneLog { flex: 1 1 auto; }   /* the log fills, the rest centres */
+  .mp .pane.on { display: flex; }
+
+  .mp .bar { height: 6px; border-radius: 3px; background: #1e293b; overflow: hidden; display: none; }
+  .mp .bar.on { display: block; }
+  .mp .bar span { display: block; height: 100%; width: 0%; background: #3b82f6; transition: width .15s linear; }
+  .mp .msg { font-size: 12px; line-height: 1.3; color: #94a3b8; min-height: 2.4em; }
+  .mp .msg.err { color: #fca5a5; }
+  .mp .msg.ok { color: #6ee7b7; }
+
+  .mp .btn {
+    height: 42px; border-radius: 10px; border: 1px solid #334155; background: #0f172a;
+    color: #cbd5e1; font-size: 13px; font-weight: 700;
+  }
+  .mp .btn:active { background: #1d2b47; }
+  .mp .btn:disabled { opacity: .45; }
+  .mp .primary {
+    height: 50px; border: 0; border-radius: 12px; background: #2563eb; color: #fff;
+    font-size: 16px; font-weight: 700;
+  }
+  .mp .primary:disabled { background: #1e293b; color: #64748b; }
+
+  .mp .log {
+    flex: 1 1 auto; min-height: 0; margin: 0; padding: 8px 10px; overflow-y: auto;
+    border: 1px solid #1e293b; border-radius: 10px; background: #0f172a; color: #cbd5e1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word; -webkit-overflow-scrolling: touch;
+  }
+
+  .mp .reboot {
+    height: 46px; border-radius: 11px; border: 1px solid #dc2626; background: #7f1d1d;
+    color: #fff; font-size: 13px; font-weight: 700; letter-spacing: .3px;
+  }
+  .mp .reboot.arm { background: #b91c1c; }
+  .mp .reboot:disabled { background: #0f172a; color: #64748b; border-color: #334155; }
+  .mp .note { font-size: 11px; color: #64748b; }
+  /* option rows (any pack: camera modes, RS232, clock…) */
+  .mp .opts { display: flex; flex-direction: column; gap: 6px; }
+  .mp .opt { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #cbd5e1; }
+  .mp .opt > span { flex: 0 0 96px; color: #94a3b8; font-size: 12px; }
+  .mp .opt select {
+    flex: 1 1 auto; height: 34px; border-radius: 9px; border: 1px solid #334155;
+    background: #0f172a; color: #e6f1ff; font-size: 13px; padding: 0 8px;
+  }
+  .mp .opt input[type=range] { flex: 1 1 auto; accent-color: #3b82f6; }
+  .mp .opt b { flex: 0 0 28px; text-align: center; color: #93c5fd; font-size: 13px; }
+  .mp .stepper { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; }
+  .mp .stepper button {
+    width: 40px; height: 34px; border-radius: 9px; border: 1px solid #334155;
+    background: #0f172a; color: #cbd5e1; font-size: 16px;
+  }
+  .mp .stepper b { flex: 1 1 auto; text-align: center; color: #93c5fd; }
+  /* one-line command input (any pack: MDI, RS232, ...) */
+  .mp .mdi { display: flex; gap: 6px; }
+  .mp .mdi input {
+    flex: 1 1 auto; min-width: 0; height: 36px; border-radius: 9px; border: 1px solid #334155;
+    background: #0f172a; color: #e6f1ff; font-size: 13px; padding: 0 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .mp .mdi button {
+    flex: 0 0 auto; width: 48px; height: 36px; border-radius: 9px;
+    border: 1px solid #3b82f6; background: #1d2b47; color: #dbeafe; font-size: 15px;
+  }
+
+  /* visible while a finger is down (the 250 ms gate needs feedback) */
+  .mp button.pressing, .mp a.pressing { opacity: .6; transform: scale(.97); }
+  .mp button, .mp a { transition: opacity .08s linear, transform .08s linear; }
+</style>
+
+<div id="gm" class="mp">
+  <header>
+    <nav class="navstrip" id="gmNavStrip">
+      <button type="button" class="ncol on" data-step-go="1"><span class="ntab" data-i18n="rbNavStatus">Status</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="2"><span class="ntab" data-i18n="rbNavArrivals">Arrivals</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="3"><span class="ntab" data-i18n="rbNavCfg">Config</span><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="4"><span class="ntab" data-i18n="rbNavSys">System</span><i class="nrail"></i></button>
+    </nav>
+    <div class="hrow">
+      <span class="pack" id="gmPack"></span>
+      <h1 id="gmTitle" class="sr" data-i18n="rbTitleStatus">Status</h1>
+      <span class="badge" id="gmLink">--</span>
+    </div>
+  </header>
+
+  <!-- ── 1: status ───────────────────────────────────────────────── -->
+  <section class="screen on" id="gmS1">
+    <div class="tiles">
+      <div class="tile"><span class="k" data-i18n="rbClock">Clock</span><b id="rbClock">--</b></div>
+      <div class="tile"><span class="k" data-i18n="rbFancier">Fancier</span><b id="rbFancier">--</b></div>
+      <div class="tile"><span class="k" data-i18n="rbRace">Race</span><b id="rbRace">--</b></div>
+      <div class="tile"><span class="k" data-i18n="rbArrivalsN">Arrivals</span><b id="rbCount">--</b></div>
+      <div class="tile"><span class="k">RS232</span><b id="rbRs">--</b></div>
+      <div class="tile"><span class="k" data-i18n="rbLastPoll">Last poll</span><b id="rbPoll">--</b></div>
+    </div>
+    <div class="chips">
+      <button type="button" class="chip" id="rbSync" data-i18n="rbSync">SYNC CLOCK</button>
+    </div>
+  </section>
+
+  <!-- ── 2: clock data (arrivals / pombal / races) ───────────────── -->
+  <section class="screen fill" id="gmS2">
+    <div class="subbar">
+      <button type="button" class="subt on" id="rbTabArr" data-arr="arr" data-i18n="rbArrivals">Arrivals</button>
+      <button type="button" class="subt" id="rbTabPombal" data-arr="pombal" data-i18n="rbPombal">Pombal</button>
+      <button type="button" class="subt" id="rbTabRaces" data-arr="races" data-i18n="rbRaces">Races</button>
+    </div>
+    <div class="rowhdr">
+      <span class="dir" id="rbArrTitle" data-i18n="rbArrivals">Arrivals</span>
+      <button type="button" class="mini" id="rbReload" data-i18n-title="rbReload" title="Reload">&#8635;</button>
+      <button type="button" class="mini" id="rbReset" data-i18n-title="rbReset" title="Clear">&#10005;</button>
+    </div>
+    <div class="list" id="rbList"></div>
+  </section>
+
+  <!-- ── 3: config (clock + rs232) ───────────────────────────────── -->
+  <section class="screen" id="gmS3">
+    <div class="rowhdr"><span class="dir" data-i18n="rbCfgTitle">Clock and RS232</span></div>
+    <div class="chips" id="rbClocks">
+      <button type="button" class="chip" data-clock="bricon">BRICON</button>
+      <button type="button" class="chip" data-clock="unikon">UNIKON</button>
+    </div>
+    <div class="opt"><span data-i18n="rbClockOn">Clock polling</span>
+      <div class="chips" style="flex:1 1 auto">
+        <button type="button" class="chip" id="rbPollOn" data-i18n="rbOn">ON</button>
+        <button type="button" class="chip" id="rbPollOff" data-i18n="rbOff">OFF</button>
+      </div>
+    </div>
+    <label class="opt"><span data-i18n="rbInterval">Every</span><select id="rbInterval"></select></label>
+    <label class="opt"><span>RS232</span>
+      <div class="chips" style="flex:1 1 auto">
+        <button type="button" class="chip" id="rbRsOn" data-i18n="rbOn">ON</button>
+        <button type="button" class="chip" id="rbRsOff" data-i18n="rbOff">OFF</button>
+      </div>
+    </label>
+    <label class="opt"><span data-i18n="rbBaud">Baud</span><select id="rbBaud"></select></label>
+    <label class="opt"><span data-i18n="rbParity">Parity</span><select id="rbParity">
+      <option value="none">none</option><option value="even">even</option><option value="odd">odd</option>
+    </select></label>
+    <label class="opt"><span data-i18n="rbBits">Data / stop</span>
+      <div class="chips" style="flex:1 1 auto">
+        <select id="rbData"><option value="8">8</option><option value="7">7</option></select>
+        <select id="rbStop"><option value="1">1</option><option value="2">2</option></select>
+      </div>
+    </label>
+  </section>
+
+
+<section class="screen mpsys" id="gmSYS">
+  <div class="subbar">
+    <button type="button" class="subt on" id="muTabSum" data-mu-tab="sum">Summary</button>
+    <button type="button" class="subt" id="muTabOta" data-mu-tab="ota">Firmware</button>
+    <button type="button" class="subt" id="muTabLog" data-mu-tab="log">Log</button>
+  </div>
+
+  <div class="pane on" id="muPaneSum">
+    <div class="tiles">
+      <div class="tile"><span class="k" data-i18n="gmSysFw">Firmware</span><b id="muFw">--</b></div>
+      <div class="tile"><span class="k" data-i18n="gmSysUp">Uptime</span><b id="muUp">--</b></div>
+      <div class="tile"><span class="k" data-i18n="gmSysHeap">Heap</span><b id="muHeap">--</b></div>
+      <div class="tile"><span class="k" data-i18n="gmSysPsram">PSRAM</span><b id="muPsram">--</b></div>
+      <div class="tile"><span class="k" data-i18n="gmSysSdFree">SD card</span><b id="muSd">--</b></div>
+      <div class="tile"><span class="k" data-i18n="gmSysWifi">WiFi</span><b id="muWifi">--</b></div>
+    </div>
+    <button type="button" class="reboot" id="muReboot" data-i18n="gmSysReboot">Restart the controller</button>
+  </div>
+
+  <div class="pane" id="muPaneOta">
+    <div class="note" id="muOtaCur">--</div>
+    <button type="button" class="btn" id="muOtaPick" data-i18n="gmOtaPick">Choose the firmware (.bin)</button>
+    <input type="file" id="muOtaFile" accept=".bin,application/octet-stream" hidden>
+    <div class="bar" id="muOtaBar"><span id="muOtaFill"></span></div>
+    <div class="msg" id="muOtaMsg" data-i18n="gmOtaHint">Pick the .bin, upload it and the controller restarts.</div>
+    <button type="button" class="primary" id="muOtaGo" disabled data-i18n="gmOtaGo">Upload firmware</button>
+  </div>
+
+  <div class="pane" id="muPaneLog">
+    <pre class="log" id="muLog"></pre>
+    <div class="subbar">
+      <button type="button" class="subt" id="muLogPause" data-i18n="gmLogPause">Pause</button>
+      <button type="button" class="subt" id="muLogClear" data-i18n="gmLogClear">Clear</button>
+      <button type="button" class="subt" id="muLogBottom" data-i18n="gmLogBottom">Bottom</button>
+    </div>
+  </div>
+</section>
+  <div class="msg" id="gmMsg" data-i18n="rbHint">Clock status, arrivals and RS232 commands.</div>
+  <div class="bar" id="gmBar"><span id="gmFill"></span></div>
+
+  <div class="acts">
+    <button type="button" class="primary" id="gmPrimary" data-i18n="rbPollNow">POLL NOW</button>
+  </div>
+
+  <div class="nav">
+    <button type="button" class="arrow back" id="gmBack" disabled title="Back">&#8592;</button>
+    <span class="no" id="gmNo">1 / 4</span>
+    <button type="button" class="arrow next" id="gmNext" data-i18n-title="gmNextTip">&#8594;</button>
+  </div>
+</div>
+
+
+<script>
+// ===== MOCK API LAYER =====
+(function() {
+  window.fetch = function(url, opts) {
+    var u = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+    var MOCKS = typeof window.__MOCK_API__ !== 'undefined' ? window.__MOCK_API__ : {};
+    if (opts && opts.method && opts.method !== 'GET') {
+      window.__postBodies = window.__postBodies || [];
+      window.__postBodies.push({ url: u, method: opts.method, body: opts.body || '' });
+    }
+    var mock = MOCKS[u];
+    if (!mock) {
+      for (var k in MOCKS) {
+        if (u.indexOf(k) >= 0) { mock = MOCKS[k]; break; }
+      }
+    }
+    if (typeof mock === 'function') mock = mock();
+    return Promise.resolve({
+      ok: true, status: 200,
+      json: function() { return Promise.resolve(mock || {}); },
+      text: function() { return Promise.resolve(JSON.stringify(mock || {})); }
+    });
+  };
+  window.customAlert = function(m) { console.log('[mock] customAlert:', m); };
+  window.customConfirm = function(m, cb) { if (cb) cb(true); };
+  window.showLoading = function() {};
+  window.hideLoading = function() {};
+  window.disableBtn = function(b) { if (b) { b.disabled = true; } };
+  window.enableBtn = function(b) { if (b) { b.disabled = false; } };
+  window.showSavedCard = function() {};
+  // Feature flags used by some pages (default: off)
+  window._rs232Enabled = false;
+  window._modbusEnabled = false;
+  window.__test__ = {};  // ensure window.__test__ exists even on non-IIFE pages
+})();
+</script>
+
+<script>
+(function () {
+  'use strict';
+  var STEPS = 4;
+  var STEP_STATUS = 1, STEP_ARR = 2, STEP_CFG = 3, STEP_SYS = 4;
+
+  var el = {
+    title: document.getElementById('gmTitle'),
+    navStrip: document.getElementById('gmNavStrip'),
+    screens: [document.getElementById('gmS1'), document.getElementById('gmS2'),
+              document.getElementById('gmS3'), document.getElementById('gmSYS')],
+    pack: document.getElementById('gmPack'),
+    link: document.getElementById('gmLink'),
+    clock: document.getElementById('rbClock'),
+    fancier: document.getElementById('rbFancier'),
+    race: document.getElementById('rbRace'),
+    count: document.getElementById('rbCount'),
+    rs: document.getElementById('rbRs'),
+    poll: document.getElementById('rbPoll'),
+    sync: document.getElementById('rbSync'),
+    clocks: document.getElementById('rbClocks'),
+    pollOn: document.getElementById('rbPollOn'),
+    pollOff: document.getElementById('rbPollOff'),
+    interval: document.getElementById('rbInterval'),
+    rsOn: document.getElementById('rbRsOn'),
+    rsOff: document.getElementById('rbRsOff'),
+    baud: document.getElementById('rbBaud'),
+    parity: document.getElementById('rbParity'),
+    data: document.getElementById('rbData'),
+    stop: document.getElementById('rbStop'),
+    arrTitle: document.getElementById('rbArrTitle'),
+    list: document.getElementById('rbList'),
+    tabArr: document.getElementById('rbTabArr'),
+    tabPombal: document.getElementById('rbTabPombal'),
+    tabRaces: document.getElementById('rbTabRaces'),
+    reload: document.getElementById('rbReload'),
+    reset: document.getElementById('rbReset'),
+    msg: document.getElementById('gmMsg'),
+    bar: document.getElementById('gmBar'),
+    fill: document.getElementById('gmFill'),
+    primary: document.getElementById('gmPrimary'),
+    acts: document.querySelector('#gm .acts'),
+    back: document.getElementById('gmBack'),
+    next: document.getElementById('gmNext'),
+    no: document.getElementById('gmNo')
+  };
+
+  // The pack can carry a Bricon clock, a Unikon clock or both: the page asks
+  // Bricon first and falls back to Unikon (same JSON shape) when it 404s.
+  var st = { step: 1, busy: false, arrivals: [], status: null, rs: null, timer: 0,
+             clock: 'bricon', clocks: { bricon: false, unikon: false },
+             tab: 'arr', pombal: [], races: [], intervalSec: 15, rsEnabled: true };
+
+  function t(k, fb) { return window.MU ? MU.t(k, fb) : (fb !== undefined ? fb : k); }
+  function tf(k, fb, v) { return window.MU ? MU.tf(k, fb, v) : (fb !== undefined ? fb : k); }
+  function msg(text, kind) { if (window.MU) MU.msg(el.msg, text, kind); }
+  function set(node, txt) { if (node) node.textContent = (txt === undefined || txt === null || txt === '') ? '--' : String(txt); }
+
+  function linkBadge(on, text) {
+    if (!el.link) return;
+    el.link.textContent = text;
+    el.link.className = 'badge' + (on ? ' ok' : ' warn');
+  }
+
+  function clockGet(path) {
+    var url = '/api/' + st.clock + '-' + path;
+    return MU.get(url).then(function (res) {
+      if (res.status === 200 && res.body && (res.body.connected !== undefined || res.body.count !== undefined ||
+          res.body.enabled !== undefined || res.body.arrivals !== undefined)) {
+        return res;
+      }
+      if (st.clock === 'bricon') {
+        st.clock = 'unikon';
+        return MU.get('/api/unikon-' + path);
+      }
+      return res;
+    }).catch(function () {
+      if (st.clock === 'bricon') {
+        st.clock = 'unikon';
+        return MU.get('/api/unikon-' + path).catch(function () { return { status: 0, body: {} }; });
+      }
+      return { status: 0, body: {} };
+    });
+  }
+
+  function loadStatus() {
+    if (!window.MU) return;
+    Promise.all([
+      MU.get('/api/bricon-status').catch(function () { return { status: 0, body: {} }; }),
+      MU.get('/api/unikon-status').catch(function () { return { status: 0, body: {} }; }),
+      MU.get('/api/rs232-status').catch(function () { return { status: 0, body: {} }; })
+    ]).then(function (r) {
+      var br = r[0].body || {}, un = r[1].body || {}, rs = r[2].body || {};
+      st.clocks.bricon = (br.enabled === true) || (br.connected === true);
+      st.clocks.unikon = (un.enabled === true) || (un.connected === true);
+      st.clock = st.clocks.unikon && !st.clocks.bricon ? 'unikon' : 'bricon';
+      var c = (st.clock === 'unikon') ? un : br;
+      st.status = c;
+      st.rs = rs;
+      if (el.clocks) {
+        var chips = el.clocks.querySelectorAll('button[data-clock]');
+        for (var i = 0; i < chips.length; i++) {
+          var name = String(chips[i].getAttribute('data-clock'));
+          chips[i].className = 'chip' + (st.clocks[name] ? ' on' : '');
+          chips[i].disabled = st.busy;
+        }
+      }
+      set(el.clock, c.connected ? t('rbConnected', 'connected')
+                                : (c.hardwarePending ? t('rbPending', 'hardware pending')
+                                                     : t('rbOffline', 'offline')));
+      set(el.fancier, c.fancierName || c.clubId);
+      set(el.race, c.flightId || c.race);
+      set(el.count, c.lastNewCount !== undefined ? String(c.lastNewCount) : '--');
+      set(el.rs, rs.enabled ? (String(rs.baudrate || '') + ' 8N1') : t('rbDisabled', 'disabled'));
+      set(el.poll, c.lastPollAgoSec !== undefined ? (String(c.lastPollAgoSec) + ' s') : '--');
+      linkBadge(!!c.connected, t(c.connected ? 'gmOnline' : 'gmOffline', c.connected ? 'online' : 'offline'));
+      render();
+    }).catch(function () { linkBadge(false, t('gmOffline', 'offline')); });
+  }
+
+  function setArrTab(tab) {
+    st.tab = (tab === 'pombal' || tab === 'races') ? tab : 'arr';
+    if (el.tabArr) el.tabArr.className = 'subt' + (st.tab === 'arr' ? ' on' : '');
+    if (el.tabPombal) el.tabPombal.className = 'subt' + (st.tab === 'pombal' ? ' on' : '');
+    if (el.tabRaces) el.tabRaces.className = 'subt' + (st.tab === 'races' ? ' on' : '');
+    if (st.tab === 'arr') loadArrivals();
+    else if (st.tab === 'pombal') loadPombal();
+    else loadRaces();
+  }
+
+  function renderRows(rows, title) {
+    if (!el.list || typeof document === 'undefined' || !document) return;
+    el.list.innerHTML = '';
+    if (el.arrTitle) el.arrTitle.textContent = title;
+    if (!rows.length) {
+      var none = document.createElement('div');
+      none.className = 'note';
+      none.textContent = t('rbEmpty', 'Nothing to show yet.');
+      el.list.appendChild(none);
+      return;
+    }
+    for (var i = 0; i < rows.length; i++) {
+      var row = document.createElement('div');
+      row.className = 'row';
+      var n = document.createElement('span');
+      n.className = 'n';
+      n.textContent = String(rows[i][0] || '--');
+      var s2 = document.createElement('span');
+      s2.className = 's';
+      s2.textContent = String(rows[i][1] || '');
+      row.appendChild(n);
+      row.appendChild(s2);
+      el.list.appendChild(row);
+    }
+  }
+
+  function loadPombal() {
+    if (!window.MU) return;
+    return clockGet('pombal').then(function (r) {
+      var d = r.body || {};
+      var list = Array.isArray(d.registrations) ? d.registrations : [];
+      var rows = [];
+      for (var i = 0; i < list.length; i++) rows.push([list[i].ring, list[i].chip || '']);
+      renderRows(rows, t('rbPombal', 'Pombal') + ' (' + rows.length + ')');
+    }).catch(function () { renderRows([], t('rbPombal', 'Pombal')); });
+  }
+
+  function loadRaces() {
+    if (!window.MU) return;
+    return clockGet('contests').then(function (r) {
+      var d = r.body || {};
+      var list = Array.isArray(d.contests) ? d.contests : [];
+      var rows = [];
+      for (var i = 0; i < list.length; i++) {
+        var c = list[i];
+        rows.push([c.name || c.code, [c.date, (c.distance ? c.distance + ' km' : ''), (c.pigeonCount || 0) + ' pombos']
+          .filter(function (x) { return !!x; }).join(' · ')]);
+      }
+      renderRows(rows, t('rbRaces', 'Races') + ' (' + rows.length + ')');
+    }).catch(function () { renderRows([], t('rbRaces', 'Races')); });
+  }
+
+  function renderArrivals() {
+    if (!el.list || typeof document === 'undefined' || !document) return;
+    el.list.innerHTML = '';
+    if (!st.arrivals.length) {
+      var none = document.createElement('div');
+      none.className = 'note';
+      none.textContent = t('rbNoArrivals', 'No arrivals yet.');
+      el.list.appendChild(none);
+      return;
+    }
+    for (var i = 0; i < st.arrivals.length; i++) {
+      var a = st.arrivals[i] || {};
+      var row = document.createElement('div');
+      row.className = 'row';
+      var n = document.createElement('span');
+      n.className = 'n';
+      n.textContent = String(a.ring || '--');
+      var s = document.createElement('span');
+      s.className = 's';
+      s.textContent = String(a.time || '') + ' · ' + String(a.race || a.kind || '');
+      row.appendChild(n);
+      row.appendChild(s);
+      el.list.appendChild(row);
+    }
+  }
+
+  function loadArrivals() {
+    if (!window.MU) return;
+    return clockGet('arrivals').then(function (r) {
+      var d = r.body || {};
+      st.arrivals = Array.isArray(d.arrivals) ? d.arrivals : [];
+      if (el.arrTitle && st.tab === 'arr') {
+        el.arrTitle.textContent = t('rbArrivals', 'Arrivals') + ' (' + String(d.count !== undefined ? d.count : st.arrivals.length) + ')';
+      }
+      renderArrivals();
+    }).catch(function () { st.arrivals = []; renderArrivals(); });
+  }
+
+  // Only one clock can be active at a time (shared RS232): enabling one turns
+  // the other off in the same request pair.
+  function switchClock(name) {
+    if (st.busy || (name !== 'bricon' && name !== 'unikon')) return false;
+    var other = (name === 'bricon') ? 'unikon' : 'bricon';
+    var run = function () {
+      st.busy = true; render();
+      msg(tf('rbSwitching', 'Switching to {name}\u2026', { name: name.toUpperCase() }), '');
+      return Promise.all([
+        MU.post('/api/' + name + '-config', { enabled: 1 }),
+        MU.post('/api/' + other + '-config', { enabled: 0 })
+      ]).then(function () {
+        st.busy = false;
+        st.clock = name;
+        msg(tf('rbSwitched', '{name} is the active clock.', { name: name.toUpperCase() }), 'ok');
+        loadStatus();
+        return true;
+      }).catch(function () {
+        st.busy = false; render();
+        msg(t('rbFail', 'The device refused the request.'), 'err');
+        return false;
+      });
+    };
+    if (typeof window.customConfirm === 'function') {
+      window.customConfirm(tf('rbSwitchConfirm', 'Make {name} the active clock? The other one is turned off.',
+                              { name: name.toUpperCase() }), function (ok) { if (ok) run(); });
+      return true;
+    }
+    if (MU.arm('clock:' + name)) run();
+    return true;
+  }
+
+  function action(kind) {
+    if (st.busy) return false;
+    var url = kind === 'poll' ? ('/api/' + st.clock + '-poll')
+            : kind === 'sync' ? ('/api/' + st.clock + '-sync-calendar')
+            : ('/api/' + st.clock + '-reset');
+    st.busy = true; render();
+    msg(t(kind === 'poll' ? 'rbPolling' : kind === 'reset' ? 'rbResetting' : 'rbSending',
+          kind === 'poll' ? 'Polling the clock…' : kind === 'reset' ? 'Clearing…' : 'Sending…'), '');
+    return MU.post(url, {}).then(function (res) {
+      st.busy = false;
+      var ok = !!(res.body && (res.body.success !== false));
+      msg(ok ? t(kind === 'poll' ? 'rbPollOk' : kind === 'reset' ? 'rbResetOk' : 'rbSent',
+                 kind === 'poll' ? 'Poll requested.' : kind === 'reset' ? 'Arrivals cleared.' : 'Command queued.')
+             : t('rbFail', 'The device refused the request.'), ok ? 'ok' : 'err');
+      loadStatus(); loadArrivals();
+      render();
+      return ok;
+    }).catch(function () {
+      st.busy = false; render();
+      msg(t('rbFail', 'The device refused the request.'), 'err');
+      return false;
+    });
+  }
+
+  var INTERVALS = [5, 10, 15, 30, 60, 120];
+  var BAUDS = [9600, 19200, 38400, 57600, 115200];
+
+  function fillSelect(node, values, current) {
+    if (!node) return;
+    node.innerHTML = '';
+    for (var i = 0; i < values.length; i++) {
+      var o = document.createElement('option');
+      o.value = String(values[i]);
+      o.textContent = String(values[i]);
+      node.appendChild(o);
+    }
+    if (current !== undefined) node.value = String(current);
+  }
+
+  function paintToggle(onBtn, offBtn, on) {
+    if (onBtn) onBtn.className = 'chip' + (on ? ' on' : '');
+    if (offBtn) offBtn.className = 'chip' + (on ? '' : ' on');
+  }
+
+  function loadConfig() {
+    if (!window.MU) return;
+    return Promise.all([
+      MU.get('/api/bricon-status').catch(function () { return { body: {} }; }),
+      MU.get('/api/unikon-status').catch(function () { return { body: {} }; }),
+      MU.get('/api/rs232-status').catch(function () { return { body: {} }; })
+    ]).then(function (r) {
+      var br = r[0].body || {}, un = r[1].body || {}, rs = r[2].body || {};
+      st.clocks.bricon = (br.enabled === true);
+      st.clocks.unikon = (un.enabled === true);
+      st.clock = st.clocks.unikon && !st.clocks.bricon ? 'unikon' : 'bricon';
+      var act = (st.clock === 'unikon') ? un : br;
+      st.intervalSec = Number(act.intervalSec) || 15;
+      st.rsEnabled = (rs.enabled !== false);
+
+      if (el.clocks) {
+        var chips = el.clocks.querySelectorAll('button[data-clock]');
+        for (var i = 0; i < chips.length; i++) {
+          var nm = String(chips[i].getAttribute('data-clock'));
+          chips[i].className = 'chip' + (st.clocks[nm] ? ' on' : '');
+        }
+      }
+      paintToggle(el.pollOn, el.pollOff, !!(br.enabled || un.enabled));
+      paintToggle(el.rsOn, el.rsOff, st.rsEnabled);
+      fillSelect(el.interval, INTERVALS, st.intervalSec);
+      fillSelect(el.baud, BAUDS, Number(rs.baudrate) || 9600);
+      if (el.parity) el.parity.value = String(rs.parity || 'none');
+      if (el.data) el.data.value = String(rs.data_bits || 8);
+      if (el.stop) el.stop.value = String(rs.stop_bits || 1);
+      render();
+    }).catch(function () {});
+  }
+
+  function saveConfig() {
+    if (st.busy || !window.MU) return false;
+    var onChip = el.clocks ? el.clocks.querySelector('.chip.on') : null;
+    var clock = onChip ? String(onChip.getAttribute('data-clock')) : st.clock;
+    var other = (clock === 'bricon') ? 'unikon' : 'bricon';
+    var clockOn = el.pollOn ? el.pollOn.className.indexOf('on') >= 0 : true;
+    var interval = el.interval ? el.interval.value : st.intervalSec;
+    var rsOn = el.rsOn ? el.rsOn.className.indexOf('on') >= 0 : true;
+    st.busy = true; render();
+    msg(t('rbSaving', 'Saving\u2026'), '');
+    var jobs = [
+      MU.post('/api/' + clock + '-config', { enabled: clockOn ? 1 : 0, interval: interval }),
+      MU.post('/api/' + other + '-config', { enabled: 0 }),
+      MU.post('/api/config?section=rs232', {
+        rs232_enabled: rsOn ? 1 : 0,
+        baudrate: el.baud ? el.baud.value : 9600,
+        parity: el.parity ? el.parity.value : 'none',
+        data_bits: el.data ? el.data.value : 8,
+        stop_bits: el.stop ? el.stop.value : 1
+      })
+    ];
+    return Promise.all(jobs).then(function () {
+      st.busy = false;
+      msg(t('rbSaved', 'Settings saved.'), 'ok');
+      loadConfig();
+      loadStatus();
+      return true;
+    }).catch(function () {
+      st.busy = false; render();
+      msg(t('rbFail', 'The device refused the request.'), 'err');
+      return false;
+    });
+  }
+
+  function setStep(n) {
+    var next = Math.max(1, Math.min(STEPS, Number(n) || 1));
+    st.step = next;
+    el.screens.forEach(function (sec, i) {
+      if (sec) sec.className = 'screen' + (i + 1 === st.step ? ' on' : '') + (i === 1 ? ' fill' : '');
+    });
+    el.no.textContent = st.step + ' / ' + STEPS;
+    if (window.MU && MU.stripActive) MU.stripActive(el.navStrip, st.step);
+    if (window.MPSystem) {
+      if (st.step === STEP_SYS) MPSystem.open();
+      else MPSystem.close();
+    }
+    if (st.step === STEP_STATUS) loadStatus();
+    if (st.step === STEP_ARR) setArrTab(st.tab);
+    if (st.step === STEP_CFG) loadConfig();
+    try { history.replaceState(null, '', '#' + st.step); } catch (e) {}
+    render();
+    return st.step;
+  }
+
+  function goNext() { if (st.step < STEPS) setStep(st.step + 1); }
+  function goPrev() { if (st.step > 1) setStep(st.step - 1); }
+
+  function render() {
+    if (typeof document === 'undefined' || !document) return;
+    var is1 = st.step === STEP_STATUS, is2 = st.step === STEP_ARR, is3 = st.step === STEP_CFG;
+    el.title.textContent = t(is1 ? 'rbTitleStatus' : is2 ? 'rbTitleArrivals' : is3 ? 'rbTitleCfg' : 'gmTitleSys',
+                             is1 ? 'Status' : is2 ? 'Arrivals' : is3 ? 'Config' : 'System');
+    el.primary.className = 'primary' + ((is1 || is3) ? '' : ' off');
+    el.primary.textContent = is3 ? t('rbSave', 'SAVE') : t('rbPollNow', 'POLL NOW');
+    el.primary.disabled = st.busy || !(is1 || is3);
+    if (el.acts) el.acts.style.display = (is1 || is3) ? 'flex' : 'none';
+    if (el.sync) el.sync.disabled = st.busy;
+    el.back.disabled = st.busy || st.step === 1;
+    el.next.disabled = st.busy || st.step === STEPS;
+  }
+
+  function init() {
+    if (el.pack && window.PACK_NAME) el.pack.textContent = String(window.PACK_NAME);
+    setStep(parseInt(String(location.hash).replace('#', ''), 10) || 1);
+    loadStatus();
+    if (!st.timer) {
+      st.timer = setInterval(function () { if (st.step === STEP_STATUS) loadStatus(); }, 3000);
+    }
+    el.primary.addEventListener('click', function () {
+      if (st.step === STEP_CFG) saveConfig();
+      else if (st.step === STEP_STATUS) action('poll');
+    });
+    if (el.sync) el.sync.addEventListener('click', function () { action('sync'); });
+    [el.pollOn, el.pollOff].forEach(function (b) { if (b) b.addEventListener('click', function () { paintToggle(el.pollOn, el.pollOff, b === el.pollOn); }); });
+    [el.rsOn, el.rsOff].forEach(function (b) { if (b) b.addEventListener('click', function () { paintToggle(el.rsOn, el.rsOff, b === el.rsOn); }); });
+    if (el.clocks) {
+      el.clocks.addEventListener('click', function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest('button[data-clock]') : null;
+        if (b && !b.disabled) {
+          var chips = el.clocks.querySelectorAll('button[data-clock]');
+          for (var k = 0; k < chips.length; k++) {
+            chips[k].className = 'chip' + (chips[k] === b ? ' on' : '');
+          }
+        }
+      });
+    }
+    if (el.reload) el.reload.addEventListener('click', function () { setArrTab(st.tab); });
+    [el.tabArr, el.tabPombal, el.tabRaces].forEach(function (b) {
+      if (b) b.addEventListener('click', function () { setArrTab(String(b.getAttribute('data-arr'))); });
+    });
+    if (el.reset) el.reset.addEventListener('click', function () {
+      if (typeof window.customConfirm === 'function') {
+        window.customConfirm(t('rbResetConfirm', 'Clear the arrivals list?'), function (ok) {
+          if (ok) action('reset');
+        });
+      } else if (MU.arm('reset')) { action('reset'); }
+    });
+    el.back.addEventListener('click', function () { if (!el.back.disabled) goPrev(); });
+    el.next.addEventListener('click', function () { if (!el.next.disabled) goNext(); });
+    if (window.MU) {
+      MU.strip(el.navStrip, setStep);
+      MU.swipe(document.getElementById('gm'), goNext, goPrev);
+    }
+  }
+
+  window.__test__ = window.__test__ || {};
+  window.__test__.rbInit = init;
+  window.__test__.rbSetStep = setStep;
+  window.__test__.rbStatus = loadStatus;
+  window.__test__.rbArrivals = loadArrivals;
+  window.__test__.rbAction = action;
+  window.__test__.rbClock = switchClock;
+  window.__test__.rbConfig = loadConfig;
+  window.__test__.rbSave = saveConfig;
+  window.__test__.rbTab = setArrTab;
+  window.__test__.rbState = st;
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+
+<script>
+// window.MU — helpers shared by every phone page. No DOM assumptions besides
+// the ids each page passes in; the host page owns its own state.
+window.MU = (function () {
+  'use strict';
+  var armedKey = '', armedUntil = 0;
+
+  function t(k, fb) {
+    try {
+      if (typeof window._t === 'function') {
+        var v = window._t(k, fb);
+        if (v !== undefined && v !== null && v !== '' && v !== k) return v;
+      }
+      var raw = localStorage.getItem('ui_lang_cache');
+      if (raw) {
+        var p = JSON.parse(raw);
+        if (p && p[k] !== undefined) return p[k];
+      }
+    } catch (e) {}
+    return fb !== undefined ? fb : k;
+  }
+  function tf(k, fb, vars) {
+    var s = String(t(k, fb));
+    for (var key in (vars || {})) {
+      if (Object.prototype.hasOwnProperty.call(vars, key)) s = s.replace('{' + key + '}', String(vars[key]));
+    }
+    return s;
+  }
+
+  function get(url) {
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      return r.json().then(function (d) { return { status: r.status, body: d || {} }; },
+                         function () { return { status: r.status, body: {} }; });
+    });
+  }
+
+  function post(url, payload) {
+    var body = payload || {};
+    var enc = [];
+    for (var k in body) {
+      if (Object.prototype.hasOwnProperty.call(body, k)) {
+        enc.push(encodeURIComponent(k) + '=' + encodeURIComponent(body[k]));
+      }
+    }
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+      body: enc.join('&')
+    }).then(function (r) {
+      return r.json().then(function (d) { return { status: r.status, body: d || {} }; },
+                         function () { return { status: r.status, body: {} }; });
+    });
+  }
+
+  function fmtSize(bytes) {
+    var b = Number(bytes) || 0;
+    if (b < 1024) return b + ' B';
+    var kb = b / 1024;
+    if (kb < 1024) return kb.toFixed(kb < 10 ? 1 : 0) + ' kB';
+    var mb = kb / 1024;
+    if (mb < 1024) return mb.toFixed(1) + ' MB';
+    return (mb / 1024).toFixed(1) + ' GB';
+  }
+
+  function fmtEta(sec) {
+    sec = Math.max(0, Math.round(Number(sec) || 0));
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return tf('gmEta', 'left {m}m {s}s', { m: m, s: (s < 10 ? '0' : '') + s });
+  }
+
+  function msg(el, text, kind) {
+    if (!el) return;
+    el.textContent = text || '';
+    el.className = 'msg' + (kind === 'err' ? ' err' : kind === 'ok' ? ' ok' : '');
+  }
+
+  // Two-tap arming for destructive actions (no modal on a phone).
+  function arm(key, windowMs) {
+    var now = Date.now();
+    if (armedKey === key && now < armedUntil) {
+      armedKey = '';
+      return true;
+    }
+    armedKey = key;
+    armedUntil = now + (windowMs || 4000);
+    return false;
+  }
+  function armed(key) { return armedKey === key && Date.now() < armedUntil; }
+  function disarm() { armedKey = ''; }
+
+  // ── page strip (one column per screen) + swipe ───────────────────────────
+  // The host page owns the markup; MU only reflects the current page and turns
+  // clicks/swipes into step changes.
+  function stripActive(root, step) {
+    if (!root) return;
+    var cols = root.querySelectorAll('.ncol');
+    for (var i = 0; i < cols.length; i++) {
+      var n = parseInt(String(cols[i].getAttribute('data-step-go') || '0'), 10);
+      cols[i].className = 'ncol' + (n === step ? ' on' : (n < step ? ' done' : ''));
+    }
+  }
+
+  function strip(root, onGo) {
+    if (!root) return;
+    root.addEventListener('click', function (ev) {
+      var b = ev.target && ev.target.closest ? ev.target.closest('.ncol[data-step-go]') : null;
+      if (!b) return;
+      onGo(parseInt(String(b.getAttribute('data-step-go') || '1'), 10));
+    });
+  }
+
+  // Horizontal swipe anywhere in `root`. A swipe never presses the control
+  // under the finger (the click the browser fires afterwards is swallowed).
+  function swipe(root, onNext, onPrev) {
+    if (!root) return;
+    var t = { active: false, x: 0, y: 0, swiped: false, at: 0 };
+    function pt(e) {
+      var list = (e.touches && e.touches.length) ? e.touches : (e.changedTouches || []);
+      return (list && list[0]) ? list[0] : null;
+    }
+    root.addEventListener('touchstart', function (e) {
+      if (e.touches && e.touches.length > 1) { t.active = false; return; }
+      var p = pt(e);
+      if (!p) { t.active = false; return; }
+      t.active = true; t.x = p.clientX; t.y = p.clientY;
+    }, { passive: true });
+    root.addEventListener('touchmove', function (e) {
+      if (!t.active) return;
+      var p = pt(e);
+      if (!p) return;
+      if (Math.abs(p.clientX - t.x) > 40 && Math.abs(p.clientX - t.x) > Math.abs(p.clientY - t.y)) t.swiped = true;
+    }, { passive: true });
+    root.addEventListener('touchend', function (e) {
+      if (!t.active) return;
+      t.active = false;
+      var p = pt(e);
+      if (!p) return;
+      var dx = p.clientX - t.x, dy = p.clientY - t.y;
+      if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy)) { t.swiped = false; return; }
+      t.swiped = true; t.at = Date.now();
+      if (dx < 0) onNext(); else onPrev();
+    }, { passive: true });
+    root.addEventListener('touchcancel', function () { t.active = false; }, { passive: true });
+    document.addEventListener('click', function (e) {
+      if (t.swiped && (Date.now() - t.at) < 600) {
+        t.swiped = false;
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    }, true);
+  }
+
+  // Minimum press time for every button/link on the page: a finger that only
+  // brushes the glass (or a swipe that ends on a control) must not press it.
+  // Touch only, so desktop clicks and the jsdom tests are unaffected.
+  var MIN_PRESS_MS = 250;   // deliberado: um toque acidental dura < 150 ms
+  var press = { target: null, at: 0, touch: false };
+
+  function clearPressMark() {
+    if (press.target && press.target.classList) press.target.classList.remove('pressing');
+  }
+
+  function installTapGuard() {
+    document.addEventListener('touchstart', function (e) {
+      var el = e.target && e.target.closest ? e.target.closest('button, a, input[type=file], [data-mu-tap]') : null;
+      clearPressMark();
+      press.target = el;
+      press.touch = !!el;
+      press.at = Date.now();
+      // visual feedback while the finger is down: without it a 250 ms gate
+      // feels broken ("tap and nothing happens").
+      if (el && el.classList) el.classList.add('pressing');
+    }, true);
+    document.addEventListener('touchend', clearPressMark, true);
+    document.addEventListener('touchcancel', clearPressMark, true);
+    document.addEventListener('click', function (e) {
+      clearPressMark();
+      if (!press.touch) return;
+      var dt = Date.now() - press.at;
+      press.touch = false;
+      if (dt < MIN_PRESS_MS) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    }, true);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', installTapGuard);
+  else installTapGuard();
+
+  return {
+    t: t, tf: tf, get: get, post: post,
+    fmtSize: fmtSize, fmtEta: fmtEta, msg: msg,
+    arm: arm, armed: armed, disarm: disarm,
+    strip: strip, stripActive: stripActive, swipe: swipe,
+    minPressMs: MIN_PRESS_MS
+  };
+})();
+</script>
+
+<script>
+// MPSystem — the shared System screen. Reads only public endpoints:
+//   /api/version, /api/health, /api/status, /api/sd-status  (summary)
+//   /api/enable-ota + /api/firmware-upload                 (OTA)
+//   /api/serial-monitor                                    (log)
+//   /api/restart                                           (restart)
+window.MPSystem = (function () {
+  'use strict';
+  var el = {
+    tabSum: document.getElementById('muTabSum'),
+    tabOta: document.getElementById('muTabOta'),
+    tabLog: document.getElementById('muTabLog'),
+    paneSum: document.getElementById('muPaneSum'),
+    paneOta: document.getElementById('muPaneOta'),
+    paneLog: document.getElementById('muPaneLog'),
+    fw: document.getElementById('muFw'),
+    up: document.getElementById('muUp'),
+    heap: document.getElementById('muHeap'),
+    psram: document.getElementById('muPsram'),
+    sd: document.getElementById('muSd'),
+    wifi: document.getElementById('muWifi'),
+    reboot: document.getElementById('muReboot'),
+    otaCur: document.getElementById('muOtaCur'),
+    otaPick: document.getElementById('muOtaPick'),
+    otaFile: document.getElementById('muOtaFile'),
+    otaBar: document.getElementById('muOtaBar'),
+    otaFill: document.getElementById('muOtaFill'),
+    otaMsg: document.getElementById('muOtaMsg'),
+    otaGo: document.getElementById('muOtaGo'),
+    log: document.getElementById('muLog'),
+    logPause: document.getElementById('muLogPause'),
+    logClear: document.getElementById('muLogClear'),
+    logBottom: document.getElementById('muLogBottom')
+  };
+
+  var st = {
+    open: false, tab: 'sum',
+    busy: false, blocked: false,
+    otaFile: null, otaBusy: false,
+    logTimer: 0, logPaused: false, logSeq: 0, logLines: []
+  };
+  var blocker = null;
+
+  function setText(node, txt) { if (node) node.textContent = txt || '--'; }
+
+  // Destructive actions ask first. The dialog is the firmware's own
+  // customConfirm (same as every page); if it is not there yet (script order,
+  // very old client) the two-tap arming takes over.
+  function confirmAction(text, cb) {
+    if (typeof window.customConfirm === 'function') {
+      window.customConfirm(text, function (ok) { if (ok) cb(); });
+      return;
+    }
+    if (MU.arm('confirm')) { cb(); return; }
+    MU.msg(el.otaMsg, MU.t('gmConfirmAgain', 'Tap again to confirm.'), 'err');
+  }
+
+  async function refreshSummary() {
+    var res = await Promise.all([
+      MU.get('/api/version').catch(function () { return { body: {} }; }),
+      MU.get('/api/health').catch(function () { return { body: {} }; }),
+      MU.get('/api/status').catch(function () { return { body: {} }; }),
+      MU.get('/api/sd-status').catch(function () { return { body: {} }; })
+    ]);
+    var ver = res[0].body || {}, hl = res[1].body || {}, sys = res[2].body || {}, sd = res[3].body || {};
+    setText(el.fw, ver.version || '--');
+    if (el.otaCur) {
+      el.otaCur.textContent = MU.tf('gmOtaCurrent', 'Current firmware: {v}', { v: (ver.version || '--') });
+    }
+    setText(el.up, hl.uptime_str || '--');
+    setText(el.heap, hl.heap ? MU.fmtSize(hl.heap.free) : (sys.free_heap ? MU.fmtSize(sys.free_heap) : '--'));
+    setText(el.psram, hl.psram ? MU.fmtSize(hl.psram.free) : (sys.psram_free ? MU.fmtSize(sys.psram_free) : '--'));
+    var sdFree = (sd.total_bytes ? (Number(sd.total_bytes) - Number(sd.used_bytes)) : 0);
+    setText(el.sd, sdFree > 0 ? (MU.fmtSize(sdFree) + ' ' + MU.t('gmSysFree', 'free')) : '--');
+    if (el.sd && sd.total_bytes) el.sd.title = MU.fmtSize(sd.total_bytes) + ' total';
+    setText(el.wifi, (sys.wifi_rssi !== undefined) ? (String(sys.wifi_rssi) + ' dBm') : '--');
+  }
+
+  async function refreshLog() {
+    if (st.logPaused) return;
+    try {
+      var r = await MU.get('/api/serial-monitor?limit=120&no_cmds=1&last_seq=' + String(st.logSeq));
+      var d = r.body || {};
+      var msgs = Array.isArray(d.messages) ? d.messages : [];
+      var changed = false;
+      for (var i = 0; i < msgs.length; i++) {
+        var line = String(msgs[i].data !== undefined ? msgs[i].data : (msgs[i].text || ''));
+        if (!line) continue;
+        st.logLines.push(line);
+        changed = true;
+      }
+      if (d.current_seq !== undefined) st.logSeq = Number(d.current_seq) || st.logSeq;
+      if (st.logLines.length > 400) st.logLines = st.logLines.slice(-400);
+      if (changed && el.log) {
+        var atBottom = (el.log.scrollHeight - el.log.scrollTop - el.log.clientHeight) < 24;
+        el.log.textContent = st.logLines.join('\n');
+        if (atBottom) el.log.scrollTop = el.log.scrollHeight;
+      }
+    } catch (e) {}
+  }
+
+  function tab(name) {
+    st.tab = (name === 'ota' || name === 'log') ? name : 'sum';
+    if (el.tabSum) el.tabSum.className = 'subt' + (st.tab === 'sum' ? ' on' : '');
+    if (el.tabOta) el.tabOta.className = 'subt' + (st.tab === 'ota' ? ' on' : '');
+    if (el.tabLog) el.tabLog.className = 'subt' + (st.tab === 'log' ? ' on' : '');
+    if (el.paneSum) el.paneSum.className = 'pane' + (st.tab === 'sum' ? ' on' : '');
+    if (el.paneOta) el.paneOta.className = 'pane' + (st.tab === 'ota' ? ' on' : '');
+    if (el.paneLog) el.paneLog.className = 'pane' + (st.tab === 'log' ? ' on' : '');
+    if (st.tab === 'sum') refreshSummary();
+    if (st.tab === 'log') refreshLog();
+  }
+
+  function open() {
+    st.open = true;
+    tab(st.tab || 'sum');
+    if (!st.logTimer) st.logTimer = setInterval(function () {
+      if (!st.open) return;
+      if (st.tab === 'sum') refreshSummary();
+      else if (st.tab === 'log') refreshLog();
+    }, 2000);
+  }
+
+  function close() {
+    st.open = false;
+    if (st.logTimer) { clearInterval(st.logTimer); st.logTimer = 0; }
+  }
+
+  function setBlocker(fn) { blocker = fn; }
+
+  function reboot() {
+    if (st.busy) return false;
+    if (blocker && blocker()) {
+      MU.msg(el.otaMsg, MU.t('gmSysBlocked', 'A job is running - stop it before restarting.'), 'err');
+      return false;
+    }
+    confirmAction(MU.t('gmSysRebootConfirm', 'Restart the controller? The job in progress is cancelled.'),
+      function () {
+        st.busy = true;
+        MU.post('/api/restart', {}).catch(function () {}).then(function () {
+          st.busy = false;
+        });
+      });
+    return true;
+  }
+
+  function pickOta() {
+    if (el.otaFile) { el.otaFile.value = ''; el.otaFile.click(); }
+  }
+
+  function uploadOta() {
+    if (!st.otaFile || st.otaBusy) return false;
+    confirmAction(MU.tf('gmOtaConfirm', 'Write {name} ({size}) to the controller? It restarts when done.',
+                        { name: st.otaFile.name, size: MU.fmtSize(st.otaFile.size) }),
+      function () { doUploadOta(); });
+    return true;
+  }
+
+  function doUploadOta() {
+    st.otaBusy = true;
+    if (el.otaGo) el.otaGo.disabled = true;
+    if (el.otaBar) el.otaBar.className = 'bar on';
+    if (el.otaFill) el.otaFill.style.width = '0%';
+    MU.msg(el.otaMsg, MU.t('gmOtaEnabling', 'Enabling OTA...'), '');
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/firmware-upload', true);
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+    xhr.setRequestHeader('X-Filename', encodeURIComponent(st.otaFile.name));
+    xhr.setRequestHeader('X-Filesize', String(st.otaFile.size || 0));
+    xhr.upload.onprogress = function (e) {
+      if (e && e.lengthComputable && e.total && el.otaFill) {
+        el.otaFill.style.width = Math.round((e.loaded / e.total) * 100) + '%';
+      }
+    };
+    xhr.onload = function () {
+      st.otaBusy = false;
+      var ok = (xhr.status === 200);
+      if (ok) {
+        if (el.otaFill) el.otaFill.style.width = '100%';
+        MU.msg(el.otaMsg, MU.t('gmOtaDone', 'Firmware uploaded. The controller restarts now.'), 'ok');
+        setTimeout(function () { MU.post('/api/restart', {}).catch(function () {}); }, 1200);
+      } else {
+        if (el.otaBar) el.otaBar.className = 'bar';
+        MU.msg(el.otaMsg, MU.t('gmOtaFail', 'Firmware upload failed.'), 'err');
+        if (el.otaGo) el.otaGo.disabled = false;
+      }
+    };
+    xhr.onerror = function () {
+      st.otaBusy = false;
+      if (el.otaBar) el.otaBar.className = 'bar';
+      MU.msg(el.otaMsg, MU.t('gmOtaFail', 'Firmware upload failed.'), 'err');
+      if (el.otaGo) el.otaGo.disabled = false;
+    };
+
+    // OTA has to be armed in the firmware before the first byte.
+    MU.post('/api/enable-ota', {}).catch(function () {}).then(function () {
+      MU.msg(el.otaMsg, MU.t('gmOtaUploading', 'Uploading...'), '');
+      xhr.send(st.otaFile);
+    });
+  }
+
+  function init() {
+    if (el.tabSum) el.tabSum.addEventListener('click', function () { tab('sum'); });
+    if (el.tabOta) el.tabOta.addEventListener('click', function () { tab('ota'); });
+    if (el.tabLog) el.tabLog.addEventListener('click', function () { tab('log'); });
+    if (el.reboot) el.reboot.addEventListener('click', reboot);
+    if (el.otaPick) el.otaPick.addEventListener('click', pickOta);
+    if (el.otaFile) el.otaFile.addEventListener('change', function () {
+      st.otaFile = (el.otaFile.files && el.otaFile.files[0]) || null;
+      if (st.otaFile) {
+        MU.msg(el.otaMsg, MU.tf('gmOtaReady', 'Ready to upload {name} ({size})',
+                { name: st.otaFile.name, size: MU.fmtSize(st.otaFile.size) }), 'ok');
+      }
+      if (el.otaGo) {
+        el.otaGo.disabled = !st.otaFile;
+        el.otaGo.textContent = st.otaFile ? MU.t('gmOtaGo', 'Upload firmware') : MU.t('gmOtaGo', 'Upload firmware');
+      }
+    });
+    if (el.otaGo) el.otaGo.addEventListener('click', uploadOta);
+    if (el.logPause) el.logPause.addEventListener('click', function () {
+      st.logPaused = !st.logPaused;
+      el.logPause.className = 'subt' + (st.logPaused ? ' on' : '');
+      el.logPause.textContent = st.logPaused ? MU.t('gmLogResume', 'Resume') : MU.t('gmLogPause', 'Pause');
+    });
+    if (el.logClear) el.logClear.addEventListener('click', function () {
+      st.logLines = [];
+      if (el.log) el.log.textContent = '';
+    });
+    if (el.logBottom) el.logBottom.addEventListener('click', function () {
+      if (el.log) el.log.scrollTop = el.log.scrollHeight;
+    });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+  }
+
+  return {
+    open: open, close: close, tab: tab,
+    refresh: refreshSummary, refreshLog: refreshLog,
+    reboot: reboot, setBlocker: setBlocker,
+    _state: st
+  };
+
+// ===== TEST HOOKS (inside page IIFE scope) =====
+// Preserve hooks the page already installed (e.g. page_ecra_asset sets
+// window.__test__.* at the end of its script); only fill missing ones below.
+window.__test__ = window.__test__ || {};
+// Spy mechanism
+window.__spy__ = {};
+window.__spy__.calls = {};
+window.__spy__.reset = function() { window.__spy__.calls = {}; };
+window.__spy__.wrap = function(name, fn) {
+  return function() {
+    window.__spy__.calls[name] = window.__spy__.calls[name] || [];
+    window.__spy__.calls[name].push(Array.prototype.slice.call(arguments));
+    return fn.apply(this, arguments);
+  };
+};
+// Wrap key functions for spying
+if (typeof postSend !== 'undefined') postSend = window.__spy__.wrap('postSend', postSend);
+if (typeof showAlert !== 'undefined') showAlert = window.__spy__.wrap('showAlert', showAlert);
+// Helper: reset IIFE-local state vars (P, C, SH, RP used by radio page)
+window.__test__._reset = function(p, c, sh, rp) {
+  try { if (p !== undefined) { var _a=p; P.length=0; for(var _i=0;_i<_a.length;_i++)P.push(_a[_i]); } } catch(e) {}
+  try { if (c !== undefined) C = c; } catch(e) {}
+  try { if (sh !== undefined) SH = sh; } catch(e) {}
+  try { if (rp !== undefined) RP = rp; } catch(e) {}
+};
+// Expose functions via eval (runs in outer IIFE scope)
+var _testNames = [
+  // Recipients page
+  'rt','rowHTML','addRow','updateNameHint','saveSlot','saveDontCopy','preload',
+  'removeRow',
+  'switchTab',
+  // Proximity page (status + config + shifts)
+  'render','renderCfg','fetchData','resetCh','resetAll','_lockOutFields',
+  'renderShiftSlots','loadShiftCfg','loadShiftdayEmails','saveAll','loadCfg',
+  '_applyVisFilter','onVisChChange','applyTemplate',
+  // Commands page
+  'esc','readLangCache','t','templateOptions','unitSelect','daysSelect',
+  'tplSelect','addRow','attachRow','saveSlot','attachSaveAll','rowHTML','removeRow',
+  // DateTime Commands page
+  'e','t','to','r','addRow','attachRow','init','lt','ls','la','tt','ss','attachSaveAll','rm',
+  // Sidebar / dock
+  'renderWidgetSidebar','moveWidgetUp','moveWidgetDown','moveWidgetToSide',
+  'toggleWidgetVis','applyTheme','readUiPrefs','saveUiPrefs','saveDockLayout',
+  'restoreDockLayout','saveWidgetPrefs','restoreWidgetPrefs','initLeftPanel',
+  'byId','qsa','localStorage','state',
+  // Utility
+  'fmtEta','fmtLagMs','fmtGcodeNum','normalizeZStepValue',
+  'setXyStepFromPreset','syncMainStepFromSelectors','updateXyStepButtons',
+  'sanitizeFileName','formatFileSize','ensureAllowedUploadPath',
+  'recentErrorMeta','clamp',
+  // Jog
+  'runJog','runJogXY','runJogXYCenter','quickUnlock','quickHome','quickZeroWcs','quickReset','quickStatus',
+  // Job
+  'startFileStream','pauseStream','resumeStream','cancelStream',
+  'sendManualCommand','applyPollInterval','applyUsbLineCoding',
+  'postActionOnce','postAction','refreshStatus','saveMacros',
+  // Frame
+  'runFrameFromPreview','updateFrameInfo',
+  'getPreviewFrameBounds','setCommandMode',
+  // Override (scoped inside bindEvents)
+  // 'sendOverrideFeed','sendOverrideSpin','applyOverrides','stepOverride',
+  // Probe
+  'runAutoProbeZZero',
+  // Macros
+  'defaultMacros','getMacroEntry','runMacro','loadMacrosToForm','saveMacrosFromForm',
+  // Console
+  'ingestConsoleEvents','logLine','clearConsole','toggleConsoleFullscreen',
+  // Workspace / DRO
+  'extractDroFromStatus','renderDro','fmtDro','hasValidDroValue',
+  'parseNumber3','parsePosTriplet','firstNumber3',
+  // USB / Connection
+  'selectedSlot','normalizeUsbSlots','renderSlots',
+  'syncSelectedUsbBaud','ensureUsbBaudOption','usbBaudPrefId',
+  'getPreferredUsbBaud','savePreferredUsbBaud',
+  // SD Card
+  'sdFileNameFromPath','sdParentDir','formatSdSize','normalizeSdEntry',
+  'isPreviewSizeBlocked','isPreviewAutoRenderHeavy',
+  // PSRAM
+  'refreshPsramFileStatus',
+  // Preview utilities (pure functions)
+  'extractAxisValue','extractAxisInMm','appendLinear',
+  'quickWireframe','applyWireframePreview',
+  'parseToolpath3dAsync',
+  // Critical confirm
+  'runWithCriticalConfirm','requireAxesAtZero',
+  // Render
+  'renderStatus','applyRuntimeControls','applyStatusSnapshot',
+  // Job helpers
+  'getSegmentExecNo','getActiveExecNo',
+  // Light preview (inner functions may not resolve)
+  'simplifyPolylineLight',
+  // Contour selection (GRBL light preview)
+  'filterContoursPreserveCoords',
+  'buildLightPreview','buildLightPieceContoursFromGcode',
+  'buildPieceContoursFromSegments','_syncContoursFromSegments',
+  '_toggleContourSelect','_undoContourToggle','_updateContourSelectInfo',
+  '_navContourHighlight','_spaceToggleHighlighted',
+  '_handleCanvasContourClick','_screenToMachine','_minDistToContour','_computeTopTransformPx',
+  '_distToSegment','_pointInPolygon','_lightPreviewScalePx',
+  'renderPreviewFromText','_computeBounds','_drawTopView','_drawIsoView',
+  'applyLightPreviewFromText','applyLightPreviewFromBounds','_keepDerivedContours',
+  '_drawPreviewNow','_drawContourOverlay','_drawCrosshair',
+  'bindPreviewInteractions',
+  // MQ135 sensor page
+  't','uiLocale','trendArrow','aqiInfo','pickReadableTextColor',
+  'applySensorValueTheme','mqTone','showStatus',
+  // Sensor config page
+  'updateStatistics',
+  // HX711 page
+  'UNIT_LABELS','t','uiLocale','updateDisplay','showStatus','performTare',
+  // INA226 page
+  't','uiLocale','updateDisplay','showStatus',
+  // Sound page
+  't','uiLocale','updateDisplay','showStatus',
+  // MAX31865 page
+  't','uiLocale','updateDisplay','showStatus',
+  // Sensor charts page
+  'numericSeries','hasSeriesData','calcTrend','metricColor',
+  'calcDew','calcHeat','calcAlt','fmtVal',
+  'isRS232Metric','isModbusMetric','isProximityMetric',
+  'getMetricMeta','getData','seriesValues','pickData',
+  'updateMaxVisibleOptions','setPointStrideAutoValue',
+  'mkOpts','fmtTs','trim','mkGradient','registerChartPlugins',
+  'mkChart','updChart','saveAllCharts',
+  'getY2Key','yPad','yPadNeg','hasNeg',
+  'setChartCenterBadge','updStats','setStatRow','calcSt','calcAdv',
+  'getMetricAdapter','metricPointCount','showSts','setTheme',
+  'fetchChartJson','waitChartRetry','isRetryableChartStatus',
+  'TH','currentTheme',
+  'prodDayBoundary','prodDayDates','dayBoundaryTs','ensureDayBoundary',
+  'dayProdData','_dayBoundary','_dayBoundaryLoading',
+  'loadRS232Data','loadModbusData','loadProximityData','loadData','syncPresetRange',
+  'T','AP','APJ','BN','sw','onSearch','addPlay','playToggle',
+  'radioStop','radioNext','radioPrev','playUrl','updUI','setVol',
+  'togSh','togRp','loadFav','addFav','favPlay','favDel',
+  'touchActivity','IDLE_T','NAV_DEF','NAV_N','NAV_OFF','NAV_ICON','NAV_LABEL','PNL_ALL',
+  'syncQ','rQ','rmQ','savePl','loadPls','loadPl','delPl','loadQ','loadSt','fh',
+  'isSup','chkSup','loadResume','renderResume','saveResume','resumeToggle','resumeTargetToggle','RESUME_A','RESUME_F',
+];
+_testNames.forEach(function(n) {
+  try { window.__test__[n] = eval(n); } catch(e) { window.__test__[n] = null; }
+});
+
+})();</script>
+
+<script>
+(function() {
+  for (var k in window.__test__) {
+    if (window.__test__[k] === null || typeof window.__test__[k] === 'undefined') {
+      try { window.__test__[k] = eval(k); } catch(e) {}
+    }
+  }
+})();
+</script>
+
+</body>
+</html>
