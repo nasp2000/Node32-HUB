@@ -63,7 +63,7 @@ The renderer assembles the page from 7 PROGMEM fragments with server-side value 
 
 | Input | ID | Type | Effect |
 |---|---|---|---|
-| Don't send automatic copy to the sender | `email_dont_copy_sender` | checkbox (20×20) | `checked` attribute injected server-side from `getEmailDontCopySender()`; saves instantly via `POST /api/config` on change |
+| Don't send automatic copy to the sender | `email_dont_copy_sender` | checkbox (20×20) | `checked` attribute injected server-side from `getEmailDontCopySender()`; saves instantly via `POST /api/config` on change. A failed save is reported with `customAlert` and the checkbox reverts to the stored state (RECIP-3) |
 
 ### Rules table — per-row inputs (row `i`, generated client-side by `rowHTML(i)`)
 
@@ -124,8 +124,11 @@ not fetched.
 5. **`attachSaveAll()`** — `#save_all` loops rows 1..`currentCount` calling `saveSlot`
    sequentially every 120 ms (non-atomic — RECIP-4); also binds
    `email_dont_copy_sender` change → `saveDontCopy()`.
-6. **`saveDontCopy()`** — `POST /api/config` `{section:recipients, email_dont_copy_sender:1|0}`,
-   **fire-and-forget** (`.catch(function(){})`) — silent failure (RECIP-3).
+6. **`saveDontCopy()`** — `POST /api/config` `{section:recipients, email_dont_copy_sender:1|0}`;
+   parses the response (`r.ok` + `success`) and only alerts on failure: it restores the
+   checkbox to the previous value and raises `customAlert('❌ ' + recipDontCopySaveFail)`
+   (network failures append `recipErrNetwork`). Success stays silent — the checkbox already
+   shows the saved state (RECIP-3).
 7. **`preload()`** — `GET /api/recipient-slots` → fills rows 1..min(currentCount, slots);
    `active` mapped `false/0 → '0'` else `'1'`; calls `updateNameHint` after fill.
 8. **Tab system** — standalone IIFE: finds `.wrap` children with
@@ -216,7 +219,7 @@ Validation style: server is lenient (clamps/truncates, unknown op → `I`); erro
 `recipTipSaveAll`, `recipTipName`, `recipTipRuleOp`, `recipTipEmails`, `recipTipFreq`,
 `recipTipActive`, `recipTipSaveRow`, `opEqual/Diff/Gt/Lt/Gte/Lte/Range/OutRange/Variation/
 Count/Presence/Window/Hysteresis`, `freq3m…freq24h`, `opYes/opNo`, `recipSaved`,
-`recipError`, `recipNetError`, `recipTipDayEmailday/Logday/Sensorday`, `recipTipDaySave`.
+`recipError`, `recipNetError`, `recipDontCopySaveFail`, `recipErrNetwork`, `recipTipDayEmailday/Logday/Sensorday`, `recipTipDaySave`.
 
 Known inconsistency: the **Day Command Sends card uses hardcoded PT text** (`Emails adicionais…`,
 `Envie estes comandos pela página de comandos ou Telnet…`) — no `data-i18n` attributes
@@ -230,7 +233,7 @@ Known inconsistency: the **Day Command Sends card uses hardcoded PT text** (`Ema
 |---|---|---|---|
 | 1 | **UI now supports up to 50 rows.** `MAX` raised to 50 (matches backend), a **➕ Add Rule** button appends rows, and each row has a **🗑️ remove** button that rebuilds the table with contiguous indices. Slots 11–50 are now editable/creatable. | High | **fixed** |
 | 2 | **Day Command Sends card text is hardcoded PT (no `data-i18n`)**, and the page sends `Content-Language: pt` — violates the EN-fallback rule. Text converted to English; `Content-Language: pt` removed. | Medium | **fixed** (text + header) |
-| 3 | **`saveDontCopy()` is fire-and-forget** (`.catch(function(){})`) — a failed save of the sender-copy option is silent. | Medium | open |
+| 3 | `saveDontCopy()` was fire-and-forget (`.catch(function(){})`), so a failed save of the sender-copy option was silent. **Fixed (RECIP-3):** the response is parsed (`r.ok` + `success:false`), a failure reverts the checkbox to the stored state and shows `customAlert('❌ ' + recipDontCopySaveFail)` (network errors append `recipErrNetwork`); success stays silent. Tests: `test_recipients_dont_copy` (4 cases / 23 assertions) + `test_recipients.js` (success silent, rejected save visible + revert, network failure visible). | Medium | **fixed** |
 | 4 | **"Save All" is non-atomic** — N sequential 120 ms-apart POSTs; a mid-loop failure leaves a partially saved table with no error surfaced. | Low | open |
 | 5 | **`freq` gap:** server default is `0` (= always) but the UI option list starts at `180` — a stored `freq:0` silently renders as the selected `600`, and any save converts it to `600`. | Medium | open |
 | 6 | **`/api/recipients` omits the `active` field** (only `/api/recipient-slots` includes it) — inconsistent consumer API. | Low | open |

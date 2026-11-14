@@ -191,11 +191,26 @@ const char PAGE_RECIPIENTS_JS[] PROGMEM = R"RECJS((function(){
     }
     function saveDontCopy(){
         if(!cb) return;
+        var want=cb.checked;
+        var prev=!want;
         var fd=new FormData();
         fd.append('_html','1');
         fd.append('section','recipients');
-        fd.append('email_dont_copy_sender', cb.checked?'1':'0');
-        fetch('/api/config',{method:'POST',body:new URLSearchParams(fd),headers:{'Content-Type':'application/x-www-form-urlencoded'}}).catch(function(){});
+        fd.append('email_dont_copy_sender', want?'1':'0');
+        function fail(netErr){
+            // Never leave the UI claiming a state the device did not store.
+            cb.checked=prev;
+            customAlert('\u274C '+rt('recipDontCopySaveFail','Error saving the sender-copy option')
+                        +(netErr?' ('+rt('recipErrNetwork','Network error')+')':''));
+        }
+        fetch('/api/config',{method:'POST',body:new URLSearchParams(fd),headers:{'Content-Type':'application/x-www-form-urlencoded'}})
+          .then(function(r){return r.text().then(function(t){return {ok:r.ok,txt:t};});})
+          .then(function(o){
+              var j=null; try{j=JSON.parse(o.txt);}catch(e){}
+              if(!o.ok||(j&&j.success===false)){ fail(false); }
+              // Success stays silent: the checkbox already shows the saved state.
+          })
+          .catch(function(){ fail(true); });
     }
     function preload(){
         fetch('/api/recipient-slots',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(j){

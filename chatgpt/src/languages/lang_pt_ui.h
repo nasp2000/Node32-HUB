@@ -1069,6 +1069,7 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "recipSaved": "✅ Guardado!",
   "recipErrSave": "❌ Erro",
   "recipErrNetwork": "❌ Erro de rede",
+  "recipDontCopySaveFail": "Erro ao guardar a opção de cópia ao remetente",
   "recipErrUnknown": "Erro desconhecido",
   "sensorMainTitle": "⚙️ Controlo Principal",
   "sensorEnable": "Ativar Sensor",

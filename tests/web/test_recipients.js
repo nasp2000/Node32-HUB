@@ -385,6 +385,54 @@ async function run() {
     test('saveDontCopy is a function', function() {
       ok(typeof win.__test__.saveDontCopy === 'function', 'saveDontCopy exists');
     });
+
+    // RECIP-3: a successful save is silent; a failed one is visible and the
+    // checkbox goes back to the state the device actually holds.
+    var alerts=[];
+    win.customAlert=function(m){ alerts.push(String(m)); };
+    var cbEl=doc.getElementById('email_dont_copy_sender');
+    var posts=[];
+    win.fetch=function(url,opts){
+      posts.push({url:String(url||''),body:String((opts&&opts.body)||'')});
+      return Promise.resolve({ok:true,status:200,text:function(){return Promise.resolve('{"success":true}');}});
+    };
+    cbEl.checked=true;
+    win.__test__.saveDontCopy();
+    await wait(dom, 50);
+
+    test('success saves the new state without an alert', function() {
+      is(alerts.length, 0, 'no alert on success');
+      is(cbEl.checked, true, 'checkbox keeps the saved state');
+      ok(posts.length===1 && posts[0].url.indexOf('/api/config')>=0, 'POSTed to /api/config');
+      ok(posts[0].body.indexOf('email_dont_copy_sender=1')>=0, 'sent the new value');
+    });
+
+    // Server-side rejection (HTTP not ok / success:false).
+    alerts.length=0; cbEl.checked=false;
+    win.fetch=function(){
+      return Promise.resolve({ok:false,status:500,text:function(){return Promise.resolve('{"success":false}');}});
+    };
+    win.__test__.saveDontCopy();
+    await wait(dom, 50);
+
+    test('a rejected save shows an error and restores the checkbox', function() {
+      is(alerts.length, 1, 'exactly one alert');
+      ok(/sender-copy/i.test(alerts[0]||''), 'alert names the sender-copy option');
+      is(cbEl.checked, true, 'checkbox restored to the stored state');
+    });
+
+    // Transport failure.
+    alerts.length=0; cbEl.checked=true;
+    win.fetch=function(){ return Promise.reject(new Error('offline')); };
+    win.__test__.saveDontCopy();
+    await wait(dom, 50);
+
+    test('a network failure is surfaced too', function() {
+      is(alerts.length, 1, 'one alert');
+      ok(/sender-copy/i.test(alerts[0]||''), 'alert names the option');
+      ok(/Network error/i.test(alerts[0]||''), 'alert says it was a network error');
+      is(cbEl.checked, false, 'checkbox restored');
+    });
   } // end saveDontCopy block
 
   // ════════════════════════════════════════════════════════════════
