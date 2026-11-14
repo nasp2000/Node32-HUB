@@ -45,7 +45,12 @@ main.page.access > div.wrap
     ├ TAB "Web Sessions" (panel data-tab='tabAccessSessions')
     │   ├ input  #web_max_sessions        (number 1–5)
     │   ├ select #web_idle_timeout_min    (5–60 min)
-    │   └ select #web_abs_timeout_min     (15–120 min)
+    │   ├ select #web_abs_timeout_min     (15–120 min)
+    │   └ #acc_sessions_box  (ACC-1)
+    │       ├ #acc_sessions_list   ← /api/session-history rows (newest first, IP · type · when, capped 20)
+    │       ├ #acc_sessions_refresh  (type=button)
+    │       ├ #acc_kick_all          (type=button, red — terminate every session)
+    │       └ #acc_sessions_msg      (result line, role=status aria-live=polite)
     ├ TAB "Local Processing Pages" (data-tab='tabAccessCharts')
     │   └ checkbox #charts_exempt  + hidden charts_exempt_present=1
     ├ TAB "Monitoring" (data-tab='tabAccessMonitor')
@@ -99,8 +104,11 @@ Checkboxes are protected by hidden `*_present` fields so the server can distingu
 |---|---|
 | 🏠 Home | link `/` — first child of `.wrap` |
 | 💾 Save (submit) | validates password match → `disableBtn` + loading overlay → `POST /api/access-config` → `customAlert` + `showSavedCard()` |
+| 🔄 Refresh sessions (`#acc_sessions_refresh`, `type=button`) | `accLoadSessions()` → `GET /api/session-history`, re-renders the list |
+| ⛔ Terminate all sessions (`#acc_kick_all`, `type=button`) | `customConfirm` → `POST /api/access-kick-all` → result in `#acc_sessions_msg` + `customAlert`, then the list reloads |
 
-Tab buttons (`#accTabBar` children) switch panels; no server round-trip.
+Tab buttons (`#accTabBar` children) switch panels; no server round-trip. Both session
+buttons are `type='button'` so they never submit `#access-form`.
 
 ---
 
@@ -108,6 +116,14 @@ Tab buttons (`#accTabBar` children) switch panels; no server round-trip.
 
 - **`accInitTabs()`** — builds the pill bar from `.acc-panel[data-tab]`; if fewer than 2
   panels → no bar. Default active = the panel with `data-tab-default='1'` (Users).
+- **`accLoadSessions()`** (on window load, after a Refresh, and after a kick) —
+  `GET /api/session-history` → `accSessionRows(events, 20)`: rows sorted by `ts` descending,
+  `ip` HTML-escaped, label from `type` (`connect`/`kick`/`expired`), `when` as sent; empty →
+  "No sessions recorded", failure → "Could not load the session history". Older events are
+  summarised ("older events: N").
+- **`accKickAll()`** — `customConfirm(...)` first; on accept `disableBtn` → `POST
+  /api/access-kick-all` → message in `#acc_sessions_msg` (+ `customAlert` ✓/✗) → list reload →
+  `enableBtn`.
 - **`loadAccessConfig()`** (on window load) — sets password placeholders (`(unchanged)` /
   `Repeat password`), then `GET /api/access-config` and fills `web_max_sessions` (3),
   `web_idle_timeout_min` (10), `web_abs_timeout_min` (20), `charts_exempt`,
@@ -285,6 +301,7 @@ Tab labels use the tab keys themselves (`tabAccessSessions`, `tabAccessCharts`,
 | 5 | UI ranges are narrower than the API accepts (`idle` UI 5–60 vs server 1–120; `abs` UI 15–120 vs server 5–240) — silent mismatch between what the user can pick and what is valid. | Low | Align ranges (UI ≤ API is acceptable, but pick one documented limit). |
 | 6 | Viewer section is fully visible even when `viewer_enabled` is off — fields could be collapsed/hidden until the checkbox is checked. | Info | Toggle `#viewer_fields` visibility from the checkbox. |
 | 7 | **"Maximum simultaneous clients" limits distinct client IPs, not open tabs/pages** (owner decision: keep it this way). The page hint says "new browsers receive HTTP 429", which can read as a per-tab limit. Confirmed working: `allowHtmlClient()` multi-client path counts `multiTrack` unique IPs (8 slots, 15 s TTL) and returns 429 for a *new* IP when full; an already-tracked IP is admitted regardless of how many tabs it opens. Single-client mode adds a second cap (429 for any other IP) plus idle/absolute expiry (503). | Info | Documented here; no code change (owner chose per-IP). Optionally reword `accessMaxClientsHint` (EN+PT) to say "unique devices (IP)". |
+| 8 | Session list + terminate-all had no UI although `/api/session-history` and `/api/access-kick-all` were registered and documented. **Fixed (ACC-1):** the Web Sessions tab shows the history (newest first, escaped, capped 20, empty/failure states), a Refresh button and a confirmed Terminate all sessions action; both are `type='button'`. Tests: `test_access_page_markup` + `test_access_sessions.js`. | Medium | fixed |
 
 ---
 

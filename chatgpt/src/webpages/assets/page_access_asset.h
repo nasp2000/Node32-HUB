@@ -48,6 +48,19 @@ const char PAGE_ACCESS[] PROGMEM = R"HTML(
     <option value='120'>120 min</option>
   </select>
 </label>
+
+<!-- Sessions list + terminate-all (ACC-1). Buttons are type=button so they
+     never submit the configuration form. -->
+<div class='acc-session-box' id='acc_sessions_box' style='margin-top:16px;padding-top:12px;border-top:1px solid rgba(148,163,184,.25)'>
+  <div style='display:flex;align-items:center;gap:8px;flex-wrap:wrap'>
+    <span style='font-weight:600' data-i18n='accessActiveSessions'>&#128101; Active sessions</span>
+    <button type='button' class='btn' id='acc_sessions_refresh' style='margin-left:auto;padding:6px 12px;font-size:12px' data-i18n='accessSessionsRefresh' title='Reload the session history' data-i18n-title='accessTipSessionsRefresh'>&#128260; Refresh</button>
+  </div>
+  <div class='acc-desc' data-i18n='accessSessionsListDesc'>Last connection events recorded by the firmware (newest first).</div>
+  <div id='acc_sessions_list' class='acc-session-list' style='margin:8px 0;font-size:12px;max-height:180px;overflow:auto' role='list'>--</div>
+  <button type='button' class='btn' id='acc_kick_all' style='background:#7f1d1d;border:1px solid #dc2626;color:#fff;padding:8px 14px;font-size:13px' data-i18n='accessKickAll' title='Terminate every web session' data-i18n-title='accessTipKickAll'>&#10060; Terminate all sessions</button>
+  <div id='acc_sessions_msg' class='acc-hint' role='status' aria-live='polite'></div>
+</div>
 </div>
 </div>
 
@@ -269,9 +282,92 @@ document.getElementById('access-form').addEventListener('submit', function(e) {
     .finally(function(){hideLoading();enableBtn(btn);});
 });
 
+function accEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+  });
+}
+
+function accSessionLabel(kind) {
+  if (kind === 'kick') return _t('accessSessionKick', 'terminated');
+  if (kind === 'expired') return _t('accessSessionExpired', 'expired');
+  return _t('accessSessionConnect', 'connected');
+}
+
+// Rows for /api/session-history (newest first, capped). Pure: used by the page
+// and by the jsdom test, which asserts the escaping and the ordering.
+function accSessionRows(events, maxRows) {
+  var lim = maxRows || 20;
+  if (!events || !events.length) return '';
+  var list = events.slice();
+  list.sort(function(a, b) { return (Number(b && b.ts) || 0) - (Number(a && a.ts) || 0); });
+  var out = [];
+  for (var i = 0; i < list.length && out.length < lim; i++) {
+    var e = list[i] || {};
+    var kind = String(e.type || 'connect');
+    out.push("<div class='acc-session-row' role='listitem' style='display:flex;gap:8px;padding:2px 0'>" +
+      "<span class='acc-session-ip' style='flex:1;font-family:monospace'>" + accEsc(e.ip || '?') + "</span>" +
+      "<span class='acc-session-type acc-session-" + accEsc(kind) + "' style='flex:0 0 auto'>" + accEsc(accSessionLabel(kind)) + "</span>" +
+      "<span class='acc-session-when' style='flex:0 0 auto;color:#94a3b8'>" + accEsc(e.when || '--') + "</span>" +
+      "</div>");
+  }
+  if (list.length > out.length) {
+    out.push("<div class='acc-session-more' style='color:#94a3b8'>" + accEsc(_t('accessSessionsMore', 'older events')) + ": " + (list.length - out.length) + "</div>");
+  }
+  return out.join('');
+}
+
+function accLoadSessions() {
+  var box = document.getElementById('acc_sessions_list');
+  return fetch('/api/session-history', {cache: 'no-store'})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var events = (d && d.events) ? d.events : [];
+      if (box) {
+        box.innerHTML = events.length
+          ? accSessionRows(events, 20)
+          : "<div class='acc-session-empty' style='color:#94a3b8'>" + accEsc(_t('accessSessionsEmpty', 'No sessions recorded')) + "</div>";
+      }
+      return events.length;
+    })
+    .catch(function() {
+      if (box) box.innerHTML = "<div class='acc-session-empty' style='color:#fca5a5'>" + accEsc(_t('accessSessionsLoadFail', 'Could not load the session history')) + "</div>";
+      return 0;
+    });
+}
+
+function accKickAll() {
+  customConfirm(_t('accessKickAllConfirm', 'Terminate every web session? Browsers will have to reconnect.'), function(ok) {
+    if (!ok) return;
+    var btn = document.getElementById('acc_kick_all');
+    var msg = document.getElementById('acc_sessions_msg');
+    if (btn) disableBtn(btn);
+    return fetch('/api/access-kick-all', {method: 'POST'})
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        var ok2 = !!(d && d.success);
+        if (msg) msg.textContent = _t(ok2 ? 'accessKickAllDone' : 'accessKickAllFail',
+                                       ok2 ? 'All sessions terminated' : 'Could not terminate the sessions');
+        if (typeof customAlert === 'function') customAlert((ok2 ? '\u2705 ' : '\u274C ') + (msg ? msg.textContent : ''));
+        accLoadSessions();
+        return ok2;
+      })
+      .catch(function() {
+        if (msg) msg.textContent = _t('accessKickAllFail', 'Could not terminate the sessions');
+        return false;
+      })
+      .finally(function() { if (btn) enableBtn(btn); });
+  });
+}
+
 window.addEventListener('load', function() {
   accInitTabs();
   loadAccessConfig();
+  accLoadSessions();
+  var rb = document.getElementById('acc_sessions_refresh');
+  if (rb) rb.addEventListener('click', function() { accLoadSessions(); });
+  var kb = document.getElementById('acc_kick_all');
+  if (kb) kb.addEventListener('click', accKickAll);
 });
 </script>
 )HTML";
