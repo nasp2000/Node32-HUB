@@ -180,16 +180,19 @@ instead of being skipped while the rest is saved (ACC-2). Parsing is strict — 
 | `web_abs_timeout_min` | 5–240 | `setWebAbsTimeoutMin` |
 | `web_username` | non-empty & changed | `setWebUsername` |
 | `auth_enabled` (guarded by `auth_enabled_present`) | truthy | `setWebAuthEnabled` |
-| `web_password_new` | non-empty, != `(não alterado)`/`(nao alterado)` | `setWebPassword` |
+| `web_password_new` | non-empty (empty = keep current) | `setWebPassword` |
 | `viewer_enabled` (guarded by `viewer_enabled_present`) | truthy | `setWebViewerEnabled` |
 | `viewer_username` | non-empty & changed | `setWebViewerUsername` |
-| `viewer_password` | non-empty, != PT sentinels | `setWebViewerPassword` |
+| `viewer_password` | non-empty (empty = keep current) | `setWebViewerPassword` |
 | `charts_exempt` (guarded by `charts_exempt_present`) | truthy | `setChartsExemptSessions` |
 | `serial_monitor_enabled` (guarded by `serial_monitor_enabled_present`) | truthy | `setSerialMonitorEnabled` |
 
-> The PT sentinel strings `(não alterado)`/`(nao alterado)` are a **dead defensive check** —
-> the client placeholder is English `(unchanged)` and an empty field is already skipped
-> (see ACC-3).
+> Passwords: the page renders "keep the current password" as an **empty input** whose
+> placeholder is the localised `(unchanged)` hint. A placeholder is never submitted, so
+> the request carries an empty value and the handler keeps the stored password; any
+> non-empty value is applied. The old comparison against the PT strings
+> `(não alterado)`/`(nao alterado)` was dead (the English client never sends them) and was
+> removed in ACC-3 — the rule is now the single `passwordFieldIsNew()` helper.
 
 Responses: no changes → 200 `{"success":true,"message":"No changes detected"}`; saved →
 200 `{"success":true,"message":"Access settings saved"}`; unusable numeric field → 400
@@ -304,7 +307,7 @@ Tab labels use the tab keys themselves (`tabAccessSessions`, `tabAccessCharts`,
 |---|---|---|---|
 | 1 | **Kick-all and session-history have no UI.** `POST /api/access-kick-all` and `GET /api/session-history` are registered and documented in `/api-reference`, but the access page has no "terminate all sessions" button and no session list — admins can't use them from the UI. | Medium | Add a "Terminate all sessions" button (Sessions tab) and optionally a small history list fed by `/api/session-history`. |
 | 2 | Invalid/absent values were silently ignored (`getInt` returned `-1` for absent, non-numeric and out-of-range alike). **Fixed (ACC-2):** the three numeric fields are parsed strictly and validated before any write; a present-but-unusable value returns 400 with `field`, `min`, `max`, `error` and a readable `message`, and nothing is saved. Absent keys still leave the current value. Pure parser/payload in `config_int_field.h`; tests: `test_config_int_field` (10 cases / 93 assertions). | Low | fixed |
-| 3 | **Dead PT password sentinel.** Handler compares `web_password_new`/`viewer_password` against `"(não alterado)"`/`"(nao alterado)"` while the client placeholder is English `(unchanged)`. The client never sends those strings (empty = skipped earlier), so the check is dead and its language is PT. | Low | Remove the sentinel comparison (empty field already means "keep current"). |
+| 3 | Dead PT password sentinel (`"(não alterado)"`/`"(nao alterado)"`) compared against an English client whose hint `(unchanged)` is only a placeholder. **Fixed (ACC-3):** the sentinel comparison is gone from both password fields; the rule is the single `passwordFieldIsNew()` helper — empty (or absent) = keep the stored password, any non-empty value = new password. Tests: `test_password_field_input` (5 cases / 21 assertions, incl. the old dead check) + a web case proving an untouched submit posts empty values and no sentinel. | Low | fixed |
 | 4 | **Page routes not gated by `ENABLE_PAGE_ACCESS`.** `web_routes_access.cpp` registers page + APIs unconditionally (unlike `/sdcard` which is `#if ENABLE_PAGE_SDCARD==1`); the flag only gates the home button and self-test manifest. Setting the flag off still serves the page/APIs. | Low | Wrap page registration in `#if ENABLE_PAGE_ACCESS==1` (APIs may stay). |
 | 5 | UI ranges are narrower than the API accepts (`idle` UI 5–60 vs server 1–120; `abs` UI 15–120 vs server 5–240) — silent mismatch between what the user can pick and what is valid. | Low | Align ranges (UI ≤ API is acceptable, but pick one documented limit). |
 | 6 | Viewer section is fully visible even when `viewer_enabled` is off — fields could be collapsed/hidden until the checkbox is checked. | Info | Toggle `#viewer_fields` visibility from the checkbox. |
@@ -322,6 +325,7 @@ Tab labels use the tab keys themselves (`tabAccessSessions`, `tabAccessCharts`,
 | Routes (WiFi + Ethernet) | `chatgpt/src/webpages/routes/web_routes_access.cpp`, `ethernet_bootstrap_routes.h:214` |
 | HTTP handlers | `chatgpt/src/webpages/handlers_unified/config_handler.cpp` (`handleAccessConfigGet/Post`, `handleSessionHistoryGet`, `handleAccessKickAllPost`) |
 | Numeric POST validation | `chatgpt/src/config_int_field.h` (`configIntParse`, `configIntErrorJson`) |
+| Password fields | `chatgpt/src/password_field_input.h` (`passwordFieldIsNew`) |
 | Ethernet API mirrors | `chatgpt/src/ethernet_bootstrap_handlers.h:515-541`, `ethernet_bootstrap_routes.h:733` |
 | Config storage | `chatgpt/src/ConfigManager.{h,cpp}` (`web` + `system` sections; `access.json` stem) |
 | Session engine | `chatgpt/src/webpages/webpage_state.cpp` (session history, `webclientForceReset`, `allowHtmlClient`) |

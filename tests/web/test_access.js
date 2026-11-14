@@ -109,11 +109,28 @@ setTimeout(function(){
         assert(rejected,'rejected numeric POST shows the field and range');
         var notSaved=!alertCalls.some(function(m){return m.indexOf('Saved')>=0;});
         assert(notSaved,'rejected numeric POST does not show a success message');
-        win.customAlert=origAlert;
 
-        dom.window.close();
-        console.log('\nResults: '+passed+'/'+(passed+failed)+' passed, '+failed+' failed\n');
-        if(failed>0)process.exit(1);
+        // ACC-3: "keep the current password" is an EMPTY value with the EN
+        // "(unchanged)" PLACEHOLDER; no PT sentinel string is ever posted.
+        var npw=doc.getElementById('web_password_new');
+        var cpw=doc.getElementById('web_password_confirm');
+        var vpw=doc.getElementById('viewer_password');
+        assert(npw.placeholder==='(unchanged)','admin password placeholder is the EN unchanged hint');
+        assert(vpw.placeholder==='(unchanged)','viewer password placeholder is the EN unchanged hint');
+        npw.value=''; cpw.value=''; vpw.value='';
+        win.__MOCK_API__['/api/access-config']={success:true,message:'Saved!'};
+        form.dispatchEvent(new win.Event('submit'));
+        setTimeout(function(){
+          var parts=String(capturedBody||'').split('&');
+          assert(parts.indexOf('web_password_new=')>=0,'untouched admin password is posted empty');
+          assert(parts.indexOf('viewer_password=')>=0,'untouched viewer password is posted empty');
+          assert(String(capturedBody||'').indexOf('alterado')<0,'no PT sentinel string is posted');
+          win.customAlert=origAlert;
+
+          dom.window.close();
+          console.log('\nResults: '+passed+'/'+(passed+failed)+' passed, '+failed+' failed\n');
+          if(failed>0)process.exit(1);
+        },50);
       },50);
     },50);
   },50);

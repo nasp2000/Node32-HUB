@@ -19,6 +19,7 @@
 #include "../../web_shared_logic.h"
 #include "../../feature_flags.h"
 #include "../../config_int_field.h" // strict numeric POST validation (ACC-2)
+#include "../../password_field_input.h" // empty password = keep current (ACC-3)
 // Both modules can be enabled in the same build (pack RAMBOX), so both headers
 // are included independently — an #elif here left unikonGetConfig() undeclared.
 #if ENABLE_BRICON == 1
@@ -729,7 +730,7 @@ void handleAccessConfigPost(HttpRequest& req, HttpResponse& res) {
     }
 
     v = bodyValue(req.body, req.contentType, "web_password_new");
-    if (v.length() && v != F("(não alterado)") && v != F("(nao alterado)")) { configManager.setWebPassword(v); appendToken(msg, upd, "WebPass "); }
+    if (passwordFieldIsNew(v.c_str(), (size_t)v.length())) { configManager.setWebPassword(v); appendToken(msg, upd, "WebPass "); }
 
     if (bodyHasKey(req.body, req.contentType, "viewer_enabled_present")) {
         bool posted = bodyTruthy(req.body, req.contentType, "viewer_enabled");
@@ -740,7 +741,7 @@ void handleAccessConfigPost(HttpRequest& req, HttpResponse& res) {
     if (v.length() && v != configManager.getWebViewerUsername()) { configManager.setWebViewerUsername(v); appendToken(msg, upd, "ViewerUser "); }
 
     v = bodyValue(req.body, req.contentType, "viewer_password");
-    if (v.length() && v != F("(não alterado)") && v != F("(nao alterado)")) { configManager.setWebViewerPassword(v); appendToken(msg, upd, "ViewerPass "); }
+    if (passwordFieldIsNew(v.c_str(), (size_t)v.length())) { configManager.setWebViewerPassword(v); appendToken(msg, upd, "ViewerPass "); }
 
     if (bodyHasKey(req.body, req.contentType, "charts_exempt_present")) {
         bool posted = bodyTruthy(req.body, req.contentType, "charts_exempt");
