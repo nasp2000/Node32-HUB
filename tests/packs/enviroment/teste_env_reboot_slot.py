@@ -101,7 +101,7 @@ def main():
     if after1 and not stuck:
         if after1.get("dr_dump") and TEST_TIME in str(after1.get("dr_dump")):
             print("ISOLAMENTO: dr_dump TEM o valor novo mas stored_time reverteu -> "
-                  "escrita OK no doc, GET le de outro lado (2 docs / fallback NVS cfg_drbt)")
+                  "escrita OK no doc, GET le de outro lado (cmd-5: so core.json, sem espelho NVS)")
         else:
             print("ISOLAMENTO: dr_dump NAO tem o valor novo -> o proprio doc perdeu "
                   "(save por cima / reload silencioso / set noutro doc)")

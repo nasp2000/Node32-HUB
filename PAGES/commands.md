@@ -155,9 +155,9 @@ when off). Routes in `web_routes_commands.cpp`.
 | `/api/scheduled-command-slots` | GET | — | full list (loops 1..30) `{status,slots:[{i,command,interval,unit,days,template,enabled}]}` |
 | `/api/scheduled-datetime-slot` | GET | `i` (1..16) | 400 `"indice invalido"` |
 | `/api/scheduled-datetime-slot` | POST | `i,type,command,date,time,daily,template,enabled` (aliases `sd_*`) | 400 `"indice"`; when enabled: command (`"command vazio"`), `date==YYYY-MM-DD` (`"data invalida"`), `time==HH:MM` (`"hora invalida"`) |
-| `/api/scheduled-datetime-slots` | GET | — | loops 1..8 → `{status,slots:[...]}` (note: only 8 here, page allows 16) |
-| `/api/daily-reboot` | GET | `i` (1..2) | 400 `"indice"`; reads ConfigManager, falls back to legacy NVS `cfg_drbt`. Slot 1 with OEE shifts configured additionally returns `follows_shifts:true` + `effective_time:"HH:MM"` (end of last shift + 5 min grace), and `time` already carries the effective value |
-| `/api/daily-reboot` | POST | `i,time,enabled` | 400 `"indice"`; when enabled `HH:MM` + range check (`"hora"`); persists NVS too |
+| `/api/scheduled-datetime-slots` | GET | — | loops 1..`SCHED_DT_SLOT_MAX` (16) → `{status,slots:[...]}` |
+| `/api/daily-reboot` | GET | `i` (1..2) | 400 `"indice"`; reads ConfigManager only (`config` doc → core.json — CMD-5 removed the NVS `cfg_drbt` fallback). Slot 1 with OEE shifts configured additionally returns `follows_shifts:true` + `effective_time:"HH:MM"` (end of last shift + 5 min grace), and `time` already carries the effective value |
+| `/api/daily-reboot` | POST | `i,time,enabled` | 400 `"indice"`; when enabled `HH:MM` + range check (`"hora"`); writes the `config` doc only (core.json, flushed in the background) and echoes back the stored `time`/`enabled` |
 
 All save paths: `setSchedCmdSlot`/`setSchedDtSlot`/`setDailyRebootSlot` →
 `resetSchedCmdSlotTimer`/`resetSchedDtSlotTimer` → `saveSection("schedule")` → 500
@@ -178,10 +178,21 @@ All save paths: `setSchedCmdSlot`/`setSchedDtSlot`/`setDailyRebootSlot` →
 
 ## 8. Persistence
 
-All slots live in the **`schedule`** stem → `/config/schedule.json` (4 KB), written via
-`saveSection("schedule")` → `schedDoc` (`ConfigManager.h:50`). Legacy `cfg_drbt` NVS key is
-read/written by the daily-reboot handlers for backward compatibility. ConfigManager getters
-default empty/disabled; setters call `markDirtyAndScheduleSave()`.
+Interval + date/time slots live in the **`schedule`** stem → `/config/schedule.json`
+(written via `saveSection("schedule")` → `schedDoc`). The two **daily-reboot** slots live in
+the **`config`** doc → `/config/core.json` (`daily_reboot.s1|s2`), flushed by the background
+save.
+
+**CMD-5 — one path only:** the legacy NVS key `cfg_drbt` is no longer read or written by the
+runtime. `ConfigManager::migrateLegacyDailyRebootNvs()` runs once at boot (from `loadConfig`,
+after `ensureAllFieldsExist`), copies `time`+`enabled` of each slot into core.json through
+`adoptLegacyDailyRebootSlots()` (`daily_reboot_slots.h`) — reproducing what the old NVS-first
+getter served — and removes the key **only after** `saveToLittleFS()` succeeded (otherwise the
+key is kept and the adoption retried next boot, so an upgrade never loses a slot). A corrupt or
+incomplete blob is discarded and core.json is left untouched. `last_run_day` is *not* taken
+from the snapshot: it keeps its own crash-safe anchor (`drb_lr*` in NVS + the RTC mirror).
+
+ConfigManager getters default empty/disabled; setters call `markDirtyAndScheduleSave()`.
 
 Slot ranges: interval 1..30, datetime 1..16, daily-reboot 1..2.
 
@@ -267,7 +278,7 @@ Slot ranges: interval 1..30, datetime 1..16, daily-reboot 1..2.
 | 2 | **`/api/scheduled-datetime-slots` serialised only 8 slots** while GET/POST accepted 1..16 — the bulk endpoint under-reports; clients could miss slots 9..16. **Fixed:** 16 real slots are now one contract (`SCHED_DT_SLOT_MAX = 16` in `sched_dt_limits.h`) shared by storage (`ConfigManager`: bounds, NVS `sdt_lr1..16`, `last_run_day` in `schedDoc`), both bulk endpoints (WiFi + Ethernet), the per-slot guards, `sched_dt_active` in `/api/status`, the engine loop (was capped at 10, so slots 11..16 never fired), the day-report journal (10 → 18 entries, it tracked only 8 slots + manual) and the page `MAX`. `schedDoc` capacity raised 5120 → 8192 B (a 16-slot doc measures ~5.9 KB with `sched_cmd` and the CSR was the old overflow). Tests: `test_sched_dt_slots.cpp` (8 cases: constant, clamp bounds, no raw 8/16 literals left in the sched_dt paths, journal capacity, page `MAX`), `test_day_report_fallback.cpp` +1 (17 live entries), `test_commands_datetime.js` +2 (16 rows offered / row 17 refused; slot 16 POSTs `i=16`). | Medium | **fixed** |
 | 3 | **HTML fallbacks hardcoded PT (`Ativo`, `Dias`, `Unid`, `Reinício diário`, …) + `Content-Language: pt`** — converted to English; headers removed. | Low | **fixed** |
 | 4 | **"Save All" is non-atomic** — sequential POSTs at 160/180 ms; mid-loop failure leaves partial save with no error surfaced. **Fixed:** both pages use `cmdSaveAll()`/`sdtSaveAll()` (rows saved one at a time through `cmdPostSlot()`/`sdtPostSlot()`, re-entrancy guard) which **stop at the first failure** and report it **once** — `❌ Save All failed at row <n>/<total> — <reason>. Rows saved before the failure stay stored; the rest were not saved.` The write is still one device write per row, but the partial state is explicit instead of silent; a fully successful run stays silent. New keys EN/PT: `cmdsSaveAllFail`, `cmdsSaveAllPartial`, `cmdsErrSave`, `cmdsErrNetwork` (+ the previously fallback-only `cmdsSaved`/`cmdsError`/`cmdsNetError` translated). Tests: native `test_commands_save_all.cpp` (3 cases/54 assertions), web `test_commands.js` +3 and `test_commands_datetime.js` +3. | Low | **fixed** |
-| 5 | Daily-reboot also writes legacy NVS `cfg_drbt` — duplicated persistence path that can drift from `/config/schedule.json`. | Low | open |
+| 5 | Daily-reboot also wrote legacy NVS `cfg_drbt` — duplicated persistence path that could drift from `/config/core.json`. **Fixed:** the runtime reads and writes core.json only; the NVS mirror is adopted once at boot (`migrateLegacyDailyRebootNvs()` → `adoptLegacyDailyRebootSlots()`, `daily_reboot_slots.h`) and deleted after a confirmed save, so an upgrade keeps the configured slots and the page, engine and API can never disagree. The GET fallback, the POST re-read and the `nvs_len`/`nvs_dump` debug fields are gone (no consumer). Tests: native `test_daily_reboot_single_source.cpp` (9 cases/75 assertions: merge/adoption, `last_run_day` preserved, incomplete and corrupt blobs ignored, idempotent boot loop, no NVS left in get/set, migration wired and dropping the key only after `saveToLittleFS()`, response contract). | Low | **fixed** |
 | 6 | `getParamInt` treats missing interval as 0; enabled rows without interval get 400 — inconsistent but arguably correct. | Info | open |
 
 ---
