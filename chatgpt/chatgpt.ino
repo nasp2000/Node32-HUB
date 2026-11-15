@@ -34,7 +34,6 @@ size_t getArduinoLoopTaskStackSize() { return 16384; }
 #include "src/sd_diagnostics.h"
 #include "src/email_message_builder.h"
 #include "src/file_header_builder.h"
-#include "src/monitor_session_state.h"
 #include "src/runtime_environment.h"
 #include "src/ipg_laser_module.h"
 #include "src/runtime_rs232_queue.h"
