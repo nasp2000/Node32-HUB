@@ -518,15 +518,28 @@ static bool ftpStoreStream(WiFiClient& ctl, size_t totalLen, const String& remot
         size_t got = reader(ctx, chunk, chunkCap);
         if (!got) { detail = "source read failed (file changed mid-upload?)"; ok = false; break; }
         size_t woff = 0;
+        int stalled = 0;
         while (woff < got) {
             size_t n = got - woff;
             if (n > 1460) n = 1460;
             size_t w = ds.write(chunk + woff, n);
-            if (w == 0) { detail = "data write failed"; ok = false; break; }
+            if (w == 0) {
+                // Socket buffer full on a slow link / busy peer. Failing here
+                // used to abort the file, and a task retrying in this loop is
+                // above IDLE0: the 2026-11-15 .9 reboot (TASK_WDT, Task=IDLE0)
+                // happened while a 1.1 MB .avi was being pushed. Wait a tick
+                // (bounded) so the network drains AND the idle task runs.
+                if (++stalled > 150) { detail = "data write stalled"; ok = false; break; }
+                vTaskDelay(pdMS_TO_TICKS(2));
+                continue;
+            }
+            stalled = 0;
             woff += w;
         }
         if (!ok) break;
         off += got;
+        // Long transfers must not starve the idle task (TASK_WDT watches IDLE0).
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
     heap_caps_free(chunk);
     if (!ok) { ds.stop(); return false; }
