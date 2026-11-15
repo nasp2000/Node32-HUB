@@ -15,13 +15,17 @@ images pending).
 - **Screens** — one action per screen, **no page scroll** (only lists/log scroll
   inside), content **vertically centred** (`safe center`, so a short viewport
   never clips the first row).
-- **Top strip** — one column per page: the **name on top with its own line
-  below**; the current page is highlighted, visited pages keep a blue line, so
-  what is left and right is always visible.
+- **Top strip** — **lines only, no labels**: one equal, tappable column per page
+  (12 px rail, 6 px gap); the current page is the bright blue one, visited pages
+  keep a blue rail. The page name is the **title next to the pack name**. Tapping
+  a rail jumps straight to that page.
 - **Navigation** — arrows, horizontal **swipe** (never presses the control under
   the finger) and tapping a name. Navigation is **never blocked by missing data**.
-- **Tap guard** — every button/link needs **250 ms** of touch and dims while
-  pressed (a brushing finger does nothing).
+- **Tap guard** — a press counts unless the finger **dragged** (>14 px = scroll or
+  swipe). No duration gate: a fast tap is still a tap (a 250 ms gate made every
+  button dead on the phone). Buttons dim while pressed.
+- **No shared footer** — `window._noBottomNav = true` in the common JS, so
+  `auto.js` never adds its Home/Back bar to `/m`.
 - **Confirmations** — OTA and restart ask **OK/Cancel** (`customConfirm`);
   HOME / ZERO / RESET / jog `0,0` arm on a second tap.
 - **Pack name** — `PACK_SYSTEM_NAME` printed by the renderer as `window.PACK_NAME`

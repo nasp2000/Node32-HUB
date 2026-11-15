@@ -30,22 +30,6 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
   }
   #gm header { flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; }
   /* top navigation: one equal column per page — label on top, its line below */
-  #gm .navstrip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
-  #gm .ncol {
-    display: flex; flex-direction: column; gap: 4px; min-width: 0;
-    background: transparent; border: 0; padding: 0;
-  }
-  #gm .ncol .ntab {
-    display: block; height: 30px; line-height: 30px; border-radius: 8px;
-    border: 1px solid transparent; background: transparent; color: #64748b;
-    font-size: 12px; font-weight: 700; text-align: center;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  #gm .ncol .nrail { display: block; height: 3px; border-radius: 2px; background: #24344d; }
-  #gm .ncol.done .ntab { color: #93c5fd; }
-  #gm .ncol.done .nrail { background: #1d4ed8; }
-  #gm .ncol.on .ntab { border-color: #3b82f6; background: #1d2b47; color: #e6f1ff; }
-  #gm .ncol.on .nrail { background: #3b82f6; }
   #gm .hrow { display: flex; align-items: center; gap: 6px; height: 26px; }
   #gm .hrow .no { font-size: 11px; color: #94a3b8; }
   #gm .hrow .pack {
@@ -88,6 +72,10 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     flex: 0 0 auto; width: 32px; height: 32px; border-radius: 9px; border: 1px solid #334155;
     background: #0f172a; color: #cbd5e1; font-size: 15px; line-height: 1;
   }
+  #gm .sdfilter {
+    flex: 0 0 auto; width: 100%; height: 34px; border-radius: 9px; border: 1px solid #334155;
+    background: #0f172a; color: #e6f1ff; font-size: 13px; padding: 0 10px; box-sizing: border-box;
+  }
   #gm .list {
     flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
     border: 1px solid #1e293b; border-radius: 12px; background: #0f172a;
@@ -125,8 +113,8 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
 
   /* step 2 — preview canvas */
   #gm #gmCanvas {
-    flex: 0 0 auto; width: 100%; height: auto; aspect-ratio: 1 / 1; display: block;
-    border: 1px solid #1e293b; border-radius: 12px; background: #0f172a;
+    flex: 0 1 auto; width: 100%; height: auto; max-height: 52vh; aspect-ratio: 1 / 1;
+    display: block; border: 1px solid #1e293b; border-radius: 12px; background: #0f172a;
   }
 
   /* step 5 — jog + machine buttons */
@@ -263,15 +251,15 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
 <div id="gm" class="mp">
   <header>
     <nav class="navstrip" id="gmNavStrip">
-      <button type="button" class="ncol on" data-step-go="1"><span class="ntab" data-i18n="gmNav1">Send</span><i class="nrail"></i></button>
-      <button type="button" class="ncol" data-step-go="2"><span class="ntab" data-i18n="gmNav2">Preview</span><i class="nrail"></i></button>
-      <button type="button" class="ncol" data-step-go="3"><span class="ntab" data-i18n="gmNav4">Play</span><i class="nrail"></i></button>
-      <button type="button" class="ncol" data-step-go="4"><span class="ntab" data-i18n="gmNav5">Jog</span><i class="nrail"></i></button>
-      <button type="button" class="ncol" data-step-go="5"><span class="ntab" data-i18n="gmNav6">System</span><i class="nrail"></i></button>
+      <button type="button" class="ncol on" data-step-go="1"><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="2"><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="3"><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="4"><i class="nrail"></i></button>
+      <button type="button" class="ncol" data-step-go="5"><i class="nrail"></i></button>
     </nav>
     <div class="hrow">
       <span class="pack" id="gmPack"></span>
-      <h1 id="gmTitle" class="sr" data-i18n="gmTitle1">Send G-code</h1>
+      <h1 id="gmTitle" data-i18n="gmTitle1">Send G-code</h1>
       <span class="badge" id="gmLink">--</span>
       <button type="button" class="mini" id="gmUsb" data-i18n-title="gmUsbRestart" title="Restart the USB host">&#9889;</button>
     </div>
@@ -287,8 +275,11 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     <div class="pane on" id="gmPaneSd">
       <div class="rowhdr">
         <span class="dir" id="gmSdDir">/</span>
+        <button type="button" class="mini" id="gmSdSort" data-i18n-title="gmSdSortTip" title="Sort: name / newest">A&#8597;</button>
         <button type="button" class="mini" id="gmSdReload" data-i18n-title="gmSdRefresh" title="Reload the SD list">&#8635;</button>
       </div>
+      <input type="search" class="sdfilter" id="gmSdFilter" autocapitalize="none" autocomplete="off" spellcheck="false"
+             data-i18n-placeholder="gmSdFilter" placeholder="Filter by name">
       <div class="list" id="gmSdList"></div>
     </div>
 
@@ -444,6 +435,8 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
     panePhone: document.getElementById('gmPanePhone'),
     sdDir: document.getElementById('gmSdDir'),
     sdReload: document.getElementById('gmSdReload'),
+    sdSort: document.getElementById('gmSdSort'),
+    sdFilter: document.getElementById('gmSdFilter'),
     sdList: document.getElementById('gmSdList'),
     canvas: document.getElementById('gmCanvas'),
     prevInfo: document.getElementById('gmPrevInfo'),
@@ -495,6 +488,7 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
     step: 1, tab: 'sd',
     phoneFile: null,             // File chosen from the phone
     sdRoot: '', sdDir: '', sdFiles: [], sdPath: '', sdLoading: false, sdError: 0,
+    sdSort: 'name', sdFilter: '',
     job: null,                   // { src:'sd'|'psram', name, bytes, path }
     bbox: null, measuring: false, measureFor: '',
     points: null, pointsFor: '', previewLoading: false, previewPartial: false, previewPoints: 0,
@@ -1682,7 +1676,22 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
       el.sdList.appendChild(er);
       return;
     }
-    var files = Array.isArray(st.sdFiles) ? st.sdFiles : [];
+    var needle = String(st.sdFilter || '').toLowerCase();
+    var files = (Array.isArray(st.sdFiles) ? st.sdFiles : []).filter(function (f) {
+      if (!needle) return true;
+      if (f && f.is_dir) return true;          // folders always stay reachable
+      return String((f && (f.name || f.path)) || '').toLowerCase().indexOf(needle) >= 0;
+    });
+    files.sort(function (a, b) {
+      if (!!a.is_dir !== !!b.is_dir) return a.is_dir ? -1 : 1;
+      if (st.sdSort === 'date') {
+        var at = Number(a.mod_time) || 0, bt = Number(b.mod_time) || 0;
+        if (at !== bt) return bt - at;                 // newest first
+      }
+      var an = String(a.name || a.path || '').toLowerCase();
+      var bn = String(b.name || b.path || '').toLowerCase();
+      return an < bn ? -1 : (an > bn ? 1 : 0);
+    });
     var shown = 0;
     if (st.sdRoot && String(st.sdDir || '') !== String(st.sdRoot)) {
       var up = document.createElement('button');
@@ -1921,6 +1930,21 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
       });
     }
     el.sdReload.addEventListener('click', function () { listSd(st.sdDir); });
+    if (el.sdSort) {
+      el.sdSort.addEventListener('click', function () {
+        st.sdSort = (st.sdSort === 'name') ? 'date' : 'name';
+        el.sdSort.textContent = (st.sdSort === 'name') ? 'A\u2197' : '\u23F1';
+        setMsg(t(st.sdSort === 'name' ? 'gmSdSortName' : 'gmSdSortNewest',
+                 st.sdSort === 'name' ? 'Sorted by name.' : 'Newest first.'), '');
+        render();
+      });
+    }
+    if (el.sdFilter) {
+      el.sdFilter.addEventListener('input', function () {
+        st.sdFilter = String(el.sdFilter.value || '');
+        renderSdList();
+      });
+    }
     el.prevLoad.addEventListener('click', function () {
       if (st.job && st.job.src === 'sd') loadPreviewFromSd();
       else if (!st.job) setMsg(t('gmFrameNoJob', 'Pick a job first (step 1).'), 'err');

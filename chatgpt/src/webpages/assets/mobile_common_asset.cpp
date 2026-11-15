@@ -25,17 +25,19 @@ const char MOBILE_COMMON_CSS[] PROGMEM = R"MCCSS(
 
   /* ── generic page chrome (any pack) ───────────────────────────────── */
   .mp header { display: flex; flex-direction: column; gap: 4px; }
-  .mp .navstrip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
-  .mp .ncol { display: flex; flex-direction: column; gap: 4px; min-width: 0; background: transparent; border: 0; padding: 0; }
-  .mp .ncol .ntab {
-    display: block; height: 30px; line-height: 30px; border-radius: 8px; border: 1px solid transparent;
-    background: transparent; color: #64748b; font-size: 12px; font-weight: 700; text-align: center;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  .mp .navstrip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+  /* The strip is only the lines (no labels): one equal column per page, a big
+     touch target over each line. The current page is shown as the title. */
+  .mp .ncol {
+    display: flex; flex-direction: column; justify-content: flex-end; min-width: 0;
+    background: transparent; border: 0; padding: 10px 0 6px;
   }
-  .mp .ncol .nrail { display: block; height: 3px; border-radius: 2px; background: #24344d; }
+  .mp .ncol .ntab { display: none; }
+  .mp .ncol .nrail { display: block; height: 12px; border-radius: 5px; background: #24344d; }
   .mp .ncol.done .ntab { color: #bfdbfe; }
   .mp .ncol.done .nrail { background: #1d4ed8; }
-  .mp .ncol.on .ntab { border-color: #3b82f6; background: #1d2b47; color: #e6f1ff; }
+  .mp .ncol.on .nrail { background: #3b82f6; }
+  .mp .hrow h1 { font-size: 13px; font-weight: 700; color: #e6f1ff; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mp .ncol.on .nrail { background: #3b82f6; }
   .mp .hrow { display: flex; align-items: center; gap: 6px; min-height: 26px; }
   .mp .hrow .no { font-size: 11px; color: #94a3b8; }
@@ -341,8 +343,11 @@ window.MU = (function () {
   // Minimum press time for every button/link on the page: a finger that only
   // brushes the glass (or a swipe that ends on a control) must not press it.
   // Touch only, so desktop clicks and the jsdom tests are unaffected.
-  var MIN_PRESS_MS = 250;   // deliberado: um toque acidental dura < 150 ms
-  var press = { target: null, at: 0, touch: false };
+  // A press counts unless the finger DRAGGED (scroll/swipe). No duration gate:
+  // a fast tap is still a tap, and swallowing it made every button dead.
+  var MIN_PRESS_MS = 0;
+  var MAX_TAP_MOVE = 14;    // px; more than this is a scroll/swipe, not a tap
+  var press = { target: null, at: 0, touch: false, x: 0, y: 0, moved: false };
 
   function clearPressMark() {
     if (press.target && press.target.classList) press.target.classList.remove('pressing');
@@ -355,9 +360,18 @@ window.MU = (function () {
       press.target = el;
       press.touch = !!el;
       press.at = Date.now();
+      press.x = e.touches && e.touches[0] ? e.touches[0].clientX : 0;
+      press.y = e.touches && e.touches[0] ? e.touches[0].clientY : 0;
+      press.moved = false;
       // visual feedback while the finger is down: without it a 250 ms gate
       // feels broken ("tap and nothing happens").
       if (el && el.classList) el.classList.add('pressing');
+    }, true);
+    document.addEventListener('touchmove', function (e) {
+      if (!press.touch || !e.touches || !e.touches[0]) return;
+      var dx = e.touches[0].clientX - press.x;
+      var dy = e.touches[0].clientY - press.y;
+      if (Math.abs(dx) > MAX_TAP_MOVE || Math.abs(dy) > MAX_TAP_MOVE) press.moved = true;
     }, true);
     document.addEventListener('touchend', clearPressMark, true);
     document.addEventListener('touchcancel', clearPressMark, true);
@@ -366,7 +380,7 @@ window.MU = (function () {
       if (!press.touch) return;
       var dt = Date.now() - press.at;
       press.touch = false;
-      if (dt < MIN_PRESS_MS) {
+      if (press.moved || (MIN_PRESS_MS > 0 && dt < MIN_PRESS_MS)) {
         e.stopPropagation();
         e.preventDefault();
       }
@@ -374,6 +388,10 @@ window.MU = (function () {
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', installTapGuard);
   else installTapGuard();
+
+  // auto.js appends a Home/Back bar at the bottom of every page; the phone page
+  // already navigates with its own strip, so opt out before that script runs.
+  window._noBottomNav = true;
 
   return {
     t: t, tf: tf, get: get, post: post,

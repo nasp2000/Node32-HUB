@@ -22,7 +22,7 @@ const char PAGE_RAMBOX_MOBILE[] PROGMEM = R"RBMOBILE(
     </nav>
     <div class="hrow">
       <span class="pack" id="gmPack"></span>
-      <h1 id="gmTitle" class="sr" data-i18n="rbTitleStatus">Status</h1>
+      <h1 id="gmTitle" data-i18n="rbTitleStatus">Status</h1>
       <span class="badge" id="gmLink">--</span>
     </div>
   </header>

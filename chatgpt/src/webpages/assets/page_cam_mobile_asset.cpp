@@ -87,7 +87,7 @@ const char PAGE_CAM_MOBILE[] PROGMEM = R"CAMMOBILE(
     </nav>
     <div class="hrow">
       <span class="pack" id="gmPack"></span>
-      <h1 id="gmTitle" class="sr" data-i18n="cmTitleLive">Live</h1>
+      <h1 id="gmTitle" data-i18n="cmTitleLive">Live</h1>
       <span class="badge" id="gmLink">--</span>
     </div>
   </header>

@@ -82,8 +82,8 @@ var SD_ROOT = '/GcodeSender-P4/gcode';
 var SD_LIST = {
   success: true, message: 'ok', root: SD_ROOT, dir: SD_ROOT,
   files: [
-    { path: SD_ROOT + '/Cachola.gc', name: 'Cachola.gc', size: 517814, is_dir: false },
-    { path: SD_ROOT + '/Norberto.gc', name: 'Norberto.gc', size: 1280549, is_dir: false },
+    { path: SD_ROOT + '/Cachola.gc', name: 'Cachola.gc', size: 517814, is_dir: false, mod_time: 1600000000 },
+    { path: SD_ROOT + '/Norberto.gc', name: 'Norberto.gc', size: 1280549, is_dir: false, mod_time: 1700000000 },
     { path: SD_ROOT + '/sub', name: 'sub', size: 0, is_dir: true }
   ]
 };
@@ -210,19 +210,22 @@ async function run() {
     await test('the SD list is loaded on open (root + files + folders)', function () {
       var rows = doc.querySelectorAll('#gmSdList .row');
       is(rows.length, 3, 'three entries (root: no parent row)');
-      ok(rows[0].textContent.indexOf('Cachola.gc') >= 0, 'first file listed');
-      ok(rows[0].textContent.indexOf('506 kB') >= 0 || rows[0].textContent.indexOf('517') >= 0, 'size shown');
-      ok(rows[2].textContent.indexOf('sub') >= 0, 'folder listed');
+      ok(rows[0].textContent.indexOf('sub') >= 0, 'folders first');
+      var text = doc.getElementById('gmSdList').textContent;
+      ok(text.indexOf('Cachola.gc') >= 0, 'files listed');
+      ok(text.indexOf('506 kB') >= 0 || text.indexOf('517') >= 0, 'size shown');
       is(doc.getElementById('gmSdDir').textContent, SD_ROOT, 'directory label');
     });
 
     await test('selecting a file marks it and is the USE target', function () {
-      var rows = doc.querySelectorAll('#gmSdList .row');
-      rows[1].click();
+      var rows = Array.prototype.slice.call(doc.querySelectorAll('#gmSdList .row'));
+      var pick = rows.filter(function (r) { return r.textContent.indexOf('Norberto.gc') >= 0; })[0];
+      pick.click();
       is(win.__test__.gmState.sdPath, SD_ROOT + '/Norberto.gc', 'path selected');
       is(win.__test__.gmState.job.src, 'sd', 'job source is the SD card');
-      var again = doc.querySelectorAll('#gmSdList .row');
-      ok(again[1].className.indexOf('sel') >= 0, 'row highlighted');
+      var again = Array.prototype.slice.call(doc.querySelectorAll('#gmSdList .row'))
+        .filter(function (r) { return r.textContent.indexOf('Norberto.gc') >= 0; })[0];
+      ok(again.className.indexOf('sel') >= 0, 'row highlighted');
       ok(!doc.getElementById('gmPrimary').disabled, 'USE enabled');
       ok(doc.getElementById('gmMsg').textContent.indexOf('Norberto.gc') >= 0, 'ready message');
     });
@@ -242,6 +245,21 @@ async function run() {
       eq(win.__test__.gmState.bbox, { minX: -10, maxX: 20, minY: -5, maxY: 15 }, 'bounds stored');
       win.__test__.gmSetStep(2);
       is(doc.getElementById('gmFrameArea').textContent, 'X[-10.00..20.00]  Y[-5.00..15.00]  30.00 x 20.00', 'area on the preview');
+    });
+
+    await test('the list can be filtered by name and sorted by newest', function () {
+      var f = doc.getElementById('gmSdFilter');
+      f.value = 'nor';
+      f.dispatchEvent(new win.Event('input'));
+      var rows = doc.querySelectorAll('#gmSdList .row');
+      is(rows.length, 2, 'folder + Norberto (dirs are never filtered out by name)');
+      ok(doc.getElementById('gmSdList').textContent.indexOf('Cachola') < 0, 'Cachola filtered out');
+      f.value = '';
+      f.dispatchEvent(new win.Event('input'));
+      doc.getElementById('gmSdSort').click();
+      is(win.__test__.gmState.sdSort, 'date', 'sort switched to newest');
+      doc.getElementById('gmSdSort').click();
+      is(win.__test__.gmState.sdSort, 'name', 'and back to name');
     });
 
     await test('a folder opens and the parent row goes back', async function () {
