@@ -105,6 +105,7 @@ const char PAGE_CAM_MOBILE[] PROGMEM = R"CAMMOBILE(
   <section class="screen" id="gmS2">
     <div class="rowhdr">
       <span class="dir" id="cmDir" data-i18n="cmFilesTitle">Recordings on the SD card</span>
+      <button type="button" class="mini" id="cmSort" data-i18n-title="cmSortTip" title="Sort: name / newest">A&#8597;</button>
       <button type="button" class="mini" id="cmReload" data-i18n-title="cmReloadTip" title="Reload the list">&#8635;</button>
     </div>
     <div class="list" id="cmList"></div>
@@ -119,6 +120,12 @@ const char PAGE_CAM_MOBILE_TAIL[] PROGMEM = R"CAMTAIL(  <!-- ── 3: camera op
     <div class="rowhdr">
       <span class="dir" data-i18n="cmOptTitle">Camera modes</span>
       <button type="button" class="mini" id="cmOptReload" data-i18n-title="cmOptReload" title="Reload">&#8635;</button>
+    </div>
+    <div class="chips" id="cmProfiles">
+      <button type="button" class="chip" data-profile="day" data-i18n="cmProfDay">DAY</button>
+      <button type="button" class="chip" data-profile="night" data-i18n="cmProfNight">NIGHT</button>
+      <button type="button" class="chip" data-profile="fast" data-i18n="cmProfFast">FAST</button>
+      <button type="button" class="chip" data-profile="max" data-i18n="cmProfMax">MAX</button>
     </div>
     <div class="opts" id="cmOpts">
       <label class="opt"><span data-i18n="cmOptRes">Resolution</span><select id="cmRes"></select></label>
@@ -152,6 +159,17 @@ const char PAGE_CAM_MOBILE_TAIL[] PROGMEM = R"CAMTAIL(  <!-- ── 3: camera op
           <button type="button" class="chip" id="cmMotionReset" data-i18n="cmMotionReset">Reset</button>
         </div>
       </div>
+      <label class="opt"><span data-i18n="cmOptEffect">Effect</span><select id="cmEffect">
+        <option value="0">none</option><option value="1">negative</option><option value="2">grayscale</option>
+        <option value="3">reddish</option><option value="4">greenish</option><option value="5">blueish</option>
+        <option value="6">sepia</option>
+      </select></label>
+      <label class="opt"><span data-i18n="cmOptWb">White bal.</span><select id="cmWb">
+        <option value="0">auto</option><option value="1">sunny</option><option value="2">cloudy</option>
+        <option value="3">office</option><option value="4">home</option>
+      </select></label>
+      <div class="opt"><span data-i18n="cmOptAe">Exposure</span>
+        <div class="stepper"><button type="button" data-step="-1" data-key="ae_level">&#8722;</button><b id="cmAe">0</b><button type="button" data-step="1" data-key="ae_level">+</button></div></div>
       <div class="opt"><span data-i18n="cmOptSensitivity">Sensitivity</span>
         <div class="stepper"><button type="button" data-step="-5" data-key="sensitivity">&#8722;</button><b id="cmSens">0</b><button type="button" data-step="5" data-key="sensitivity">+</button></div></div>
     </div>
@@ -213,6 +231,7 @@ const char PAGE_CAM_MOBILE_TAIL[] PROGMEM = R"CAMTAIL(  <!-- ── 3: camera op
     dir: document.getElementById('cmDir'),
     list: document.getElementById('cmList'),
     reload: document.getElementById('cmReload'),
+    sort: document.getElementById('cmSort'),
     msg: document.getElementById('gmMsg'),
     bar: document.getElementById('gmBar'),
     fill: document.getElementById('gmFill'),
@@ -235,6 +254,10 @@ const char PAGE_CAM_MOBILE_TAIL[] PROGMEM = R"CAMTAIL(  <!-- ── 3: camera op
     motion: document.getElementById('cmMotion'),
     motionReset: document.getElementById('cmMotionReset'),
     sens: document.getElementById('cmSens'),
+    effect: document.getElementById('cmEffect'),
+    wb: document.getElementById('cmWb'),
+    ae: document.getElementById('cmAe'),
+    profiles: document.getElementById('cmProfiles'),
     ftpReload: document.getElementById('cmFtpReload'),
     ftpHost: document.getElementById('cmFtpHost'),
     ftpPath: document.getElementById('cmFtpPath'),
@@ -250,8 +273,8 @@ const char PAGE_CAM_MOBILE_TAIL[] PROGMEM = R"CAMTAIL(  <!-- ── 3: camera op
   };
 
   var st = {
-    step: 1, busy: false, recording: false, files: [],
-    info: null, lastShot: 0, timer: 0,
+    step: 1, busy: false, recording: false, files: [], sort: 'name',
+    info: null, lastShot: 0, timer: 0, streamTimer: 0,
     cfg: null, resList: [], fpsMax: 30
   };
 
@@ -269,13 +292,34 @@ const char PAGE_CAM_MOBILE_TAIL[] PROGMEM = R"CAMTAIL(  <!-- ── 3: camera op
 
   function startStream() {
     if (!el.img) return;
+    el.img.style.visibility = 'hidden';
     // Re-assigning src is what makes the browser open a new MJPEG connection.
     el.img.src = streamUrl();
+    if (el.info) el.info.textContent = t('cmConnecting', 'Connecting to the camera\u2026');
+    clearTimeout(st.streamTimer);
+    st.streamTimer = setTimeout(function () {
+      if (el.img && el.img.naturalWidth > 0) {
+        el.img.style.visibility = 'visible';
+      } else if (el.info) {
+        el.info.textContent = t('cmNoStream', 'No image from /cam/stream \u2014 tap to retry.');
+      }
+    }, 4000);
   }
 
   function toggleFull() {
     if (!el.view) return false;
     var on = el.view.className.indexOf('immersive') < 0;
+    // Native fullscreen first (Android/Chrome hides the URL bar and the system
+    // bars); the CSS "immersive" class stays as the fallback (iOS refuses it).
+    try {
+      if (on) {
+        var req = el.view.requestFullscreen || el.view.webkitRequestFullscreen || el.view.webkitRequestFullScreen;
+        if (req) { var pr = req.call(el.view); if (pr && pr.catch) pr.catch(function () {}); }
+      } else if (document.fullscreenElement || document.webkitFullscreenElement) {
+        var ex = document.exitFullscreen || document.webkitExitFullscreen;
+        if (ex) { var pe = ex.call(document); if (pe && pe.catch) pe.catch(function () {}); }
+      }
+    } catch (e) {}
     el.view.className = 'viewwrap' + (on ? ' immersive' : '');
     if (el.full) {
       el.full.innerHTML = on ? '&#10005;' : '&#9974;';
@@ -358,10 +402,26 @@ const char PAGE_CAM_MOBILE_TAIL[] PROGMEM = R"CAMTAIL(  <!-- ── 3: camera op
     return true;
   }
 
+  // "YYYY-MM-DD_HHMMSS_..." at the start of the name → sortable number.
+  function fileStamp(f) {
+    var m = String((f && f.n) || '').match(/(\d{4})-(\d{2})-(\d{2})[_-](\d{2})(\d{2})(\d{2})/);
+    if (!m) return 0;
+    return Number(m[1] + m[2] + m[3] + m[4] + m[5] + m[6]);
+  }
+
   function renderFiles() {
     if (!el.list) return;
     if (typeof document === 'undefined' || !document) return;
     el.list.innerHTML = '';
+    st.files.sort(function (a, b) {
+      if (st.sort === 'date') {
+        var da = fileStamp(a), db = fileStamp(b);
+        if (da !== db) return db - da;              // newest first
+      }
+      var an = String(a && a.n || '').toLowerCase();
+      var bn = String(b && b.n || '').toLowerCase();
+      return an < bn ? -1 : (an > bn ? 1 : 0);
+    });
     if (!st.files.length) {
       var none = document.createElement('div');
       none.className = 'note';
@@ -496,6 +556,9 @@ const char PAGE_CAM_MOBILE_TAIL[] PROGMEM = R"CAMTAIL(  <!-- ── 3: camera op
     if (el.lapse) el.lapse.value = String(c.timelapse_secs || 0);
     if (el.motion) el.motion.className = 'chip' + ((c.motion && c.motion.enabled) ? ' on' : '');
     if (el.sens) el.sens.textContent = String((c.motion && c.motion.sensitivity) || 0);
+    if (el.effect) el.effect.value = String(c.special_effect !== undefined ? c.special_effect : 0);
+    if (el.wb) el.wb.value = String(c.wb_mode !== undefined ? c.wb_mode : 0);
+    if (el.ae) el.ae.textContent = String(c.ae_level !== undefined ? c.ae_level : 0);
     if (el.res) {
       if (st.resList && st.resList.length) {
         var want = String(st.info && st.info.p4_resolution ? st.info.p4_resolution : (st.resList[0] || ''));
@@ -552,6 +615,9 @@ const char PAGE_CAM_MOBILE_TAIL[] PROGMEM = R"CAMTAIL(  <!-- ── 3: camera op
     if (el.lapse) body.timelapse_secs = el.lapse.value;
     body.motion_enabled = (el.motion && el.motion.className.indexOf('on') >= 0) ? 1 : 0;
     body.motion_sensitivity = Number((el.sens && el.sens.textContent) || 0);
+    if (el.effect) body.special_effect = el.effect.value;
+    if (el.wb) body.wb_mode = el.wb.value;
+    if (el.ae) body.ae_level = Number(el.ae.textContent || 0);
     body.hmirror = (el.mirror && el.mirror.className.indexOf('on') >= 0) ? 1 : 0;
     body.vflip = (el.flip && el.flip.className.indexOf('on') >= 0) ? 1 : 0;
     if (el.lamp && el.lamp.style.display !== 'none') {
@@ -641,6 +707,36 @@ const char PAGE_CAM_MOBILE_TAIL[] PROGMEM = R"CAMTAIL(  <!-- ── 3: camera op
     return true;
   }
 
+  // Quick profiles (the operator still presses SAVE: nothing is written blind).
+  var PROFILES = {
+    day:   { fps: 15, quality: 12, brightness: 0, contrast: 0, saturation: 0, effect: 0, wb: 1, ae: 0 },
+    night: { fps: 10, quality: 16, brightness: 1, contrast: 1, saturation: 0, effect: 0, wb: 0, ae: 1 },
+    fast:  { fps: 30, quality: 22, brightness: 0, contrast: 0, saturation: 0, effect: 0, wb: 0, ae: 0 },
+    max:   { fps: 10, quality: 4,  brightness: 0, contrast: 1, saturation: 1, effect: 0, wb: 1, ae: 0 }
+  };
+
+  function applyProfile(name) {
+    var pr = PROFILES[name];
+    if (!pr) return false;
+    if (el.fps) el.fps.value = String(pr.fps);
+    if (el.quality) { el.quality.value = String(pr.quality); if (el.qualityVal) el.qualityVal.textContent = String(pr.quality); }
+    if (el.br) el.br.textContent = String(pr.brightness);
+    if (el.ct) el.ct.textContent = String(pr.contrast);
+    if (el.sa) el.sa.textContent = String(pr.saturation);
+    if (el.effect) el.effect.value = String(pr.effect);
+    if (el.wb) el.wb.value = String(pr.wb);
+    if (el.ae) el.ae.textContent = String(pr.ae);
+    if (el.profiles) {
+      var chips = el.profiles.querySelectorAll('button[data-profile]');
+      for (var i = 0; i < chips.length; i++) {
+        chips[i].className = 'chip' + (String(chips[i].getAttribute('data-profile')) === name ? ' on' : '');
+      }
+    }
+    msg(tf('cmProfileLoaded', 'Profile {name} loaded \u2014 press SAVE to apply.',
+           { name: name.toUpperCase() }), '');
+    return true;
+  }
+
   function setStep(n) {
     var next = Math.max(1, Math.min(STEPS, Number(n) || 1));
     st.step = next;
@@ -713,7 +809,20 @@ const char PAGE_CAM_MOBILE_TAIL[] PROGMEM = R"CAMTAIL(  <!-- ── 3: camera op
     });
     if (el.rec) el.rec.addEventListener('click', toggleRecording);
     if (el.reload) el.reload.addEventListener('click', loadFiles);
+    if (el.sort) el.sort.addEventListener('click', function () {
+      st.sort = (st.sort === 'name') ? 'date' : 'name';
+      el.sort.textContent = (st.sort === 'name') ? 'A\u2197' : '\u23F1';
+      msg(t(st.sort === 'name' ? 'gmSdSortName' : 'gmSdSortNewest',
+            st.sort === 'name' ? 'Sorted by name.' : 'Newest first.'), '');
+      renderFiles();
+    });
     if (el.optReload) el.optReload.addEventListener('click', loadOptions);
+    if (el.profiles) {
+      el.profiles.addEventListener('click', function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest('button[data-profile]') : null;
+        if (b) applyProfile(String(b.getAttribute('data-profile')));
+      });
+    }
     if (el.ftpReload) el.ftpReload.addEventListener('click', loadFtp);
     if (el.ftpSend) el.ftpSend.addEventListener('click', function () { ftpAction('send'); });
     if (el.ftpTest) el.ftpTest.addEventListener('click', function () { ftpAction('test'); });
@@ -747,7 +856,19 @@ const char PAGE_CAM_MOBILE_TAIL[] PROGMEM = R"CAMTAIL(  <!-- ── 3: camera op
         if (t1) t1.className = (t1.className.indexOf('on') >= 0) ? 'chip' : 'chip on';
       });
     }
-    if (el.img) el.img.addEventListener('click', startStream);
+    if (el.img) {
+      el.img.addEventListener('click', startStream);
+      el.img.addEventListener('load', function () { el.img.style.visibility = 'visible'; });
+    }
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (ev) {
+      document.addEventListener(ev, function () {
+        var native = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        if (!native && el.view && el.view.className.indexOf('immersive') >= 0) {
+          el.view.className = 'viewwrap';
+          if (el.full) { el.full.innerHTML = '&#9974;'; }
+        }
+      });
+    });
     if (el.full) el.full.addEventListener('click', function (ev) {
       ev.stopPropagation();
       toggleFull();
@@ -770,6 +891,7 @@ const char PAGE_CAM_MOBILE_TAIL[] PROGMEM = R"CAMTAIL(  <!-- ── 3: camera op
   window.__test__.cmDelete = deleteFile;
   window.__test__.cmOptions = loadOptions;
   window.__test__.cmSave = saveOptions;
+  window.__test__.cmProfile = applyProfile;
   window.__test__.cmFtp = loadFtp;
   window.__test__.cmFtpAction = ftpAction;
   window.__test__.cmFull = toggleFull;

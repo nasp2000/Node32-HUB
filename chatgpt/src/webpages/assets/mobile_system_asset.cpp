@@ -246,6 +246,15 @@ window.MPSystem = (function () {
   }
 
   function init() {
+    // Delegated so the three tabs work even if one id is missing.
+    var subbar = document.querySelector('#gmSYS .subbar');
+    if (subbar) {
+      subbar.addEventListener('click', function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest('button[data-mu-tab]') : null;
+        if (!b) return;
+        tab(String(b.getAttribute('data-mu-tab')));
+      });
+    }
     if (el.tabSum) el.tabSum.addEventListener('click', function () { tab('sum'); });
     if (el.tabOta) el.tabOta.addEventListener('click', function () { tab('ota'); });
     if (el.tabLog) el.tabLog.addEventListener('click', function () { tab('log'); });

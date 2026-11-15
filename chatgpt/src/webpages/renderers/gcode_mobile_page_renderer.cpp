@@ -8,7 +8,7 @@
 
 size_t streamGcodeMobilePageToPrint(Print& out) {
     size_t n = 0;
-    n += streamPageShellStart(out, "Send G-code");
+    n += streamMobileShellStart(out, "Send G-code");
     // The pack name is a compile-time macro; hand it to the page script so the
     // header can show "GcodeSender-P4" / "-S3" without duplicating the build.
     out.print(F("<script>window.PACK_NAME=\""));

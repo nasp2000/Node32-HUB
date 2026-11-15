@@ -15,13 +15,18 @@ const char MOBILE_COMMON_CSS[] PROGMEM = R"MCCSS(
 <style>
 
   /* ── page root: fixed column, never scrolls (every pack) ─────────────── */
-  html, body { height: 100%; margin: 0; overflow: hidden; background: #0b1220; }
+  html, body { height: 100%; margin: 0; overflow: hidden hidden; max-width: 100vw; background: #0b1220; }
   body { color: #e6f1ff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   #gm {
     position: fixed; inset: 0; display: flex; flex-direction: column; gap: 8px;
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
-    box-sizing: border-box; height: 100dvh; overflow: hidden;
+    box-sizing: border-box; height: 100dvh; width: 100vw; max-width: 100vw;
+    overflow: hidden hidden; overscroll-behavior: none;
   }
+  /* RULE: no /m page scrolls sideways. Every child is clamped and may shrink. */
+  #gm *, #gm *::before, #gm *::after { box-sizing: border-box; }
+  #gm > *, #gm .screen > *, #gm .pane > *, #gm .opts > * { min-width: 0; max-width: 100%; }
+  #gm .navstrip, #gm .tiles, #gm .chips, #gm .opts, #gm .acts, #gm .nav, #gm .list { max-width: 100%; }
 
   /* ── generic page chrome (any pack) ───────────────────────────────── */
   .mp header { display: flex; flex-direction: column; gap: 4px; }

@@ -170,6 +170,21 @@ async function run() {
       ok(posted(win).indexOf('/api/ftp-upload-now') >= 0, 'send now posted');
     });
 
+    await test('a quick profile fills the modes and the files list can be sorted', async function () {
+      g.cmSetStep(3);
+      await wait(dom, 300);
+      ok(doc.querySelectorAll('#cmProfiles .chip').length >= 4, 'profile chips');
+      is(g.cmProfile('max'), true, 'profile applied');
+      is(doc.getElementById('cmQ').value, '4', 'quality from MAX profile');
+      is(doc.getElementById('cmFps').value, '10', 'fps from MAX profile');
+      g.cmSetStep(2);
+      await wait(dom, 250);
+      doc.getElementById('cmSort').click();
+      is(g.cmState.sort, 'date', 'files sorted by newest');
+      doc.getElementById('cmSort').click();
+      is(g.cmState.sort, 'name', 'and back to name');
+    });
+
     await test('the system screen is the shared block', async function () {
       g.cmSetStep(5);
       await wait(dom, 300);

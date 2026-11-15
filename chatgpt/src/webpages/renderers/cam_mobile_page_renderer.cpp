@@ -12,7 +12,7 @@ size_t streamCamMobilePageToPrint(Print& out) {
     return 0;
 #else
     size_t n = 0;
-    n += streamPageShellStart(out, "Camera");
+    n += streamMobileShellStart(out, "Camera");
     out.print(F("<script>window.PACK_NAME=\""));
     out.print(PACK_SYSTEM_NAME);
     out.print(F("\";</script>"));

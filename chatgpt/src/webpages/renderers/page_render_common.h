@@ -16,6 +16,18 @@ inline void allowSlowClientAck(AsyncWebServerRequest* req, uint32_t ms = 30000) 
     if (req && req->client()) req->client()->setAckTimeout(ms);
 }
 
+// Same shell as streamPageShellStart plus the "standalone" hints, so a phone
+// page added to the home screen opens WITHOUT browser chrome (no URL bar).
+inline size_t streamMobileShellStart(Print& out, const char* title) {
+    size_t n = 0;
+    const char* head1 = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'><meta name='mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-capable' content='yes'><meta name='apple-mobile-web-app-status-bar-style' content='black-translucent'><meta name='theme-color' content='#0b1220'><title>";
+    const char* head2 = "</title><link rel='stylesheet' href='/core.css'></head><body>";
+    out.print(head1); n += strlen(head1);
+    out.print(title); n += strlen(title);
+    out.print(head2); n += strlen(head2);
+    return n;
+}
+
 inline size_t streamPageShellStart(Print& out, const char* title) {
     size_t n = 0;
     const char* head1 = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>";

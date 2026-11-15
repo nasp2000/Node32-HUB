@@ -12,7 +12,7 @@ size_t streamRamboxMobilePageToPrint(Print& out) {
     return 0;
 #else
     size_t n = 0;
-    n += streamPageShellStart(out, "Rambox32");
+    n += streamMobileShellStart(out, "Rambox32");
     out.print(F("<script>window.PACK_NAME=\""));
     out.print(PACK_SYSTEM_NAME);
     out.print(F("\";</script>"));
