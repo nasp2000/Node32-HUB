@@ -38,7 +38,10 @@ TEST_BINS := $(addsuffix $(BIN_EXT),$(TEST_SRCS))
 # (git-ignored). On a fresh clone they do not exist yet, so those suites are
 # skipped with a visible marker instead of breaking the whole build.
 REAL_AJ_DIR     := ../../chatgpt/.pio/libdeps/waveshare_8di8do/ArduinoJson/src
-REAL_DEPS_TESTS := test_alerts_persist_real test_ntp_persist_real test_system_persist_real
+# test_recipient_email_cap links the REAL ConfigManager against the real
+# ArduinoJson too (same objects as the *_real suites), so a clean checkout
+# without .pio/libdeps must skip it instead of failing the build (TEST-1).
+REAL_DEPS_TESTS := test_alerts_persist_real test_ntp_persist_real test_system_persist_real test_recipient_email_cap
 
 ifneq ($(wildcard $(REAL_AJ_DIR)/ArduinoJson.h),)
   REAL_INCLUDES := -I$(REAL_AJ_DIR) $(INCLUDES)
