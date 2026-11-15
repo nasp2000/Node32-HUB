@@ -1,4 +1,5 @@
 #include "ConfigManager.h"
+#include "psram_helpers.h"   // SpiRamJsonDocument: config JSON lives in PSRAM, not internal RAM
 #include "daily_reboot_slots.h"
 #include "nvs_write_guard.h"
 using namespace ConfigValidator;
@@ -644,7 +645,7 @@ bool ConfigManager::saveToLittleFS() {
         // over a valid file and corrupt the section on the next load. On failure
         // the original final file is left untouched and the tmp is dropped.
         {
-            DynamicJsonDocument probe(maxBytes > 0 ? (maxBytes * 2 + 256) : 16384);
+            SpiRamJsonDocument probe(maxBytes > 0 ? (maxBytes * 2 + 256) : 16384);
             File vf = LittleFS.open(tmpPath, "r");
             bool parseOk = false;
             if (vf) {
@@ -736,7 +737,7 @@ bool ConfigManager::saveToLittleFS() {
 
     // --- Save core.json (core settings only, excluding dedicated large-page files) ---
     {
-        DynamicJsonDocument doc(10240); // Core subset copy (excludes dedicated page files); sized 2x worst case
+        SpiRamJsonDocument doc(10240); // Core subset copy (excludes dedicated page files); sized 2x worst case
         JsonObject root = doc.to<JsonObject>();
         for (JsonPair kv : config.as<JsonObject>()) {
             const char* key = kv.key().c_str();
@@ -819,7 +820,7 @@ bool ConfigManager::saveToLittleFS() {
 
     // --- Save access.json (Access page: web + related system toggles) ---
     {
-        DynamicJsonDocument accessDoc(8192);
+        SpiRamJsonDocument accessDoc(8192);
         JsonObject root = accessDoc.to<JsonObject>();
 
         if (config.containsKey("web") && config["web"].is<JsonObject>()) {
@@ -844,7 +845,7 @@ bool ConfigManager::saveToLittleFS() {
 
     // --- Save system.json (System Settings page payload) ---
     {
-        DynamicJsonDocument sysDoc(8192);
+        SpiRamJsonDocument sysDoc(8192);
         JsonObject root = sysDoc.to<JsonObject>();
 
         if (config.containsKey("printer") && config["printer"].is<JsonObject>()) root["printer"] = config["printer"].as<JsonObject>();
@@ -867,7 +868,7 @@ bool ConfigManager::saveToLittleFS() {
 #if ENABLE_USBIP_SERVER == 1
     // --- Save usb_server.json (USB Server page payload) ---
     {
-        DynamicJsonDocument usbServerDoc(4096);
+        SpiRamJsonDocument usbServerDoc(4096);
         JsonObject root = usbServerDoc.to<JsonObject>();
 
         if (config.containsKey("usb_server") && config["usb_server"].is<JsonObject>()) {
@@ -882,7 +883,7 @@ bool ConfigManager::saveToLittleFS() {
 #if ENABLE_SMTP == 1
     // --- Save smtp_email config (SMTP + Email settings) ---
     {
-        DynamicJsonDocument smtpEmailDoc(4096);
+        SpiRamJsonDocument smtpEmailDoc(4096);
         JsonObject root = smtpEmailDoc.to<JsonObject>();
 
         if (config.containsKey("smtp") && config["smtp"].is<JsonObject>()) {
@@ -908,7 +909,7 @@ bool ConfigManager::saveToLittleFS() {
 
     // --- Save alerts.json (inactivity alert — its own file, independent of recipients) ---
     if (config.containsKey("inactivity_alerts") && config["inactivity_alerts"].is<JsonObject>()) {
-        DynamicJsonDocument alertDoc(8192);
+        SpiRamJsonDocument alertDoc(8192);
         JsonObject alertRoot = alertDoc.to<JsonObject>();
         copyJsonCleanControlChars(config["inactivity_alerts"], alertRoot);
         String alertPath = stemPath("alerts");
@@ -917,7 +918,7 @@ bool ConfigManager::saveToLittleFS() {
 
     // --- telnet.json (own file) ---
     if (config.containsKey("telnet") && config["telnet"].is<JsonObject>()) {
-        DynamicJsonDocument t(4096);
+        SpiRamJsonDocument t(4096);
         JsonObject to = t.to<JsonObject>();
         for (JsonPair kv : config["telnet"].as<JsonObject>()) {
             if (strcmp(kv.key().c_str(), "password") == 0 && kv.value().as<String>().length() > 0) to["password"] = "********";
@@ -936,7 +937,7 @@ bool ConfigManager::saveToLittleFS() {
         saveStem(STEM_DEBUG, stemPath("debug"), config["debug"].as<JsonVariantConst>(), "debug", 4096);
     // --- access_point.json (own file) ---
     if (config.containsKey("access_point") && config["access_point"].is<JsonObject>()) {
-        DynamicJsonDocument ap(4096);
+        SpiRamJsonDocument ap(4096);
         JsonObject apo = ap.to<JsonObject>();
         for (JsonPair kv : config["access_point"].as<JsonObject>()) {
             if (strcmp(kv.key().c_str(), "password") == 0 && kv.value().as<String>().length() > 0) apo["password"] = "********";
@@ -952,7 +953,7 @@ bool ConfigManager::saveToLittleFS() {
         saveStem(STEM_DO, stemPath("do"), config["do"].as<JsonVariantConst>(), "do", 4096);
     // --- ftp.json (own file, password masked, real value in NVS cfg_ftp_pwd) ---
     if (config.containsKey("ftp") && config["ftp"].is<JsonObject>()) {
-        DynamicJsonDocument f(4096);
+        SpiRamJsonDocument f(4096);
         JsonObject fo = f.to<JsonObject>();
         for (JsonPair kv : config["ftp"].as<JsonObject>()) {
             if (strcmp(kv.key().c_str(), "password") == 0 && kv.value().as<String>().length() > 0) fo["password"] = "********";
@@ -963,7 +964,7 @@ bool ConfigManager::saveToLittleFS() {
 
     // Write config registry listing all pages with their max sizes
     {
-        DynamicJsonDocument regDoc(4096);
+        SpiRamJsonDocument regDoc(4096);
         JsonArray pages = regDoc.createNestedArray("pages");
         auto addPage = [&](const char* stem, size_t maxBytes) {
             JsonObject p = pages.createNestedObject();
@@ -1068,7 +1069,7 @@ bool ConfigManager::loadFromLittleFS() {
             if (finalPath.endsWith("alerts.json")) {
                 File vf = LittleFS.open(tmpPath, "r");
                 if (vf) {
-                    DynamicJsonDocument probe(16384);
+                    SpiRamJsonDocument probe(16384);
                     ok = (deserializeJson(probe, vf) == DeserializationError::Ok);
                     vf.close();
                 } else {
@@ -1114,7 +1115,7 @@ bool ConfigManager::loadFromLittleFS() {
         recoverOrRemoveTmpPath(stemPath(stems[i]));
     }
 
-    auto parseJsonFile = [&](const String& path, DynamicJsonDocument& outDoc, bool required, const char* label, bool* wasCorrupt = nullptr) -> bool {
+    auto parseJsonFile = [&](const String& path, SpiRamJsonDocument& outDoc, bool required, const char* label, bool* wasCorrupt = nullptr) -> bool {
         outDoc.clear();
         if (wasCorrupt) *wasCorrupt = false;
         if (!LittleFS.exists(path)) {
@@ -1159,14 +1160,14 @@ bool ConfigManager::loadFromLittleFS() {
         String systemPagePath = stemPath("system");
         String usbServerPath = stemPath("usb_server");
 
-        DynamicJsonDocument mainDoc(16384);
-        DynamicJsonDocument rs232Doc(8192);
-        DynamicJsonDocument recipientsDoc(4096);
-        DynamicJsonDocument schedFileDoc(5120);
-        DynamicJsonDocument modbusFileDoc(4096);
-        DynamicJsonDocument accessDoc(8192);
-        DynamicJsonDocument systemPageDoc(8192);
-        DynamicJsonDocument usbServerDoc(4096);
+        SpiRamJsonDocument mainDoc(16384);
+        SpiRamJsonDocument rs232Doc(8192);
+        SpiRamJsonDocument recipientsDoc(4096);
+        SpiRamJsonDocument schedFileDoc(5120);
+        SpiRamJsonDocument modbusFileDoc(4096);
+        SpiRamJsonDocument accessDoc(8192);
+        SpiRamJsonDocument systemPageDoc(8192);
+        SpiRamJsonDocument usbServerDoc(4096);
 
         if (!parseJsonFile(mainPath, mainDoc, false, "core")) { /* handled non-fatally */ }
         if (!parseJsonFile(rs232Path, rs232Doc, false, "rs232")) return false;
@@ -1180,7 +1181,7 @@ bool ConfigManager::loadFromLittleFS() {
         // Load smtp_email section (replaces NVS-only storage)
         {
             String smtpEmailPath = stemPath("smtp_email");
-DynamicJsonDocument smtpEmailDoc(4096);
+SpiRamJsonDocument smtpEmailDoc(4096);
             if (parseJsonFile(smtpEmailPath, smtpEmailDoc, false, "smtp_email")) {
                 if (smtpEmailDoc.containsKey("smtp") && smtpEmailDoc["smtp"].is<JsonObject>()) {
                     // Overwrite individual keys to preserve any defaults from initDefaults()
@@ -1201,7 +1202,7 @@ DynamicJsonDocument smtpEmailDoc(4096);
             const char* secs[] = {"telnet", "ethernet", "sdcard", "debug", "access_point", "wifi_hybrid", "do", "ftp"};
             for (int si = 0; si < 8; si++) {
                 const char* sec = secs[si];
-                DynamicJsonDocument d(4096);
+                SpiRamJsonDocument d(4096);
                 if (parseJsonFile(stemPath(sec), d, false, sec) && d.is<JsonObject>() && d.as<JsonObject>().size() > 0) {
                     if (!config.containsKey(sec) || !config[sec].is<JsonObject>()) config.createNestedObject(sec);
                     for (JsonPair kv : d.as<JsonObject>()) {
@@ -1343,7 +1344,7 @@ DynamicJsonDocument smtpEmailDoc(4096);
         // Load alerts.json (inactivity alert — its own file)
         {
             String alertPath = stemPath("alerts");
-            DynamicJsonDocument alertDoc(8192);
+            SpiRamJsonDocument alertDoc(8192);
             bool alertsCorrupt = false;
             if (parseJsonFile(alertPath, alertDoc, false, "alerts", &alertsCorrupt)) {
                 if (alertsCorrupt) {
@@ -1351,7 +1352,7 @@ DynamicJsonDocument smtpEmailDoc(4096);
                     // current (defaults + validated) in-memory section. Without
                     // this the corruption would survive until the next page save
                     // and keep producing the "comes back every time" bug.
-                    DynamicJsonDocument healDoc(8192);
+                    SpiRamJsonDocument healDoc(8192);
                     JsonObject healRoot = healDoc.to<JsonObject>();
                     copyJsonCleanControlChars(config["inactivity_alerts"], healRoot);
                     repairOwnFileJson(alertPath, healRoot);
@@ -1756,7 +1757,7 @@ bool ConfigManager::loadConfig() {
 
     String wifiJson = nvs.isKey(NVS_KEY_WIFI) ? nvs.getString(NVS_KEY_WIFI, "") : String("");
     if (wifiJson.length() > 0) {
-        DynamicJsonDocument doc(4096);
+        SpiRamJsonDocument doc(4096);
         if (deserializeJson(doc, wifiJson) == DeserializationError::Ok) {
             config["wifi"] = doc.as<JsonObject>();
             nvsSectionsLoaded++;
@@ -1765,7 +1766,7 @@ bool ConfigManager::loadConfig() {
 
     String netsJson = nvs.isKey(NVS_KEY_SAVED_NETWORKS) ? nvs.getString(NVS_KEY_SAVED_NETWORKS, "") : String("");
     if (netsJson.length() > 0) {
-        DynamicJsonDocument doc(4096);
+        SpiRamJsonDocument doc(4096);
         if (deserializeJson(doc, netsJson) == DeserializationError::Ok) {
             config["saved_networks"] = doc.as<JsonArray>();
             nvsSectionsLoaded++;
@@ -2130,7 +2131,7 @@ bool ConfigManager::saveSection(const char* stem) {
         // the origin of the recurring alerts.json corruption. On failure the
         // original final file is kept and the tmp is dropped.
         {
-            DynamicJsonDocument probe(maxBytes > 0 ? (maxBytes * 2 + 256) : 16384);
+            SpiRamJsonDocument probe(maxBytes > 0 ? (maxBytes * 2 + 256) : 16384);
             File vf = LittleFS.open(tmpPath, "r");
             bool parseOk = false;
             if (vf) {
@@ -2161,7 +2162,7 @@ bool ConfigManager::saveSection(const char* stem) {
         return true;
     };
     auto writePagesReg = [&]() {
-        DynamicJsonDocument regDoc(4096);
+        SpiRamJsonDocument regDoc(4096);
         JsonArray pages = regDoc.createNestedArray("pages");
         auto addPage = [&](const char* s, size_t mb) { JsonObject p = pages.createNestedObject(); p["stem"] = s; p["max_bytes"] = (uint32_t)mb; };
         addPage("core", 10240); addPage("rs232", 8192); addPage("recipients", 4096);
@@ -2236,7 +2237,7 @@ bool ConfigManager::saveSection(const char* stem) {
         } else { nvsOk = false; }
         ok = nvsOk;
     } else if (strcmp(stem, "core") == 0) {
-        DynamicJsonDocument doc(10240);
+        SpiRamJsonDocument doc(10240);
         JsonObject root = doc.to<JsonObject>();
         for (JsonPair kv : config.as<JsonObject>()) {
             const char* key = kv.key().c_str();
@@ -2264,7 +2265,7 @@ bool ConfigManager::saveSection(const char* stem) {
         if (root.containsKey("access_point") && root["access_point"].containsKey("password") && root["access_point"]["password"].as<String>().length() > 0) root["access_point"]["password"] = "********";
         ok = writeJsonAtomic(stemPath("core"), doc.as<JsonVariantConst>(), "core", 10240);
     } else if (strcmp(stem, "system") == 0) {
-        DynamicJsonDocument sysDoc(8192);
+        SpiRamJsonDocument sysDoc(8192);
         JsonObject root = sysDoc.to<JsonObject>();
         if (config.containsKey("printer") && config["printer"].is<JsonObject>()) root["printer"] = config["printer"].as<JsonObject>();
         if (config.containsKey("system_name")) root["system_name"] = config["system_name"];
@@ -2280,7 +2281,7 @@ bool ConfigManager::saveSection(const char* stem) {
         }
         ok = writeJsonAtomic(stemPath("system"), sysDoc.as<JsonVariantConst>(), "system", 8192);
     } else if (strcmp(stem, "smtp_email") == 0) {
-        DynamicJsonDocument smtpDoc(4096);
+        SpiRamJsonDocument smtpDoc(4096);
         JsonObject root = smtpDoc.to<JsonObject>();
         if (config.containsKey("smtp") && config["smtp"].is<JsonObject>()) {
             JsonObject out = root.createNestedObject("smtp");
@@ -2297,7 +2298,7 @@ bool ConfigManager::saveSection(const char* stem) {
         if (config.containsKey("rs232") && config["rs232"].is<JsonObject>())
             ok = writeJsonAtomic(stemPath("rs232"), config["rs232"].as<JsonVariantConst>(), "rs232", 8192);
     } else if (strcmp(stem, "access") == 0) {
-        DynamicJsonDocument accessDoc(8192);
+        SpiRamJsonDocument accessDoc(8192);
         JsonObject root = accessDoc.to<JsonObject>();
         if (config.containsKey("web") && config["web"].is<JsonObject>()) {
             JsonObject webOut = root.createNestedObject("web");
@@ -2319,7 +2320,7 @@ bool ConfigManager::saveSection(const char* stem) {
             // every slot), not just the emails the POST handler already strips.
             // A raw control byte in any field is enough to make the re-serialized
             // file unparseable — this is the origin of the recurring corruption.
-            DynamicJsonDocument alertDoc(8192);
+            SpiRamJsonDocument alertDoc(8192);
             JsonObject root = alertDoc.to<JsonObject>();
             copyJsonCleanControlChars(config["inactivity_alerts"], root);
             ok = writeJsonAtomic(stemPath("alerts"), root, "alerts", 8192);
@@ -2327,7 +2328,7 @@ bool ConfigManager::saveSection(const char* stem) {
         else ok = true;   // nothing to save — treat as success
     } else if (strcmp(stem, "telnet") == 0 || strcmp(stem, "access_point") == 0) {
         // Sections with a password — mask before writing to its own file.
-        DynamicJsonDocument d(4096);
+        SpiRamJsonDocument d(4096);
         JsonObject o = d.to<JsonObject>();
         if (config.containsKey(stem) && config[stem].is<JsonObject>()) {
             for (JsonPair kv : config[stem].as<JsonObject>()) {
@@ -2346,7 +2347,7 @@ bool ConfigManager::saveSection(const char* stem) {
             ? writeJsonAtomic(stemPath("do"), config["do"].as<JsonVariantConst>(), "do", 4096)
             : true;
     } else if (strcmp(stem, "ftp") == 0) {
-        DynamicJsonDocument fd(4096);
+        SpiRamJsonDocument fd(4096);
         JsonObject fo = fd.to<JsonObject>();
         if (config.containsKey("ftp") && config["ftp"].is<JsonObject>()) {
             for (JsonPair kv : config["ftp"].as<JsonObject>()) {
@@ -2362,7 +2363,7 @@ bool ConfigManager::saveSection(const char* stem) {
     } else if (strcmp(stem, "modbus") == 0) {
         ok = writeJsonAtomic(stemPath("modbus"), modbusDoc.as<JsonVariantConst>(), "modbus", 4096);
     } else if (strcmp(stem, "usb_server") == 0) {
-        DynamicJsonDocument usbDoc(4096);
+        SpiRamJsonDocument usbDoc(4096);
         JsonObject usbRoot = usbDoc.to<JsonObject>();
         if (config.containsKey("usb_server") && config["usb_server"].is<JsonObject>())
             usbRoot["usb_server"] = config["usb_server"].as<JsonObject>();
