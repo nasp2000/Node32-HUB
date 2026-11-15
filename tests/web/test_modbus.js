@@ -253,6 +253,22 @@ console.log('\n=== Modbus Page Tests ===\n');
   assert(typeof mbToggleAuto === 'function', 'mbToggleAuto is a function');
   assert(typeof initModbusLivePage === 'function', 'initModbusLivePage is a function');
 
+  // MODBUS-1: the editor stores numeric codes but shows names; these helpers
+  // are the only translation, and the POST sends the names back (the handler
+  // maps them). Code 4 (FLOAT32) used to be saved as 0 — the corruption bug.
+  assert(typeof win._mbTypeName === 'function', '_mbTypeName exists');
+  assertEq(win._mbTypeName(0), 'UINT16', 'code 0 -> UINT16');
+  assertEq(win._mbTypeName(4), 'FLOAT32', 'code 4 -> FLOAT32 (the value that used to collapse)');
+  assertEq(win._mbTypeName(5), 'BIT', 'code 5 -> BIT');
+  assertEq(win._mbTypeName(99), 'UINT16', 'unknown code falls back to UINT16');
+  assertEq(win._mbTypeName('float32'), 'FLOAT32', 'name passes through');
+
+  assert(typeof win._mbOrderName === 'function', '_mbOrderName exists');
+  assertEq(win._mbOrderName(0), 'ABCD', 'order 0 -> ABCD');
+  assertEq(win._mbOrderName(1), 'CDAB', 'order 1 -> CDAB');
+  assertEq(win._mbOrderName(3), 'DCBA', 'order 3 -> DCBA');
+  assertEq(win._mbOrderName(99), 'ABCD', 'unknown order falls back to ABCD');
+
   dom.window.close();
   console.log('\nResults: ' + passed + '/' + (passed + failed) + ' passed, ' + failed + ' failed\n');
   if (failed > 0) process.exit(1);

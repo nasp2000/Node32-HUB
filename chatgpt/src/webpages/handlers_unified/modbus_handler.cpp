@@ -17,6 +17,7 @@
 #include "../../modbus_poll.h"
 #include "feature_flags.h"
 #include "../../modbus_core.h"
+#include "../../modbus_reg_types.h"
 #include "../../modbus_tcp.h"
 #include "../../commands.h"
 #include "../../modbus_scan_api.h"
@@ -213,6 +214,29 @@ void handleModbusConfigGet(HttpRequest& req, HttpResponse& res) {
     res.send(200, "application/json", json);
 }
 
+// MODBUS-1: the page posts `type`/`order` as names ("FLOAT32"/"CDAB"); storage
+// and modbus_runtime.cpp use the uint8 codes. `v | (uint8_t)0` cannot convert a
+// string, so every save collapsed the registers to UINT16/ABCD. Accept both.
+static uint8_t modbusRegTypeFromJson(const JsonVariant& v) {
+    if (v.is<const char*>()) {
+        uint8_t t = modbusTypeFromName(v.as<const char*>());
+        if (t != MB_REG_TYPE_UNKNOWN) return t;
+        return 0; // unknown name -> UINT16, same fallback as a missing field
+    }
+    uint8_t code = v | (uint8_t)0;
+    return code < 6 ? code : 0;
+}
+
+static uint8_t modbusRegOrderFromJson(const JsonVariant& v) {
+    if (v.is<const char*>()) {
+        uint8_t o = modbusOrderFromName(v.as<const char*>());
+        if (o != MB_REG_ORDER_UNKNOWN) return o;
+        return 0;
+    }
+    uint8_t code = v | (uint8_t)0;
+    return code < 4 ? code : 0;
+}
+
 void handleModbusConfigPost(HttpRequest& req, HttpResponse& res) {
     SpiRamJsonDocument doc(12288);
     if (deserializeJson(doc, req.body) != DeserializationError::Ok) {
@@ -269,8 +293,8 @@ void handleModbusConfigPost(HttpRequest& req, HttpResponse& res) {
                     JsonObject nreg = nr.createNestedObject();
                     nreg["addr"]   = r["addr"]   | (uint16_t)0;
                     nreg["fc"]     = r["fc"]     | (uint8_t)3;
-                    nreg["type"]   = r["type"]   | (uint8_t)0;
-                    nreg["order"]  = r["order"]  | (uint8_t)0;
+                    nreg["type"]   = modbusRegTypeFromJson(r["type"]);
+                    nreg["order"]  = modbusRegOrderFromJson(r["order"]);
                     nreg["bit"]    = r["bit"]    | (uint8_t)0;
                     nreg["label"]  = r["label"]  | "Reg";
                     nreg["unit"]   = r["unit"]   | "";

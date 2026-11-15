@@ -510,14 +510,32 @@ function _esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 function _gv(id){var e=document.getElementById(id);return e?e.value:'';}
 function _gc(id){var e=document.getElementById(id);return e?e.checked:false;}
 
+// MODBUS-1: storage keeps the numeric codes (UINT16=0 … BIT=5, byte order
+// ABCD=0 … DCBA=3) because the firmware parses them as uint8; the editor shows
+// the names. These helpers are the only translation on the page, and the POST
+// sends the names (the handler maps them back).
+function _mbTypeName(v){
+ var n=['UINT16','INT16','UINT32','INT32','FLOAT32','BIT'];
+ if(typeof v==='number') return n[v]||'UINT16';
+ var s=String(v||'').toUpperCase();
+ return s||'UINT16';
+}
+function _mbOrderName(v){
+ var n=['ABCD','CDAB','BADC','DCBA'];
+ if(typeof v==='number') return n[v]||'ABCD';
+ var s=String(v||'').toUpperCase();
+ return s||'ABCD';
+}
+function _mbOptions(names,cur){
+ return names.map(function(t){return '<option value="'+t+'"'+(t===cur?' selected':'')+'>'+t+'</option>';}).join('');
+}
 function _renderTcpDev(d,di){
- var typeOpts=['INT16','UINT16','INT32','UINT32','FLOAT32','COIL','DISCRETE','BIT'].map(function(t){
-  return '<option value="'+t+'"'+(d.regs&&d.regs[0]&&d.regs[0].type===t?' selected':'')+'>'+t+'</option>';
- }).join('');
  var regsHtml=(d.regs||[]).map(function(r,ri){
-  var is32=(r.type==='INT32'||r.type==='UINT32'||r.type==='FLOAT32');
-  var isBit=(r.type==='BIT');
-  var orderOpts=['ABCD','CDAB','BADC','DCBA'].map(function(o){return '<option value="'+o+'"'+(r.order===o?' selected':'')+'>'+o+'</option>';}).join('');
+  var rt=_mbTypeName(r.type), ro=_mbOrderName(r.order);
+  var is32=(rt==='INT32'||rt==='UINT32'||rt==='FLOAT32');
+  var isBit=(rt==='BIT');
+  var typeOpts=_mbOptions(['INT16','UINT16','INT32','UINT32','FLOAT32','COIL','DISCRETE','BIT'], rt);
+  var orderOpts=_mbOptions(['ABCD','CDAB','BADC','DCBA'], ro);
     return '<tr style="font-size:12px">'
      +'<td style="padding:3px 4px"><input type="number" id="d_'+di+'_r'+ri+'_addr" value="'+(r.addr||0)+'" min="0" max="65535" style="width:70px;padding:4px;background:#0f172a;color:#f1f5f9;border:1px solid #334155;border-radius:3px" title="Register start address" data-i18n-title="modbusTipRegAddr"></td>'
      +'<td style="padding:3px 4px"><select id="d_'+di+'_r'+ri+'_fc" style="padding:4px;background:#0f172a;color:#f1f5f9;border:1px solid #334155;border-radius:3px" title="Modbus function code" data-i18n-title="modbusTipWrite"><option value="1"'+(r.fc===1?' selected':'')+'>FC1</option><option value="2"'+(r.fc===2?' selected':'')+'>FC2</option><option value="3"'+(r.fc===3?' selected':'')+'>FC3</option><option value="4"'+(r.fc===4?' selected':'')+'>FC4</option></select></td>'
