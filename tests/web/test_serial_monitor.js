@@ -17,12 +17,11 @@ function test(name, fn) {
 function is(a, b, m) { if (a !== b) throw new Error(m || ('expected ' + JSON.stringify(b) + ' got ' + JSON.stringify(a))); }
 function ok(v, m) { if (!v) throw new Error(m || 'assertion failed'); }
 
-// Extract the minified sendCmd function (balanced braces) from the firmware page.
-function extractSendCmd() {
-  var text = fs.readFileSync(SRC, 'utf8');
-  var re = /function\s+sendCmd\s*\(\s*\)\s*\{/;
+// Extract a named function (balanced braces) from a source text.
+function extractFn(text, name, where) {
+  var re = new RegExp('function\\s+' + name + '\\s*\\([^)]*\\)\\s*\\{');
   var m = text.match(re);
-  if (!m) throw new Error('sendCmd not found in ' + SRC);
+  if (!m) throw new Error(name + ' not found in ' + where);
   var brace = text.indexOf('{', m.index);
   var depth = 1, i = brace + 1;
   while (i < text.length && depth > 0) {
@@ -31,6 +30,23 @@ function extractSendCmd() {
     i++;
   }
   return text.slice(m.index, i);
+}
+
+// The minified sendCmd of the /serial-monitor page.
+function extractSendCmd() {
+  return extractFn(fs.readFileSync(SRC, 'utf8'), 'sendCmd', SRC);
+}
+
+// The real reply helpers from auto.js (window._readApiReply / _apiReplyText).
+// They are what sendCmd uses, so the tests exercise the shipped code and not a
+// copy of it.
+function autoReplyHelpers() {
+  var autoSrc = path.join(__dirname, '..', '..', 'chatgpt', 'src', 'webpages', 'auto_js.h');
+  var text = fs.readFileSync(autoSrc, 'utf8');
+  var make = function (name) {
+    return new Function('return ' + extractFn(text, name, autoSrc))();
+  };
+  return { read: make('readApiReply'), text: make('apiReplyText') };
 }
 
 // Build a sandboxed sendCmd with stubbed DOM/fetch/state dependencies.
@@ -46,12 +62,15 @@ function makeHarness(fetchImpl) {
       return { value: '' };
     }
   };
+  var reply = autoReplyHelpers();
   var deps = {
     document: document,
     fetch: fetchImpl,
     allMsgs: allMsgs,
     scheduleLoad: function () { calls.schedule++; },
     renderMsgs: function () { calls.render++; },
+    _readApiReply: reply.read,
+    _apiReplyText: reply.text,
     _retry429: 0,
     customAlert: function (m) { calls.alert.push(String(m)); },
     Date: Date
@@ -64,11 +83,27 @@ function makeHarness(fetchImpl) {
   return { sendCmd: sendCmd, allMsgs: allMsgs, calls: calls, cmdEl: cmdEl, ctypeEl: ctypeEl };
 }
 
+// JSON reply (the normal path): the body is the serialized object.
 function mockFetch(resp) {
   return function () {
+    var body = JSON.stringify(resp);
     return Promise.resolve({
       ok: true, status: 200,
+      text: function () { return Promise.resolve(body); },
       json: function () { return Promise.resolve(resp); }
+    });
+  };
+}
+
+// Raw reply: status + body exactly as the device/proxy sent it (MON-4).
+function mockRaw(status, contentType, body) {
+  return function () {
+    return Promise.resolve({
+      ok: status >= 200 && status < 300,
+      status: status,
+      headers: { get: function () { return contentType; } },
+      text: function () { return Promise.resolve(body); },
+      json: function () { return Promise.reject(new SyntaxError('Unexpected token <')); }
     });
   };
 }
@@ -142,6 +177,67 @@ async function run() {
     test('empty command is ignored (no fetch)', function () {
       is(fetched, 0, 'fetch not called');
       is(h5.allMsgs.length, 0, 'nothing pushed');
+    });
+  }
+
+  // Variation 7 (MON-4): a 503 answered with an HTML error page is not JSON.
+  // The page must show the real HTTP status and an excerpt of the body instead
+  // of failing inside r.json() and reporting a generic network error.
+  {
+    var h7 = makeHarness(mockRaw(503, 'text/html',
+      '<!DOCTYPE html><html><head><title>503 Service Unavailable</title></head>' +
+      '<body><h1>Service Unavailable</h1></body></html>'));
+    h7.sendCmd();
+    await tick();
+    test('503 HTML reply shows the HTTP status and the reason', function () {
+      is(h7.allMsgs.length, 1, 'one echo pushed');
+      is(h7.allMsgs[0].type, 'ERROR', 'typed as ERROR');
+      var t = String(h7.allMsgs[0].text);
+      ok(t.indexOf('\u279c help') === 0, 'starts with arrow + command');
+      ok(t.indexOf('HTTP 503') > 0, 'HTTP status shown');
+      ok(t.indexOf('Service Unavailable') > 0, 'body text shown');
+      ok(t.indexOf('<') < 0, 'no raw HTML in the line');
+      is(h7.calls.alert.length, 0, 'no generic error alert');
+      is(h7.calls.schedule, 1, 'reload still scheduled');
+      is(h7.cmdEl.value, '', 'input still cleared');
+    });
+  }
+
+  // Variation 8 (MON-4): plain-text 503 body (proxy / async-server message).
+  {
+    var h8 = makeHarness(mockRaw(503, 'text/plain', 'Command queue full'));
+    h8.sendCmd();
+    await tick();
+    test('503 plain-text reply keeps the message', function () {
+      var t = String(h8.allMsgs[0].text);
+      ok(t.indexOf('HTTP 503') > 0, 'HTTP status shown');
+      ok(t.indexOf('Command queue full') > 0, 'body message shown');
+      is(h8.calls.alert.length, 0, 'no alert');
+    });
+  }
+
+  // Variation 9 (MON-4): a 200 with a truncated body is handled the same way.
+  {
+    var h9 = makeHarness(mockRaw(200, 'application/json', '{"success":tr'));
+    h9.sendCmd();
+    await tick();
+    test('unparsable 200 body is reported, not thrown', function () {
+      is(h9.allMsgs.length, 1, 'one echo pushed');
+      var t = String(h9.allMsgs[0].text);
+      ok(t.indexOf('HTTP 200') > 0, 'HTTP status shown');
+      ok(t.indexOf('{"success":tr') > 0, 'body excerpt shown');
+      is(h9.calls.alert.length, 0, 'no alert');
+    });
+  }
+
+  // Variation 10 (MON-4): the JSON happy path is untouched.
+  {
+    var h10 = makeHarness(mockFetch({ success: true, streamed: false, response: 'OK' }));
+    h10.sendCmd();
+    await tick();
+    test('a JSON reply is still echoed as COMMAND_RESPONSE', function () {
+      is(h10.allMsgs[0].type, 'COMMAND_RESPONSE', 'type unchanged');
+      ok(String(h10.allMsgs[0].text).indexOf('\u279c help \u2192 OK') === 0, 'unchanged text');
     });
   }
 

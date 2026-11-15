@@ -261,9 +261,11 @@ var RX_DEFAULT_LIMIT = 100;
 
                     fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({command:c})})
 
-                        .then(function(r){ return r.ok ? r.json() : Promise.resolve(null); })
+                        .then(function(r){ return _readApiReply(r); })
 
-                        .then(function(j){
+                        .then(function(rep){
+
+                            var j = rep.json;
 
                             if(j && j.success){
 
@@ -273,7 +275,12 @@ var RX_DEFAULT_LIMIT = 100;
 
                             } else {
 
-                                el.placeholder = _t('monError','❌ Error') + ': ' + (j && j.response ? j.response : _t('monFailed','Failed'));
+                                // MON-4: JSON error -> its text; non-JSON (503 text/HTML) ->
+                                // the real HTTP status plus a short body excerpt.
+                                var why = j ? (j.response || j.message || j.error || _t('monFailed','Failed'))
+                                            : _apiReplyText(rep);
+
+                                el.placeholder = _t('monError','❌ Error') + ': ' + why;
 
                                 setTimeout(function(){ el.placeholder = origPlaceholder; }, 4000);
 
@@ -665,7 +672,7 @@ function copyAll(){var lines=allMsgs.map(function(m){return fmtTs(msgTs(m))+' ['
 
 function exportTxt(){var lines=allMsgs.map(function(m){return fmtTs(msgTs(m))+' ['+m.type+'] '+m.text;}).join('\n');var bl=new Blob([lines],{type:'text/plain'});var url=URL.createObjectURL(bl);var a=document.createElement('a');a.href=url;a.download='serial_monitor_'+Date.now()+'.txt';a.click();URL.revokeObjectURL(url);}
 
-var _loadTimer=0,_retry429=0;function scheduleLoad(){if(_loadTimer)clearTimeout(_loadTimer);_loadTimer=setTimeout(function(){_loadTimer=0;if(!isLoading&&!isPaused)load();},1200);}function sendCmd(){var cmd=document.getElementById('cmd').value.trim();if(!cmd)return;var ctype=document.getElementById('ctype').value;var url=ctype==='rs232'?'/api/rs232-command':ctype==='modbus'?'/api/modbus-command':'/api/system-command';fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:cmd})}).then(function(r){return r.json().catch(function(){return {success:false,response:'HTTP '+r.status};});}).then(function(j){var resp=(j&&j.response)?j.response:((j&&j.success)?'Sent':'Failed');if(!(j&&j.streamed)){var ts=Math.floor((Date.now()-new Date().getTimezoneOffset()*60000)/1000);allMsgs.push({ts:ts,type:'COMMAND_RESPONSE',text:'\u279c '+cmd+' \u2192 '+resp});if(allMsgs.length>500)allMsgs=allMsgs.slice(-500);}document.getElementById('cmd').value='';_retry429=0;renderMsgs();scheduleLoad();}).catch(function(e){customAlert('Error: '+e);scheduleLoad();});}
+var _loadTimer=0,_retry429=0;function scheduleLoad(){if(_loadTimer)clearTimeout(_loadTimer);_loadTimer=setTimeout(function(){_loadTimer=0;if(!isLoading&&!isPaused)load();},1200);}function sendCmd(){var cmd=document.getElementById('cmd').value.trim();if(!cmd)return;var ctype=document.getElementById('ctype').value;var url=ctype==='rs232'?'/api/rs232-command':ctype==='modbus'?'/api/modbus-command':'/api/system-command';fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:cmd})}).then(function(r){return _readApiReply(r);}).then(function(rep){var j=rep.json;var resp=j?((j.response)?j.response:(j.success?'Sent':'Failed')):_apiReplyText(rep);if(!(j&&j.streamed)){var ts=Math.floor((Date.now()-new Date().getTimezoneOffset()*60000)/1000);allMsgs.push({ts:ts,type:j?'COMMAND_RESPONSE':'ERROR',text:'\u279c '+cmd+' \u2192 '+resp});if(allMsgs.length>500)allMsgs=allMsgs.slice(-500);}document.getElementById('cmd').value='';_retry429=0;renderMsgs();scheduleLoad();}).catch(function(e){customAlert('Error: '+e);scheduleLoad();});}
 
 load();
 

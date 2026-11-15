@@ -989,6 +989,38 @@ document.querySelectorAll('[data-i18n],[data-i18n-html]').forEach(function(el){
     },5000);
 })();
 
+// API reply reader (MON-4).
+// Command endpoints normally answer JSON, but a failure can come back as a
+// text/HTML error page (503 from the async server, a proxy or a captive portal).
+// r.json() then throws and the page could only show a generic "network error",
+// hiding the real HTTP status. Read the body as text and parse it opportunistically.
+(function(){
+    function readApiReply(r){
+        var status=(r&&r.status)?r.status:0;
+        var ok=!!(r&&r.ok);
+        var read=(r&&typeof r.text==='function')?r.text():Promise.resolve('');
+        return Promise.resolve(read).then(function(body){
+            var txt=(typeof body==='string')?body.trim():'';
+            var json=null;
+            if(txt){ try{ var p=JSON.parse(txt); if(p&&typeof p==='object') json=p; }catch(_){ json=null; } }
+            return {ok:ok,status:status,json:json,text:txt};
+        }).catch(function(){ return {ok:ok,status:status,json:null,text:''}; });
+    }
+    // Human-readable line for a reply that carried no JSON: "HTTP 503 — <excerpt>".
+    function apiReplyText(rep){
+        var s='HTTP '+((rep&&rep.status)?rep.status:'?');
+        var plain=((rep&&rep.text)||'')
+            .replace(/<(script|style)[\s\S]*?<\/\1>/gi,' ')
+            .replace(/<[^>]*>/g,' ')
+            .replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'")
+            .replace(/\s+/g,' ').trim();
+        if(plain){ if(plain.length>120) plain=plain.slice(0,120)+'\u2026'; s+=' \u2014 '+plain; }
+        return s;
+    }
+    window._readApiReply=readApiReply;
+    window._apiReplyText=apiReplyText;
+})();
+
 // Firmware cache buster.
 // On every page load, fetch the current firmware_version from /api/status and
 // compare it with the last known value stored in localStorage._fw_ver.
