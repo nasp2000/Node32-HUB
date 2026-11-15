@@ -429,14 +429,14 @@ static String buildLogLine(const String &eventType, const String &details) {
            " | Uptime: " + hours + "h " + minutes + "m " + seconds + "s\n";
 }
 
-bool logSystemEvent(const String &eventType, const String &details, bool useMutex) {
+bool logSystemEvent(const String &eventType, const String &details, bool useMutex, bool bypassThrottle) {
     static unsigned long lastEventWriteTime[LOG_MAX_TYPES] = {0};
     const unsigned long THROTTLE_INTERVAL_MS = 60000;
 
     unsigned long nowMillis = millis();
     LogEventType typeEnum = getLogEventTypeEnum(eventType);
 
-    if (typeEnum != LOG_WIFI_RECONNECT && lastEventWriteTime[typeEnum] > 0) {
+    if (!bypassThrottle && typeEnum != LOG_WIFI_RECONNECT && lastEventWriteTime[typeEnum] > 0) {
         unsigned long timeSinceLastWrite = nowMillis - lastEventWriteTime[typeEnum];
         if (timeSinceLastWrite < THROTTLE_INTERVAL_MS) {
             Serial.printf("⏭️ LOG: Throttled %s (wrote %lus ago)\n", eventType.c_str(), timeSinceLastWrite / 1000);

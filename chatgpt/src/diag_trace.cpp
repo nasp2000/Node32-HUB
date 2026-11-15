@@ -60,7 +60,7 @@ void diagTraceDumpToLog() {
     line[sizeof(line) - 1] = '\0';
     Serial.println(line);
     // CRASH_DETAIL type (its own 60 s bucket, not shared with PANIC_REPORT).
-    logSystemEvent(String(F("CRASH_DETAIL")), String(line));
+    logSystemEvent(String(F("CRASH_DETAIL")), String(line), true, /*bypassThrottle=*/true);
     // Start clean for this run so the next crash records only its own steps.
     r.head = 0;
     r.count = 0;

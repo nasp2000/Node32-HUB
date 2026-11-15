@@ -26,7 +26,7 @@ enum LogLevel : int {
 };
 #endif
 
-bool logSystemEvent(const String &eventType, const String &details, bool useMutex = true);
+bool logSystemEvent(const String &eventType, const String &details, bool useMutex = true, bool bypassThrottle = false);
 bool fixLogFilenameAfterNtp();
 void initCrashLogger();
 void logWriteSystemInfo(const String &hdr);
