@@ -370,7 +370,8 @@ void handleRecipientSlotPost(HttpRequest& req, HttpResponse& res) {
     bool active = (activeValue != "0");
 
     if (name.length() > 50) name.remove(50);
-    if (emails.length() > 800) emails.remove(800);
+    // No email cap here: updateRecipientSlotWithFreq() trims to 256 (the real
+    // storage limit). The old 800-char remove was dead code (RECIP-8).
     if (!op.length()) op = "I";
     if (!isValidRecipientOp(op)) op = "I";
     if (op == "DR") op = "DF";
