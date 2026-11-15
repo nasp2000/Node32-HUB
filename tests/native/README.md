@@ -94,8 +94,11 @@ Coverage atual: apenas `charset_conversion.cpp` compila production source
    ```
 2. Se precisar de stubs: `#include "Arduino.h"` ou `#include "commands.h"`.
 3. Registar em dois locais:
-   - `tests/native/Makefile` — adicionar stem a `TEST_SRCS` + regra de build
+   - `tests/native/Makefile` — adicionar stem a `TEST_SRCS` + regra de build + à lista do `clean`
    - `chatgpt/scripts/run_native_tests.py` — adicionar stem a `TEST_BINS`
+   O runner **falha antes de compilar** se as três listas não coincidirem
+   (`TEST_BINS`, `TEST_SRCS`, `clean`), com o nome da suite e o lado em falta
+   (BACKLOG TEST-1).
 4. Correr: `python ../../chatgpt/scripts/run_native_tests.py`
 
 ## Stubs

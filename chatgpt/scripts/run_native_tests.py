@@ -16,6 +16,7 @@ import subprocess
 import sys
 import os
 import platform
+import re
 from datetime import datetime
 
 try:
@@ -144,6 +145,69 @@ def _tee(msg: str, lines: list):
     lines.append(msg)
 
 
+def _parse_makefile_registry():
+    """Return (TEST_SRCS names, names listed in the Makefile `clean` target).
+
+    TEST_SRCS is the authority for what `make all` builds; TEST_BINS (above) is
+    the authority for what this runner executes. They must agree — a suite that
+    is only in TEST_BINS is never rebuilt on a clean tree (BACKLOG TEST-1), and
+    one that is only in TEST_SRCS is compiled but never run.
+    """
+    path = os.path.join(TESTS_DIR, "Makefile")
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+    except OSError:
+        return None, set()
+
+    srcs = None
+    lines = text.splitlines()
+    for idx, line in enumerate(lines):
+        if line.startswith("TEST_SRCS :="):
+            chunk = line.split(":=", 1)[1]
+            while chunk.rstrip().endswith("\\") and idx + 1 < len(lines):
+                idx += 1
+                chunk = chunk.rstrip()[:-1] + " " + lines[idx]
+            srcs = chunk.split()
+            break
+
+    cleaned = set()
+    if "clean:" in text:
+        block = []
+        for line in text.split("clean:", 1)[1].splitlines():
+            if line and not line.startswith("\t") and not line.startswith(" "):
+                if block:
+                    break
+                continue
+            block.append(line)
+        cleaned = set(re.findall(r"([A-Za-z0-9_]+)\$\(BIN_EXT\)", "\n".join(block)))
+    return srcs, cleaned
+
+
+def _check_registry(log) -> int:
+    """Fail when TEST_BINS and the Makefile disagree (BACKLOG TEST-1)."""
+    srcs, cleaned = _parse_makefile_registry()
+    if srcs is None:
+        log("[native-tests] WARN: could not read TEST_SRCS from tests/native/Makefile")
+        return 0
+
+    missing_build = [n for n in TEST_BINS if n not in srcs]
+    never_run = [n for n in srcs if n not in TEST_BINS]
+    missing_clean = [n for n in TEST_BINS if cleaned and n not in cleaned]
+    if not (missing_build or never_run or missing_clean):
+        log(f"[native-tests] registry OK: {len(TEST_BINS)} suites in TEST_BINS, TEST_SRCS and clean")
+        return 0
+
+    log("[native-tests] FAIL: native test registry is out of sync")
+    for name in missing_build:
+        log(f"  - {name}: in TEST_BINS but not built by make all (add it to TEST_SRCS + a rule)")
+    for name in never_run:
+        log(f"  - {name}: in TEST_SRCS but not in TEST_BINS (it is never executed)")
+    for name in missing_clean:
+        log(f"  - {name}: built but missing from the make clean list (stale binary survives)")
+    return 1
+
+
 def run_tests() -> int:
     """Build and run native tests. Returns 0 on success, 1 on failure."""
     _ensure_logs_dir()
@@ -180,6 +244,10 @@ def run_tests() -> int:
     log(f"=== [{now}] Native C++ Tests ===")
     log("")
     log("--- Build output ---")
+    registry_rc = _check_registry(log)
+    if registry_rc:
+        _write_log_file(log_lines)
+        return registry_rc
     log(f"[native-tests] Building (make={make_cmd})...")
     clean = subprocess.run(
         [make_cmd, "clean"],
