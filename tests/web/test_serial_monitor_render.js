@@ -46,13 +46,14 @@ function msg(i, text) {
 async function tick() { return new Promise(function (r) { setTimeout(r, 30); }); }
 
 async function boot(first) {
-  var timers = [], intervals = [];
+  var timers = [], intervals = [], fetches = [];
   var queue = [first];
   var dom = new JSDOM(pageHtml(), {
     url: 'http://localhost/serial-monitor',
     runScripts: 'dangerously',
     beforeParse: function (win) {
       win.fetch = function (url) {
+        fetches.push(String(url));
         if (String(url).indexOf('/api/serial-monitor') >= 0) {
           var d = queue.length ? queue.shift() : { total: 0, messages: [] };
           return Promise.resolve({ ok: true, status: 200, json: function () { return Promise.resolve(d); } });
@@ -70,6 +71,7 @@ async function boot(first) {
   await tick();                     // the page calls load() on boot
   return {
     win: win, doc: win.document, timers: timers, intervals: intervals, queue: queue,
+    fetches: fetches,
     push: function (d) { queue.push(d); },
     load: async function () { win.load(); await tick(); }
   };
@@ -149,6 +151,33 @@ async function run() {
   test('with a filter active the growth path re-renders the filtered set', function () {
     is(rowCount(app3.doc), 3, 'three matching rows');
     is(app3.win._pollDelay, 3000, 'new data keeps the 3s cadence');
+  });
+
+  // MON-5: the search box re-filters as you type, without waiting for a poll,
+  // and the clear button restores the full list.
+  var app4 = await boot({ total: 6, messages: [
+    msg(0, 'ALPHA one'), msg(1, 'BETA two'), msg(2, 'ALPHA three'),
+    msg(3, 'BETA four'), msg(4, 'ALPHA five'), msg(5, 'BETA six')
+  ] });
+  test('the search box is wired to an input handler', function () {
+    var srch = app4.doc.getElementById('srch');
+    ok(srch, 'search box present');
+    is(srch.getAttribute('oninput'), 'renderMsgs()', 'oninput -> renderMsgs()');
+  });
+  test('typing re-filters immediately and issues no request', function () {
+    var srch = app4.doc.getElementById('srch');
+    var before = app4.fetches.length;
+    srch.value = 'ALPHA';
+    srch.dispatchEvent(new app4.win.Event('input'));
+    is(rowCount(app4.doc), 3, 'only the matching rows are shown');
+    is(app4.doc.getElementById('buf').textContent.indexOf('BETA'), -1, 'no non-matching row');
+    is(app4.fetches.length, before, 'filtering did not hit the network');
+    is(app4.win._pollDelay, 3000, 'the poll cadence is untouched');
+  });
+  test('the clear button restores the full list', function () {
+    app4.doc.getElementById('srch-x').dispatchEvent(new app4.win.Event('click'));
+    is(app4.doc.getElementById('srch').value, '', 'field cleared');
+    is(rowCount(app4.doc), 6, 'all rows are back');
   });
 
   console.log('\nResults: ' + passed + '/' + (passed + failed) + ' passed, ' + failed + ' failed\n');

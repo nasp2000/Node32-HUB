@@ -160,6 +160,12 @@ by that module (`filterTag`).
 - **`renderMsgs()` / `msgHtml()`**: applies type/module/search filters, builds the rows
   (one row builder shared with the incremental append), shows filtered vs total counts,
   highlights matches.
+- **Search wiring (MON-5, verified):** `#srch` carries `oninput='renderMsgs()'`, so the list
+  re-filters on every keystroke — no poll and no request is needed; `#srch-x` →
+  `clearSearch()` empties the field and re-renders. `#ftype`/`#ftag` re-render on `change`
+  and `filterTag()` sets the module select then re-renders. Pinned by
+  `tests/web/test_serial_monitor_render.js` (input handler present, typing filters with no
+  fetch, clear restores the full list).
 - **`sendCmd()`**: `POST` `{command}` JSON to `/api/system-command`|`/api/rs232-command`|
   `/api/modbus-command`; appends a local `COMMAND_RESPONSE` line `➜ cmd → resp` unless
   `streamed`; re-schedules a load. **MON-4:** the reply is read with `window._readApiReply`;
@@ -233,7 +239,7 @@ None of these pages write persistent config. They are read-only views of runtime
 | 2 | `/monitor` opened/closed a session via `POST /api/monitor-open|close`; the counters only fed an `override` flag. **Investigated and removed (MON-2):** `monitorOpenClients` was never read, `autoEmailMonitorOverrideActive` was set to false on both open and close and its only reader (`manage_email_impl.h:170`) explicitly ignored it; no status payload exposed them and the page never read `override`. The module is deleted, the handlers answer `{status:"ok"}`, and the stale include in `ethernet.cpp` is gone. Tests: `test_monitor_session_dead_state` (3 cases / 17 assertions). | Low | **fixed** |
 | 3 | `/serial-monitor` re-rendered up to 500 rows every 3 s regardless of activity. **Fixed (MON-3):** an unchanged `total` (buffer_seq) performs no DOM work; growth appends only the new rows in one `DocumentFragment` and trims exactly the rows the 500 cap drops; the poll backs off 3 s → 6 s → 12 s → 15 s while the log is idle and resets to 3 s on new data (self-scheduled `setTimeout`, no fixed interval). Tests: `test_serial_monitor_render` (4 cases / 23 assertions) + `tests/web/test_serial_monitor_render.js` (7 cases: stall keeps the same nodes, backoff/cap/reset, 500-cap trim, filtered fallback). | Low | **fixed** |
 | 4 | `sendCmd`/`send()` relied on `r.json()` — the command endpoints can return non-JSON (e.g. 503 text/HTML) and the `.catch` then masked the real cause as a network error. **Fixed (MON-4):** both read the reply with the shared `window._readApiReply` / `_apiReplyText` helpers in `auto.js` (body read as text, parsed only when possible; tags stripped and the excerpt capped at 120 chars). A non-JSON reply shows `HTTP <status> — <body excerpt>` — as `❌ Error:` in the `/monitor` placeholder and as an `ERROR` line in `/serial-monitor`; the JSON happy path is unchanged. Tests: `test_cmd_reply_nonjson` (native contract, 2 cases / 18 assertions), `test_serial_monitor.js` +4 cases (503 HTML, 503 text, truncated 200, JSON unchanged), `test_monitor_send_reply.js` (2 cases). | Low | **fixed** |
-| 5 | `#srch-x` and search rely on `document.getElementById('srch').value` at render time; the input has no `input` listener, so the list only re-filters on the next poll. | Low | Add `oninput` → `renderMsgs()`. |
+| 5 | `#srch-x` and search rely on `document.getElementById('srch').value` at render time; the finding claimed the input had no `input` listener, so the list would only re-filter on the next poll. **Verified already implemented (MON-5):** the markup has carried `oninput='renderMsgs()'` since the initial import (same for `#ftype`/`#ftag` `onchange`), so typing re-filters immediately with no request; `#srch-x` calls `clearSearch()`. No page code was needed — a regression test now pins it: `tests/web/test_serial_monitor_render.js` (handler present, typing filters 6→3 rows without a fetch and without disturbing the poll, clear restores all 6). | Low | **already fixed** |
 
 ---
 
