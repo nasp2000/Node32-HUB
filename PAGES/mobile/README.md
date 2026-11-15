@@ -1,0 +1,99 @@
+# Mobile pages (`/m`) — model, images and where things live
+
+Working folder for the **phone pages**: one image per screen, the shared blocks
+once, and the rules every pack follows. All screenshots live here (this folder is
+versioned, unlike `SHARE/`).
+
+---
+
+## 1. The model (every pack)
+
+- **Route** — `GET /m` serves the pack's phone page. The pack's desktop entry
+  redirects phones to it (`/grbl-controller`, `/camera`, `/rambox` → 302);
+  `?desk=1` forces the desktop page, which is **never modified**.
+- **Screens** — one action per screen, **no page scroll** (only lists/log scroll
+  inside), content **vertically centred** (`safe center`, so a short viewport
+  never clips the first row).
+- **Top strip** — one column per page: the **name on top with its own line
+  below**; the current page is highlighted, visited pages keep a blue line, so
+  what is left and right is always visible.
+- **Navigation** — arrows, horizontal **swipe** (never presses the control under
+  the finger) and tapping a name. Navigation is **never blocked by missing data**.
+- **Tap guard** — every button/link needs **250 ms** of touch and dims while
+  pressed (a brushing finger does nothing).
+- **Confirmations** — OTA and restart ask **OK/Cancel** (`customConfirm`);
+  HOME / ZERO / RESET / jog `0,0` arm on a second tap.
+- **Pack name** — `PACK_SYSTEM_NAME` printed by the renderer as `window.PACK_NAME`
+  and shown in the header (`GcodeSender-P4`, `Cam-P4`, `Rambox32`, …).
+
+## 2. Shared blocks (pack-agnostic)
+
+| File | Contents |
+|---|---|
+| `chatgpt/src/webpages/assets/mobile_common_asset.cpp` | `MOBILE_COMMON_CSS` (root column, strip, tiles, list/rows, actions, nav, chips, option rows, message bar, log) + `MOBILE_COMMON_JS` (`window.MU`: `t/tf/get/post/fmtSize/fmtEta/msg/arm/strip/swipe` + the 250 ms tap guard) |
+| `chatgpt/src/webpages/assets/mobile_system_asset.cpp` | `MOBILE_SYSTEM_HTML` + `MOBILE_SYSTEM_JS` (`window.MPSystem`): summary tiles, **OTA**, **log**, **restart**; `MPSystem.open()/close()` by the host page, `setBlocker(fn)` to veto a restart |
+
+A pack page = its own screens (inside `<div id="gm" class="mp">`) + the shared
+blocks, streamed in this order by the pack renderer:
+
+```
+shell → window.PACK_NAME → MOBILE_COMMON_CSS → <pack>_HEAD → MOBILE_SYSTEM_HTML
+      → <pack>_TAIL → MOBILE_COMMON_JS → MOBILE_SYSTEM_JS → auto.js
+```
+
+## 3. Images — shared screens (one copy for every pack)
+
+| Image | Screen |
+|---|---|
+| `common_system_summary.png` | **System → Summary**: firmware, uptime, heap, PSRAM, SD free, WiFi + **Restart** (OK/Cancel) |
+| `common_system_firmware.png` | **System → Firmware (OTA)**: current version, pick `.bin`, progress |
+| `common_system_log.png` | **System → Log** (serial monitor) with Pause / Clear / Bottom |
+
+## 4. Images — pack screens (one per screen)
+
+### GcodeSender-P4 / -S3 (CNC)
+| Image | Screen |
+|---|---|
+| `gcodesender_send.png` | **Send**: SD card list (folders, `↻`) + Phone tab (SD card or PSRAM 4 MB) |
+| `gcodesender_preview_frame.png` | **Preview + FRAME**: 2D toolpath, point count, `X[..] Y[..] W x H` and the FRAME button |
+| `gcodesender_play.png` | **Play**: START/PAUSE/RESUME/STOP, progress, %, ETA, feed/spindle overrides (also *paused* and *alarm* states) |
+| `gcodesender_jog.png` | **Jog**: X/Y cross with a **0,0** centre, 0.1/1/10/50 steps, Z, HOME/UNLOCK/RESET, ZERO X/Y/Z, MDI |
+
+### Cam-M / Cam-P4
+| Image | Screen |
+|---|---|
+| `cam_live.png` | **Live**: MJPEG in a 16:9 box, info (fps · resolution · SD · viewers), PHOTO, REC, ⛶ (also full screen and recording) |
+| `cam_files.png` | **Files**: recordings (name, size), ⬇ download, › play, ✕ delete |
+| `cam_modes.png` | **Camera**: mode (Off/Photo/Video/Motion/Lapse), resolution, fps, quality, image, motion, timelapse, SAVE |
+| `cam_ftp.png` | **FTP**: server, remote folder, last send, sent/failed, SEND NOW, TEST, recent uploads |
+
+### Rambox32 (pigeon clock + RS232)
+| Image | Screen |
+|---|---|
+| `rambox_status.png` | **Status**: clock, fancier, race, arrivals, RS232, last poll + SYNC/POLL |
+| `rambox_arrivals.png` | **Arrivals / Pombal / Races**: ring · time · race, ✉ resend email, ↻, ✕ |
+| `rambox_config.png` | **Config**: Bricon/Unikon, polling ON/OFF + interval, **Serial CLOCK/MANUAL**, RS232 (baud/parity/bits), SAVE |
+
+## 5. Tests (same place as the pages)
+
+| Suite | File |
+|---|---|
+| CNC page | `tests/web/test_gcode_mobile.js` (43) — fixture `tests/web/build_m_gcode.py` |
+| Camera page | `tests/web/test_m_cam.js` (11) — fixture `tests/web/build_m_cam.py` |
+| Rambox page | `tests/web/test_m_rambox.js` (11) — fixture `tests/web/build_m_rambox.py` |
+| Phone entry (UA redirect) | `tests/web/test_mobile_entry.js` (7) |
+
+Docs: `PAGES/gcode_mobile.md`, `PAGES/camera_mobile.md`, `PAGES/rambox_mobile.md`;
+cross-page table: `PAGES/WEB_PAGES_REFERENCE.md` (one `/m` row per pack).
+
+## 6. Adding a pack (checklist)
+
+1. `assets/page_<pack>_mobile_asset.cpp/.h` — screens + `_TAIL` split at the
+   message bar (the shared System screen goes between).
+2. `renderers/<pack>_mobile_page_renderer.cpp/.h` — the print order in §2, guarded
+   by the pack's feature flags.
+3. Route `/m` in the pack's route file + **302 from the pack's desktop entry**
+   (phone UA, `?desk=1` escape).
+4. i18n keys (`<prefix>*`) in both languages; `generated_gzip_assets.h` regenerated.
+5. Fixture builder + jsdom suite; one screenshot per screen dropped in this folder.
+6. `PAGES/<pack>_mobile.md` + a `/m` row in `PAGES/WEB_PAGES_REFERENCE.md`.

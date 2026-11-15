@@ -8,6 +8,8 @@
 > The desktop pages are **not touched**: phones are redirected here by
 > `ua_classify.h`; `?desk=1` still forces the full desktop page.
 
+> Screens: `mobile/gcodesender_*.png` + `mobile/common_system_*.png` (model and full index in `mobile/README.md`).
+
 ---
 
 ## 1. Objective
