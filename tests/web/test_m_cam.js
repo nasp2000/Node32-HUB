@@ -177,6 +177,14 @@ async function run() {
       is(g.cmProfile('max'), true, 'profile applied');
       is(doc.getElementById('cmQ').value, '4', 'quality from MAX profile');
       is(doc.getElementById('cmFps').value, '10', 'fps from MAX profile');
+      is(doc.querySelectorAll('#gmS3 .subt[data-cam-tab]').length, 4, 'image/rec/motion/vision tabs');
+      g.cmTab('rec');
+      ok(doc.getElementById('cmPaneRec').className.indexOf('on') >= 0, 'rec pane');
+      g.cmTab('mot');
+      ok(doc.getElementById('cmPaneMot').className.indexOf('on') >= 0, 'motion pane');
+      g.cmTab('vis');
+      ok(doc.getElementById('cmPaneVis').className.indexOf('on') >= 0, 'vision pane');
+      g.cmTab('img');
       g.cmSetStep(2);
       await wait(dom, 250);
       doc.getElementById('cmSort').click();

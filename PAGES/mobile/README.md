@@ -69,7 +69,7 @@ shell → window.PACK_NAME → MOBILE_COMMON_CSS → <pack>_HEAD → MOBILE_SYST
 |---|---|
 | `cam_live.png` | **Live**: MJPEG in a 16:9 box, info (fps · resolution · SD · viewers), PHOTO, REC, ⛶ (also full screen and recording) |
 | `cam_files.png` | **Files**: recordings (name, size), ⬇ download, › play, ✕ delete |
-| `cam_modes.png` | **Camera**: mode (Off/Photo/Video/Motion/Lapse), resolution, fps, quality, image, motion, timelapse, SAVE |
+| `cam_modes.png` | **Camera**: the desktop's whole option set in four sub-tabs — **Image** (profiles DAY/NIGHT/FAST/MAX, resolution, fps, quality, brightness/contrast/saturation, mirror/flip/lamp, AWB/AEC/AGC/LENC, effect, white balance, exposure, AEC value, AGC gain, gain ceiling, source, lamp level), **Rec** (auto mode, timelapse, dashcam + minutes, codec, bitrate), **Motion** (enable, sensitivity, confirm/stop/post/cooldown, action, lamp auto, reset), **Vision** (mode, threshold, burst, BURST/RESET) — SAVE writes them all |
 | `cam_ftp.png` | **FTP**: server, remote folder, last send, sent/failed, SEND NOW, TEST, recent uploads |
 
 ### Rambox32 (pigeon clock + RS232)

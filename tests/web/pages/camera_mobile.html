@@ -323,63 +323,143 @@
     </div>
   </div>
 </section>
-  <!-- ── 3: camera options / modes ───────────────────────────────── -->
+  <!-- ── 3: camera modes (same options as the desktop page) ───────── -->
   <section class="screen" id="gmS3">
     <div class="rowhdr">
       <span class="dir" data-i18n="cmOptTitle">Camera modes</span>
       <button type="button" class="mini" id="cmOptReload" data-i18n-title="cmOptReload" title="Reload">&#8635;</button>
     </div>
-    <div class="chips" id="cmProfiles">
-      <button type="button" class="chip" data-profile="day" data-i18n="cmProfDay">DAY</button>
-      <button type="button" class="chip" data-profile="night" data-i18n="cmProfNight">NIGHT</button>
-      <button type="button" class="chip" data-profile="fast" data-i18n="cmProfFast">FAST</button>
-      <button type="button" class="chip" data-profile="max" data-i18n="cmProfMax">MAX</button>
+    <div class="subbar">
+      <button type="button" class="subt on" data-cam-tab="img" data-i18n="cmTabImg">Image</button>
+      <button type="button" class="subt" data-cam-tab="rec" data-i18n="cmTabRec">Rec</button>
+      <button type="button" class="subt" data-cam-tab="mot" data-i18n="cmTabMot">Motion</button>
+      <button type="button" class="subt" data-cam-tab="vis" data-i18n="cmTabVis">Vision</button>
     </div>
-    <div class="opts" id="cmOpts">
-      <label class="opt"><span data-i18n="cmOptRes">Resolution</span><select id="cmRes"></select></label>
-      <label class="opt"><span data-i18n="cmOptFps">FPS</span><select id="cmFps"></select></label>
-      <label class="opt"><span data-i18n="cmOptQuality">Quality</span>
-        <input type="range" id="cmQ" min="0" max="63" step="1"><b id="cmQv">--</b></label>
-      <div class="opt"><span data-i18n="cmOptBright">Brightness</span>
-        <div class="stepper"><button type="button" data-step="-1" data-key="brightness">&#8722;</button><b id="cmBr">0</b><button type="button" data-step="1" data-key="brightness">+</button></div></div>
-      <div class="opt"><span data-i18n="cmOptContrast">Contrast</span>
-        <div class="stepper"><button type="button" data-step="-1" data-key="contrast">&#8722;</button><b id="cmCt">0</b><button type="button" data-step="1" data-key="contrast">+</button></div></div>
-      <div class="opt"><span data-i18n="cmOptSaturation">Saturation</span>
-        <div class="stepper"><button type="button" data-step="-1" data-key="saturation">&#8722;</button><b id="cmSa">0</b><button type="button" data-step="1" data-key="saturation">+</button></div></div>
-      <div class="opt"><span data-i18n="cmOptMode">Mode</span>
-        <div class="chips" id="cmModes">
-          <button type="button" class="chip" data-mode="0" data-i18n="cmModeOff">Off</button>
-          <button type="button" class="chip" data-mode="1" data-i18n="cmModePhoto">Photo</button>
-          <button type="button" class="chip" data-mode="2" data-i18n="cmModeVideo">Video</button>
-          <button type="button" class="chip" data-mode="3" data-i18n="cmModeMotion">Motion</button>
-          <button type="button" class="chip" data-mode="4" data-i18n="cmModeLapse">Lapse</button>
+
+    <div class="pane on" id="cmPaneImg">
+      <div class="chips" id="cmProfiles">
+        <button type="button" class="chip" data-profile="day" data-i18n="cmProfDay">DAY</button>
+        <button type="button" class="chip" data-profile="night" data-i18n="cmProfNight">NIGHT</button>
+        <button type="button" class="chip" data-profile="fast" data-i18n="cmProfFast">FAST</button>
+        <button type="button" class="chip" data-profile="max" data-i18n="cmProfMax">MAX</button>
+      </div>
+      <div class="opts">
+        <label class="opt"><span data-i18n="cmOptRes">Resolution</span><select id="cmRes"></select></label>
+        <label class="opt"><span data-i18n="cmOptFps">FPS</span><select id="cmFps"></select></label>
+        <label class="opt"><span data-i18n="cmOptQuality">Quality</span>
+          <input type="range" id="cmQ" min="4" max="63" step="1"><b id="cmQv">--</b></label>
+        <div class="opt"><span data-i18n="cmOptBright">Brightness</span>
+          <div class="stepper"><button type="button" data-step="-1" data-key="brightness">&#8722;</button><b id="cmBr">0</b><button type="button" data-step="1" data-key="brightness">+</button></div></div>
+        <div class="opt"><span data-i18n="cmOptContrast">Contrast</span>
+          <div class="stepper"><button type="button" data-step="-1" data-key="contrast">&#8722;</button><b id="cmCt">0</b><button type="button" data-step="1" data-key="contrast">+</button></div></div>
+        <div class="opt"><span data-i18n="cmOptSaturation">Saturation</span>
+          <div class="stepper"><button type="button" data-step="-1" data-key="saturation">&#8722;</button><b id="cmSa">0</b><button type="button" data-step="1" data-key="saturation">+</button></div></div>
+        <div class="chips">
+          <button type="button" class="chip" id="cmMirror" data-i18n="cmOptMirror">Mirror</button>
+          <button type="button" class="chip" id="cmFlip" data-i18n="cmOptFlip">Flip</button>
+          <button type="button" class="chip" id="cmLamp" data-i18n="cmOptLamp">Lamp</button>
+        </div>
+        <div class="chips">
+          <button type="button" class="chip" id="cmAwb">AWB</button>
+          <button type="button" class="chip" id="cmAec">AEC</button>
+          <button type="button" class="chip" id="cmAgc">AGC</button>
+          <button type="button" class="chip" id="cmLenc">LENC</button>
+        </div>
+        <label class="opt"><span data-i18n="cmOptEffect">Effect</span><select id="cmEffect">
+          <option value="0">None</option><option value="1">Neg</option><option value="2">Gray</option>
+          <option value="3">Red</option><option value="4">Green</option><option value="5">Blue</option>
+          <option value="6">Sepia</option>
+        </select></label>
+        <label class="opt"><span data-i18n="cmOptWb">White bal.</span><select id="cmWb">
+          <option value="0">Auto</option><option value="1">Sun</option><option value="2">Cloud</option>
+          <option value="3">Off</option><option value="4">Home</option>
+        </select></label>
+        <div class="opt"><span data-i18n="cmOptAe">Exposure</span>
+          <div class="stepper"><button type="button" data-step="-1" data-key="ae_level">&#8722;</button><b id="cmAe">0</b><button type="button" data-step="1" data-key="ae_level">+</button></div></div>
+        <div class="opt"><span data-i18n="cmOptAecV">AEC value</span>
+          <div class="stepper"><button type="button" data-step="-50" data-key="aec_value">&#8722;</button><b id="cmAecV">0</b><button type="button" data-step="50" data-key="aec_value">+</button></div></div>
+        <div class="opt"><span data-i18n="cmOptAgcG">AGC gain</span>
+          <div class="stepper"><button type="button" data-step="-1" data-key="agc_gain">&#8722;</button><b id="cmAgcG">0</b><button type="button" data-step="1" data-key="agc_gain">+</button></div></div>
+        <label class="opt"><span data-i18n="cmOptGc">Gain ceiling</span><select id="cmGc">
+          <option value="0">0</option><option value="1">1</option><option value="2">2</option>
+          <option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option>
+        </select></label>
+        <label class="opt"><span data-i18n="cmOptSrc">Source</span><select id="cmSrc">
+          <option value="0">Native</option><option value="1">USB camera</option>
+        </select></label>
+        <div class="opt"><span data-i18n="cmOptLampLvl">Lamp</span>
+          <div class="stepper"><button type="button" data-step="-1" data-key="lamp">&#8722;</button><b id="cmLampLvl">0</b><button type="button" data-step="1" data-key="lamp">+</button></div></div>
+      </div>
+    </div>
+
+    <div class="pane" id="cmPaneRec">
+      <div class="opts">
+        <div class="opt"><span data-i18n="cmOptMode">Mode</span>
+          <div class="chips" id="cmModes">
+            <button type="button" class="chip" data-mode="0" data-i18n="cmModeOff">Off</button>
+            <button type="button" class="chip" data-mode="1" data-i18n="cmModePhoto">Photo</button>
+            <button type="button" class="chip" data-mode="2" data-i18n="cmModeVideo">Video</button>
+            <button type="button" class="chip" data-mode="3" data-i18n="cmModeMotion">Motion</button>
+            <button type="button" class="chip" data-mode="4" data-i18n="cmModeLapse">Lapse</button>
+          </div>
+        </div>
+        <label class="opt"><span data-i18n="cmOptTimelapse">Timelapse</span><select id="cmLapse"></select></label>
+        <div class="opt"><span data-i18n="cmOptDash">Dashcam</span>
+          <div class="chips" style="flex:1 1 auto">
+            <button type="button" class="chip" id="cmDash" data-i18n="rbOn">ON</button>
+            <select id="cmDashMin"><option value="1">1 min</option><option value="5">5 min</option>
+              <option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option></select>
+          </div>
+        </div>
+        <label class="opt"><span data-i18n="cmOptCodec">Codec</span><select id="cmCodec">
+          <option value="0">MJPEG (.avi)</option><option value="1">H.264 (.264)</option>
+        </select></label>
+        <div class="opt"><span data-i18n="cmOptBitrate">Bitrate</span>
+          <div class="stepper"><button type="button" data-step="-250" data-key="h264_bitrate">&#8722;</button><b id="cmBitrate">0</b><button type="button" data-step="250" data-key="h264_bitrate">+</button></div></div>
+      </div>
+    </div>
+
+    <div class="pane" id="cmPaneMot">
+      <div class="opts">
+        <div class="opt"><span data-i18n="cmOptMotion">Motion</span>
+          <div class="chips" style="flex:1 1 auto">
+            <button type="button" class="chip" id="cmMotion" data-i18n="cmOptMotionOn">Detect</button>
+            <button type="button" class="chip" id="cmMotionReset" data-i18n="cmMotionReset">Reset</button>
+          </div>
+        </div>
+        <div class="opt"><span data-i18n="cmOptSensitivity">Sensitivity</span>
+          <div class="stepper"><button type="button" data-step="-5" data-key="sensitivity">&#8722;</button><b id="cmSens">0</b><button type="button" data-step="5" data-key="sensitivity">+</button></div></div>
+        <div class="opt"><span data-i18n="cmOptConfirm">Confirm</span>
+          <div class="stepper"><button type="button" data-step="-1" data-key="mot_cf">&#8722;</button><b id="cmMotCf">3</b><button type="button" data-step="1" data-key="mot_cf">+</button></div></div>
+        <div class="opt"><span data-i18n="cmOptStopF">Stop after</span>
+          <div class="stepper"><button type="button" data-step="-1" data-key="mot_sf">&#8722;</button><b id="cmMotSf">10</b><button type="button" data-step="1" data-key="mot_sf">+</button></div></div>
+        <div class="opt"><span data-i18n="cmOptPost">Post record</span>
+          <div class="stepper"><button type="button" data-step="-1" data-key="mot_ps">&#8722;</button><b id="cmMotPs">5</b><button type="button" data-step="1" data-key="mot_ps">+</button></div></div>
+        <div class="opt"><span data-i18n="cmOptCooldown">Cooldown</span>
+          <div class="stepper"><button type="button" data-step="-5" data-key="mot_cd">&#8722;</button><b id="cmMotCd">5</b><button type="button" data-step="5" data-key="mot_cd">+</button></div></div>
+        <label class="opt"><span data-i18n="cmOptAction">Action</span><select id="cmMotAct">
+          <option value="0">Record video</option><option value="1">Snap photo</option><option value="2">Email alert</option>
+        </select></label>
+        <div class="chips">
+          <button type="button" class="chip" id="cmMotLamp" data-i18n="cmOptMotLamp">Lamp auto</button>
         </div>
       </div>
-      <label class="opt"><span data-i18n="cmOptTimelapse">Timelapse</span><select id="cmLapse"></select></label>
-      <div class="chips">
-        <button type="button" class="chip" id="cmMirror" data-i18n="cmOptMirror">Mirror</button>
-        <button type="button" class="chip" id="cmFlip" data-i18n="cmOptFlip">Flip</button>
-        <button type="button" class="chip" id="cmLamp" data-i18n="cmOptLamp">Lamp</button>
-      </div>
-      <div class="opt"><span data-i18n="cmOptMotion">Motion</span>
-        <div class="chips" style="flex:1 1 auto">
-          <button type="button" class="chip" id="cmMotion" data-i18n="cmOptMotionOn">Detect</button>
-          <button type="button" class="chip" id="cmMotionReset" data-i18n="cmMotionReset">Reset</button>
+    </div>
+
+    <div class="pane" id="cmPaneVis">
+      <div class="opts">
+        <label class="opt"><span data-i18n="cmOptVisMode">Vision</span><select id="cmVisMode">
+          <option value="0">Off</option><option value="1">Count</option><option value="2">Defect</option>
+        </select></label>
+        <div class="opt"><span data-i18n="cmOptVisTh">Threshold</span>
+          <div class="stepper"><button type="button" data-step="-5" data-key="vis_th">&#8722;</button><b id="cmVisTh">50</b><button type="button" data-step="5" data-key="vis_th">+</button></div></div>
+        <div class="opt"><span data-i18n="cmOptVisN">Burst</span>
+          <div class="stepper"><button type="button" data-step="-1" data-key="vis_n">&#8722;</button><b id="cmVisN">10</b><button type="button" data-step="1" data-key="vis_n">+</button></div></div>
+        <div class="chips">
+          <button type="button" class="chip" id="cmVisBurst" data-i18n="cmOptVisBurst">BURST</button>
+          <button type="button" class="chip" id="cmVisReset" data-i18n="cmOptVisReset">RESET</button>
         </div>
       </div>
-      <label class="opt"><span data-i18n="cmOptEffect">Effect</span><select id="cmEffect">
-        <option value="0">none</option><option value="1">negative</option><option value="2">grayscale</option>
-        <option value="3">reddish</option><option value="4">greenish</option><option value="5">blueish</option>
-        <option value="6">sepia</option>
-      </select></label>
-      <label class="opt"><span data-i18n="cmOptWb">White bal.</span><select id="cmWb">
-        <option value="0">auto</option><option value="1">sunny</option><option value="2">cloudy</option>
-        <option value="3">office</option><option value="4">home</option>
-      </select></label>
-      <div class="opt"><span data-i18n="cmOptAe">Exposure</span>
-        <div class="stepper"><button type="button" data-step="-1" data-key="ae_level">&#8722;</button><b id="cmAe">0</b><button type="button" data-step="1" data-key="ae_level">+</button></div></div>
-      <div class="opt"><span data-i18n="cmOptSensitivity">Sensitivity</span>
-        <div class="stepper"><button type="button" data-step="-5" data-key="sensitivity">&#8722;</button><b id="cmSens">0</b><button type="button" data-step="5" data-key="sensitivity">+</button></div></div>
     </div>
   </section>
 
@@ -501,9 +581,40 @@
     motionReset: document.getElementById('cmMotionReset'),
     sens: document.getElementById('cmSens'),
     effect: document.getElementById('cmEffect'),
+    awb: document.getElementById('cmAwb'),
+    aec: document.getElementById('cmAec'),
+    agc: document.getElementById('cmAgc'),
+    lenc: document.getElementById('cmLenc'),
+    gc: document.getElementById('cmGc'),
+    src: document.getElementById('cmSrc'),
+    lampLvl: document.getElementById('cmLampLvl'),
+    aecV: document.getElementById('cmAecV'),
+    agcG: document.getElementById('cmAgcG'),
+    dash: document.getElementById('cmDash'),
+    dashMin: document.getElementById('cmDashMin'),
+    codec: document.getElementById('cmCodec'),
+    bitrate: document.getElementById('cmBitrate'),
+    motCf: document.getElementById('cmMotCf'),
+    motSf: document.getElementById('cmMotSf'),
+    motPs: document.getElementById('cmMotPs'),
+    motCd: document.getElementById('cmMotCd'),
+    motAct: document.getElementById('cmMotAct'),
+    motLamp: document.getElementById('cmMotLamp'),
+    camTabs: document.querySelectorAll('#gmS3 .subt[data-cam-tab]'),
+    panes: {
+      img: document.getElementById('cmPaneImg'),
+      rec: document.getElementById('cmPaneRec'),
+      mot: document.getElementById('cmPaneMot'),
+      vis: document.getElementById('cmPaneVis')
+    },
     wb: document.getElementById('cmWb'),
     ae: document.getElementById('cmAe'),
     profiles: document.getElementById('cmProfiles'),
+    visMode: document.getElementById('cmVisMode'),
+    visTh: document.getElementById('cmVisTh'),
+    visN: document.getElementById('cmVisN'),
+    visBurst: document.getElementById('cmVisBurst'),
+    visReset: document.getElementById('cmVisReset'),
     ftpReload: document.getElementById('cmFtpReload'),
     ftpHost: document.getElementById('cmFtpHost'),
     ftpPath: document.getElementById('cmFtpPath'),
@@ -803,6 +914,30 @@
     if (el.motion) el.motion.className = 'chip' + ((c.motion && c.motion.enabled) ? ' on' : '');
     if (el.sens) el.sens.textContent = String((c.motion && c.motion.sensitivity) || 0);
     if (el.effect) el.effect.value = String(c.special_effect !== undefined ? c.special_effect : 0);
+    if (el.gc) el.gc.value = String(c.gainceiling !== undefined ? c.gainceiling : 0);
+    if (el.src) el.src.value = String(c.source !== undefined ? c.source : 0);
+    if (el.lampLvl) el.lampLvl.textContent = String(c.lamp !== undefined ? c.lamp : 0);
+    if (el.aecV) el.aecV.textContent = String(c.aec_value !== undefined ? c.aec_value : 204);
+    if (el.agcG) el.agcG.textContent = String(c.agc_gain !== undefined ? c.agc_gain : 5);
+    if (el.dash) el.dash.className = 'chip' + (c.dashcam_mins ? ' on' : '');
+    if (el.dashMin) el.dashMin.value = String(c.dashcam_mins || 5);
+    if (el.codec) el.codec.value = String(c.rec_codec !== undefined ? c.rec_codec : 0);
+    if (el.bitrate) el.bitrate.textContent = String(c.h264_bitrate || 2000);
+    var mo = c.motion || {};
+    if (el.motCf) el.motCf.textContent = String(mo.confirm_frames !== undefined ? mo.confirm_frames : 3);
+    if (el.motSf) el.motSf.textContent = String(mo.stop_frames !== undefined ? mo.stop_frames : 10);
+    if (el.motPs) el.motPs.textContent = String(mo.post_record_secs !== undefined ? mo.post_record_secs : 5);
+    if (el.motCd) el.motCd.textContent = String(mo.cooldown_secs !== undefined ? mo.cooldown_secs : 5);
+    if (el.motAct) el.motAct.value = String(mo.action !== undefined ? mo.action : 0);
+    if (el.motLamp) el.motLamp.className = 'chip' + (mo.lamp_auto ? ' on' : '');
+    if (el.visTh) el.visTh.textContent = String(c.vision_thresh !== undefined ? c.vision_thresh : 50);
+    if (el.visN) el.visN.textContent = String(c.vision_burst_n !== undefined ? c.vision_burst_n : 10);
+    if (el.visMode) el.visMode.value = String(c.vision_mode !== undefined ? c.vision_mode : 0);
+    [el.awb, el.aec, el.agc, el.lenc].forEach(function (node, i) {
+      if (!node) return;
+      var key = ['awb', 'aec', 'agc', 'lenc'][i];
+      node.className = 'chip' + (c[key] ? ' on' : '');
+    });
     if (el.wb) el.wb.value = String(c.wb_mode !== undefined ? c.wb_mode : 0);
     if (el.ae) el.ae.textContent = String(c.ae_level !== undefined ? c.ae_level : 0);
     if (el.res) {
@@ -864,6 +999,27 @@
     if (el.effect) body.special_effect = el.effect.value;
     if (el.wb) body.wb_mode = el.wb.value;
     if (el.ae) body.ae_level = Number(el.ae.textContent || 0);
+    if (el.gc) body.gainceiling = el.gc.value;
+    if (el.src) body.source = el.src.value;
+    if (el.lampLvl) body.lamp = Number(el.lampLvl.textContent || 0);
+    if (el.aecV) body.aec_value = Number(el.aecV.textContent || 0);
+    if (el.agcG) body.agc_gain = Number(el.agcG.textContent || 0);
+    if (el.awb) body.awb = el.awb.className.indexOf('on') >= 0 ? 1 : 0;
+    if (el.aec) body.aec = el.aec.className.indexOf('on') >= 0 ? 1 : 0;
+    if (el.agc) body.agc = el.agc.className.indexOf('on') >= 0 ? 1 : 0;
+    if (el.lenc) body.lenc = el.lenc.className.indexOf('on') >= 0 ? 1 : 0;
+    if (el.dash) body.dashcam_mins = (el.dash.className.indexOf('on') >= 0) ? Number(el.dashMin ? el.dashMin.value : 5) : 0;
+    if (el.codec) body.rec_codec = el.codec.value;
+    if (el.bitrate) body.h264_bitrate = Number(el.bitrate.textContent || 0);
+    if (el.motCf) body.motion_confirm_frames = Number(el.motCf.textContent || 0);
+    if (el.motSf) body.motion_stop_frames = Number(el.motSf.textContent || 0);
+    if (el.motPs) body.motion_post_record_secs = Number(el.motPs.textContent || 0);
+    if (el.motCd) body.motion_cooldown_secs = Number(el.motCd.textContent || 0);
+    if (el.motAct) body.motion_action = el.motAct.value;
+    if (el.motLamp) body.motion_lamp_auto = (el.motLamp.className.indexOf('on') >= 0) ? 1 : 0;
+    if (el.visMode) body.vision_mode = el.visMode.value;
+    if (el.visTh) body.vision_thresh = Number(el.visTh.textContent || 0);
+    if (el.visN) body.vision_burst_n = Number(el.visN.textContent || 0);
     body.hmirror = (el.mirror && el.mirror.className.indexOf('on') >= 0) ? 1 : 0;
     body.vflip = (el.flip && el.flip.className.indexOf('on') >= 0) ? 1 : 0;
     if (el.lamp && el.lamp.style.display !== 'none') {
@@ -983,6 +1139,17 @@
     return true;
   }
 
+  function camTab(name) {
+    var which = (name === 'rec' || name === 'mot' || name === 'vis') ? name : 'img';
+    el.camTabs.forEach(function (b) {
+      b.className = 'subt' + (String(b.getAttribute('data-cam-tab')) === which ? ' on' : '');
+    });
+    for (var k in el.panes) {
+      if (el.panes[k]) el.panes[k].className = 'pane' + (k === which ? ' on' : '');
+    }
+    st.camTab = which;
+  }
+
   function setStep(n) {
     var next = Math.max(1, Math.min(STEPS, Number(n) || 1));
     st.step = next;
@@ -1063,6 +1230,24 @@
       renderFiles();
     });
     if (el.optReload) el.optReload.addEventListener('click', loadOptions);
+    el.camTabs.forEach(function (b) {
+      b.addEventListener('click', function () { camTab(String(b.getAttribute('data-cam-tab'))); });
+    });
+    [el.dash, el.motLamp].forEach(function (b) {
+      if (b) b.addEventListener('click', function () {
+        b.className = (b.className.indexOf('on') >= 0) ? 'chip' : 'chip on';
+      });
+    });
+    if (el.visBurst) el.visBurst.addEventListener('click', function () {
+      MU.post('/api/camera/vision/burst', {}).then(function () {
+        msg(t('cmVisBurstOk', 'Burst requested.'), 'ok');
+      }).catch(function () {});
+    });
+    if (el.visReset) el.visReset.addEventListener('click', function () {
+      MU.post('/api/camera/vision/reset', {}).then(function () {
+        msg(t('cmVisResetOk', 'Vision counters cleared.'), 'ok');
+      }).catch(function () {});
+    });
     if (el.profiles) {
       el.profiles.addEventListener('click', function (ev) {
         var b = ev.target && ev.target.closest ? ev.target.closest('button[data-profile]') : null;
@@ -1086,12 +1271,26 @@
         if (b) {
           var key = String(b.getAttribute('data-key') || '');
           var delta = parseInt(String(b.getAttribute('data-step') || '0'), 10) || 0;
-          if (key === 'sensitivity') {
-            var v0 = Math.max(0, Math.min(100, (parseInt(el.sens.textContent, 10) || 0) + delta));
-            el.sens.textContent = String(v0);
+          var LIM = {
+            brightness: [-2, 2], contrast: [-2, 2], saturation: [-2, 2], ae_level: [-2, 2],
+            sensitivity: [1, 100], aec_value: [0, 1200], agc_gain: [0, 30], lamp: [0, 15],
+            mot_cf: [1, 20], mot_sf: [2, 30], mot_ps: [0, 30], mot_cd: [0, 120],
+            h264_bitrate: [500, 8000], vis_th: [0, 100], vis_n: [1, 50]
+          };
+          var NODE = {
+            brightness: el.br, contrast: el.ct, saturation: el.sa, ae_level: el.ae,
+            sensitivity: el.sens, aec_value: el.aecV, agc_gain: el.agcG, lamp: el.lampLvl,
+            mot_cf: el.motCf, mot_sf: el.motSf, mot_ps: el.motPs, mot_cd: el.motCd,
+            h264_bitrate: el.bitrate, vis_th: el.visTh, vis_n: el.visN
+          };
+          var lim = LIM[key]; var node = NODE[key];
+          if (lim && node) {
+            var v0 = (parseInt(node.textContent, 10) || 0) + delta;
+            if (v0 < lim[0]) v0 = lim[0];
+            if (v0 > lim[1]) v0 = lim[1];
+            node.textContent = String(v0);
             return;
           }
-          var node = key === 'brightness' ? el.br : key === 'contrast' ? el.ct : el.sa;
           var v = Math.max(-2, Math.min(2, (parseInt(node.textContent, 10) || 0) + delta));
           node.textContent = String(v);
           return;
@@ -1138,6 +1337,7 @@
   window.__test__.cmOptions = loadOptions;
   window.__test__.cmSave = saveOptions;
   window.__test__.cmProfile = applyProfile;
+  window.__test__.cmTab = camTab;
   window.__test__.cmFtp = loadFtp;
   window.__test__.cmFtpAction = ftpAction;
   window.__test__.cmFull = toggleFull;
