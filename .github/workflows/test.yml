@@ -16,7 +16,7 @@
    static:
      runs-on: ubuntu-latest
      steps:
-       - uses: actions/checkout@v4
+       - uses: actions/checkout@v7
        - name: Set up Python
          uses: actions/setup-python@v5
          with:
@@ -33,7 +33,7 @@
        run:
          working-directory: tests/native
      steps:
-       - uses: actions/checkout@v4
+       - uses: actions/checkout@v7
        - name: Install system deps
          run: sudo apt-get update -qq && sudo apt-get install -y -qq g++ make
        - name: Build native tests
