@@ -6,13 +6,13 @@
 
 void streamSharedMonitorPage(Print& out) {
 
-    out.print(F("<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title id='rx_page_title'>📥 Data Reception</title><link rel='stylesheet' href='/core.css'><script>window._localPagesNeverExpire=true;</script><script src='/auto.js'></script></head><body><div id='loadingOverlay' style='display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,25,41,0.95);z-index:99999;align-items:center;justify-content:center'><div style='text-align:center'><div style='border:4px solid #1e40af;border-top:4px solid #3b82f6;border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;margin:0 auto'></div><p id='rx_loading_text' style='color:#e6f1ff;margin-top:15px;font-size:14px'>Processing...</p></div></div><style>@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style><main class='page'><div class='wrap'>"));
+    out.print(F("<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title id='rx_page_title' data-i18n='homeDataRecv'>📥 Data Reception</title><link rel='stylesheet' href='/core.css'><script>window._localPagesNeverExpire=true;</script><script src='/auto.js'></script></head><body><div id='loadingOverlay' style='display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(10,25,41,0.95);z-index:99999;align-items:center;justify-content:center'><div style='text-align:center'><div style='border:4px solid #1e40af;border-top:4px solid #3b82f6;border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;margin:0 auto'></div><p id='rx_loading_text' data-i18n='loading' style='color:#e6f1ff;margin-top:15px;font-size:14px'>Processing...</p></div></div><style>@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style><main class='page'><div class='wrap'>"));
 
-    out.print(F("<div class='actions nav-inicio'><a href='/' class='btn' id='rx_btn_home'>🏠 Home</a></div><h1 id='rx_page_heading'>📥 Data Reception</h1>"));
+    out.print(F("<div class='actions nav-inicio'><a href='/' class='btn' id='rx_btn_home' data-i18n='btnHome'>🏠 Home</a></div><h1 id='rx_page_heading' data-i18n='homeDataRecv'>📥 Data Reception</h1>"));
 
-    out.print(F("<div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:16px'><h2 id='rx_actions_title' style='margin-top:0;font-size:18px;color:#60a5fa'>⚙️ Actions</h2><div id='rx_actions_info' style='background:#1e3a8a;border-left:4px solid #3b82f6;padding:12px;margin:12px 0;font-size:13px;line-height:1.8;color:#e0e7ff;border-radius:4px'><div>🔄 <strong style='color:#60a5fa'>Refresh:</strong> Updates the buffer view with the latest data</div><div>🧹 <strong style='color:#60a5fa'>Clear:</strong> Empties the reception content (irreversible action)</div><div>🪟 <strong style='color:#60a5fa'>Open RX Viewer:</strong> Opens advanced viewer in new window (local processing on the PC)</div></div><div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:14px'><button id='btn_refresh' class='btn' style='background:#3b82f6;color:white;padding:10px 16px;font-size:13px;border:1px solid #3b82f6;white-space:normal;line-height:1.2;min-height:44px'>🔄 Refresh</button><button class='btn' id='btn_clear' type='button' style='background:#dc2626;color:white;padding:10px 16px;font-size:13px;border:1px solid #dc2626;white-space:normal;line-height:1.2;min-height:44px'>🧹 Clear</button><button class='btn' id='btn_open_viewer' type='button' style='background:#059669;color:white;padding:10px 16px;font-size:13px;border:1px solid #059669;white-space:normal;line-height:1.2;min-height:44px'>🪟 Open RX Viewer</button></div></div>"));
+    out.print(F("<div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:16px'><h2 id='rx_actions_title' data-i18n='monActionsTitle' style='margin-top:0;font-size:18px;color:#60a5fa'>⚙️ Actions</h2><div id='rx_actions_info' data-i18n-html='monActionsInfo' style='background:#1e3a8a;border-left:4px solid #3b82f6;padding:12px;margin:12px 0;font-size:13px;line-height:1.8;color:#e0e7ff;border-radius:4px'><div>🔄 <strong style='color:#60a5fa'>Refresh:</strong> Updates the buffer view with the latest data</div><div>🧹 <strong style='color:#60a5fa'>Clear:</strong> Empties the reception content (irreversible action)</div><div>🪟 <strong style='color:#60a5fa'>Open RX Viewer:</strong> Opens advanced viewer in new window (local processing on the PC)</div></div><div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:14px'><button id='btn_refresh' class='btn' data-i18n='monRefresh' style='background:#3b82f6;color:white;padding:10px 16px;font-size:13px;border:1px solid #3b82f6;white-space:normal;line-height:1.2;min-height:44px'>🔄 Refresh</button><button class='btn' id='btn_clear' type='button' data-i18n='monClear' style='background:#dc2626;color:white;padding:10px 16px;font-size:13px;border:1px solid #dc2626;white-space:normal;line-height:1.2;min-height:44px'>🧹 Clear</button><button class='btn' id='btn_open_viewer' type='button' data-i18n='monOpenViewer' style='background:#059669;color:white;padding:10px 16px;font-size:13px;border:1px solid #059669;white-space:normal;line-height:1.2;min-height:44px'>🪟 Open RX Viewer</button></div></div>"));
 
-    out.print(F("<div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'><h2 id='rx_send_title' style='margin-top:0;font-size:18px;color:#60a5fa'>📤 Send Command</h2><div id='rx_send_info' style='background:#1e3a8a;border-left:4px solid #3b82f6;padding:12px;margin:12px 0;font-size:13px;line-height:1.8;color:#e0e7ff;border-radius:4px'><div>⌨️ Select the destination and type the command, then press <strong style='color:#60a5fa'>Enter</strong> or click <strong style='color:#60a5fa'>Send</strong></div><div>💡 <strong style='color:#60a5fa'>Tip:</strong> Send commands to different ports and systems</div></div><div style='display:flex;flex-direction:column;gap:8px;margin-top:14px'><div style='display:flex;gap:8px;align-items:center'><select id='cmd_dest' style='width:90px!important;max-width:90px!important;min-width:0!important;flex-shrink:0;padding:5px 6px!important;border-radius:6px;border:1px solid #3b82f6;background:#020617;color:#e0e7ff;font-size:13px!important;cursor:pointer;min-height:0!important;height:32px!important'><option id='cmd_dest_sys' value='sys' selected>System</option>"));
+    out.print(F("<div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'><h2 id='rx_send_title' data-i18n='monSendTitle' style='margin-top:0;font-size:18px;color:#60a5fa'>📤 Send Command</h2><div id='rx_send_info' data-i18n-html='monSendInfo' style='background:#1e3a8a;border-left:4px solid #3b82f6;padding:12px;margin:12px 0;font-size:13px;line-height:1.8;color:#e0e7ff;border-radius:4px'><div>⌨️ Select the destination and type the command, then press <strong style='color:#60a5fa'>Enter</strong> or click <strong style='color:#60a5fa'>Send</strong></div><div>💡 <strong style='color:#60a5fa'>Tip:</strong> Send commands to different ports and systems</div></div><div style='display:flex;flex-direction:column;gap:8px;margin-top:14px'><div style='display:flex;gap:8px;align-items:center'><select id='cmd_dest' style='width:90px!important;max-width:90px!important;min-width:0!important;flex-shrink:0;padding:5px 6px!important;border-radius:6px;border:1px solid #3b82f6;background:#020617;color:#e0e7ff;font-size:13px!important;cursor:pointer;min-height:0!important;height:32px!important'><option id='cmd_dest_sys' value='sys' selected data-i18n='monSystem'>System</option>"));
 
 #if ENABLE_RS232==1
 
@@ -26,9 +26,9 @@ void streamSharedMonitorPage(Print& out) {
 
 #endif
 
-    out.print(F("</select><input id='cmd' type='text' placeholder='Enter command' style='flex:1;min-width:0;padding:5px 10px!important;border-radius:6px;border:1px solid #3b82f6;background:#020617;color:#e0e7ff;font-size:13px!important;min-height:0!important;height:32px!important;box-sizing:border-box'><button class='btn' id='btn_send' type='button' style='width:auto!important;max-width:none!important;min-width:0!important;flex-shrink:0;background:#2563eb;color:white;padding:5px 12px!important;font-size:13px!important;border:1px solid #2563eb;white-space:nowrap;border-radius:6px;min-height:0!important;height:32px!important'>📤 Send</button></div></div></div>"));
+    out.print(F("</select><input id='cmd' type='text' placeholder='Enter command' data-i18n-placeholder='monEnterCommand' style='flex:1;min-width:0;padding:5px 10px!important;border-radius:6px;border:1px solid #3b82f6;background:#020617;color:#e0e7ff;font-size:13px!important;min-height:0!important;height:32px!important;box-sizing:border-box'><button class='btn' id='btn_send' type='button' data-i18n='monSend' style='width:auto!important;max-width:none!important;min-width:0!important;flex-shrink:0;background:#2563eb;color:white;padding:5px 12px!important;font-size:13px!important;border:1px solid #2563eb;white-space:nowrap;border-radius:6px;min-height:0!important;height:32px!important'>📤 Send</button></div></div></div>"));
 
-    out.print(F("<div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'><h2 id='rx_buffer_title' style='margin:0 0 10px 0;font-size:18px;color:#60a5fa;text-align:center'>📊 RX Buffer Content</h2><div id='rx_buffer_desc' style='font-size:13px;opacity:.85;margin-bottom:10px;color:#e0e7ff'>Real-time view of received data (last 100 lines)</div><pre id='rx_text' style='max-height:1600px;overflow:auto;padding:12px;background:#020617;border:1px solid #334155;border-radius:6px;white-space:pre;line-height:1.3em;font-size:13px;margin:0;font-family:monospace;tab-size:8;color:#e0e7ff'></pre></div></div></div></main>"));
+    out.print(F("<div style='border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a;margin-top:20px'><h2 id='rx_buffer_title' data-i18n='monBufferTitle' style='margin:0 0 10px 0;font-size:18px;color:#60a5fa;text-align:center'>📊 RX Buffer Content</h2><div id='rx_buffer_desc' data-i18n='monBufferDesc' style='font-size:13px;opacity:.85;margin-bottom:10px;color:#e0e7ff'>Real-time view of received data (last 100 lines)</div><pre id='rx_text' style='max-height:1600px;overflow:auto;padding:12px;background:#020617;border:1px solid #334155;border-radius:6px;white-space:pre;line-height:1.3em;font-size:13px;margin:0;font-family:monospace;tab-size:8;color:#e0e7ff'></pre></div></div></div></main>"));
 
     out.print(F("<script>(function(){try{fetch('/api/monitor-open',{method:'POST'});}catch(e){};window.addEventListener('beforeunload',function(){try{if(navigator.sendBeacon){navigator.sendBeacon('/api/monitor-close');}else{fetch('/api/monitor-close',{method:'POST',keepalive:true});}}catch(_){}});})();</script>"));
 
@@ -36,121 +36,10 @@ void streamSharedMonitorPage(Print& out) {
 
     out.print(R"js(
 
-                function _rxLangCode(){
+                // All page texts use data-i18n/data-i18n-html/data-i18n-placeholder and the
+// shared /api/lang dictionary (auto.js), like every other page (MON-1).
 
-                    try{
-
-                        return (localStorage.getItem('ui_lang_code') || document.documentElement.lang || 'en').toLowerCase();
-
-                    }catch(_){
-
-                        return 'en';
-
-                    }
-
-                }
-
-
-
-                function _rxT(key, pt, en){
-
-                    var code = _rxLangCode();
-
-                    var fallback = code.indexOf('en') === 0 ? en : pt;
-
-                    try{
-
-                        if(typeof window._t === 'function') return window._t(key, fallback);
-
-                        var raw = localStorage.getItem('ui_lang_cache');
-
-                        if(raw){
-
-                            var parsed = JSON.parse(raw);
-
-                            if(parsed && parsed[key] !== undefined) return parsed[key];
-
-                        }
-
-                    }catch(_){ }
-
-                    return fallback;
-
-                }
-
-
-
-                function _setHtml(id, html){
-
-                    var el = document.getElementById(id);
-
-                    if(el) el.innerHTML = html;
-
-                }
-
-
-
-                function _setText(id, text){
-
-                    var el = document.getElementById(id);
-
-                    if(el) el.textContent = text;
-
-                }
-
-
-
-                function applyMonitorTexts(){
-
-                    var isEn = _rxLangCode().indexOf('en') === 0;
-
-                    document.title = isEn ? '📥 Data Reception' : '📥 Data Reception';
-
-                    _setText('rx_loading_text', _rxT('loading','Processing...','Processing...'));
-
-                    _setText('rx_btn_home', _rxT('btnHome','🏠 Home','🏠 Home'));
-
-                    _setText('rx_page_heading', _rxT('homeDataRecv','📥 Data Reception','📥 Data Reception'));
-
-                    _setText('rx_actions_title', isEn ? '⚙️ Actions' : '⚙️ Actions');
-
-                    _setHtml('rx_actions_info', isEn
-
-                        ? "<div>🔄 <strong style='color:#60a5fa'>Refresh:</strong> Updates the buffer view with the latest data</div><div>🧹 <strong style='color:#60a5fa'>Clear:</strong> Empties the reception content (irreversible action)</div><div>🪟 <strong style='color:#60a5fa'>Open RX Viewer:</strong> Opens the advanced viewer in a new window (local processing on the PC)</div>"
-
-                        : "<div>🔄 <strong style='color:#60a5fa'>Refresh:</strong> Updates the buffer view with the latest data</div><div>🧹 <strong style='color:#60a5fa'>Clear:</strong> Empties the reception content (irreversible action)</div><div>🪟 <strong style='color:#60a5fa'>Open RX Viewer:</strong> Opens the advanced viewer in a new window (local processing on the PC)</div>");
-
-                    _setText('btn_refresh', isEn ? '🔄 Refresh' : '🔄 Refresh');
-
-                    _setText('btn_clear', isEn ? '🧹 Clear' : '🧹 Clear');
-
-                    _setText('btn_open_viewer', isEn ? '🪟 Open RX Viewer' : '🪟 Open RX Viewer');
-
-                    _setText('rx_send_title', isEn ? '📤 Send Command' : '📤 Send Command');
-
-                    _setHtml('rx_send_info', isEn
-
-                        ? "<div>⌨️ Select the destination and type the command, then press <strong style='color:#60a5fa'>Enter</strong> or click <strong style='color:#60a5fa'>Send</strong></div><div>💡 <strong style='color:#60a5fa'>Tip:</strong> Send commands for different ports and systems</div>"
-
-                        : "<div>⌨️ Select the destination and type the command, then press <strong style='color:#60a5fa'>Enter</strong> or click <strong style='color:#60a5fa'>Send</strong></div><div>💡 <strong style='color:#60a5fa'>Tip:</strong> Send commands for different ports and systems</div>");
-
-                    _setText('cmd_dest_sys', isEn ? 'System' : 'System');
-
-                    var cmd = document.getElementById('cmd');
-
-                    if(cmd) cmd.placeholder = isEn ? 'Enter command' : 'Enter command';
-
-                    _setText('btn_send', isEn ? '📤 Send' : '📤 Send');
-
-                    _setText('rx_buffer_title', isEn ? '📊 RX Buffer Content' : '📊 RX Buffer Content');
-
-                    _setText('rx_buffer_desc', isEn ? 'Real-time view of received data (last 100 lines)' : 'Real-time view of received data (last 100 lines)');
-
-                }
-
-
-
-                var RX_DEFAULT_LIMIT = 100;
+var RX_DEFAULT_LIMIT = 100;
 
                 function _setRxHeightForLines(lines){
 
@@ -366,7 +255,7 @@ void streamSharedMonitorPage(Print& out) {
 
                     var origPlaceholder = el.placeholder;
 
-                    el.placeholder = _rxLangCode().indexOf('en') === 0 ? '⏳ Sending...' : '⏳ Sending...';
+                    el.placeholder = _t('monSending','⏳ Sending...');
 
                     el.disabled = true;
 
@@ -378,13 +267,13 @@ void streamSharedMonitorPage(Print& out) {
 
                             if(j && j.success){
 
-                                el.placeholder = '✅ ' + (j.response || (_rxLangCode().indexOf('en') === 0 ? 'Sent' : 'Sent'));
+                                el.placeholder = '✅ ' + (j.response || _t('monSent','Sent'));
 
                                 setTimeout(function(){ el.placeholder = origPlaceholder; }, 3000);
 
                             } else {
 
-                                el.placeholder = (_rxLangCode().indexOf('en') === 0 ? '❌ Error: ' : '❌ Error: ') + (j && j.response ? j.response : (_rxLangCode().indexOf('en') === 0 ? 'Failed' : 'Failed'));
+                                el.placeholder = _t('monError','❌ Error') + ': ' + (j && j.response ? j.response : _t('monFailed','Failed'));
 
                                 setTimeout(function(){ el.placeholder = origPlaceholder; }, 4000);
 
@@ -394,7 +283,7 @@ void streamSharedMonitorPage(Print& out) {
 
                         .catch(function(){
 
-                            el.placeholder = _rxLangCode().indexOf('en') === 0 ? '❌ Network error' : '❌ Network error';
+                            el.placeholder = _t('monNetError','❌ Network error');
 
                             setTimeout(function(){ el.placeholder = origPlaceholder; }, 4000);
 
@@ -415,8 +304,6 @@ void streamSharedMonitorPage(Print& out) {
                 (function(){
 
                     try{
-
-                        applyMonitorTexts();
 
                         var inp = document.getElementById('cmd');
 

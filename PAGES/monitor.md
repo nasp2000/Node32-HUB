@@ -58,9 +58,11 @@ main.page > div.wrap
     └ pre #rx_text      (monospace, max-height auto-sized to line count)
 ```
 
-No `data-i18n` attributes — the page applies its own `applyMonitorTexts()` i18n via the
-inline JS (`_rxT(key, pt, en)` helper). Page opens with a fire-and-forget
-`POST /api/monitor-open` and closes with `POST /api/monitor-close` (`sendBeacon`) on unload.
+Every visible text is a **`data-i18n` / `data-i18n-html` / `data-i18n-placeholder`**
+target resolved from `/api/lang` by `auto.js` (same mechanism as every other page); the
+runtime status strings (sending/sent/failed) go through `window._t`. Page opens with a
+fire-and-forget `POST /api/monitor-open` and closes with `POST /api/monitor-close`
+(`sendBeacon`) on unload.
 
 ---
 
@@ -135,8 +137,7 @@ by that module (`filterTag`).
   `/api/rs232-command`, `/api/modbus-command`), `POST` JSON `{command}`; on success shows
   `✅ <response>` in the placeholder (3 s), error `❌ <response>` (4 s); clears input,
   re-enables, refocuses. Uses `e.key==='Enter'` (project rule).
-- i18n via `_rxT(key, pt, en)` / `applyMonitorTexts()` — hardcoded EN+PT pairs (see
-  findings MON-3).
+- i18n via `data-i18n*` + `/api/lang` (auto.js); the runtime placeholder uses `_t()`.
 
 ### `/serial-monitor` (`web_monitor_pages.cpp:471-681`)
 
@@ -201,9 +202,11 @@ None of these pages write persistent config. They are read-only views of runtime
 
 ## 10. i18n keys
 
-`/monitor` uses inline `_rxT(key, pt, en)` lookups — keys: `loading`, `btnHome`,
-`homeDataRecv`, plus hardcoded EN/PT strings for actions/send/buffer sections. The shell
-loading overlay uses `data-i18n='loading'` ("A processar..." / "Processing...").
+`/monitor` keys (EN+PT, `data-i18n*`): `homeDataRecv`, `btnHome`, `loading`,
+`monActionsTitle`, `monActionsInfo` (html), `monRefresh`, `monClear`, `monOpenViewer`,
+`monSendTitle`, `monSendInfo` (html), `monSystem`, `monEnterCommand` (placeholder),
+`monSend`, `monBufferTitle`, `monBufferDesc`; runtime: `monSending`, `monSent`,
+`monError`, `monFailed`, `monNetError`.
 `/serial-monitor` has **no i18n** — all strings hardcoded English.
 
 ---
@@ -212,7 +215,7 @@ loading overlay uses `data-i18n='loading'` ("A processar..." / "Processing...").
 
 | # | Finding | Severity | Suggested fix |
 |---|---|---|---|
-| 1 | `/monitor` i18n is done by `_rxT(key, pt, en)` with **PT fallback selected by `_rxLangCode()`** (a browser-language heuristic), bypassing `data-i18n` and `/api/lang` — inconsistent with every other page and can show PT to EN browsers before the user cached a language. | Medium | Use standard `data-i18n` + `window._t`; drop the ad-hoc PT/EN switch. |
+| 1 | `/monitor` i18n was done by `_rxT(key, pt, en)` with a **PT fallback selected by `_rxLangCode()`** (browser-language heuristic), bypassing `data-i18n`/`/api/lang` and able to show PT to EN browsers. **Fixed (MON-1):** the ad-hoc helpers are gone; the page uses `data-i18n`/`data-i18n-html`/`data-i18n-placeholder` + `/api/lang` like every other page, and the runtime status strings use `window._t` (new `data-i18n-placeholder` support in `auto.js`). Tests: `test_monitor_i18n.js` (EN and PT dictionaries applied to the real markup). | Medium | **fixed** |
 | 2 | `/monitor` opens/closes a session via `POST /api/monitor-open|close` but the counters are only used for `override` — unclear if they actually gate anything (see `monitor_session_state.h`). Dead-ish state. | Low | Verify or remove. |
 | 3 | `/serial-monitor` message cap is 500 and auto-poll 3 s regardless of activity; a long-running high-volume log churns the whole list and re-renders 500 rows each poll. | Low | Batch render (document fragment) + adaptive interval when `buffer_seq` stalls. |
 | 4 | `sendCmd`/`send()` rely on `r.json()` — the command endpoints can return non-JSON (e.g. 503 text) and the `.catch` then masks the real cause as a network error. | Low | Read as text and fall back on parse failure (monitor page already does). |

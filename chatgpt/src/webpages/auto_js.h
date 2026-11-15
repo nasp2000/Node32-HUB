@@ -938,6 +938,10 @@ document.querySelectorAll('[data-i18n],[data-i18n-html]').forEach(function(el){
             var k=el.getAttribute('data-i18n-title');
             if(k && strings[k]!==undefined) el.setAttribute('title',decEnt(strings[k]));
         });
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){
+            var k=el.getAttribute('data-i18n-placeholder');
+            if(k && strings[k]!==undefined) el.setAttribute('placeholder',decEnt(strings[k]));
+        });
         setI18nReady(true);
         return true;
     }
