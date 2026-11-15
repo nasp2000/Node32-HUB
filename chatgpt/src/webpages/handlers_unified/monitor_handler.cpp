@@ -1,17 +1,17 @@
 #include "monitor_handler.h"
-#include "../../monitor_session_state.h"
 #include "../../web_shared_logic.h"
 
+// MON-2: these are acknowledgements only. The old session counter fed an
+// `override` flag that nothing gated (the single reader ignored it and the
+// counter was never read), so the dead state was removed.
 void handleMonitorOpenPost(HttpRequest& req, HttpResponse& res) {
     (void)req;
-    monitorOpenIncrement();
-    res.sendJson(F("{\"status\":\"ok\",\"override\":true}"));
+    res.sendJson(F("{\"status\":\"ok\"}"));
 }
 
 void handleMonitorClosePost(HttpRequest& req, HttpResponse& res) {
     (void)req;
-    monitorOpenDecrement();
-    res.sendJson(F("{\"status\":\"ok\",\"override\":false}"));
+    res.sendJson(F("{\"status\":\"ok\"}"));
 }
 
 void handleClearBufferPost(HttpRequest& req, HttpResponse& res) {

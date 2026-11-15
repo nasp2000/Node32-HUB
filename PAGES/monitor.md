@@ -160,8 +160,8 @@ by that module (`filterTag`).
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/api/monitor-open` | POST | increments the monitor session counter (`monitor_handler.cpp:5`) → `{status,override:true}` |
-| `/api/monitor-close` | POST | decrements → `{status,override:false}` |
+| `/api/monitor-open` | POST | acknowledgement only → `{status:"ok"}` (the old counter/override state was dead — MON-2) |
+| `/api/monitor-close` | POST | acknowledgement only → `{status:"ok"}` |
 | `/api/clear-buffer` | POST | `sharedWebClearReceivedBuffer`; 503 `{status:busy}` if locked |
 | `/api/monitor-status` | GET | `sharedWebBuildMonitorStatusJson` (`web_shared_logic.cpp:533`): `{status,isReceiving,bufferUsage,bufferSize,buffer_seq,last_rx_ms,now_ms}` |
 | `/api/received-text` | GET | `sharedWebBuildReceivedText` (`web_shared_logic.cpp:566`): params `limit` (100), `max_bytes` (4096), `include_partial`, `download`; streamed with `HeavyApiRequestGuard` 400 ms |
@@ -195,8 +195,9 @@ None of these pages write persistent config. They are read-only views of runtime
   → Serial + Telnet + **Web Serial Monitor** (pushed to PSRAM ring). Type tags come from the
   message level; module tags from the `[TAG]` prefix. The `/api/system-command` endpoint can
   return a real reply (buffered reply in `logger_impl.h:116`).
-- **Session accounting** — `/monitor` increments a counter (`monitor_session_state.h`) so
-  the device knows a human is watching; used for `monitor-open/close` override semantics.
+- **Session acknowledgement** — `/monitor` POSTs `monitor-open`/`monitor-close` on load/unload;
+  both are plain acknowledgements. The old counter/`autoEmailMonitorOverrideActive` flag
+  gated nothing (its only reader ignored it), so it was removed (MON-2).
 
 ---
 
@@ -216,7 +217,7 @@ None of these pages write persistent config. They are read-only views of runtime
 | # | Finding | Severity | Suggested fix |
 |---|---|---|---|
 | 1 | `/monitor` i18n was done by `_rxT(key, pt, en)` with a **PT fallback selected by `_rxLangCode()`** (browser-language heuristic), bypassing `data-i18n`/`/api/lang` and able to show PT to EN browsers. **Fixed (MON-1):** the ad-hoc helpers are gone; the page uses `data-i18n`/`data-i18n-html`/`data-i18n-placeholder` + `/api/lang` like every other page, and the runtime status strings use `window._t` (new `data-i18n-placeholder` support in `auto.js`). Tests: `test_monitor_i18n.js` (EN and PT dictionaries applied to the real markup). | Medium | **fixed** |
-| 2 | `/monitor` opens/closes a session via `POST /api/monitor-open|close` but the counters are only used for `override` — unclear if they actually gate anything (see `monitor_session_state.h`). Dead-ish state. | Low | Verify or remove. |
+| 2 | `/monitor` opened/closed a session via `POST /api/monitor-open|close`; the counters only fed an `override` flag. **Investigated and removed (MON-2):** `monitorOpenClients` was never read, `autoEmailMonitorOverrideActive` was set to false on both open and close and its only reader (`manage_email_impl.h:170`) explicitly ignored it; no status payload exposed them and the page never read `override`. The module is deleted, the handlers answer `{status:"ok"}`, and the stale include in `ethernet.cpp` is gone. Tests: `test_monitor_session_dead_state` (3 cases / 17 assertions). | Low | **fixed** |
 | 3 | `/serial-monitor` message cap is 500 and auto-poll 3 s regardless of activity; a long-running high-volume log churns the whole list and re-renders 500 rows each poll. | Low | Batch render (document fragment) + adaptive interval when `buffer_seq` stalls. |
 | 4 | `sendCmd`/`send()` rely on `r.json()` — the command endpoints can return non-JSON (e.g. 503 text) and the `.catch` then masks the real cause as a network error. | Low | Read as text and fall back on parse failure (monitor page already does). |
 | 5 | `#srch-x` and search rely on `document.getElementById('srch').value` at render time; the input has no `input` listener, so the list only re-filters on the next poll. | Low | Add `oninput` → `renderMsgs()`. |

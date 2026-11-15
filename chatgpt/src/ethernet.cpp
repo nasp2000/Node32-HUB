@@ -19,7 +19,6 @@
 #include "runtime_environment.h"
 #include "littlefs_manager.h"
 #include "network_manual_switch.h"
-#include "monitor_session_state.h"
 #include "network_saved_profiles.h"
 #include "sd_diagnostics.h"
 #include "sd_security.h"

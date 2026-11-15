@@ -691,6 +691,10 @@ test_email_event_fields$(BIN_EXT): test_email_event_fields.cpp $(SRC_DIR)/email_
 # --- ftp_status_store: persisted last-sends state (FTP page, survives reboot) ---
 test_ftp_status_store$(BIN_EXT): test_ftp_status_store.cpp $(SRC_DIR)/ftp_status_store.h $(STUBS_DIR)/Arduino.h $(STUBS_DIR)/ArduinoJson.h
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_ftp_status_store.cpp
+# --- monitor_session_dead_state: MON-2 removal contract ---
+test_monitor_session_dead_state$(BIN_EXT): test_monitor_session_dead_state.cpp
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -DSRC_DIR_PATH='"$(abspath $(SRC_DIR))"' -o $@ test_monitor_session_dead_state.cpp
+
 # --- recipient_email_cap: real ConfigManager truncates emails to 256 (RECIP-8) ---
 test_recipient_email_cap$(BIN_EXT): test_recipient_email_cap.cpp $(CONFIGMGR_OBJ) $(NVSSTORE_OBJ) $(CM_HARNESS_OBJ) $(CONFIGVALIDATOR_AJ_OBJ)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(REAL_INCLUDES) $(REAL_AJ_FLAGS) $(REAL_CM_FLAGS) -DSRC_DIR_PATH='"$(abspath $(SRC_DIR))"' -o $@ test_recipient_email_cap.cpp $(CONFIGMGR_OBJ) $(NVSSTORE_OBJ) $(CM_HARNESS_OBJ) $(CONFIGVALIDATOR_AJ_OBJ)
