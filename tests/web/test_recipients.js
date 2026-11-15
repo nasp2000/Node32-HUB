@@ -76,9 +76,10 @@ async function run() {
       ok(html.indexOf("value='Hy'") >= 0, 'has Hy option');
     });
 
-    test('rowHTML has frequency select with 10m default', function() {
+    test('rowHTML starts the frequency select on 0 (3m default)', function() {
       var html = win.__test__.rowHTML(3);
-      ok(html.indexOf("value='600' selected") >= 0, '10m default');
+      ok(html.indexOf("value='0' selected") >= 0, '0 is the default option');
+      ok(html.indexOf("3m (default)") >= 0, 'default option is labelled');
     });
 
     test('rowHTML includes save button with data-save', function() {
