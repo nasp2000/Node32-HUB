@@ -494,6 +494,7 @@ static size_t ftpVfsReadChunk(void* ctx, uint8_t* buf, size_t maxLen) {
 static bool ftpStoreStream(WiFiClient& ctl, size_t totalLen, const String& remotePath,
                            char* resp, size_t rs, String& detail, size_t& sentBytes,
                            FtpChunkReader reader, void* ctx) {
+    diagTraceMark("ftp:stream");
     ctl.print("TYPE I\r\n");
     if (!readRespLine(ctl, resp, rs, 8000) || !ftpReplyIs(resp, 200)) { detail = String("TYPE failed: ") + resp; return false; }
     ctl.print("PASV\r\n");
@@ -1138,6 +1139,7 @@ static int ftpRunCycle(String& detail) {
         if (scanLocked) sdMutexUnlock();
 #endif
     }
+    diagTraceMark("ftp:scanned");
     String sent = onlyNew ? ftpLoadSentList() : String("");
     // Each successful file appends "relPath:size\n"; reserve the worst case up
     // front so the loop does not realloc the growing String (fragmentation).
