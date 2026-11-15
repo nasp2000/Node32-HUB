@@ -356,6 +356,10 @@ void streamSharedSerialMonitorPage(Print& out) {
     out.print(R"HTML(</select><input id='cmd' type='text' placeholder='Send command...' onkeypress='if(event.key=="Enter")sendCmd()'><button onclick='sendCmd()'>&#x1F4E4; Send</button></div><script>
 
 var allMsgs=[],arInterval=null,_msgCount=0,isLoading=false,isPaused=false;
+// MON-3: self-scheduled poll with backoff while the log is idle.
+var _pollTimer=0,_pollDelay=3000;
+var POLL_BASE_MS=3000,POLL_MAX_MS=15000;
+function nextPollDelay(cur,grew){if(grew)return POLL_BASE_MS;var n=(cur||POLL_BASE_MS)*2;return n>POLL_MAX_MS?POLL_MAX_MS:n;}
 
 var typeColors={INFO:'#10b981',WARN:'#f59e0b',ERROR:'#ef4444',DEBUG:'#71717a',CRITICAL_EVENT:'#f97316',COMMAND_RESPONSE:'#60a5fa',TELNET_EVENT:'#a78bfa'};
 
@@ -461,25 +465,84 @@ function renderMsgs(){
 
   if(!filtered.length){document.getElementById('buf').innerHTML="<div class='empty-state'>No messages found</div>";return;}
 
-  var html=filtered.map(function(m){
-
-    var tc=gc(m.type);var txt=m.text;var tagHtml='';
-
-    var tag=extractTag(txt);
-
-    if(tag){var mc=modColor(tag);
-
-      tagHtml="<span class='mtag' style='color:"+mc+"' onclick='filterTag(\""+eh(tag)+"\")' title='Filter by ["+eh(tag)+"]'>["+eh(tag)+"]</span>";
-
-      txt=txt.substring(tag.length+2);}
-
-    return "<div class='msg "+wCls+"' style='border-left-color:"+tc+"'><span class='ts'>"+fmtTs(msgTs(m))+"</span><span class='lt' style='color:"+tc+"'>["+m.type+"]</span>"+tagHtml+"<span class='msg-txt'>"+hlText(eh(txt),term,isRx)+"</span></div>";
-
-  }).join('');
+  var html=filtered.map(function(m){return msgHtml(m,wCls,term,isRx,tLow);}).join('');
 
   document.getElementById('buf').innerHTML=html;
 
   if(document.getElementById('optScroll').checked){var b=document.getElementById('buf');b.scrollTop=b.scrollHeight;}
+
+}
+
+// One message row (shared by the full render and the incremental append).
+function msgHtml(m,wCls,term,isRx,tLow){
+
+  var tc=gc(m.type);var txt=m.text;var tagHtml='';
+
+  var tag=extractTag(txt);
+
+  if(tag){var mc=modColor(tag);
+
+    tagHtml="<span class='mtag' style='color:"+mc+"' onclick='filterTag(\""+eh(tag)+"\")' title='Filter by ["+eh(tag)+"]'>["+eh(tag)+"]</span>";
+
+    txt=txt.substring(tag.length+2);}
+
+  return "<div class='msg "+wCls+"' style='border-left-color:"+tc+"'><span class='ts'>"+fmtTs(msgTs(m))+"</span><span class='lt' style='color:"+tc+"'>["+m.type+"]</span>"+tagHtml+"<span class='msg-txt'>"+hlText(eh(txt),term,isRx)+"</span></div>";
+
+}
+
+function hasActiveFilter(){
+
+  return (document.getElementById('srch').value.length>0)||
+
+         (document.getElementById('ftype').value.length>0)||
+
+         (document.getElementById('ftag').value.length>0);
+
+}
+
+// MON-3: append only the new rows, in ONE DocumentFragment insertion, and drop
+// the rows the 500-message cap pushed out from the top.
+function appendNewRows(nNew,dropFromTop){
+
+  var buf=document.getElementById('buf');
+
+  if(!buf||nNew<=0)return;
+
+  var empty=buf.querySelector('.empty-state');
+
+  if(empty)buf.innerHTML='';
+
+  for(var d=0;d<dropFromTop&&buf.firstChild;d++)buf.removeChild(buf.firstChild);
+
+  var wrapFont=document.getElementById('optWrap').checked?'wr':'nw';
+
+  var term=document.getElementById('srch').value;
+
+  var isRx=document.getElementById('optRegex').checked;
+
+  var tLow=term.toLowerCase();
+
+  var frag=document.createDocumentFragment();
+
+  var start=allMsgs.length-nNew; if(start<0)start=0;
+
+  for(var i=start;i<allMsgs.length;i++){
+
+    var tmp=document.createElement('div');
+
+    tmp.innerHTML=msgHtml(allMsgs[i],wrapFont,term,isRx,tLow);
+
+    if(tmp.firstChild)frag.appendChild(tmp.firstChild);
+
+  }
+
+  buf.appendChild(frag);
+
+  document.getElementById('sMsgs').textContent=allMsgs.length;
+
+  document.getElementById('sTotal').textContent=allMsgs.length;
+
+  if(document.getElementById('optScroll').checked){buf.scrollTop=buf.scrollHeight;}
 
 }
 
@@ -493,6 +556,8 @@ function load(){
 
   var fl=_msgCount===0?500:200;
 
+  var prevTotal=_msgCount,prevLen=allMsgs.length;
+
   fetch('/api/serial-monitor?limit_msgs='+fl+'&since='+_msgCount+'&t='+Date.now(),{cache:'no-store'})
 
     .then(function(r){return r.ok?r.json():Promise.reject('HTTP '+r.status);})
@@ -501,7 +566,9 @@ function load(){
 
       var nw=d.messages||[];var tot=d.total||0;
 
-      if(tot<_msgCount){allMsgs=nw;knownTags={};}
+      var resetCase=(tot<prevTotal);
+
+      if(resetCase){allMsgs=nw;knownTags={};}
 
       else{allMsgs=allMsgs.concat(nw);if(allMsgs.length>500)allMsgs=allMsgs.slice(-500);}
 
@@ -515,7 +582,29 @@ function load(){
 
       document.getElementById('sStatus').style.color='#10b981';
 
-      _retry429=0;isLoading=false;renderMsgs();
+      _retry429=0;isLoading=false;
+
+      var grew=(tot>prevTotal);
+
+      if(resetCase||hasActiveFilter()){
+
+        // Buffer reset or a filter is active: a full render is the only correct path.
+
+        if(resetCase||nw.length)renderMsgs();
+
+      }else if(nw.length){
+
+        // MON-3: only the new rows hit the DOM, in one fragment insertion.
+
+        appendNewRows(nw.length,(prevLen+nw.length)-allMsgs.length);
+
+      }
+
+      // Idle log -> slower poll; new data -> back to the 3 s cadence.
+
+      _pollDelay=nextPollDelay(_pollDelay,grew);
+
+      schedulePoll(_pollDelay);
 
     }).catch(function(e){
 
@@ -527,13 +616,28 @@ function load(){
 
       document.getElementById('buf').innerHTML="<div class='empty-state'>\u26a0 Error: "+eh(String(e))+"</div>";
 
+      schedulePoll(_pollDelay);
+
     });
 
 }
 
-function forceLoad(){if(!isLoading)load();}
+// MON-3: one self-scheduled poll instead of a fixed 3 s interval.
+function stopPoll(){if(_pollTimer){clearTimeout(_pollTimer);_pollTimer=0;}}
 
-function toggleAR(){clearInterval(arInterval);if(!isPaused&&document.getElementById('optAuto').checked)arInterval=setInterval(load,3000);}
+function schedulePoll(ms){
+
+  stopPoll();
+
+  if(isPaused||!document.getElementById('optAuto').checked)return;
+
+  _pollTimer=setTimeout(function(){_pollTimer=0;load();},ms||POLL_BASE_MS);
+
+}
+
+function forceLoad(){_pollDelay=POLL_BASE_MS;if(!isLoading)load();}
+
+function toggleAR(){stopPoll();_pollDelay=POLL_BASE_MS;schedulePoll(_pollDelay);}
 
 function togglePause(){
 
@@ -547,9 +651,9 @@ function togglePause(){
 
   document.getElementById('sPaused').style.display=isPaused?'':'none';
 
-  if(isPaused){clearInterval(arInterval);}
+  if(isPaused){stopPoll();}
 
-  else{if(document.getElementById('optAuto').checked)arInterval=setInterval(load,3000);load();}
+  else{_pollDelay=POLL_BASE_MS;load();}
 
 }
 
@@ -563,7 +667,7 @@ function exportTxt(){var lines=allMsgs.map(function(m){return fmtTs(msgTs(m))+' 
 
 var _loadTimer=0,_retry429=0;function scheduleLoad(){if(_loadTimer)clearTimeout(_loadTimer);_loadTimer=setTimeout(function(){_loadTimer=0;if(!isLoading&&!isPaused)load();},1200);}function sendCmd(){var cmd=document.getElementById('cmd').value.trim();if(!cmd)return;var ctype=document.getElementById('ctype').value;var url=ctype==='rs232'?'/api/rs232-command':ctype==='modbus'?'/api/modbus-command':'/api/system-command';fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:cmd})}).then(function(r){return r.json().catch(function(){return {success:false,response:'HTTP '+r.status};});}).then(function(j){var resp=(j&&j.response)?j.response:((j&&j.success)?'Sent':'Failed');if(!(j&&j.streamed)){var ts=Math.floor((Date.now()-new Date().getTimezoneOffset()*60000)/1000);allMsgs.push({ts:ts,type:'COMMAND_RESPONSE',text:'\u279c '+cmd+' \u2192 '+resp});if(allMsgs.length>500)allMsgs=allMsgs.slice(-500);}document.getElementById('cmd').value='';_retry429=0;renderMsgs();scheduleLoad();}).catch(function(e){customAlert('Error: '+e);scheduleLoad();});}
 
-load();arInterval=setInterval(load,3000);
+load();
 
 </script></body></html>)HTML");
 

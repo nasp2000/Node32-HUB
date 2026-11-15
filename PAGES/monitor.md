@@ -145,10 +145,18 @@ by that module (`filterTag`).
   `isPaused`, `knownTags{}` (module counts).
 - **`load()`**: `GET /api/serial-monitor?limit_msgs=200&since=<count>&t=<now>` (first load
   `limit_msgs=500`). If server `total < _msgCount` (log cleared) → reset. Appends new msgs,
-  updates tag filter, heap/time/status bars, then `renderMsgs()`. 429 → retry up to 2×
-  (1.2 s backoff). Auto-poll every 3 s when `#optAuto` on and not paused.
-- **`renderMsgs()`**: applies type/module/search filters, builds HTML rows, shows filtered
-  vs total counts, highlights matches.
+  updates tag filter and heap/time/status bars. **MON-3:** an idle poll (`total` unchanged)
+  performs **no DOM work at all**; growth appends only the new rows through
+  `appendNewRows()` (one `DocumentFragment` insertion, and it removes exactly the rows the
+  500-message cap dropped). A reset or an active filter/search falls back to the full
+  render. 429 → retry up to 2× (1.2 s backoff).
+- **Adaptive poll (MON-3)**: `schedulePoll(nextPollDelay(_pollDelay, grew))` — 3 s while
+  `total` advances, doubling to a **15 s cap** while it stalls, snapping back to 3 s on
+  the first new message (also on Refresh/Resume). Pause and the Auto checkbox stop/restart
+  the chain; there is no fixed `setInterval` any more.
+- **`renderMsgs()` / `msgHtml()`**: applies type/module/search filters, builds the rows
+  (one row builder shared with the incremental append), shows filtered vs total counts,
+  highlights matches.
 - **`sendCmd()`**: `POST` `{command}` JSON to `/api/system-command`|`/api/rs232-command`|
   `/api/modbus-command`; appends a local `COMMAND_RESPONSE` line `➜ cmd → resp` unless
   `streamed`; re-schedules a load.
@@ -218,7 +226,7 @@ None of these pages write persistent config. They are read-only views of runtime
 |---|---|---|---|
 | 1 | `/monitor` i18n was done by `_rxT(key, pt, en)` with a **PT fallback selected by `_rxLangCode()`** (browser-language heuristic), bypassing `data-i18n`/`/api/lang` and able to show PT to EN browsers. **Fixed (MON-1):** the ad-hoc helpers are gone; the page uses `data-i18n`/`data-i18n-html`/`data-i18n-placeholder` + `/api/lang` like every other page, and the runtime status strings use `window._t` (new `data-i18n-placeholder` support in `auto.js`). Tests: `test_monitor_i18n.js` (EN and PT dictionaries applied to the real markup). | Medium | **fixed** |
 | 2 | `/monitor` opened/closed a session via `POST /api/monitor-open|close`; the counters only fed an `override` flag. **Investigated and removed (MON-2):** `monitorOpenClients` was never read, `autoEmailMonitorOverrideActive` was set to false on both open and close and its only reader (`manage_email_impl.h:170`) explicitly ignored it; no status payload exposed them and the page never read `override`. The module is deleted, the handlers answer `{status:"ok"}`, and the stale include in `ethernet.cpp` is gone. Tests: `test_monitor_session_dead_state` (3 cases / 17 assertions). | Low | **fixed** |
-| 3 | `/serial-monitor` message cap is 500 and auto-poll 3 s regardless of activity; a long-running high-volume log churns the whole list and re-renders 500 rows each poll. | Low | Batch render (document fragment) + adaptive interval when `buffer_seq` stalls. |
+| 3 | `/serial-monitor` re-rendered up to 500 rows every 3 s regardless of activity. **Fixed (MON-3):** an unchanged `total` (buffer_seq) performs no DOM work; growth appends only the new rows in one `DocumentFragment` and trims exactly the rows the 500 cap drops; the poll backs off 3 s → 6 s → 12 s → 15 s while the log is idle and resets to 3 s on new data (self-scheduled `setTimeout`, no fixed interval). Tests: `test_serial_monitor_render` (4 cases / 23 assertions) + `tests/web/test_serial_monitor_render.js` (7 cases: stall keeps the same nodes, backoff/cap/reset, 500-cap trim, filtered fallback). | Low | **fixed** |
 | 4 | `sendCmd`/`send()` rely on `r.json()` — the command endpoints can return non-JSON (e.g. 503 text) and the `.catch` then masks the real cause as a network error. | Low | Read as text and fall back on parse failure (monitor page already does). |
 | 5 | `#srch-x` and search rely on `document.getElementById('srch').value` at render time; the input has no `input` listener, so the list only re-filters on the next poll. | Low | Add `oninput` → `renderMsgs()`. |
 

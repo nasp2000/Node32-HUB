@@ -691,6 +691,10 @@ test_email_event_fields$(BIN_EXT): test_email_event_fields.cpp $(SRC_DIR)/email_
 # --- ftp_status_store: persisted last-sends state (FTP page, survives reboot) ---
 test_ftp_status_store$(BIN_EXT): test_ftp_status_store.cpp $(SRC_DIR)/ftp_status_store.h $(STUBS_DIR)/Arduino.h $(STUBS_DIR)/ArduinoJson.h
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_ftp_status_store.cpp
+# --- serial_monitor_render: incremental rows + adaptive poll (MON-3) ---
+test_serial_monitor_render$(BIN_EXT): test_serial_monitor_render.cpp
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -DSRC_DIR_PATH='"$(abspath $(SRC_DIR))"' -o $@ test_serial_monitor_render.cpp
+
 # --- monitor_session_dead_state: MON-2 removal contract ---
 test_monitor_session_dead_state$(BIN_EXT): test_monitor_session_dead_state.cpp
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -DSRC_DIR_PATH='"$(abspath $(SRC_DIR))"' -o $@ test_monitor_session_dead_state.cpp
