@@ -154,14 +154,12 @@ static void registerNetworkApiRoutes(AsyncWebServer& server, const WebRouteConte
         HttpResponse hresp;
         handleWifiDisablePost(hreq, hresp);
         request->send(hresp.code, hresp.contentType, hresp.body);
+        // ETH-1: same action as the Ethernet adapter, only deferred — the
+        // AsyncWebServer runs in async_tcp, so tearing the driver down inside the
+        // callback would kill the task that owns the socket.
         TimerHandle_t t = xTimerCreate("wifi_off", pdMS_TO_TICKS(400), pdFALSE, nullptr,
             [](TimerHandle_t th) {
-                stopMdns();
-                WiFi.disconnect(true);
-                WiFi.mode(WIFI_OFF);
-#if !defined(TARGET_BOARD_P4) || TARGET_BOARD_P4!=1
-                esp_wifi_stop();
-#endif
+                networkStopWifiRadio();
                 xTimerDelete(th, 0);
             });
         if (t) xTimerStart(t, 0);

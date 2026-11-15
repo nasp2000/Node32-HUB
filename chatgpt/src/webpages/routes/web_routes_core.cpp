@@ -381,7 +381,7 @@ void registerCoreRoutes(AsyncWebServer& server, const WebRouteContext& context) 
             return;
         }
 
-        response->addHeader("Content-Language", "pt");
+        response->addHeader("Content-Language", activeLangCode);
         response->addHeader("Cache-Control", "private, max-age=15, must-revalidate");
         response->addHeader("ETag", homeEtag);
         streamHomePageToPrint(*response,

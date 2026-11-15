@@ -497,14 +497,9 @@ static void ethernetHandleWifiDisablePost(EthernetClient& client) {
     HttpResponse hresp;
     handleWifiDisablePost(hreq, hresp);
     ethernetBootstrapSendResponse(client, httpStatusToString(hresp.code).c_str(), hresp.contentType.c_str(), hresp.body);
-    // Platform-specific: immediately stop WiFi driver (no timer needed outside async context)
-    if (WiFi.getMode() != WIFI_OFF) {
-        WiFi.disconnect(true);
-        WiFi.mode(WIFI_OFF);
-    }
-    #if !defined(TARGET_BOARD_P4) || TARGET_BOARD_P4!=1
-    esp_wifi_stop();
-    #endif
+    // ETH-1: same action as the WiFi adapter (shared, so mDNS/mode guard/stop
+    // cannot drift); inline is safe here — this is not the async_tcp task.
+    networkStopWifiRadio();
 }
 
 // POST /api/wifi-enable — clear the disable flag; reboot required to re-init WiFi driver

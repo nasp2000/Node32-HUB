@@ -217,7 +217,7 @@ void registerConfigRoutes(AsyncWebServer& server, const WebRouteContext& context
 
         response->addHeader("ETag", FIRMWARE_BUILD);
         response->addHeader("Cache-Control", "private, max-age=15, must-revalidate");
-        response->addHeader("Content-Language", "pt");
+        response->addHeader("Content-Language", activeLangCode);
         const size_t bytes = streamRs232PageToPrint(*response);
         request->send(response);
 #ifndef QUIET_HTTP_LOGS

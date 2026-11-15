@@ -10,6 +10,7 @@
 #include "../../direct_log.h"
 #include "../../network_access_point.h"
 #include "../../network_hybrid_manager.h"
+#include "../../network_mdns.h"
 #include "../../network_manual_switch.h"
 #include "../../network_runtime_state.h"
 #include "../../network_saved_profiles.h"
@@ -283,6 +284,21 @@ void handleWifiDisablePost(HttpRequest& req, HttpResponse& res) {
         return;
     }
     res.send(200, "application/json", "{\"success\":true,\"message\":\"WiFi desligado. Para reativar use 'Ligar WiFi' e reinicie o dispositivo.\"}");
+}
+
+// ETH-1: one radio-stop sequence for every transport, so the behaviour cannot
+// drift again (WiFi used to skip the mode guard, Ethernet used to skip mDNS).
+void networkStopWifiRadio() {
+#if ENABLE_WIFI==1
+    stopMdns();
+    if (WiFi.getMode() != WIFI_OFF) {
+        WiFi.disconnect(true);
+        WiFi.mode(WIFI_OFF);
+    }
+#if !defined(TARGET_BOARD_P4) || TARGET_BOARD_P4!=1
+    esp_wifi_stop();
+#endif
+#endif
 }
 
 // === Enable WiFi ===

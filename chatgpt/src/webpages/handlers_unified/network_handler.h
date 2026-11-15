@@ -18,6 +18,12 @@ void handleWifiForceApPost(HttpRequest& req, HttpResponse& res);
 void handleWifiDisableApPost(HttpRequest& req, HttpResponse& res);
 // Disable WiFi (persist flag)
 void handleWifiDisablePost(HttpRequest& req, HttpResponse& res);
+
+// ETH-1: the single "stop the WiFi radio" action shared by both transports
+// (the WiFi adapter runs it from a one-shot timer because it is inside the
+// async_tcp task; the Ethernet adapter runs it inline). Persisting the flag is
+// handleWifiDisablePost()'s job — this only touches the driver.
+void networkStopWifiRadio();
 // Enable WiFi (clear flag)
 void handleWifiEnablePost(HttpRequest& req, HttpResponse& res);
 // Clear AP lock

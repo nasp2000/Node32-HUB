@@ -259,6 +259,28 @@ void handleModbusConfigPost(HttpRequest& req, HttpResponse& res) {
         res.send(400, "application/json", "{\"success\":false,\"error\":\"Missing Modbus config fields\"}");
         return;
     }
+
+    // MODBUS-2: the runtime keeps at most MODBUS_MAX_DEVICES devices of
+    // MODBUS_MAX_REGISTERS registers and used to drop the extras silently, so a
+    // page could "save" a config that was never polled. Refuse it explicitly.
+    if (incoming.containsKey("devices") && incoming["devices"].is<JsonArray>()) {
+        JsonArray devs = incoming["devices"].as<JsonArray>();
+        if ((int)devs.size() > MODBUS_MAX_DEVICES) {
+            String err = String(F("{\"success\":false,\"error\":\"too many devices (max ")) +
+                         String(MODBUS_MAX_DEVICES) + F(")\"}");
+            res.send(400, "application/json", err);
+            return;
+        }
+        for (JsonObject d : devs) {
+            if (!d.containsKey("regs") || !d["regs"].is<JsonArray>()) continue;
+            if ((int)d["regs"].as<JsonArray>().size() > MODBUS_MAX_REGISTERS) {
+                String err = String(F("{\"success\":false,\"error\":\"too many registers on one device (max ")) +
+                             String(MODBUS_MAX_REGISTERS) + F(")\"}");
+                res.send(400, "application/json", err);
+                return;
+            }
+        }
+    }
     if (!configManager.getSection("modbus").is<JsonObject>()) {
         configManager.getSection("modbus").to<JsonObject>();
     }
