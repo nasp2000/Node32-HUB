@@ -189,11 +189,14 @@ void handleConfigGet(HttpRequest& req, HttpResponse& res) {
     if (section == "wifi") {
         outCapacity = measureJson(full["wifi"]) + 256;
     } else if (section == "email") {
-        outCapacity = measureJson(full["smtp"]) + measureJson(full["email"]) + 256;
+        // + google_email: the Google Script page reads its saved URL from this
+        // section (GS-1) — it was only exposed by the frozen /api/configs snapshot.
+        outCapacity = measureJson(full["smtp"]) + measureJson(full["email"]) + 512;
     } else if (section == "rs232") {
         outCapacity = measureJson(full["rs232"]) + measureJson(full["printer"]) + 256;
     } else if (section == "system") {
-        outCapacity = 1024;
+        // printer + e-mail + structures + the RS232 summary the pages read (LPT-1/STR-1)
+        outCapacity = 2560;
     } else if (section == "recipients") {
         outCapacity = measureJson(full["recipients"]) + measureJson(full["numeric_rules"]) + 256;
     } else if (section == "scheduler") {
@@ -204,7 +207,9 @@ void handleConfigGet(HttpRequest& req, HttpResponse& res) {
 
     SpiRamJsonDocument doc(outCapacity);
     if (section == "wifi")         doc["wifi"] = full["wifi"];
-    if (section == "email")        { doc["smtp"] = full["smtp"]; doc["email"] = full["email"]; }
+    if (section == "email")        { doc["smtp"] = full["smtp"]; doc["email"] = full["email"];
+                                     JsonObject gs = doc.createNestedObject("google_email");
+                                     gs["google_script_url"] = configManager.getGoogleScriptUrl(); }
     if (section == "rs232") {
         doc["rs232"] = full["rs232"];
         doc["printer"] = full["printer"];
@@ -246,7 +251,37 @@ void handleConfigGet(HttpRequest& req, HttpResponse& res) {
                                      doc["mdns_enabled"] = configManager.getMdnsEnabled();
                                      JsonObject ntpOut = doc.createNestedObject("ntp");
                                      ntpOut["timezone"] = configManager.getNtpTimezone();
-                                     ntpOut["server"] = configManager.getNtpServer(); }
+                                     ntpOut["server"] = configManager.getNtpServer();
+                                     // LPT-1 / STR-1: the pages that use this section read the
+                                     // printer, e-mail and AMADA structure settings from it. They
+                                     // were never in the payload, so both pages always rendered
+                                     // their defaults (the POST side already accepts and stores
+                                     // every one of these keys).
+                                     doc["printer_emulation_mode"] = configManager.getPrinterEmulationMode();
+                                     doc["charset_mode"] = configManager.getPrinterCharsetMode();
+                                     doc["autoEmailEnabledTimeout"] = configManager.getTimeoutAutoEmailEnabled();
+                                     doc["autoEmailDisabledTimeout"] = configManager.getTimeoutAutoEmailDisabled();
+                                     JsonObject sysEmail = doc.createNestedObject("email");
+                                     sysEmail["auto_send"] = configManager.getEmailAutoSend();
+                                     sysEmail["max_lines"] = configManager.getEmailMaxLines();
+                                     sysEmail["min_content_length"] = configManager.getEmailMinContentLength();
+                                     JsonObject sysStructures = doc.createNestedObject("structures");
+                                     sysStructures["auto_detect"] = configManager.getStructuresAutoDetectEnabled();
+                                     JsonObject sysMtf1 = sysStructures.createNestedObject("amada_isq20_mtf1");
+                                     sysMtf1["enabled"] = configManager.getAmadaISQ20MTF1Enabled();
+                                     JsonObject sysAwse = sysStructures.createNestedObject("amada_isq20_awse");
+                                     sysAwse["enabled"] = configManager.getAmadaISQ20AWSEEnabled();
+                                     sysStructures["amada_filter_headers"] = configManager.getAmadaFilterHeaders();
+                                     sysStructures["amada_header_every"] = configManager.getAmadaHeaderEvery();
+                                     // The structures page also shows the live RS232 summary from
+                                     // `saved_configs` (same shape `/api/configs` exposes).
+                                     JsonObject sysSaved = doc.createNestedObject("saved_configs");
+                                     sysSaved["structures"] = sysStructures;
+                                     sysSaved["rs232_baudrate_index"] = configManager.getRs232BaudrateIndex();
+                                     sysSaved["rs232_data_bits"] = configManager.getRs232DataBits();
+                                     sysSaved["rs232_parity"] = configManager.getRs232Parity();
+                                     sysSaved["rs232_stop_bits"] = configManager.getRs232StopBits();
+                                     sysSaved["rs232_enabled"] = configManager.getRs232Enabled(); }
     if (section == "recipients")   { doc["recipients"] = full["recipients"]; doc["numeric_rules"] = full["numeric_rules"]; }
     if (section == "scheduler")    { doc["sched_cmd"] = full["sched_cmd"]; doc["sched_dt"] = full["sched_dt"]; }
     if (section == "ethernet")        { doc["ethernet"] = full["ethernet"]; }
