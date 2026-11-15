@@ -60,7 +60,7 @@ shell → window.PACK_NAME → MOBILE_COMMON_CSS → <pack>_HEAD → MOBILE_SYST
 | Image | Screen |
 |---|---|
 | `gcodesender_send.png` | **Send**: SD card list (folders, `↻`) + Phone tab (SD card or PSRAM 4 MB) |
-| `gcodesender_preview_frame.png` | **Preview + FRAME**: 2D toolpath, point count, `X[..] Y[..] W x H` and the FRAME button |
+| `gcodesender_preview_frame.png` | **Preview + FRAME**: 2D toolpath (cuts blue, rapids dashed amber, 10% grid, origin cross), point count, `X[..] Y[..] W x H`, **pinch to zoom / drag to pan / double-tap to fit** and the FRAME button |
 | `gcodesender_play.png` | **Play**: START/PAUSE/RESUME/STOP, progress, %, ETA, feed/spindle overrides (also *paused* and *alarm* states) |
 | `gcodesender_jog.png` | **Jog**: X/Y cross with a **0,0** centre, 0.1/1/10/50 steps, Z, HOME/UNLOCK/RESET, ZERO X/Y/Z, MDI |
 

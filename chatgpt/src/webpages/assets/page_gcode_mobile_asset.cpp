@@ -300,7 +300,7 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
 
   <!-- ── Step 2: preview ──────────────────────────────────────────── -->
   <section class="screen" id="gmS2">
-    <canvas id="gmCanvas"></canvas>
+    <canvas id="gmCanvas" data-noswipe="1"></canvas>
     <div class="rowhdr">
       <span class="dir" id="gmPrevInfo">--</span>
       <button type="button" class="mini" id="gmPrevLoad" data-i18n-title="gmPreviewLoad" title="Load the preview">&#8635;</button>
@@ -493,6 +493,7 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
     job: null,                   // { src:'sd'|'psram', name, bytes, path }
     bbox: null, measuring: false, measureFor: '',
     points: null, pointsFor: '', previewLoading: false, previewPartial: false, previewPoints: 0,
+    view: { scale: 1, ox: 0, oy: 0 },
     busy: false, running: false, paused: false, axisCount: 0, mpos: null,
     alarm: false, alarmMsg: '', thisPct: 0, etaSec: 0,
     ovFeed: 100, ovSpin: 100, dest: 'sd', usbRunning: false,
@@ -795,9 +796,10 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
     cv.style.aspectRatio = String(ratio);
     var spanY = Math.max(0.001, b.maxY - b.minY);
     var pad = 10;
-    var scale = Math.min((cw - pad * 2) / spanX, (ch - pad * 2) / spanY);
-    var offX = (cw - spanX * scale) / 2;
-    var offY = (ch - spanY * scale) / 2;
+    var fit = Math.min((cw - pad * 2) / spanX, (ch - pad * 2) / spanY);
+    var scale = fit * st.view.scale;
+    var offX = (cw - spanX * fit) / 2 + st.view.ox;
+    var offY = (ch - spanY * fit) / 2 + st.view.oy;
     function px(x) { return offX + (x - b.minX) * scale; }
     function py(y) { return ch - offY - (y - b.minY) * scale; }   // Y up
 
@@ -843,6 +845,12 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
     ctx.moveTo(px(0) - 5, py(0)); ctx.lineTo(px(0) + 5, py(0));
     ctx.moveTo(px(0), py(0) - 5); ctx.lineTo(px(0), py(0) + 5);
     ctx.stroke();
+  }
+
+  function resetView() {
+    st.view = { scale: 1, ox: 0, oy: 0 };
+    drawPreview();
+    setMsg(t('gmPreviewFit', 'Fit to the job.'), '');
   }
 
   function previewInfoText() {

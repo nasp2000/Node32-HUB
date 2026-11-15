@@ -317,6 +317,8 @@ window.MU = (function () {
       if (e.touches && e.touches.length > 1) { t.active = false; return; }
       var p = pt(e);
       if (!p) { t.active = false; return; }
+      // a canvas that handles its own pinch/pan opts out of page navigation
+      if (e.target && e.target.closest && e.target.closest('[data-noswipe]')) { t.active = false; return; }
       t.active = true; t.x = p.clientX; t.y = p.clientY;
     }, { passive: true });
     root.addEventListener('touchmove', function (e) {
