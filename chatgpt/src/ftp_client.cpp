@@ -12,7 +12,6 @@
 #include "psram_vfs.h"
 #include "psram_helpers.h"
 #include "littlefs_manager.h"
-#include "email_flash_rpc.h"   // flash ops must never run on a PSRAM stack (OEE-69b)
 #include <WiFiClient.h>
 #if ENABLE_SDCARD==1
 #include <SD_MMC.h>
@@ -339,36 +338,14 @@ void ftpClientInit();
 #define FTP_MONITOR_STACK_BYTES 16384
 #endif
 static void ftpMonitorTask(void* p);
-// 2026-11-15: the MONITOR stack moved to PSRAM (+16 KB internal heap at rest).
-// The 2026-10-06 crash-loop (OEE-69b) was not the stack's location but the
-// flash ops the task ran: LittleFS disables the cache and asserts
-// esp_task_stack_is_sane_cache_disabled() on a PSRAM stack pointer. The cycle
-// (sent journal, ftp_status.json, LFS scan/stream) therefore runs on a
-// short-lived INTERNAL-stack task (ftpRunCycleFlashSafe), and this task only
-// does timers, RAM config reads and RTC bookkeeping — no flash at all.
-// Depth is in BYTES (ESP-IDF, not vanilla FreeRTOS).
+// REVERTED 2026-10-06 (OEE-69b): ftpMon stack back to heap (xTaskCreate).
+// The PSRAM-stack experiment caused production crash-loops (see HISTORIC
+// OEE-69). Heap-snapshot later proved TRUE peak use ~29KB (HWM), so the
+// tuned 32KB was unsafe too: keep the historic 64KB headroom.
+// NOTE: depth param is in WORDS (16384 words = 64KB).
 void ftpClientInit() {
     if (!s_mutex) s_mutex = xSemaphoreCreateMutex();
-    if (!s_monitorTask) {
-        static StaticTask_t s_monitorTCB;
-        static StackType_t* s_monitorStack = nullptr;
-        s_monitorStack = (StackType_t*)heap_caps_malloc(FTP_MONITOR_STACK_BYTES, MALLOC_CAP_SPIRAM);
-        if (!s_monitorStack) {
-            // PSRAM tight: fall back to internal RAM (still correct — the cycle
-            // host decides by CALLING stack, so internal just runs it direct).
-            s_monitorStack = (StackType_t*)heap_caps_malloc(FTP_MONITOR_STACK_BYTES,
-                                                           MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-            sendVirtualMessage(F("FTP: monitor stack fell back to internal RAM (PSRAM tight)"), WARN);
-        }
-        if (s_monitorStack) {
-            s_monitorTask = xTaskCreateStaticPinnedToCore(
-                ftpMonitorTask, "ftpMon", FTP_MONITOR_STACK_BYTES,
-                nullptr, 1, s_monitorStack, &s_monitorTCB, tskNO_AFFINITY);
-        }
-        if (!s_monitorTask) {   // last resort: old behaviour
-            xTaskCreate(ftpMonitorTask, "ftpMon", FTP_MONITOR_STACK_BYTES, nullptr, 1, &s_monitorTask);
-        }
-    }
+    if (!s_monitorTask) xTaskCreate(ftpMonitorTask, "ftpMon", FTP_MONITOR_STACK_BYTES, nullptr, 1, &s_monitorTask);
     // First automatic cycle waits a full interval after boot: the first few
     // minutes of uptime are a risky window for SD/PSRAM (FatFS cache in PSRAM +
     // SDMMC DMA can corrupt heap — see sd_status_impl.h). With interval=60min
@@ -1179,52 +1156,6 @@ static int ftpRunCycle(String& detail) {
 
 int ftpUploadNow(String& detail) { return ftpRunCycle(detail); }
 
-// ── Cycle host: runs the FTP cycle on an internal stack (2026-11-15) ────────
-// The monitor task's stack is in PSRAM, so the cycle (which writes the sent
-// journal and ftp_status.json and may stream from LittleFS) must not run on it.
-// One short-lived internal-stack task per cycle; deleted when the cycle ends.
-static volatile bool s_cycleHostDone = true;
-static String s_cycleHostDetail;
-static uint32_t s_cycleHostStackFree = 0;
-
-static void ftpCycleHostTask(void* p) {
-    (void)p;
-    String d;
-    ftpRunCycle(d);                                        // all flash work lives here
-    s_cycleHostStackFree = (uint32_t)uxTaskGetStackHighWaterMark(NULL);
-    s_cycleHostDetail = d;
-    s_cycleHostDone = true;                                // publish last
-    vTaskDelete(nullptr);
-}
-
-// Returns the cycle detail. Direct call when the caller's stack is already
-// internal (e.g. /api/ftp-upload-now on the web task, or the internal fallback
-// above), which is exactly the pre-2026-11-15 behaviour.
-static String ftpRunCycleFlashSafe() {
-    if (!emailFlashCallerNeedsRpc()) {
-        String d;
-        ftpRunCycle(d);
-        return d;
-    }
-    s_cycleHostDone = false;
-    s_cycleHostDetail = "";
-    s_cycleHostStackFree = 0;
-    if (xTaskCreate(ftpCycleHostTask, "ftpCycle", FTP_MONITOR_STACK_BYTES,
-                    nullptr, 1, nullptr) != pdPASS) {
-        sendVirtualMessage(F("FTP: cycle host failed to start, running inline"), WARN);
-        String d;
-        ftpRunCycle(d);                                    // PSRAM stack: last resort
-        return d;
-    }
-    // The cycle has its own socket timeouts; wait generously, never forever.
-    const uint32_t kWaitMaxMs = 15UL * 60UL * 1000UL;
-    for (uint32_t waited = 0; !s_cycleHostDone && waited < kWaitMaxMs; waited += 250) {
-        vTaskDelay(pdMS_TO_TICKS(250));
-    }
-    if (!s_cycleHostDone) return String("cycle host timeout");
-    return s_cycleHostDetail;
-}
-
 void ftpMonitorTick() {
     if (!configManager.getFtpEnabled() || !configManager.getFtpAutoUpload()) return;
     // No network yet (early boot, WiFi reconnecting): skip without touching
@@ -1242,16 +1173,14 @@ void ftpMonitorTick() {
             !ftpCycleDueEpoch(s_ftpRtc.lastCyEpoch, nowEpoch, (uint32_t)iv * 60u) ||
             millis() < 120000UL) return;
     }
-    String d = ftpRunCycleFlashSafe();
+    String d;
+    ftpRunCycle(d);
     // Record the cycle's peak stack use here (after the deepest call): reads
     // into the monitor + /api/ftp-status so a regression back toward overflow
     // is visible before it turns into another ftpMon crash. Skipped early-outs
     // (disabled/incomplete, busy) do not count as cycles and are not logged.
     if (!d.startsWith("cycle done")) return;
-    // Free stack of the CYCLE HOST (internal, where the real work runs); when
-    // the cycle ran inline this task's own mark is the one that matters.
-    uint32_t freeB = s_cycleHostStackFree ? s_cycleHostStackFree
-                                          : (uint32_t)uxTaskGetStackHighWaterMark(NULL);
+    uint32_t freeB = (uint32_t)uxTaskGetStackHighWaterMark(NULL);
     ftpLock();
     s_status.monitorStackFree = (uint16_t)(freeB > 0xFFFF ? 0xFFFF : freeB);
     ftpUnlock();
