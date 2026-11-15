@@ -2,6 +2,9 @@
 #include <Arduino.h>
 #include "../../languages/lang_active.h"
 #include <WiFi.h>
+#if !defined(TARGET_BOARD_P4) || TARGET_BOARD_P4!=1
+#include <esp_wifi.h>   // esp_wifi_stop() — the WiFi teardown shared by both transports
+#endif
 #include <algorithm>
 #include <cctype>
 #include <vector>
