@@ -3257,6 +3257,7 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "cmVisResetOk": "Contadores de visão limpos.",
   "gmPreviewLoaded": "Pré-visualização carregada: {name}",
   "gmPreviewFit": "Ajustado ao trabalho.",
+  "gmErrToken": "Sessão de controlo expirada — recarregue a página.",
   "gmSysFree": "livres",
   "gmOtaCurrent": "Firmware actual: {v}",
   "gmActJogZero": "A ir para X0 Y0…",

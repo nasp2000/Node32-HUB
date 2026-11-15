@@ -460,6 +460,70 @@ async function run() {
          body.indexOf(SD_ROOT + '/Cachola.gc') >= 0, 'path sent: ' + body);
     });
 
+    await test('a write token older than the lease is renewed BEFORE the start', async function () {
+      var tokenHits = 0, streamHits = 0;
+      win.__MOCK_API__['/api/grbl/control-token'] = function () {
+        tokenHits++;
+        return { success: true, token: 'tok-' + tokenHits, can_write: true };
+      };
+      win.__MOCK_API__['/api/grbl/stream'] = function () {
+        streamHits++;
+        return { success: true, message: 'ok' };
+      };
+      win.__MOCK_API__['/api/grbl/status'] = { success: true, usb_running: true, machine_state: 'Run',
+        workflow_state: 'running', axis_count: 3, mpos_valid: true };
+      g.gmState.job = { src: 'sd', name: 'Cachola.gc', bytes: 517814, path: SD_ROOT + '/Cachola.gc' };
+      g.gmState.canWrite = true;
+      g.gmState.token = 'tok-old';
+      g.gmState.tokenAt = Date.now() - 11 * 60 * 1000;   // beyond TOKEN_REFRESH_MS
+      win.__postBodies = [];
+      g.gmStart();
+      await wait(dom, 400);
+      is(streamHits, 1, 'exactly one POST (no rejected attempt)');
+      ok(tokenHits >= 1, 'the token was fetched before the write');
+      var post = win.__postBodies.filter(function (b) { return b.url.indexOf('/api/grbl/stream') >= 0; })[0];
+      ok(post.body.indexOf('token=tok-' + tokenHits) >= 0, 'fresh token carried: ' + post.body);
+      ok(g.gmState.running, 'job running');
+    });
+
+    await test('a rejected start (auth_token_invalid) renews the token and retries once', async function () {
+      // Reproduces T23: the second START after a finished job used to answer
+      // auth_token_invalid and nothing moved until the page was reloaded.
+      var tokenHits = 0, streamHits = 0;
+      win.__MOCK_API__['/api/grbl/control-token'] = function () {
+        tokenHits++;
+        return { success: true, token: 'tok-' + tokenHits, can_write: true };
+      };
+      win.__MOCK_API__['/api/grbl/stream'] = function () {
+        streamHits++;
+        if (streamHits === 1) return { success: false, message: 'auth_token_invalid' };
+        return { success: true, message: 'ok' };
+      };
+      win.__MOCK_API__['/api/grbl/status'] = { success: true, usb_running: true, machine_state: 'Run',
+        workflow_state: 'running', axis_count: 3, mpos_valid: true };
+      g.gmState.job = { src: 'sd', name: 'Cachola.gc', bytes: 517814, path: SD_ROOT + '/Cachola.gc' };
+      g.gmState.canWrite = true;
+      g.gmState.running = false;
+      g.gmState.token = 'tok-expired';
+      g.gmState.tokenAt = Date.now();   // page thinks it is fresh: only the lease is dead
+      win.__postBodies = [];
+      g.gmStart();
+      await wait(dom, 500);
+      var posts = win.__postBodies.filter(function (b) { return b.url.indexOf('/api/grbl/stream') >= 0; });
+      is(streamHits, 2, 'start posted twice: rejected attempt + retry');
+      is(posts.length, 2, 'two stream POSTs');
+      is(tokenHits, 1, 'token renewed once after the rejection');
+      ok(decodeURIComponent(posts[0].body).indexOf(SD_ROOT + '/Cachola.gc') >= 0, 'same file on the first try');
+      ok(decodeURIComponent(posts[1].body).indexOf(SD_ROOT + '/Cachola.gc') >= 0, 'same file on the retry');
+      ok(posts[1].body.indexOf('token=tok-' + tokenHits) >= 0, 'retry carried the new token');
+      ok(g.gmState.running, 'the second start actually runs - no page reload needed');
+      ok(doc.getElementById('gmMsg').textContent.indexOf('started') >= 0,
+         'started message: ' + doc.getElementById('gmMsg').textContent);
+      // back to an idle machine for the following tests
+      win.__MOCK_API__['/api/grbl/status'] = { success: true, usb_running: true, state: 'IDLE',
+        workflow_state: 'idle', axis_count: 3, mpos_valid: true };
+    });
+
     await test('pause and resume are enabled by the machine state', async function () {
       g.gmState.running = true; g.gmState.paused = false;
       g.gmSetStep(3);

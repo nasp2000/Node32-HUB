@@ -117,6 +117,14 @@ The SD list and the Log scroll **inside** their box; everything else is fixed.
 
 - `sid` per tab in `sessionStorage`; control token from `/api/grbl/control-token`
   (`can_write:false` disables every action and explains why).
+- **Write token lease** — the controller keeps a token for 15 min
+  (`grbl_web_api.cpp` `kTokenLeaseMs`, renewed only by
+  `validateSessionToken()` on a **write**), so a long job leaves a token that is
+  already dead when the operator presses START again. The page refreshes it
+  every 10 min (`TOKEN_REFRESH_MS`) before writing, and if a write still answers
+  `auth_token_invalid` it renews once and **retries the same POST**, so the
+  second START works without reloading the page. Any other failure keeps the
+  server's code (`gmErrToken` explains a persisted expiry).
 - **Job model** — `{src:'sd'|'psram', name, bytes, path}`; an SD job is never
   copied to PSRAM: Play posts `/api/grbl/stream` with `path`.
 - **Bounds** — phone file: parsed while reading the text; SD file:
@@ -204,7 +212,8 @@ Environment, Node32-OEE, etc.
 | 6 | Frame plays at a fixed 5 % / F1200; jog feeds fixed (1000 XY / 300 Z) | by design |
 | 7 | SD upload buffers the file in PSRAM on the controller (48 MB cap); the phone guards at 48 MB | by design |
 | 8 | Frame was merged into Preview (a button), so the wizard is 5 screens | fixed |
-| 9 | OTA/restart confirmed with a dialog; HOME/ZERO/RESET/0,0 with two taps; all buttons need 180 ms | fixed |
+| 9 | OTA/restart confirmed with a dialog; HOME/ZERO/RESET/0,0 with two taps; taps are never swallowed (only a drag > 14 px cancels) | fixed |
+| 10 | A job longer than the 15 min token lease left the page with a dead token: the next START (or PAUSE/STOP/jog) answered `auth_token_invalid` until a reload — the "second start does nothing" report | fixed (10 min refresh + one retry) |
 
 ---
 

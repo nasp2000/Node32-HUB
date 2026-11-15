@@ -485,7 +485,7 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
   };
 
   var st = {
-    sid: '', token: '', canWrite: true,
+    sid: '', token: '', tokenAt: 0, canWrite: true,
     step: 1, tab: 'sd',
     phoneFile: null,             // File chosen from the phone
     sdRoot: '', sdDir: '', sdFiles: [], sdPath: '', sdLoading: false, sdError: 0,
@@ -578,6 +578,7 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
     preview_failed: ['gmPreviewFail', 'Could not load the preview.'],
     send_failed: ['gmErrSend', 'The controller refused the command.'],
     no_z_axis: ['gmErrNoZAxis', 'This machine has no Z axis.'],
+    auth_token_invalid: ['gmErrToken', 'Control session expired — reload the page.'],
     // start pre-flight (server side)
     preflight_usb_not_running: ['gmErrUsbOff', 'USB host is not running. Tap the ⚡ button to restart it.'],
     preflight_slot_not_connected: ['gmErrNoMachine', 'No machine on the selected USB slot.'],
@@ -646,7 +647,28 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
     });
   }
 
-  function post(url, payload) {
+  // The write token lives 15 minutes on the controller and only a WRITE renews
+  // it (grbl_web_api.cpp kTokenLeaseMs + validateSessionToken). A job longer
+  // than that used to leave the page holding a dead token, so the next START
+  // (or PAUSE/STOP/jog) answered auth_token_invalid and nothing moved until the
+  // page was reloaded. Keep it fresh and retry once, like the PC page does.
+  var TOKEN_REFRESH_MS = 10 * 60 * 1000;
+
+  function fetchControlToken() {
+    return apiGet('/api/grbl/control-token?sid=' + encodeURIComponent(sessionId()))
+      .then(function (res) {
+        var d = res.body || {};
+        if (d && d.success === true) {
+          st.token = String(d.token || '');
+          st.tokenAt = Date.now();
+          st.canWrite = (d.can_write !== false);
+          return true;
+        }
+        return false;
+      }).catch(function () { return false; });
+  }
+
+  function formBody(payload) {
     var body = payload || {};
     body.sid = sessionId();
     if (st.token) body.token = st.token;
@@ -656,13 +678,31 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
         enc.push(encodeURIComponent(k) + '=' + encodeURIComponent(body[k]));
       }
     }
+    return enc.join('&');
+  }
+
+  function postOnce(url, payload) {
     return fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-      body: enc.join('&')
+      body: formBody(payload)
     }).then(function (r) {
       return r.json().then(function (d) { return { status: r.status, body: d || {} }; },
                          function () { return { status: r.status, body: {} }; });
+    });
+  }
+
+  function post(url, payload) {
+    var stale = (Date.now() - st.tokenAt) > TOKEN_REFRESH_MS;
+    var ready = stale ? fetchControlToken() : Promise.resolve(true);
+    return ready.then(function () { return postOnce(url, payload); }).then(function (res) {
+      var msg = res.body && res.body.message ? String(res.body.message) : '';
+      if (msg !== 'auth_token_invalid') return res;
+      // expired while idle: renew and retry the same request once
+      return fetchControlToken().then(function (ok) {
+        if (!ok) return res;
+        return postOnce(url, payload);
+      });
     });
   }
 
@@ -1899,15 +1939,10 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
     defaultMsg(st.step);
     setTab('sd');
 
-    apiGet('/api/grbl/control-token?sid=' + encodeURIComponent(st.sid)).then(function (res) {
-      var d = res.body || {};
-      if (d && d.success === true) {
-        st.token = String(d.token || '');
-        st.canWrite = (d.can_write !== false);
-        if (!st.canWrite) setMsg(errorText('no_control'), 'err');
-      }
+    fetchControlToken().then(function () {
+      if (!st.canWrite) setMsg(errorText('no_control'), 'err');
       render();
-    }).catch(function () { render(); });
+    });
 
     // A job already on the controller (survives a reload) keeps steps 3/4 usable.
     apiGet('/api/grbl/psram-file').then(function (res) {
