@@ -40,3 +40,8 @@ bool diagTracePreviousValid();
 // boot after the log storage is ready; it clears the ring so the next crash
 // records its own steps.
 void diagTraceDumpToLog();
+
+// Previous run's steps as one string ("" when there was nothing), served by
+// /api/status as `diag_trace_prev` so a crash can be read over HTTP even if the
+// SD log is unreachable.
+const char* diagTracePreviousText();

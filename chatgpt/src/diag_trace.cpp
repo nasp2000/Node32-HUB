@@ -14,7 +14,13 @@
 namespace {
 constexpr uint32_t kDiagTraceMagic = 0x44545231;   // "DTR1"
 RTC_DATA_ATTR DiagTraceRing gDiagTrace;             // zero-filled on cold boot only
+char s_prevText[900];                               // previous run, for /api/status
+bool s_prevValid = false;
 }  // namespace
+
+const char* diagTracePreviousText() {
+    return s_prevValid ? s_prevText : "";
+}
 
 void diagTraceMark(const char* tag) {
     if (!tag || !tag[0]) return;
@@ -44,6 +50,8 @@ void diagTraceDumpToLog() {
         r.magic = kDiagTraceMagic;      // fresh ring for this run
         r.head = 0;
         r.count = 0;
+        s_prevValid = false;
+        s_prevText[0] = '\0';
         return;
     }
     // Oldest → newest, all in ONE log event: logSystemEvent() throttles per
@@ -58,11 +66,13 @@ void diagTraceDumpToLog() {
     }
     if (used < 0) used = 0;
     line[sizeof(line) - 1] = '\0';
+    snprintf(s_prevText, sizeof(s_prevText), "%s", line);
+    s_prevValid = true;
     Serial.println(line);
     // CRASH_DETAIL type (its own 60 s bucket, not shared with PANIC_REPORT).
     logSystemEvent(String(F("CRASH_DETAIL")), String(line), true, /*bypassThrottle=*/true);
     // Start clean for this run so the next crash records only its own steps.
     r.head = 0;
     r.count = 0;
-    r.magic = kDiagTraceMagic;
+    r.magic = kDiagTraceMagic;    // note: s_prevText keeps the copy served by /api/status
 }

@@ -1,5 +1,6 @@
 #pragma once
-#include "heap_trace.h"   // measured boot checkpoints (heap_trace.cpp)
+#include "heap_trace.h"
+#include "diag_trace.h"   // measured boot checkpoints (heap_trace.cpp)
 #include "sched_dt_limits.h" // SCHED_DT_SLOT_MAX (CMD-2)
 
 #include <ArduinoJson.h>
@@ -136,6 +137,7 @@ inline void fillSystemStatusJson(JsonDocument& out, SystemStatusPayloadState& st
     out["max_alloc_heap"] = ESP.getMaxAllocHeap();
     out["min_free_heap"] = ESP.getMinFreeHeap();
     out["memory_pressure_level"] = memoryPressureLevelName(memoryPressureCurrentLevel());
+    out["diag_trace_prev"] = diagTracePreviousText();   // RTC breadcrumbs of the previous run
     out["memory_pressure_code"] = (int)memoryPressureCurrentLevel();
     out["memory_pressure_retry_ms"] = (uint32_t)memoryPressureSuggestedRetryMs();
     out["memory_pressure_since_ms"] = (uint32_t)gMemoryPressureState.levelSinceMs;
