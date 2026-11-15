@@ -132,6 +132,8 @@ struct LangStrings {
     const char* apiEmailTestNoConfig;
     const char* apiEmailTestStarted;
     const char* apiEmailTestStartFail;
+    const char* apiEmailTestWait;          // {n} = seconds remaining
+    const char* apiEmailTestTransportOff;
     const char* apiNetNoChange;
     const char* apiNetTelnetSaved;
     const char* apiErrPsramUnsupported;

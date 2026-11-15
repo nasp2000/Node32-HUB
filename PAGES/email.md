@@ -102,7 +102,7 @@ Inline `<script>` (auto.js supplies `customAlert`, `showLoading`, etc.; `_t()` f
 | `/api/email-test` | POST | `email_handler.cpp:20` (`handleEmailTestPost`) | state machine: 409 while `receiving_data`; **429 throttle 10 s** with remaining seconds; 400 `config_incomplete` (+ reason via `emailTransportUnavailableReason()`); else starts async test → 200; compile-disabled build → 503 |
 | `/api/email-reset` | POST | `email_handler.cpp` (`handleEmailResetPost`, SMTP builds only) | manual release of a stuck EMAILDAY send → 200 (reports whether anything was stuck) |
 
-All `/api/email-test` JSON `message` strings are **hardcoded Portuguese** (see findings).
+All `/api/email-test` JSON `message` strings come from `LangStrings` (`apiEmailTest*`) and follow `system_language` (EMAIL-2 fixed).
 
 ### Test flow (server side)
 
@@ -171,9 +171,9 @@ All `data-i18n` keys verified present in both `lang_en_ui.h` and `lang_pt_ui.h`.
 
 | # | Finding | Pri | Suggestion |
 |---|---|---|---|
-| 1 | Entire HTML fallback body is **Portuguese** (entities like `In&iacute;cio`, `Servidor SMTP`, `Guardar`, …) — violates the EN-fallback rule for raw PROGMEM text. | Medium | Replace fallbacks with English equivalents (runtime `_t()` already localizes). |
-| 2 | `/api/email-test` responses hardcoded PT server-side (`⚠️ Teste bloqueado…`, `⏱️ Aguarde N segundos…`, `❌ Configuração incompleta`, `⚡ Teste iniciado…`, 503 `Transporte desativado em compilação`). | Medium | Route through `L()` translation keys like other handlers. |
-| 3 | Inline JS fallbacks PT too: `et('emailTestStarted','Teste iniciado com sucesso!')`, `'✅ Configuração guardada!'`, `'❌ Erro: '`. | Low | English fallbacks. |
+| 1 | Entire HTML fallback body was **Portuguese** (`Servidor SMTP`, `Porta`, `Senha`, `Email Destino`, `TLS Inseguro`, `Teste de Email`, `Password do email`, …) — violated the EN-fallback rule for raw PROGMEM text. **Fixed:** all fallbacks are English now (`SMTP Server`, `Port`, `Password`, `Destination e-mail`, `Insecure TLS`, `E-mail test`, …); the runtime `_t()`/`data-i18n` layer still localizes them. Fixture `tests/web/pages/email.html` in sync. | Medium | **fixed** |
+| 2 | `/api/email-test` hardcoded PT server-side (`⏱️ Aguarde N segundos…`, 503 `Transporte desativado…`). **Fixed:** both go through `LangStrings` (`apiEmailTestWait` with a `{n}` placeholder, `apiEmailTestTransportOff`), like the other messages in that handler. | Medium | **fixed** |
+| 3 | Inline JS fallbacks PT too (`Teste iniciado com sucesso!`). **Fixed:** English fallbacks throughout the page (`Test started successfully!`, `✅ Configuration saved!`, `❌ Error: `). | Low | **fixed** |
 | 4 | `smtp_tls_insecure` defaults to **checked** (insecure allowed) when unset. | Info | Document; consider default-off with explicit opt-in hint. |
 | 5 | Port field: no min/max client-side; server accepts any int (`v.toInt()`) — `0`/`99999` stored silently and mail just fails later. | Low | Clamp 1–65535 both sides. |
 | 6 | `email_destination` tooltip says *"Sender email address"* but the field is the default **recipient**/destination — label/key naming mismatch (`emailTipSender`). | Low | Fix wording. |

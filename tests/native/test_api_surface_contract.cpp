@@ -99,6 +99,43 @@ TEST_CASE("GS-1: section=email exposes the saved Google Script URL") {
     CHECK(hasAll(page, {"section=email", "google_email", "google_script_url"}));
 }
 
+TEST_CASE("EMAIL-2: /api/email-test messages come from the language pack") {
+    const std::string handler = readSrc("webpages/handlers_unified/email_handler.cpp");
+    // No Portuguese literal left in the two messages that used to be hardcoded:
+    // the throttle wait and the transport-disabled 503.
+    CHECK(handler.find("Aguarde ") == std::string::npos);
+    CHECK(handler.find("Transporte de email desativado") == std::string::npos);
+    CHECK(handler.find("L(activeLang->apiEmailTestWait)") != std::string::npos);
+    CHECK(handler.find("L(activeLang->apiEmailTestTransportOff)") != std::string::npos);
+    // The placeholder is substituted, not left raw.
+    CHECK(handler.find("replace(\"{n}\"") != std::string::npos);
+
+    // Both initialisers (PT and EN) must carry the new fields, in the same
+    // positional order as the struct, or the build breaks.
+    const std::string types = readSrc("languages/lang_types.h");
+    CHECK(types.find("apiEmailTestWait;") != std::string::npos);
+    CHECK(types.find("apiEmailTestTransportOff;") != std::string::npos);
+    const std::string act = readSrc("languages/lang_active.cpp");
+    CHECK(act.find("apiEmailTestWait") != std::string::npos);
+    const size_t firstKey = act.find("apiEmailTestWait");
+    const size_t secondKey = act.find("apiEmailTestWait", firstKey + 1);
+    REQUIRE(firstKey != std::string::npos);
+    CHECK(secondKey != std::string::npos); // PT and EN blocks both define it
+}
+
+TEST_CASE("EMAIL-1/EMAIL-3: the /email page fallbacks are English") {
+    const std::string page = readSrc("webpages/assets/page_email_asset.cpp");
+    for (const char *pt : {"Servidor SMTP", "Porta do servidor", "Email Destino",
+                           "Password do email", "TLS Inseguro", "Teste de Email",
+                           "Teste iniciado com sucesso"}) {
+        INFO("still Portuguese: " << pt);
+        CHECK(page.find(pt) == std::string::npos);
+    }
+    CHECK(page.find("SMTP Server") != std::string::npos);
+    CHECK(page.find("Insecure TLS") != std::string::npos);
+    CHECK(page.find("Test started successfully!") != std::string::npos);
+}
+
 TEST_CASE("DO-1/HX-2: the DO and HX711 endpoints are in the shared registry") {
     const std::string doRoutes = readSrc("webpages/routes/web_routes_do.cpp");
     CHECK(hasAll(doRoutes, {"registerApiRoute(\"GET\", \"/api/do/status\"",

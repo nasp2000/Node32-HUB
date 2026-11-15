@@ -26,7 +26,9 @@ static EmailTestApiResponse buildEmailTestApiResponse() {
     const unsigned long now = millis();
     if (lastEmailTestAttempt > 0 && (now - lastEmailTestAttempt) < emailTestThrottleMs) {
         const unsigned long remainingSec = (emailTestThrottleMs - (now - lastEmailTestAttempt)) / 1000;
-        return {429, String(F("{\"success\":false,\"error\":\"throttle\",\"message\":\"⏱️ Aguarde ")) + String(remainingSec) + String(F(" segundos antes de tentar novamente.\"}"))};
+        String waitMsg = L(activeLang->apiEmailTestWait);
+        waitMsg.replace("{n}", String(remainingSec));
+        return {429, String(F("{\"success\":false,\"error\":\"throttle\",\"message\":\"")) + waitMsg + String(F("\"}"))};
     }
     lastEmailTestAttempt = now;
 
@@ -45,7 +47,7 @@ static EmailTestApiResponse buildEmailTestApiResponse() {
     }
     return {500, String(F("{\"success\":false,\"error\":\"start_failed\",\"message\":\"")) + L(activeLang->apiEmailTestStartFail) + "\"}"};
 #else
-    return {503, String(F("{\"success\":false,\"error\":\"email_transport_disabled\",\"message\":\"❌ Transporte de email desativado na firmware (ENABLE_SMTP=0 e ENABLE_GOOGLE_EMAIL=0)\"}"))};
+    return {503, String(F("{\"success\":false,\"error\":\"email_transport_disabled\",\"message\":\"")) + L(activeLang->apiEmailTestTransportOff) + String(F("\"}"))};
 #endif
 }
 

@@ -21,13 +21,13 @@ const char PAGE_EMAIL_BODY[] PROGMEM = R"EMAIL(
 <div style='font-size:12px;color:#94a3b8;margin-bottom:8px;padding:6px 10px;background:#0a1628;border-left:3px solid #10b981;border-radius:4px' data-i18n='emailSmtpDesc'>Configure here if using direct SMTP. For Gmail with 2FA, use an App Password.</div>
 
 <div class='section'>
-<h3 data-i18n='emailSmtpServerLbl'>Servidor SMTP</h3>
+<h3 data-i18n='emailSmtpServerLbl'>SMTP Server</h3>
 <div class='section-desc' data-i18n='emailSmtpServerDesc'>&#128231; Email server address</div>
 <input name='smtp_server' id='smtp_server' placeholder='smtp.gmail.com' data-i18n-title='emailTipServer' title='SMTP server address'>
 </div>
 <div class='section'>
-<h3 data-i18n='emailPortLbl'>Porta</h3>
-<div class='section-desc' data-i18n='emailPortDesc'>&#128268; Porta do servidor SMTP</div>
+<h3 data-i18n='emailPortLbl'>Port</h3>
+<div class='section-desc' data-i18n='emailPortDesc'>&#128268; SMTP server port</div>
 <input type='number' name='smtp_port' id='smtp_port' placeholder='465' data-i18n-title='emailTipPort' title='SMTP port (usually 465 or 587)'>
 </div>
 <div class='section'>
@@ -36,19 +36,19 @@ const char PAGE_EMAIL_BODY[] PROGMEM = R"EMAIL(
 <input name='smtp_user' id='smtp_user' placeholder='user@gmail.com' data-i18n-title='emailTipUser' title='SMTP username'>
 </div>
 <div class='section'>
-<h3 data-i18n='emailDestLbl'>Email Destino</h3>
+<h3 data-i18n='emailDestLbl'>Destination e-mail</h3>
 <div class='section-desc' data-i18n='emailDestDesc'>&#128238; Email that will receive the data sent by the device</div>
 <input name='email_destination' id='email_destination' placeholder='sender@example.com' data-i18n-title='emailTipSender' title='Sender email address'>
 </div>
 <div class='section'>
-<h3 data-i18n='emailPassLbl'>Senha</h3>
-<div class='section-desc' data-i18n='emailPassDesc'>&#128273; Password do email (Gmail com 2FA: App Password)</div>
+<h3 data-i18n='emailPassLbl'>Password</h3>
+<div class='section-desc' data-i18n='emailPassDesc'>&#128273; E-mail password (Gmail with 2FA: App Password)</div>
 <input type='password' name='smtp_pass' id='smtp_pass' placeholder='Password' data-i18n-title='emailTipPassword' title='SMTP password'>
 </div>
 <div class='section'>
-<h3 data-i18n='emailTlsLbl'>TLS Inseguro</h3>
+<h3 data-i18n='emailTlsLbl'>Insecure TLS</h3>
 <div class='section-desc' data-i18n='emailTlsDesc'>&#128274; Allows TLS connections without certificate verification</div>
-<label><input type='checkbox' name='smtp_tls_insecure' id='smtp_tls_insecure' checked data-i18n-title='emailTipTls' title='Allow unverified TLS connections'> <span data-i18n='emailTlsEnable'>Ativar TLS inseguro</span></label>
+<label><input type='checkbox' name='smtp_tls_insecure' id='smtp_tls_insecure' checked data-i18n-title='emailTipTls' title='Allow unverified TLS connections'> <span data-i18n='emailTlsEnable'>Enable insecure TLS</span></label>
 </div>
 </div>
 
@@ -58,7 +58,7 @@ const char PAGE_EMAIL_BODY[] PROGMEM = R"EMAIL(
 </form>
 
 <div style='border:2px solid #8b5cf6;border-radius:8px;padding:10px 14px;background:#0f172a;margin-top:14px'>
-<h2 style='margin:0 0 4px 0;color:#8b5cf6;font-size:14px' data-i18n='emailTestTitle'>&#129514; Teste de Email</h2>
+<h2 style='margin:0 0 4px 0;color:#8b5cf6;font-size:14px' data-i18n='emailTestTitle'>&#129514; E-mail test</h2>
 <div style='font-size:12px;color:#94a3b8;margin-bottom:8px;padding:6px 10px;background:#0a1628;border-left:3px solid #8b5cf6;border-radius:4px' data-i18n='emailTestDesc'>Test email sending with the settings above.</div>
 <button id='btn-test-email' type='button' class='btn' style='width:100%;background:#7c3aed;border:1px solid #7c3aed;padding:8px' data-i18n='emailTestBtn' data-i18n-title='emailTipTest' title='Send test email'>&#9993;&#65039; Send Test Email</button>
 </div>
@@ -84,7 +84,7 @@ function testEmail() {
 		.then(function(r) { return r.json(); })
 		.then(function(d) {
 			if (d.success) {
-				customAlert(d.message || et('emailTestStarted', 'Teste iniciado com sucesso!'));
+				customAlert(d.message || et('emailTestStarted', 'Test started successfully!'));
 			} else {
 				customAlert(d.message || et('emailTestStartError', 'Error starting test'));
 			}
