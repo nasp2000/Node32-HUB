@@ -838,6 +838,7 @@ static void ftpTrimSentLog() {
 }
 
 static void ftpMarkSent(const String& base, size_t size) {
+    diagTraceMark("ftp:mark_sent");
     if (!littlefsBegin()) return;
     File f = LittleFS.open("/config/ftp_sent.log", "a");
     if (!f) return;
@@ -854,6 +855,7 @@ static void ftpMarkSent(const String& base, size_t size) {
 
 static void ftpStatusStoreLoad() {
     if (s_statusStoreLoaded) return;
+    diagTraceMark("ftp:status_load");
     s_statusStoreLoaded = true;
     ftpStatusStoreInit(s_statusStore);
     if (!littlefsBegin()) return;
@@ -880,6 +882,7 @@ static void ftpStatusStoreLoad() {
 }
 
 static void ftpStatusStoreSave() {
+    diagTraceMark("ftp:status_save");
     if (!littlefsBegin()) return;
     const String js = ftpStatusStoreToJson(s_statusStore);
     if (js.length() == 0) return;
@@ -1078,6 +1081,7 @@ bool ftpUploadFileImpl(FtpLocalFs fs, const String& localPath, const String& rem
 
 static int ftpRunCycle(String& detail) {
     if (!configManager.getFtpEnabled() || !ftpIsAvailable()) { detail = "disabled/incomplete"; return 0; }
+    diagTraceMark("ftp:cycle");
     ftpLock(); if (s_status.busy) { ftpUnlock(); detail = "busy"; return 0; } s_status.busy = true; ftpUnlock();
     String localRef = configManager.getFtpLocalDir();
     String filter = configManager.getFtpFilter();
@@ -1148,8 +1152,10 @@ static int ftpRunCycle(String& detail) {
         }
         vTaskDelay(pdMS_TO_TICKS(1));   // keep IDLE0 alive between files (TASK_WDT)
         if (!ftpShouldUpload(cands[i].relPath.c_str(), cands[i].size, filter.c_str(), onlyNew, sent.c_str())) continue;
+        diagTraceMark("ftp:upload");
         String d;
         if (ftpUploadFileImpl(cands[i].fs, cands[i].readPath, cands[i].relPath, d, deleteAfter)) {
+            diagTraceMark("ftp:uploaded");
             done++; sent += cands[i].relPath + ":" + String((unsigned)cands[i].size) + "\n";
         }
         else if (ftpIsConnectFailure(d.c_str())) break;  // server/session down: retry next interval

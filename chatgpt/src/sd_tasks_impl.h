@@ -3,6 +3,7 @@
 
 // Line accumulator size — used unconditionally by setup_impl.h / loop_impl.h
 #include "heap_trace.h"
+#include "diag_trace.h"
 #define SDCARD_LINE_ACCUMULATOR_SIZE 512
 
 // Forward declarations (defined later in .ino chain)
@@ -355,6 +356,7 @@ void storPersistDaily(bool force) {
     StorDayBank* b = storBank();
     if (!b || !b->day) return;
     if (!force && (millis() - b->lastSave) < STOR_DAY_SAVE_MS) return;
+    diagTraceMark("nvs:stor_persist");
     Preferences prefs;
     if (!prefs.begin("storage_stats", false)) return;
     storDayPersistLocked(prefs, b);

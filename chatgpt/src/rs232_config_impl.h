@@ -2,6 +2,7 @@
 // Included only from chatgpt.ino (single translation unit).
 
 #include "heap_trace.h"
+#include "diag_trace.h"
 #include "littlefs_manager.h" // littlefsBegin() — no-SD crash-log fallback
 
 #if ENABLE_RS232==1
@@ -315,6 +316,7 @@ void applyRS232Config() { // Apply RS232 configs or perform startup if first run
                 fixLogFilenameAfterNtp();  // Rename/merge pre-NTP log files (1970-01-01.txt)
                 panicHookInit();
                 panicContextReport();
+                diagTraceDumpToLog();   // RTC breadcrumbs of the previous run (survives WDT/panic)
 
                 // Write the full system header (name + firmware + IP) now that WiFi IP is valid.
                 // logWriteSystemInfo() prepends this to the log file, replacing the boot placeholder.
