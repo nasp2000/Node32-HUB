@@ -9,6 +9,7 @@
 #include <Preferences.h>
 
 #include "../../ConfigManager.h"
+#include "../../commands_params.h"
 #include "../../observability.h"
 #include "../../runtime_scheduler.h"
 #include "../../sched_dt_limits.h"
@@ -349,7 +350,11 @@ void handleScheduledCommandSlotPost(HttpRequest& req, HttpResponse& res) {
     }
 
     String command = getParam(src, "command");
-    int interval = getParamInt(src, "interval", 0);
+    // CMD-6: strict parse (see commands_params.h). "12x" used to become 12 and a
+    // missing interval became 0, so enabled rows could be saved with a cadence
+    // nobody asked for and the 400 below never said why.
+    int parsedInterval = 0;
+    const IntervalParam intervalState = parseIntervalParam(getParam(src, "interval").c_str(), &parsedInterval);
     String unit = getParam(src, "unit");
     if (unit == "s" || unit == F("seconds")) unit = F("seconds");
     else if (unit == "h" || unit == F("hours")) unit = F("hours");
@@ -362,15 +367,19 @@ void handleScheduledCommandSlotPost(HttpRequest& req, HttpResponse& res) {
 
     String enabledValue = getParam(src, "enabled");
     bool enabled = (enabledValue == "1" || enabledValue == "true");
-    if (enabled) {
-        if (command.length() == 0) {
-            res.send(400, "application/json", F("{\"status\":\"err\",\"msg\":\"cmd\"}"));
-            return;
-        }
-        if (interval <= 0) {
-            res.send(400, "application/json", F("{\"status\":\"err\",\"msg\":\"interval\"}"));
-            return;
-        }
+
+    const IntervalDecision intervalDecision = decideIntervalForSave(enabled, intervalState, parsedInterval);
+    int interval = intervalDecision.interval;
+
+    if (enabled && command.length() == 0) {
+        res.send(400, "application/json", F("{\"status\":\"err\",\"msg\":\"cmd\"}"));
+        return;
+    }
+    if (!intervalDecision.accept) {
+        // Enabled row without a usable cadence: refuse and save nothing, so a
+        // "saved" row is always a row that can fire.
+        res.send(400, "application/json", F("{\"status\":\"err\",\"msg\":\"interval\"}"));
+        return;
     }
 
     if (!configManager.setSchedCmdSlot(slotIndex, command, interval, unit, days, templ, enabled, type)) {
