@@ -632,9 +632,12 @@ static String ftpBaseName(const String& full) {
 // Runs under the sdMutex held by ftpRunCycle for the WHOLE scan+upload cycle,
 // so FTP is the only SD user while it walks the tree (fix for the crash-loop,
 // HISTORIC #57: the old per-entry unlock+vTaskDelay let concurrent writers /
-// web pages interleave with the scan and wedge the SDMMC host). No yields, no
-// re-lock: any other writer waits its short timeout and skips, and page
-// handlers answer "sd_busy".
+// web pages interleave with the scan and wedge the SDMMC host). The lock is
+// never dropped; a 1-tick yield per entry keeps IDLE0 alive so a big tree
+// (CAM: /CAM/PHOTOS with hundreds of files) cannot starve the task watchdog —
+// 2026-11-15: "upload now" on .9 rebooted with Task=IDLE0 / TASK_WDT because
+// this loop ran >5 s without yielding on the caller's stack (async_tcp or the
+// cycle host), and it was the only scan in the file without a delay.
 static void ftpSdScan(const String& dirPath, const String& relPrefix, const char* filter,
                        std::vector<FtpCandidate, PsramAllocatorStd<FtpCandidate>>& out) {
     if (out.size() >= FTP_MAX_PENDING) return;
@@ -668,6 +671,7 @@ static void ftpSdScan(const String& dirPath, const String& relPrefix, const char
             }
             f.close();
             f = d.openNextFile();
+            vTaskDelay(pdMS_TO_TICKS(1));   // yield, never unlock: IDLE0 must run (TASK_WDT)
         }
     }
     if (d) d.close();
@@ -675,6 +679,7 @@ static void ftpSdScan(const String& dirPath, const String& relPrefix, const char
         String base = ftpBaseName(subDirs[i]);
         String subRel = relPrefix.isEmpty() ? base : relPrefix + "/" + base;
         ftpSdScan(subDirs[i], subRel, filter, out);
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 #else
     (void)dirPath; (void)relPrefix; (void)filter;
@@ -1151,6 +1156,7 @@ static int ftpRunCycle(String& detail) {
             sendVirtualMessage(String(F("FTP skip (over 4MB cap): ")) + cands[i].relPath, 0, true, false);
             continue;
         }
+        vTaskDelay(pdMS_TO_TICKS(1));   // keep IDLE0 alive between files (TASK_WDT)
         if (!ftpShouldUpload(cands[i].relPath.c_str(), cands[i].size, filter.c_str(), onlyNew, sent.c_str())) continue;
         String d;
         if (ftpUploadFileImpl(cands[i].fs, cands[i].readPath, cands[i].relPath, d, deleteAfter)) {
