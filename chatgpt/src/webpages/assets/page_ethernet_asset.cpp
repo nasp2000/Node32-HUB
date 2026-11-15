@@ -100,8 +100,8 @@ const char PAGE_ETHERNET[] PROGMEM = R"HTML(
      });
      function poll(){
          fetch('/api/eth-status',{cache:'no-store'})
-             .then(r=>r.json())
-             .then(j=>{
+             .then(function(r){return r.json();})
+             .then(function(j){
                if(!j||!j.status){ info.textContent=t('ethernetStatusNoData','No Ethernet data'); return; }
                var modeValue = j.mode==='static' ? t('ethernetStatic','Static') : 'DHCP';
                info.textContent=t('ethernetStatusIpLabel','IP')+': '+(j.ip||'-')+' | '+t('ethernetStatusModeLabel','Mode')+': '+modeValue+' | '+t('ethernetStatusMacLabel','MAC')+': '+(j.mac||'-');
@@ -119,7 +119,7 @@ const char PAGE_ETHERNET[] PROGMEM = R"HTML(
                if(j.mac_override){ mac.value=j.mac_override; }
                toggleStatic();
              })
-             .catch(()=>{ info.textContent=t('ethernetStatusFetchError','Failed to fetch Ethernet status'); });
+             .catch(function(){ info.textContent=t('ethernetStatusFetchError','Failed to fetch Ethernet status'); });
      }
      poll();
      // Retry every 6s in case the first poll fires while the server is still busy
@@ -131,7 +131,7 @@ const char PAGE_ETHERNET[] PROGMEM = R"HTML(
           if(modeSel.value==='static'){ fd.append('ip',ip.value.trim()); fd.append('gw',gw.value.trim()); fd.append('dns',dns.value.trim()); }
           if(mac.value.trim()) fd.append('mac',mac.value.trim());
           fetch('/api/eth-config',{method:'POST',body:fd})
-           .then(r=>r.json()).then(j=>{
+           .then(function(r){return r.json();}).then(function(j){
              if(j&&j.status==='ok'){
                msg.textContent=t('ethernetSaveSuccess','Saved. Restart to apply.');
                notify(t('alertSaved','✅ Configuration saved!'));
@@ -141,7 +141,7 @@ const char PAGE_ETHERNET[] PROGMEM = R"HTML(
              msg.textContent=t('ethernetSaveError','Error saving.');
              notify(t('alertSaveError','❌ Error saving'));
            })
-           .catch((e2)=>{
+           .catch(function(e2){
              msg.textContent=t('ethernetRequestFail','Request failed.');
              notify(t('emailErrorPrefix','Error: ')+(e2&&e2.message?e2.message:e2));
            })

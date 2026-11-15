@@ -148,7 +148,7 @@ Ethernet bootstrap (restart required after any change).
 
 | # | Finding | Pri | Suggestion |
 |---|---|---|---|
-| 1 | Arrow functions used in poll/save handlers (`.then(r=>r.json())`, `.catch(()=>…)`) — violates the no-arrow-function rule used elsewhere in the project. | Low | Rewrite with `function(){}`. |
+| 1 | Arrow functions used in poll/save handlers (`.then(r=>r.json())`, `.catch(()=>…)`) — violated the no-arrow-function rule. **Fixed:** all 6 rewritten as `function` callbacks; fixture `pack_ethernet.html` in sync; `node --check` clean. | Low | **fixed** |
 | 2 | Server error strings PT: `{status:"erro", msg:"modo_invalido"/"ipv4_invalido"/"mac_invalido"}` and wifi disable/enable messages — EN-fallback violation. | Low | Use English codes/messages or translate via `L()`. |
 | 3 | `/api/wifi-disable` exists as two divergent implementations: WiFi AsyncWebServer timer-based stop vs unified persist-only registry path — behavior can differ per transport. | Medium | Consolidate into one `handleWifiDisablePost` registered via `registerApiRoute`. |
 | 4 | Switching static→dhcp→save discards typed values silently (fields are cleared client-side by design) — no confirmation. | Info | Acceptable; document in tooltip. |

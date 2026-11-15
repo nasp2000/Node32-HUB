@@ -162,7 +162,7 @@ history and is still the place to look before changing shared wiring.
 
 | ID | Pri | Issue | Files | Status |
 |---|---|---|---|---|
-| GRBL-1 | Medium | Mojibake in hardcoded fallbacks: `'âœ…'` (✅), `'â€œ'` (❌) visible when i18n key missing. | `assets/grbl/grbl_actions.h:250,276,437,447,458,461`, `grbl_light.h:390` | open |
+| GRBL-1 | Medium | Mojibake in hardcoded fallbacks (`'âœ…'`/`'â€œ'`) visible when an i18n key is missing. **Already fixed** — verified: the cited lines (`grbl_actions.h:250/276/461`, `grbl_light.h:390`) hold valid UTF-8 (E2 9C 85 / E2 9D 8C), a repo-wide scan finds 0 mojibake sequences, and `/grbl-controller` is served as `text/html; charset=utf-8`. No code change needed. | `assets/grbl/grbl_actions.h`, `grbl_light.h`, `web_routes_monitor.cpp` | fixed |
 | GRBL-2 | Low | `\u{…}` escapes in HTML render literally until `data-i18n`; rotate-warning emoji (line 4 of `grbl_html_shell.h`) has no `data-i18n` and always shows raw escape. | `assets/grbl/grbl_html_shell.h` | open |
 | GRBL-3 | Low | 28 i18n keys missing from both `lang_en_ui.h`/`lang_pt_ui.h` (`grbl2d*`, `grblHeightMap*`, `grblPreview*`, `grblSdLoadWorkspace`, `grblToolChangeLbl`, `grblUploadFile`, `grblViewMode*`, `grblTip*`, …). | `languages/lang_*_ui.h` | open |
 | GRBL-4 | Low | Dead DOM refs / orphaned controls: `grbl_poll_ms`, `btn_apply_poll`+`applyPollInterval()`, `grbl_step`, `grbl_sent`/`grbl_received`, `btn_backplot_toggle`, `btn_3d_proj`/`btn_3d_motion`, `grbl_local_file`. | `assets/grbl/grbl_status.h`, `grbl_actions.h`, `grbl_ui.h`, `grbl_sd.h` | open |
@@ -236,7 +236,7 @@ history and is still the place to look before changing shared wiring.
 | ID | Pri | Issue | Files | Status |
 |---|---|---|---|---|
 | WIFI-1 | Medium | Inline JS hardcodes PT fallbacks (`'✅ Configuração guardada!'`, `'❌ Erro ao guardar'`, `'Erro: '`) — violates EN-fallback rule. | `page_wifi_asset.cpp` | open |
-| WIFI-2 | Low | Arrow functions throughout (`r=>r.json()`, `.catch(()=>{})`) — violates no-arrow rule. | `page_wifi_asset.cpp` | open |
+| WIFI-2 | Low | Arrow functions throughout (`r=>r.json()`, `.catch(()=>{})`) — violates the no-arrow rule. **Fixed:** all 12 occurrences in `page_wifi_asset.cpp` rewritten as `function` callbacks (fetch/then/catch/finally/forEach) and the jsdom fixture (`tests/web/pages/wifi.html`) kept byte-identical; `node --check` passes on the extracted script. | `page_wifi_asset.cpp`, `tests/web/pages/wifi.html` | fixed |
 | WIFI-3 | Low | Scan rows interpolate raw SSIDs into inline `onclick="sel('${n.ssid}',…)"` — quotes/backslashes break handler or inject attributes (SSID is attacker-controlled in range). | `page_wifi_asset.cpp` (scan) | open |
 | WIFI-4 | Info | `/api/wifi-scan` synchronous scan blocks async_tcp; auto-scans on every page load. | `network_handler.cpp:97`, `web_routes_network.cpp:62` | open |
 | WIFI-5 | Info | Scan results capped top-10 server-side with no UI hint; saving a new SSID drops the browser session mid-request (success alert often unseen). | `handleWifiScanGet`, page JS | open |
@@ -263,7 +263,7 @@ history and is still the place to look before changing shared wiring.
 | ID | Pri | Issue | Files | Status |
 |---|---|---|---|---|
 | ETH-1 | Medium | `/api/wifi-disable` had two divergent implementations: the WiFi adapter stopped the radio from a 400 ms timer with no mode guard, the Ethernet adapter did it inline without stopping mDNS. **Fixed:** one shared `networkStopWifiRadio()` (mDNS + mode-guarded disconnect/mode-off + P4-guarded `esp_wifi_stop()`) called by both adapters - deferred on WiFi because the handler runs in async_tcp, inline on Ethernet where it is safe. Persisting the flag stays in `handleWifiDisablePost()`. Tests: `test_api_boundaries.cpp`. | `network_handler.{h,cpp}`, `web_routes_network.cpp`, `ethernet_bootstrap_handlers.h` | fixed |
-| ETH-2 | Low | Arrow functions in poll/save handlers — violates no-arrow rule. | `page_ethernet_asset.cpp` | open |
+| ETH-2 | Low | Arrow functions in poll/save handlers — violates the no-arrow rule. **Fixed:** all 6 occurrences in `page_ethernet_asset.cpp` (`.then(r=>r.json())`, `.then(j=>{`, `.catch(()=>`, `.catch((e2)=>`) rewritten as `function` callbacks, fixture `pack_ethernet.html` kept in sync; `node --check` passes. | `page_ethernet_asset.cpp`, `tests/web/pages/pack_ethernet.html` | fixed |
 | ETH-3 | Low | Server error strings PT (`{status:"erro", msg:"modo_invalido"/"ipv4_invalido"/"mac_invalido"}` + wifi disable/enable messages) — EN-fallback violation. | `web_shared_logic.cpp:386+`, `network_handler.cpp` | open |
 | ETH-4 | Info | Polling runs forever (6 s / 8 s) even when tab hidden; MAC override stored verbatim without normalization. | `page_ethernet_asset.cpp` | open |
 
@@ -274,7 +274,7 @@ history and is still the place to look before changing shared wiring.
 | ID | Pri | Issue | Files | Status |
 |---|---|---|---|---|
 | RS232-1 | Medium | The RS232 page (and the home page) sent `Content-Language: pt` regardless of `system_language`, and the report also feared the RS232 routes were not gated. **Fixed:** both pages now send `activeLangCode`; the API gating was already correct (`registerRs232TemplateRoutes()` sits inside `#if ENABLE_RS232==1`). Tests: `test_api_boundaries.cpp` pins both (no hardcoded `pt`, call stays inside the flag). | `web_routes_config.cpp`, `web_routes_core.cpp` | fixed |
-| RS232-2 | Low | Widespread arrow functions + `async/await` in inline JS — violates no-arrow rule. | `page_rs232_asset.cpp` | open |
+| RS232-2 | Low | Widespread arrow functions + `async/await` in inline JS — violates the no-arrow rule. **Fixed (arrows):** all 15 occurrences in `page_rs232_asset.cpp` rewritten as `function` callbacks (`.then`, `.catch`, `.map`, `forEach`, `.finally`), fixture `rs232_asset.html` in sync; `async/await` is kept deliberately (the rule targets arrow functions; the two handlers already need a promise chain) and is documented in `PAGES/rs232.md`. | `page_rs232_asset.cpp`, `tests/web/pages/rs232_asset.html` | fixed |
 | RS232-3 | Low | Tab labels hardcoded PT `['Config','Avancado']` (also misspelled, missing ç). | `page_rs232_asset.cpp` (tab IIFE) | open |
 | RS232-4 | Low | Delete flow fires N parallel DELETEs without awaiting; each response re-renders list + pops its own alert (stacked dialogs). | `page_rs232_asset.cpp` (delete-template) | open |
 | RS232-5 | Low | `read_timeout`: client enforces 100–10000 ms but server stores any int via `toInt()`. | `config_handler.cpp`, asset | open |

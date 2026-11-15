@@ -158,7 +158,7 @@ Runtime fallbacks used inline: `'Scanning...'`, `'No networks'`, `'Network name'
 | # | Finding | Pri | Suggestion |
 |---|---|---|---|
 | 1 | Inline JS hardcodes PT fallbacks: `'✅ Configuração guardada!'`, `'❌ Erro ao guardar'`, `'Erro: '` — violates EN-fallback rule (all other fallbacks are English). | Medium | Switch to English strings (keys `alertSaved`/`alertSaveError` already exist). |
-| 2 | Arrow functions used throughout (`r=>r.json()`, `.catch(()=>{})`, `.finally(...)`) — violates the no-arrow-function ESP32-browser-compat rule. | Low | Rewrite with `function(){}` like the RS232/Ethernet pages. |
+| 2 | Arrow functions used throughout (`r=>r.json()`, `.catch(()=>{})`, `.finally(...)`) — violated the no-arrow-function ESP32-browser-compat rule. **Fixed:** all 12 rewritten as `function` callbacks; fixture `tests/web/pages/wifi.html` in sync; `node --check` clean. | Low | **fixed** |
 | 3 | `scan()` interpolates raw SSIDs into an inline `onclick="sel('${n.ssid}',…)"` — quotes/backslashes in SSID break the handler or inject attributes (SSID is attacker-controlled within radio range). | Low | Build rows via DOM APIs (`textContent`, `addEventListener`). |
 | 4 | `/api/wifi-scan` performs a **synchronous** scan on the async_tcp thread — blocks other requests for the scan duration; UI also auto-scans on every page load. | Info | Consider async scan + cached results endpoint. |
 | 5 | Scan results capped at top-10 by RSSI server-side — UI gives no hint that more networks may exist. | Info | Show "(top 10)" hint. |
