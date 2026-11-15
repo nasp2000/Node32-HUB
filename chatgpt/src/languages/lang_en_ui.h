@@ -1049,6 +1049,7 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "opHysteresis": "Hy (hysteresis)",
   "opYes": "Yes",
   "opNo": "No",
+  "freqDefault3m": "3m (default)",
   "freq3m": "1 alert/3m",
   "freq5m": "1 alert/5m",
   "freq10m": "1 alert/10m",

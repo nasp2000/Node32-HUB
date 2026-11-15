@@ -73,15 +73,17 @@ The renderer assembles the page from 7 PROGMEM fragments with server-side value 
 | Name / Keyword | `r_name_<i>` | text, `maxlength=50` | `name` | empty |
 | OP | `r_op_<i>` | select, 13 ops | `op` | `I` |
 | Emails | `r_emails_<i>` | text, `maxlength=256` | `emails` | empty |
-| Frequency | `r_freq_<i>` | select, 12 options | `freq` | `600` (1 alert/10m) |
+| Frequency | `r_freq_<i>` | select, 13 options | `freq` | `0` (3m default; see note) |
 | Active | `r_active_<i>` | select `1`/`0` (Yes/No) | `active` | `1` |
 | Save | `button[data-save='<i>']` | 💾 | — | — |
 
 Operators (`r_op_<i>` options): `I` equal, `D` different, `+` greater, `-` less, `G` greater-or-equal, `L` less-or-equal, `R` range (inside), `DR` out-of-range, `V` variation, `C` count, `P` presence (watchdog), `Cw` count-in-window, `Hy` hysteresis.
 
-Frequency options (seconds → label): `180` (3m), `300` (5m), `600` (10m, default),
-`1200` (20m), `1800` (30m), `2700` (45m), `3600` (1h), `7200` (2h), `14400` (4h),
-`21600` (6h), `43200` (12h), `86400` (24h).
+Frequency options (seconds → label): `0` (3m default — the server default; the runtime
+floors any value below 180 s to 180 s, so 0 and 180 behave the same), `180` (3m),
+`300` (5m), `600` (10m), `1200` (20m), `1800` (30m), `2700` (45m), `3600` (1h),
+`7200` (2h), `14400` (4h), `21600` (6h), `43200` (12h), `86400` (24h). A slot stored
+with `freq:0` renders as 0 and is saved back as 0 (RECIP-5).
 
 ### Day Command Sends (Comandos tab)
 
@@ -221,7 +223,7 @@ Validation style: server is lenient (clamps/truncates, unknown op → `I`); erro
 `recipTableOp`, `recipTableEmails`, `recipTableFreq`, `recipTableActive`, `btnSaveAll`,
 `recipTipSaveAll`, `recipTipName`, `recipTipRuleOp`, `recipTipEmails`, `recipTipFreq`,
 `recipTipActive`, `recipTipSaveRow`, `opEqual/Diff/Gt/Lt/Gte/Lte/Range/OutRange/Variation/
-Count/Presence/Window/Hysteresis`, `freq3m…freq24h`, `opYes/opNo`, `recipSaved`,
+Count/Presence/Window/Hysteresis`, `freqDefault3m`, `freq3m…freq24h`, `opYes/opNo`, `recipSaved`,
 `recipError`, `recipNetError`, `recipDontCopySaveFail`, `recipErrNetwork`, `recipSaveAllFail`, `recipSaveAllPartial`, `recipTipDayEmailday/Logday/Sensorday`, `recipTipDaySave`.
 
 Known inconsistency: the **Day Command Sends card uses hardcoded PT text** (`Emails adicionais…`,
@@ -238,9 +240,9 @@ Known inconsistency: the **Day Command Sends card uses hardcoded PT text** (`Ema
 | 2 | **Day Command Sends card text is hardcoded PT (no `data-i18n`)**, and the page sends `Content-Language: pt` — violates the EN-fallback rule. Text converted to English; `Content-Language: pt` removed. | Medium | **fixed** (text + header) |
 | 3 | `saveDontCopy()` was fire-and-forget (`.catch(function(){})`), so a failed save of the sender-copy option was silent. **Fixed (RECIP-3):** the response is parsed (`r.ok` + `success:false`), a failure reverts the checkbox to the stored state and shows `customAlert('❌ ' + recipDontCopySaveFail)` (network errors append `recipErrNetwork`); success stays silent. Tests: `test_recipients_dont_copy` (4 cases / 23 assertions) + `test_recipients.js` (success silent, rejected save visible + revert, network failure visible). | Medium | **fixed** |
 | 4 | "Save All" was non-atomic: N sequential 120 ms-apart POSTs, each row raising its own alert, and a mid-loop failure left a partially saved table with the error buried. **Fixed (RECIP-4):** one `saveAll()` posts rows via `postSlot()` (no per-row UI), stops at the first failure and reports it once — `recipSaveAllFail <n>/<total> — <reason>. recipSaveAllPartial`, network vs server rejection distinguished; full success is silent and the button is disabled for the run. Tests: `test_recipients_save_all` (3 cases / 23 assertions) + `test_recipients.js` (success silent, mid-loop failure visible + stops at row 3, network failure visible). | Low | **fixed** |
-| 5 | **`freq` gap:** server default is `0` (= always) but the UI option list starts at `180` — a stored `freq:0` silently renders as the selected `600`, and any save converts it to `600`. | Medium | open |
+| 5 | `freq` gap: server default is `0` but the UI list started at `180`; a stored `freq:0` rendered as 600 and any save rewrote it to 600. **Fixed (RECIP-5):** the list now includes `0` as the default option, `preload()` applies `freq` even when it is 0 (`!==undefined && !==null`, not truthiness), `removeRow`/`saveSlot` no longer use a 600 fallback, and new rows start on 0 (the server default). Note: the runtime floors `freq < 180` to 180 s, so `0` is labelled **3m (default)** rather than "always". Tests: `test_recipients_freq` (4 cases / 16 assertions) + `test_recipients.js` (stored 0 renders as 0; saving keeps freq=0). | Medium | **fixed** |
 | 6 | **`/api/recipients` omits the `active` field** (only `/api/recipient-slots` includes it) — inconsistent consumer API. | Low | open |
-| 7 | `saveSlot` falls back to `freq:'0'` when the select is missing — `0` is not in the option list. | Low | open |
+| 7 | `saveSlot` falls back to `freq:'0'` when the select is missing — `0` was not in the option list (RECIP-5). | Low | **fixed** (0 is now a listed option, so the fallback is valid) |
 | 8 | `handleRecipientSlotPost` truncates emails to 800, then `updateRecipientSlotWithFreq` to 256 — the 800 cap is dead code (effective limit 256). | Info | open |
 
 ---

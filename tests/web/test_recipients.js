@@ -496,6 +496,47 @@ async function run() {
   } // end Save All block
 
   // ════════════════════════════════════════════════════════════════
+  // Frequency selector (RECIP-5)
+  // ════════════════════════════════════════════════════════════════
+  {
+    dom = loadPage(); await wait(dom, 500);
+    win = dom.window; doc = win.document;
+
+    test('the frequency list offers 0 (default) and new rows start on it', function() {
+      var sel = doc.querySelector("select[name='r_freq_1']");
+      ok(!!sel, 'frequency select exists');
+      is(sel.options[0].value, '0', 'first option is 0 (server default)');
+      is(sel.value, '0', 'new rows default to 0 (the server default)');
+      ok(/3m/i.test(sel.options[0].textContent || '') && /default/i.test(sel.options[0].textContent || ''), 'labelled 3m (default)');
+    });
+
+    // A slot stored with freq:0 (created via API/older UI) must render as 0.
+    win.__MOCK_API__ = win.__MOCK_API__ || {};
+    win.__MOCK_API__['/api/recipient-slots'] = {slots:[
+      {name:'R1', op:'I', emails:'a@b.c', freq:0, active:true}
+    ]};
+    win.__test__.preload();
+    await wait(dom, 300);
+
+    test('a stored freq:0 renders as 0 instead of 600', function() {
+      is(doc.querySelector("select[name='r_freq_1']").value, '0', 'stored 0 selected');
+    });
+
+    var body=null;
+    win.fetch=function(url,opts){
+      if(opts && opts.method === 'POST') body=String(opts.body||'');
+      return Promise.resolve({ok:true,status:200,text:function(){return Promise.resolve('{"status":"ok"}');}});
+    };
+    win.__test__.saveSlot(1);
+    await wait(dom, 300);
+
+    test('saving that row keeps freq 0 (no rewrite to 600)', function() {
+      ok(body && body.indexOf('freq=0') >= 0, 'posted freq=0');
+      ok(body && body.indexOf('freq=600') < 0, 'freq was not rewritten to 600');
+    });
+  } // end Frequency block
+
+  // ════════════════════════════════════════════════════════════════
   // Summary
   // ════════════════════════════════════════════════════════════════
   var total = passed + failed;
