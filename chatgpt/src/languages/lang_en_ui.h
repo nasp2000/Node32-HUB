@@ -3308,7 +3308,7 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "gmSysFilesLink": "Files",
   "gmSysMonitorLink": "Serial monitor",
   "gmSysAccessLink": "Access / sessions",
-  "gmSysReboot": "Restart the controller",
+  "gmSysReboot": "Restart",
   "gmSysRestarting": "Restarting the controller…",
   "gmSysBlocked": "A job is running — stop it before restarting.",
   "gmSysBack": "Back to the wizard",

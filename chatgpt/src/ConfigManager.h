@@ -258,6 +258,11 @@ public:
     // Migrate existing NVS data to LittleFS (one-time migration)
     void migrateNVSToLittleFS();
 
+    // CMD-5: adopt the legacy NVS daily-reboot mirror (`cfg_drbt`) into the
+    // `config` doc once and delete it, so core.json is the only copy. Runs from
+    // loadConfig(); keeps the key when core.json could not be written.
+    void migrateLegacyDailyRebootNvs();
+
     // 🧠 Compute 32-bit FNV-1a hash for a String (light and sufficient for change detection)
     uint32_t computeHash32(const String &s);
 
@@ -589,34 +594,13 @@ public:
     bool configHasKey(const char* k) const { return k && config.containsKey(k); }
     // ♻️ Daily reboots (2 slots)
     // ================================
-    // 🧠 Read daily reboot slot (1..2) — returns time (HH:MM) and enabled
+    // 🧠 Read daily reboot slot (1..2) — returns time (HH:MM) and enabled.
+    // CMD-5: ONE source of truth, the `config` doc persisted in core.json. The
+    // legacy NVS mirror `cfg_drbt` is no longer read here: it is adopted once at
+    // boot by migrateLegacyDailyRebootNvs() and then deleted, so the page, the
+    // engine and the API can never disagree.
     bool getDailyRebootSlot(int i, String &time, bool &enabled) const {
         if (i < 1 || i > 2) return false; // ⚠️ Invalid index
-        // ⛑️ NVS fallback (cfg_drbt, mirror written by set): RAM reads
-        // proved unreliable on the board; the reboot engine uses this getter.
-        // NVS-first order: loadConfig could write core.json with RAM at
-        // default, so NVS is the truth; RAM is the backup.
-        {
-            Preferences pr;
-            if (pr.begin("esp32_config", true)) {
-                String raw = pr.getString("cfg_drbt", "");
-                pr.end();
-                if (raw.length() > 0) {
-                    SpiRamJsonDocument tmp(512);
-                    if (!deserializeJson(tmp, raw) && tmp.is<JsonObject>()) {
-                        String key = String("s") + i;
-                        if (tmp.containsKey(key) && tmp[key].is<JsonObject>()) {
-                            JsonObjectConst o = tmp[key];
-                            if (o.containsKey("time") && o.containsKey("enabled")) {
-                                time = String(o["time"].as<const char*>());
-                                enabled = o["enabled"].as<bool>();
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-        }
         if (config.containsKey("daily_reboot") && config["daily_reboot"].is<JsonObjectConst>()) {
             String key = String("s") + i;
             if (config["daily_reboot"].containsKey(key)) {
@@ -644,14 +628,8 @@ public:
         o["enabled"] = enabled; // ✍️ Active
         if (!o.containsKey("last_run_day")) o["last_run_day"] = 0; // 🧷 Ensure the last_run_day field
         isDirty = true; // Mark dirty - flush in background (loop), outside the request
-        // NVS mirror (cfg_drbt): GET already reads it as fallback; RAM reads
-        // proved unreliable, NVS is the truth. Only mirror if the write
-        // to RAM is confirmed (avoids writing "null" over the good value).
-        if (config["daily_reboot"][key].containsKey("time")) {
-            String snap; serializeJson(config["daily_reboot"], snap);
-            Preferences pr;
-            if (pr.begin("esp32_config", false)) { pr.putString("cfg_drbt", snap); pr.end(); }
-        }
+        // CMD-5: no NVS mirror. core.json (this doc) is the only copy of the
+        // slot identity; the flush set above persists it.
         return true;
     }
 

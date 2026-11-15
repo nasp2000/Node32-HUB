@@ -178,29 +178,9 @@ void handleDailyRebootGet(HttpRequest& req, HttpResponse& res) {
     bool enabled = false;
     bool ok = configManager.getDailyRebootSlot(slotIndex, timeValue, enabled);
     if (!ok) {
-        Preferences prefs;
-        if (prefs.begin("esp32_config", true)) {
-            String raw;
-            if (prefs.isKey("cfg_drbt")) raw = prefs.getString("cfg_drbt", "");
-            prefs.end();
-            if (raw.length() > 0) {
-                SpiRamJsonDocument tmp(512);
-                DeserializationError err = deserializeJson(tmp, raw);
-                if (!err && tmp.is<JsonObject>()) {
-                    String key = String("s") + slotIndex;
-                    if (tmp.containsKey(key) && tmp[key].is<JsonObject>()) {
-                        JsonObject obj = tmp[key];
-                        if (obj.containsKey("time")) timeValue = String(obj["time"].as<const char*>());
-                        if (obj.containsKey("enabled")) enabled = obj["enabled"].as<bool>();
-                        ok = true;
-                    }
-                }
-            }
-        }
-        if (!ok) {
-            timeValue = (slotIndex == 1) ? String("00:00") : String("");
-            enabled = (slotIndex == 1);
-        }
+        // CMD-5: core.json is the single source; no NVS fallback to disagree with.
+        timeValue = (slotIndex == 1) ? String("00:00") : String("");
+        enabled = (slotIndex == 1);
     }
 
     // Slot 1 follows the OEE shift layout when shifts are configured: report
@@ -238,10 +218,6 @@ void handleDailyRebootGet(HttpRequest& req, HttpResponse& res) {
       out += F(",\"s1_ok\":"); out += _s1ok ? F("true") : F("false"); }
     { String drd; serializeJson(configManager.configDoc()["daily_reboot"], drd);
       out += F(",\"dr_dump\":\""); out += escapeJsonStr(drd.substring(0, 200)); out += F("\""); }
-    { Preferences _pr; String _raw;
-      if (_pr.begin("esp32_config", true)) { _raw = _pr.getString("cfg_drbt", ""); _pr.end(); }
-      out += F(",\"nvs_len\":"); out += String(_raw.length());
-      out += F(",\"nvs_dump\":\""); out += escapeJsonStr(_raw.substring(0, 200)); out += F("\""); }
     out += '}';
     res.sendJson(out);
 }
@@ -282,9 +258,9 @@ void handleDailyRebootPost(HttpRequest& req, HttpResponse& res) {
     }
 
     configManager.markDirtyAndScheduleSave();
-    // daily_reboot vive no doc `config` (core.json); o flush em background (loop)
-    // grava o core completo — sem isso o boot seguinte recarregava core.json velho
-    // por cima da NVS (Tarefa 1 2026-10-08: slot perdia-se no reboot).
+    // daily_reboot lives in the `config` doc (core.json); the background flush
+    // (loop) writes the whole core, so the next boot reloads the new slot. CMD-5:
+    // core.json is the only copy — there is no NVS mirror left to disagree with.
     bool savedOk = true;
     resetDailyRebootSlotTimer(slotIndex);
     char cfgMsg[96];
@@ -297,24 +273,8 @@ void handleDailyRebootPost(HttpRequest& req, HttpResponse& res) {
 
     String storedTime = timeValue;
     bool storedEnabled = enabled;
-    Preferences prefs;
-    if (prefs.begin("esp32_config", true)) {
-        String raw;
-        if (prefs.isKey("cfg_drbt")) raw = prefs.getString("cfg_drbt", "");
-        prefs.end();
-        if (raw.length() > 0) {
-            SpiRamJsonDocument tmp(512);
-            DeserializationError err = deserializeJson(tmp, raw);
-            if (!err && tmp.is<JsonObject>()) {
-                String key = String("s") + slotIndex;
-                if (tmp.containsKey(key) && tmp[key].is<JsonObject>()) {
-                    JsonObject obj = tmp[key];
-                    if (obj.containsKey("time")) storedTime = String(obj["time"].as<const char*>());
-                    if (obj.containsKey("enabled")) storedEnabled = obj["enabled"].as<bool>();
-                }
-            }
-        }
-    }
+    // CMD-5: echo back what was written to the `config` doc (core.json). The old
+    // NVS re-read existed only because NVS was a second copy of the same value.
 
     String out = F("{\"status\":\"ok\",\"i\":"); out += String(slotIndex);
     out += F(",\"time\":\""); out += escapeJsonStr(storedTime);

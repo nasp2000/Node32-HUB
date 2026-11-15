@@ -48,6 +48,13 @@ pio run -e esp32p4cam         # P4 CAM only (Arduino 3.3.12 dual-platform, see p
 - **RULE: any code change to a page (layout, buttons, inputs, handlers, routes, config schema) requires updating its `PAGES/<page>.md` in the same change.** New page ⇒ new doc.
 - Issues found while auditing go to `PAGES/BACKLOG.md`; fixing a backlog item updates both code and the page doc.
 
+## Mobile pages (`/m`) — MANDATORY
+- **`/m` is the default page on a phone** for every pack: the pack's desktop entry (`/grbl-controller`, `/camera`, `/rambox`, …) answers **302 → `/m`** on a phone User-Agent (`ua_classify.h`); `?desk=1` forces the desktop page. **Never change the desktop page** for mobile work.
+- **Shared blocks, no duplication**: `assets/mobile_common_asset.cpp` (root column, strip, tiles, lists, actions, nav, chips, option rows, `.mp` CSS + `window.MU` with the **250 ms tap guard**, strip and swipe) and `assets/mobile_system_asset.cpp` (**System** screen: summary/OTA/log/restart, `window.MPSystem`). A pack page only writes its own screens and prints, in this order: `PACK_NAME → MOBILE_COMMON_CSS → pack_HEAD → MOBILE_SYSTEM_HTML → pack_TAIL → MOBILE_COMMON_JS → MOBILE_SYSTEM_JS`.
+- **Model** (same in every pack): one action per screen, **no page scroll**, content **vertically centred**; top strip with **one name per page and its line below** (current highlighted, visited blue); arrows + **swipe** + tap a name; navigation never blocked by missing data; OTA/restart ask **OK/Cancel**, HOME/ZERO/RESET/jog `0,0` arm on a second tap; every button needs **250 ms** of touch.
+- **Screenshots live in `PAGES/mobile/`** (versioned): **exactly ONE image per screen, always the most recent** — `common_system_*` once for the shared block, `<pack>_*.png` one per pack screen. **Any change that alters a screen (layout, buttons, text, state) must refresh its image in the same change**, and `PAGES/mobile/README.md` (model + image index + pack checklist) must be updated when a screen is added or removed.
+- Docs per pack: `PAGES/<pack>_mobile.md` + a `/m` row in `PAGES/WEB_PAGES_REFERENCE.md`. Tests: `tests/web/test_m_<pack>.js` with its fixture builder `tests/web/build_m_<pack>.py` (jsdom, run with `~/.local/bin/node`). Log the work in `HISTORIC/<pack>/HISTORICO.md`.
+
 ## Language (code, not translations)
 - Everything in code in English: identifiers, comments, logs, filenames, commits.
 - Translations exempt: `lang_pt_ui.h`/`lang_en_ui.h` (full JSON PROGMEM, validated in sync at build). Firmware strings via `L(activeLang->field)`.

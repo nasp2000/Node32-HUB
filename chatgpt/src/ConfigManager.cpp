@@ -1,4 +1,5 @@
 #include "ConfigManager.h"
+#include "daily_reboot_slots.h"
 #include "nvs_write_guard.h"
 using namespace ConfigValidator;
 
@@ -1473,6 +1474,46 @@ void ConfigManager::migrateNVSToLittleFS() {
 #endif
 }
 
+void ConfigManager::migrateLegacyDailyRebootNvs() {
+    // CMD-5: `cfg_drbt` carried a second copy of the two daily-reboot slots and
+    // the getter read it FIRST, so core.json and NVS could disagree. core.json
+    // is the single source now: adopt the legacy snapshot once (it is what the
+    // old NVS-first getter effectively served) and drop the key only when
+    // core.json really holds the adopted values — otherwise keep it and retry on
+    // the next boot, so an upgrade can never lose a configured slot.
+    String legacy;
+    {
+        Preferences pr;
+        if (!pr.begin("esp32_config", true)) return;
+        if (pr.isKey("cfg_drbt")) legacy = pr.getString("cfg_drbt", "");
+        pr.end();
+    }
+    if (legacy.length() == 0) return;
+
+    if (!config["daily_reboot"].is<JsonObject>()) config["daily_reboot"].to<JsonObject>();
+    const int adopted = adoptLegacyDailyRebootSlots(config["daily_reboot"], legacy.c_str());
+
+    bool dropped = false;
+    if (adopted > 0) {
+        isDirty = true;
+        if (saveToLittleFS()) {
+            Preferences pr;
+            if (pr.begin("esp32_config", false)) { pr.remove("cfg_drbt"); pr.end(); dropped = true; }
+        }
+    } else {
+        // Nothing usable (empty/corrupt/old shape): the blob must not keep
+        // shadowing the truth, but core.json is left exactly as it is.
+        Preferences pr;
+        if (pr.begin("esp32_config", false)) { pr.remove("cfg_drbt"); pr.end(); dropped = true; }
+    }
+
+    char msg[192];
+    snprintf(msg, sizeof(msg),
+             "[cfg] legacy NVS cfg_drbt: %d slot(s) adopted into core.json, key %s",
+             adopted, dropped ? "removed" : "KEPT (core.json not written - retry next boot)");
+    sendVirtualMessage(String(msg), kLogInfo);
+}
+
 uint32_t ConfigManager::computeHash32(const String &s) {
     uint32_t hash = 2166136261u;
     for (size_t i = 0; i < (size_t)s.length(); ++i) {
@@ -1669,10 +1710,11 @@ void ConfigManager::checkNVSHealth() {
     const char* keys[] = {
         "cfg_wifi", "cfg_smtp_pwd", "cfg_eth", "cfg_saved_net", "cfg_rs232",
         "cfg_tpl", "cfg_rcp", "cfg_nr", "cfg_sched_cmd", "cfg_sched_dt",
-        "cfg_drbt", "cfg_sdcard"
+        "cfg_sdcard"
     };
+    const int keyCount = (int)(sizeof(keys) / sizeof(keys[0]));
     int keysFound = 0;
-    for (int i = 0; i < 12; i++) {
+    for (int i = 0; i < keyCount; i++) {
         if (nvs.isKey(keys[i])) {
             String val = nvs.getString(keys[i], "");
             Serial.print(F("    ")); Serial.print(keys[i]);
@@ -1683,7 +1725,8 @@ void ConfigManager::checkNVSHealth() {
     }
     nvs.end();
     Serial.print(F("  Found ")); Serial.print(keysFound);
-    Serial.println(F("/12 segmented keys"));
+    Serial.print(F("/")); Serial.print(keyCount);
+    Serial.println(F(" segmented keys"));
     Serial.println(F("========================================="));
 }
 
@@ -1769,6 +1812,7 @@ bool ConfigManager::loadConfig() {
     ensureAllFieldsExist();
     normalizePostLoad();
     migrateNVSToLittleFS();
+    migrateLegacyDailyRebootNvs();
 
     sendVirtualMessage(String(F("[cfg:boot] serial_monitor_enabled after load=")) + String(getSerialMonitorEnabled() ? 1 : 0), kLogInfo);
 

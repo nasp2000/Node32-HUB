@@ -19,7 +19,7 @@ const char MOBILE_SYSTEM_HTML[] PROGMEM = R"MPSYS(
       <div class="tile"><span class="k" data-i18n="gmSysSdFree">SD card</span><b id="muSd">--</b></div>
       <div class="tile"><span class="k" data-i18n="gmSysWifi">WiFi</span><b id="muWifi">--</b></div>
     </div>
-    <button type="button" class="reboot" id="muReboot" data-i18n="gmSysReboot">Restart the controller</button>
+    <button type="button" class="reboot" id="muReboot" data-i18n="gmSysReboot">Restart</button>
   </div>
 
   <div class="pane" id="muPaneOta">

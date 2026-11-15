@@ -324,7 +324,7 @@ void processDailyRebootSlots() {
             if (!dailyRebootSlotNotFoundLogged[i]) {
                 dailyRebootSlotNotFoundLogged[i] = true;
                 char skipMsg[64];
-                snprintf(skipMsg, sizeof(skipMsg), "[DailyReboot] s%d: slot not in NVS yet (normal on first boot)", i);
+                snprintf(skipMsg, sizeof(skipMsg), "[DailyReboot] s%d: slot not in config yet (normal on first boot)", i);
                 sendVirtualMessage(String(skipMsg), DEBUG, true, false);
             }
             continue;

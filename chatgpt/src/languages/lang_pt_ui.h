@@ -3308,7 +3308,7 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "gmSysFilesLink": "Ficheiros",
   "gmSysMonitorLink": "Monitor série",
   "gmSysAccessLink": "Acesso / sessões",
-  "gmSysReboot": "Reiniciar o controlador",
+  "gmSysReboot": "Reiniciar",
   "gmSysRestarting": "A reiniciar o controlador…",
   "gmSysBlocked": "Há um trabalho a correr — pare-o antes de reiniciar.",
   "gmSysBack": "Voltar ao assistente",
