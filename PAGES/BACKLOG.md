@@ -253,6 +253,7 @@ history and is still the place to look before changing shared wiring.
 | EMAIL-4 | Info | `smtp_tls_insecure` defaults to **checked** (insecure allowed) when unset. | `page_email_asset.cpp` (loadEmailConfig) | open |
 | EMAIL-5 | Low | Port field unvalidated both sides (`v.toInt()` accepts 0/99999 silently). | `config_handler.cpp` (section=email), asset | open |
 | EMAIL-7 | Low | Device crawl 2026-11-11 (.29, v1.120): `/email` issues **404 `/api/recipients?limit=100`**, and because `auto.js`'s `loadRecipientsConfig()` has no page guard and retries on failure, it **re-polls every 2 s for as long as the page is open** (also re-fired by `config-manager.js` `loadConfig` every 5 min). Expected on builds with the Recipients page disabled (`/api/recipients` not registered). **Fixed:** `loadRecipientsConfig()` returns before any fetch when the page has no `#recipients-table`, and the failure retry is capped at 3 (was unconditional, every 2 s, forever). 3 new cases in `tests/web/test_auto_recipients_guard.js` extract and run the shipped function. | `auto_js.h:503-537`, `tests/web/test_auto_recipients_guard.js` | fixed |
+| EMAIL-8 | Low | `/config-manager.js` still shipped a legacy recipients editor (95 lines) that assumed `GET /api/recipients` returns an ARRAY of `{name,email}`; the route returns the slot shape `{total,offset,limit,items:[{name,op,emails,…}]}`, so `Array.isArray(list)` was always false and the table it targeted (`#recipients-table`) no longer exists in any page — dead code with a wrong shape assumption. **Fixed:** the block (loader, row builder, save/remove helpers, table collector), its dispatcher call and the `recipients` branch of `_detectConfigSection()` are gone; the recipients page keeps its own guarded loader in `auto.js`. Tests: `test_config_manager_recipients_removed.js` (2 cases). | `config_manager_js_asset.cpp` | fixed |
 | EMAIL-6 | Low | `email_destination` tooltip says *"Sender email address"* but field is the destination/recipient. | asset, `emailTipSender` key | open |
 
 ---
@@ -286,7 +287,7 @@ history and is still the place to look before changing shared wiring.
 
 | ID | Pri | Issue | Files | Status |
 |---|---|---|---|---|
-| MODBUS-1 | High | TCP register types corrupted on save: page sends `type`/`order` as strings (`"FLOAT32"`, `"ABCD"`); handler coerces `r["type"] \| (uint8_t)0` → always 0; runtime parses uint8. Any save from `/modbus-tcp` collapses all registers to UINT16/ABCD. | `page_modbus_asset.cpp:514-525`, `modbus_handler.cpp:271-272`, `modbus_runtime.cpp:56` | open |
+| MODBUS-1 | High | TCP register types corrupted on save: the editor posts `type`/`order` as names (`"FLOAT32"`, `"CDAB"`) while storage/runtime use the uint8 codes; `r["type"] | (uint8_t)0` cannot convert a string, so every save from `/modbus-tcp` collapsed all registers to UINT16/ABCD. **Fixed:** `modbus_reg_types.h` (new) is the single mapping (types 0..5 + COIL/DISCRETE→BIT, orders 0..3, case-insensitive), the POST accepts names **and** codes, and the editor translates the stored code back to a name (`_mbTypeName`/`_mbOrderName`). It also built every row's type select from register 0 — now per register. Tests: native `test_modbus_reg_types.cpp` (5/46) + `test_modbus.js` +10 assertions. | `modbus_reg_types.h`, `modbus_handler.cpp`, `page_modbus_asset.cpp` | fixed |
 | MODBUS-2 | Medium | `POST /api/modbus/config` accepts unbounded devices/registers; runtime clamps at 4/16 by silently dropping extras. | `modbus_handler.cpp` (handleModbusConfigPost), `modbus_runtime.cpp:32,60` | open |
 | MODBUS-3 | Medium | Hardcoded PT across HTML fallbacks, alerts/confirms and tab labels; tab engine matches h2 text (`'configuração global'`…) so translating headers breaks tabs. | `page_modbus_asset.cpp`, `MODBUS_RTU_TABS_JS`/`MODBUS_TCP_TABS_JS` | open |
 | MODBUS-4 | Low | Live endpoint formats with fixed 4 decimals regardless of `pretty` setting/register type. | live JSON build, `page_modbus_asset.cpp` | open |
@@ -347,31 +348,31 @@ history and is still the place to look before changing shared wiring.
 
 | ID | Pri | Issue | Files | Status |
 |---|---|---|---|---|
-| DO-1 | High | Ethernet GET APIs missing: `GET /api/do/status` + `GET /api/do/config` registered only on WiFi, so over W5500 the page shows stale OFF/empty labels. | `web_routes_do.cpp:38-39`, `ethernet_bootstrap_routes.h:768-771` | open |
+| DO-1 | High | Ethernet GET APIs missing: `GET /api/do/status` + `GET /api/do/config` were WiFi-only and the Ethernet bootstrap mirrored just the two POSTs. **Already fixed** by the unified route registry: both GETs go through `registerApiRoute()`, and the Ethernet dispatcher's fallback resolves `findApiRouteHandler(method, path)` for every method, so they are served over W5500 too. Pinned by `test_api_surface_contract.cpp` (registration + dispatcher parity); the dead `ethernetHandleDoStatusGet` wrapper is now unused documentation. | `web_routes_do.cpp`, `ethernet_bootstrap_routes.h` | fixed |
 
 ## HX711 (`hx711.md` → `/hx711`)
 
 | ID | Pri | Issue | Files | Status |
 |---|---|---|---|---|
-| HX-2 | High | Ethernet API surface incomplete: only `POST /api/hx711-config` wired; no GET config, measure or tare routes, so the page cannot load or act over Ethernet. | `ethernet_bootstrap_routes.h:683-688`, `ethernet_bootstrap_handlers.h:2113-2141` | open |
+| HX-2 | High | Ethernet API surface incomplete: only `POST /api/hx711-config` was wired, so the page could not load (`GET`), measure or tare over Ethernet. **Already fixed** by the unified route registry (`GET /api/hx711-config`, `POST /api/hx711-measure`, `POST /api/hx711-tare` all via `registerApiRoute()`; Ethernet resolves the same table). Pinned by `test_api_surface_contract.cpp`. | `web_routes_config.cpp`, `ethernet_bootstrap_routes.h` | fixed |
 
 ## LPT / DB25 (`lpt_db25.md` → `/lpt-db25`)
 
 | ID | Pri | Issue | Files | Status |
 |---|---|---|---|---|
-| LPT-1 | High | Page can never load its own settings: `GET /api/config?section=system` omits every key the page reads, so all controls show HTML defaults. | `page_lpt_db25_asset.cpp:62-73`, `config_handler.cpp:184-189` | open |
+| LPT-1 | High | Page could never load its own settings: `loadConfig()` reads `printer_emulation_mode`, `charset_mode`, `email.*`, `autoEmailEnabledTimeout/DisabledTimeout` from `GET /api/config?section=system`, which returned only `system_name/system_language/mdns_enabled/ntp`, so every field fell back to the HTML default. **Fixed:** the system section now returns the printer modes, the e-mail block (`auto_send`, `max_lines`, `min_content_length`), both timeouts, the AMADA `structures` object and the `saved_configs` RS232 summary the structures page reads (payload capacity 1024 → 2560). Keys are the same ones the POST already accepts, so the round-trip is closed. Tests: `test_api_surface_contract.cpp` (payload + page contract). | `config_handler.cpp`, `page_lpt_db25_asset.cpp` (unchanged, already read them) | fixed |
 
 ## Google Script (`google_script.md` → `/google-script`)
 
 | ID | Pri | Issue | Files | Status |
 |---|---|---|---|---|
-| GS-1 | High | Saved GAS URL never pre-fills: JS reads `d.google_email.google_script_url` but the API returns the URL at `smtp.google_script_url`, so the field renders blank even after saving. | `page_google_script_asset.cpp:94,97`, `config_handler.cpp:182` | open |
+| GS-1 | Medium | Saved GAS URL never pre-filled: the page read `d.google_email.google_script_url` from `GET /api/config?section=email`, which returned only `{smtp,email}`. **Fixed:** the e-mail section now includes `google_email.google_script_url` from `getGoogleScriptUrl()` (the same getter the POST uses). Tests: `test_api_surface_contract.cpp`. | `config_handler.cpp`, `page_google_script_asset.cpp` | fixed |
 
 ## Structures (`structures.md` → `/structures`)
 
 | ID | Pri | Issue | Files | Status |
 |---|---|---|---|---|
-| STR-1 | High | Page loads from an endpoint that never returns its data: `GET /api/config?section=system` omits `structures`/`saved_configs`, so the form always shows defaults and diagnostics always report Mode "Manual". | `page_structures_asset.cpp:262-285`, `config_handler.cpp:184` | open |
+| STR-1 | High | Page loaded from an endpoint that never returned its data: `loadPageData()` reads `d.structures` and `d.saved_configs` from `GET /api/config?section=system`, which had neither. **Fixed** by the same system-section payload (structures + `saved_configs.rs232_*`), so the form shows the saved auto-detect/AMADA state and the RS232 summary. Tests: `test_api_surface_contract.cpp`. | `config_handler.cpp`, `page_structures_asset.cpp` | fixed |
 
 ## Sensor Charts (`sensor_charts.md` → `/sensor-charts`)
 
