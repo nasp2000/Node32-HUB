@@ -55,6 +55,13 @@ pio run -e esp32p4cam         # P4 CAM only (Arduino 3.3.12 dual-platform, see p
 - **Screenshots live in `PAGES/mobile/`** (versioned): **exactly ONE image per screen, always the most recent** — `common_system_*` once for the shared block, `<pack>_*.png` one per pack screen. **Any change that alters a screen (layout, buttons, text, state) must refresh its image in the same change**, and `PAGES/mobile/README.md` (model + image index + pack checklist) must be updated when a screen is added or removed.
 - Docs per pack: `PAGES/<pack>_mobile.md` + a `/m` row in `PAGES/WEB_PAGES_REFERENCE.md`. Tests: `tests/web/test_m_<pack>.js` with its fixture builder `tests/web/build_m_<pack>.py` (jsdom, run with `~/.local/bin/node`). Log the work in `HISTORIC/<pack>/HISTORICO.md`.
 
+## Desktop page screenshots (`PAGES/desktop/`) — prepared, same convention
+- **One image per desktop page, always the most recent**, at `PAGES/desktop/<route_snake_case>.png` (e.g. `grbl_controller.png`, `camera.png`, `status.png`). No `_v2`, no dates, no per-state copies.
+- The desktop pages are the **PC view** of every page (`?desk=1`); phone pages go to `PAGES/mobile/` instead — never mix the two folders.
+- Capture at **1440 × 900** (full page if it scrolls), English UI, realistic data and no personal content.
+- The index to fill lives in `PAGES/desktop/README.md` (§3): mark rows **pending → done** as each page gets its image, and add a row when a page is created.
+- **RULE: a change that alters a desktop page (layout, buttons, text, state) must refresh its image in `PAGES/desktop/` in the same change**, together with `PAGES/<page>.md` and the cross-page table.
+
 ## Language (code, not translations)
 - Everything in code in English: identifiers, comments, logs, filenames, commits.
 - Translations exempt: `lang_pt_ui.h`/`lang_en_ui.h` (full JSON PROGMEM, validated in sync at build). Firmware strings via `L(activeLang->field)`.

@@ -1,8 +1,9 @@
 # Mobile pages (`/m`) — model, images and where things live
 
 Working folder for the **phone pages**: one image per screen, the shared blocks
-once, and the rules every pack follows. All screenshots live here (this folder is
-versioned, unlike `SHARE/`).
+once, and the rules every pack follows. All phone screenshots live here (versioned).
+The **desktop** pages get the same treatment in `PAGES/desktop/` (structure ready,
+images pending).
 
 ---
 
