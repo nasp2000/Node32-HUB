@@ -136,6 +136,36 @@ TEST_CASE("EMAIL-1/EMAIL-3: the /email page fallbacks are English") {
     CHECK(page.find("Test started successfully!") != std::string::npos);
 }
 
+TEST_CASE("ETH-3: the WiFi/AP replies are localized, the wire codes stay stable") {
+    const std::string net = readSrc("webpages/handlers_unified/network_handler.cpp");
+    // Prose goes through the language pack...
+    for (const char *key : {"L(activeLang->apiApDisabled)", "L(activeLang->apiWifiDisabledHint)",
+                            "L(activeLang->apiWifiEnabledHint)"}) {
+        INFO("missing: " << key);
+        CHECK(net.find(key) != std::string::npos);
+    }
+    // ...and no Portuguese reply is left in those three handlers.
+    CHECK(net.find("Access Point desativado") == std::string::npos);
+    CHECK(net.find("WiFi desligado. Para reativar") == std::string::npos);
+    CHECK(net.find("WiFi reativado. Reinicie") == std::string::npos);
+
+    // Both positional initialisers define the new fields.
+    const std::string act = readSrc("languages/lang_active.cpp");
+    for (const char *key : {"apiApDisabled", "apiWifiDisabledHint", "apiWifiEnabledHint"}) {
+        INFO("language block missing: " << key);
+        const size_t first = act.find(key);
+        REQUIRE(first != std::string::npos);
+        CHECK(act.find(key, first + 1) != std::string::npos); // PT + EN
+    }
+
+    // `status:"erro"` + `msg` codes are machine identifiers used by 34 endpoints;
+    // they stay stable on purpose (renaming them would break every client for no
+    // user-visible gain). This pins that decision so a future pass does not
+    // "fix" the codes without migrating the callers.
+    const std::string shared = readSrc("web_shared_logic.cpp");
+    CHECK(shared.find("\\\"status\\\":\\\"erro\\\"") != std::string::npos);
+}
+
 TEST_CASE("DO-1/HX-2: the DO and HX711 endpoints are in the shared registry") {
     const std::string doRoutes = readSrc("webpages/routes/web_routes_do.cpp");
     CHECK(hasAll(doRoutes, {"registerApiRoute(\"GET\", \"/api/do/status\"",

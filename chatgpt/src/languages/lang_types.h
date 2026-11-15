@@ -216,6 +216,9 @@ struct LangStrings {
     const char* apiErrSaveModbus;
     const char* apiNetNotFound;
     const char* apiErrSaveWifiState;
+    const char* apiApDisabled;            // POST /api/wifi-disable-ap
+    const char* apiWifiDisabledHint;      // POST /api/wifi-disable
+    const char* apiWifiEnabledHint;       // POST /api/wifi-enable
     const char* apiErrSaveAp;
     const char* apiErrSaveWifiNet;
     const char* apiErrRemoveWifi;

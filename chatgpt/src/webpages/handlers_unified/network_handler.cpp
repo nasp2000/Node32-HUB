@@ -268,7 +268,7 @@ void handleWifiDisableApPost(HttpRequest& req, HttpResponse& res) {
     forceAPMode = false;
     if (WiFi.status() == WL_CONNECTED) {
         stopAccessPoint();
-        res.send(200, "application/json", "{\"success\":true,\"message\":\"Access Point desativado\"}");
+        res.send(200, "application/json", String(F("{\"success\":true,\"message\":\"")) + L(activeLang->apiApDisabled) + F("\"}"));
         return;
     }
     res.send(400, "application/json", "{\"success\":false,\"message\":\"Nao e possivel desativar AP sem conexao WiFi\"}");
@@ -286,7 +286,7 @@ void handleWifiDisablePost(HttpRequest& req, HttpResponse& res) {
         res.send(500, "application/json", "{\"success\":false,\"message\":\""+L(activeLang->apiErrSaveWifiState)+"\"}");
         return;
     }
-    res.send(200, "application/json", "{\"success\":true,\"message\":\"WiFi desligado. Para reativar use 'Ligar WiFi' e reinicie o dispositivo.\"}");
+    res.send(200, "application/json", String(F("{\"success\":true,\"message\":\"")) + L(activeLang->apiWifiDisabledHint) + F("\"}"));
 }
 
 // ETH-1: one radio-stop sequence for every transport, so the behaviour cannot
@@ -312,7 +312,7 @@ void handleWifiEnablePost(HttpRequest& req, HttpResponse& res) {
         res.send(500, "application/json", "{\"success\":false,\"message\":\""+L(activeLang->apiErrSaveWifiState)+"\"}");
         return;
     }
-    res.send(200, "application/json", "{\"success\":true,\"message\":\"WiFi reativado. Reinicie o dispositivo para que o WiFi volte a funcionar.\"}");
+    res.send(200, "application/json", String(F("{\"success\":true,\"message\":\"")) + L(activeLang->apiWifiEnabledHint) + F("\"}"));
 }
 
 // === Clear AP Lock ===

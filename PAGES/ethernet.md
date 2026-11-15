@@ -103,7 +103,7 @@ Inline `<script>` (auto.js supplies `customAlert`/`customConfirm`/`showSavedCard
 | `/api/wifi-disable` | POST | legacy `server.on` at `web_routes_network.cpp:151` (persist flag + delayed radio-off timer); Ethernet-side equivalent documented at `ethernet_bootstrap_handlers.h:491` | sets `wifi_disabled=true`, saves NVS section `wifi`, frees driver heap (~25–35 KB) |
 | `/api/wifi-enable` | POST | `network_handler.cpp:285` | clears flag + saves NVS; message says restart required |
 
-Error/status strings from these endpoints are partly **Portuguese** (`erro`,
+Error/status strings from these endpoints were partly **Portuguese** (`erro`, `modo_invalido`, …). They are **machine codes**, never shown as text: they stay stable (34 endpoints use them) and the user-visible replies now come from `LangStrings` (ETH-3).
 `modo_invalido`, …) — see findings.
 
 ---
@@ -149,7 +149,7 @@ Ethernet bootstrap (restart required after any change).
 | # | Finding | Pri | Suggestion |
 |---|---|---|---|
 | 1 | Arrow functions used in poll/save handlers (`.then(r=>r.json())`, `.catch(()=>…)`) — violated the no-arrow-function rule. **Fixed:** all 6 rewritten as `function` callbacks; fixture `pack_ethernet.html` in sync; `node --check` clean. | Low | **fixed** |
-| 2 | Server error strings PT: `{status:"erro", msg:"modo_invalido"/"ipv4_invalido"/"mac_invalido"}` and wifi disable/enable messages — EN-fallback violation. | Low | Use English codes/messages or translate via `L()`. |
+| 2 | Server error strings PT: `{status:"erro", msg:"modo_invalido"/"ipv4_invalido"/"mac_invalido"}` and the wifi disable/enable prose. **Fixed (prose):** the three user-visible replies (AP disabled, wifi disabled hint, wifi re-enabled hint) come from `LangStrings` (`apiApDisabled`, `apiWifiDisabledHint`, `apiWifiEnabledHint`, PT+EN). The `status:"erro"`/`msg` pairs stay stable — machine codes used by 34 endpoints, never rendered as text, and renaming them would break clients for no visible gain (pinned by `test_api_surface_contract.cpp`). | Low | **fixed** |
 | 3 | `/api/wifi-disable` exists as two divergent implementations: WiFi AsyncWebServer timer-based stop vs unified persist-only registry path — behavior can differ per transport. | Medium | Consolidate into one `handleWifiDisablePost` registered via `registerApiRoute`. |
 | 4 | Switching static→dhcp→save discards typed values silently (fields are cleared client-side by design) — no confirmation. | Info | Acceptable; document in tooltip. |
 | 5 | Polling runs forever (6 s / 8 s) even when tab hidden. | Info | Pause on `document.hidden`. |
