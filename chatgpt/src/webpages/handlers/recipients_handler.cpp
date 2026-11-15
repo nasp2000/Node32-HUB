@@ -8,6 +8,7 @@
 #include <ArduinoJson.h>
 
 #include "../../ConfigManager.h"
+#include "../../recipient_slot_json.h" // shared slot shape incl. active (RECIP-6)
 #include "../../psram_helpers.h"
 
 extern ConfigManager configManager;
@@ -61,10 +62,7 @@ void registerRecipientRoutes(AsyncWebServer& server, const WebRouteContext& cont
         for (size_t i = offset; i < end; ++i) {
             JsonObject slot = slots[i].as<JsonObject>();
             JsonObject item = items.createNestedObject();
-            item["name"] = slot["name"] | String("");
-            item["op"] = slot["op"] | String("I");
-            item["emails"] = slot["emails"] | String("");
-            item["freq"] = slot["freq"] | 0;
+            recipientSlotFillJsonFromStored(item, slot);
         }
 
         AsyncResponseStream* response = request->beginResponseStream("application/json");
@@ -89,11 +87,7 @@ void registerRecipientRoutes(AsyncWebServer& server, const WebRouteContext& cont
             bool active = true;
             if (i <= (int)rawSlots.size()) active = rawSlots[i - 1]["enabled"] | true;
             JsonObject slot = arr.createNestedObject();
-            slot["name"] = name;
-            slot["op"] = op;
-            slot["emails"] = emails;
-            slot["freq"] = freq;
-            slot["active"] = active;
+            recipientSlotFillJson(slot, name, op, emails, freq, active);
         }
         AsyncResponseStream* response = request->beginResponseStream("application/json");
         serializeJson(doc, *response);

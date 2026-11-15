@@ -691,6 +691,10 @@ test_email_event_fields$(BIN_EXT): test_email_event_fields.cpp $(SRC_DIR)/email_
 # --- ftp_status_store: persisted last-sends state (FTP page, survives reboot) ---
 test_ftp_status_store$(BIN_EXT): test_ftp_status_store.cpp $(SRC_DIR)/ftp_status_store.h $(STUBS_DIR)/Arduino.h $(STUBS_DIR)/ArduinoJson.h
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_ftp_status_store.cpp
+# --- recipient_slot_json: shared slot shape incl. active (RECIP-6) ---
+test_recipient_slot_json$(BIN_EXT): test_recipient_slot_json.cpp $(SRC_DIR)/recipient_slot_json.h
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -DSRC_DIR_PATH='"$(abspath $(SRC_DIR))"' -o $@ test_recipient_slot_json.cpp
+
 # --- recipients_freq: freq 0 = always round-trips (RECIP-5) ---
 test_recipients_freq$(BIN_EXT): test_recipients_freq.cpp $(SRC_DIR)/webpages/assets/page_recipients_asset.cpp
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -DSRC_DIR_PATH='"$(abspath $(SRC_DIR))"' -o $@ test_recipients_freq.cpp

@@ -11,6 +11,7 @@
 
 // Unified handler declarations
 #include "webpages/http_abstraction.h"
+#include "recipient_slot_json.h" // shared slot shape incl. active (RECIP-6)
 
 #include "psram_helpers.h"
 #include "webpages/handlers_unified/config_handler.h"
@@ -3071,10 +3072,7 @@ static void ethernetSendRecipientsList(EthernetClient& client, const String& que
         for (size_t i = offset; i < end; ++i) {
             JsonObject slot = slots[i].as<JsonObject>();
             JsonObject o = items.createNestedObject();
-            o["name"] = slot["name"] | String("");
-            o["op"] = slot["op"] | String("I");
-            o["emails"] = slot["emails"] | String("");
-            o["freq"] = slot["freq"] | 0;
+            recipientSlotFillJsonFromStored(o, slot);
         }
     }
 
@@ -3099,11 +3097,7 @@ static void ethernetSendRecipientSlots(EthernetClient& client) {
             active = rawSlots[i - 1]["enabled"] | true;
         }
         JsonObject slot = arr.createNestedObject();
-        slot["name"] = name;
-        slot["op"] = op;
-        slot["emails"] = emails;
-        slot["freq"] = freq;
-        slot["active"] = active;
+        recipientSlotFillJson(slot, name, op, emails, freq, active);
     }
     String json;
     serializeJson(doc, json);

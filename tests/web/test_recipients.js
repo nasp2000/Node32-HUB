@@ -538,6 +538,33 @@ async function run() {
   } // end Frequency block
 
   // ════════════════════════════════════════════════════════════════
+  // `active` in the slots response (RECIP-6)
+  // ════════════════════════════════════════════════════════════════
+  {
+    dom = loadPage(); await wait(dom, 500);
+    win = dom.window; doc = win.document;
+
+    test('the row state honours the active flag from /api/recipient-slots', function() {
+      // Two stored rules: the first disabled, the second enabled.
+      win.__MOCK_API__ = win.__MOCK_API__ || {};
+      win.__MOCK_API__['/api/recipient-slots'] = {slots:[
+        {name:'OFF', op:'I', emails:'a@b.c', freq:0, active:false},
+        {name:'ON',  op:'I', emails:'d@e.f', freq:600, active:true}
+      ]};
+      win.__test__.preload();
+    });
+
+    // preload() is async; give the mock fetch a tick before asserting.
+    await wait(dom, 300);
+    test('disabled rule renders Active = No', function() {
+      is(doc.querySelector("select[name='r_active_1']").value, '0', 'row 1 shows No');
+    });
+    test('enabled rule renders Active = Yes', function() {
+      is(doc.querySelector("select[name='r_active_2']").value, '1', 'row 2 shows Yes');
+    });
+  } // end active block
+
+  // ════════════════════════════════════════════════════════════════
   // Summary
   // ════════════════════════════════════════════════════════════════
   var total = passed + failed;
