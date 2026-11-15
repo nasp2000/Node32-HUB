@@ -10,7 +10,6 @@ console.log('🔄 ConfigManager JS carregado');
 function _applyLoadedConfig(config) {
     if (typeof loadWifiConfig === 'function') loadWifiConfig(config);
     if (typeof loadEmailConfig === 'function') loadEmailConfig(config);
-    if (typeof loadRecipientsConfig === 'function') loadRecipientsConfig(config);
     if (typeof loadCommandsConfig === 'function') loadCommandsConfig(config);
     if (typeof loadRs232Config === 'function') loadRs232Config(config);
     if (typeof loadPrinterConfig === 'function') loadPrinterConfig(config);
@@ -19,7 +18,6 @@ function _applyLoadedConfig(config) {
 function _detectConfigSection() {
     if (document.getElementById('rs232-form') || document.getElementById('rs232_enabled')) return 'rs232';
     if (document.getElementById('smtp_server') || document.getElementById('email_method')) return 'email';
-    if (document.getElementById('recipients-table')) return 'recipients';
     if (document.getElementById('ssid') || document.getElementById('wifi_ssid')) return 'wifi';
     if (document.getElementById('printer-form') || document.getElementById('printer_emulation_mode') || document.getElementById('structures-form')) return 'system';
     return 'system';
@@ -159,101 +157,6 @@ function loadPrinterConfig(config) {
     }
 }
 
-function loadRecipientsConfig(config) {
-    console.log('🔄 Loading Recipients config');
-    const tbody = document.querySelector('#recipients-table tbody');
-    if (!tbody) return;
-
-    if (config && config.recipients) {
-        tbody.innerHTML = '';
-        Object.keys(config.recipients).forEach(name => {
-            const email = config.recipients[name];
-            addRecipientRow(name, email);
-        });
-        addRecipientRow('', '');
-        return;
-    }
-
-    fetch('/api/recipients?limit=100', { cache: 'no-store' })
-        .then(r => {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return r.json();
-        })
-        .then(list => {
-            tbody.innerHTML = '';
-            if (Array.isArray(list)) {
-                list.forEach(function(rec){ addRecipientRow(rec.name || '', rec.email || ''); });
-            }
-            addRecipientRow('', '');
-        })
-        .catch(err => {
-            console.warn('Failed to load /api/recipients, leaving recipient table empty', err);
-            tbody.innerHTML = '';
-            addRecipientRow('', '');
-        });
-}
-
-function addRecipientRow(name, email) {
-    const tbody = document.querySelector('#recipients-table tbody');
-    if (!tbody) return;
-    const row = tbody.insertRow();
-    let displayName = name;
-    if (displayName.length > 0) {
-        displayName = displayName.charAt(0).toUpperCase() + displayName.slice(1);
-    }
-    row.innerHTML = `
-        <td><input type="text" name="recipient_name[]" autocomplete="name" value="${displayName}" placeholder="Nome" class="form-input" /></td>
-        <td><input type="email" name="recipient_email[]" autocomplete="email" value="${email}" placeholder="email@exemplo.com" class="form-input" /></td>
-        <td>
-            <button onclick="saveRecipient(this)" class="btn btn-small">Salvar</button>
-            <button onclick="removeRecipient(this, '${name}')" class="btn btn-small btn-danger">Remove</button>
-        </td>
-    `;
-}
-
-function saveRecipient(button) {
-    const row = button.closest('tr');
-    const nameInput = row.cells[0].querySelector('input');
-    const emailInput = row.cells[1].querySelector('input');
-    const name = nameInput.value.trim();
-    const email = emailInput.value.trim();
-    if (name && email) {
-        const recipients = collectRecipientsFromTable();
-        const payload = { recipients_json: JSON.stringify(recipients) };
-        saveConfig('recipients', payload, () => setTimeout(loadConfig, 500));
-    } else {
-        showErrorMessage(window._t?window._t('cfgRecipientsRequired','Name and email are required'):'Name and email are required');
-    }
-}
-
-function removeRecipient(button, name) {
-    const doRemove = () => {
-        const row = button.closest('tr');
-        if (row && row.parentElement) row.parentElement.removeChild(row);
-        const recipients = collectRecipientsFromTable();
-        const payload = { recipients_json: JSON.stringify(recipients) };
-        saveConfig('recipients', payload, () => setTimeout(loadConfig, 500));
-    };
-    const msg = `Remove recipient ${name || ''}?`;
-    if (typeof customConfirm === 'function') {
-        customConfirm(msg, function(ok) { if (ok) doRemove(); });
-        return;
-    }
-}
-
-function collectRecipientsFromTable() {
-    const tbody = document.querySelector('#recipients-table tbody');
-    const recipients = [];
-    if (!tbody) return recipients;
-    const rows = Array.from(tbody.rows);
-    for (const r of rows) {
-        const name = (r.cells[0]?.querySelector('input')?.value || '').trim();
-        const email = (r.cells[1]?.querySelector('input')?.value || '').trim();
-        if (name && email) recipients.push({ name, email });
-    }
-    return recipients;
-}
-
 // Success notification disabled — customAlert provides save feedback
 function showSuccessMessage(message) {
     console.log('✅ ' + message);
@@ -311,7 +214,7 @@ window.addEventListener('load', function() {
             'wifi_ssid','wifi_password','smtp_server','smtp_port','smtp_username','smtp_password',
             'email_destination','email_auto_send','auto_send_email','email_max_lines','email_min_content_length',
             'rs232_enabled','rs232_baudrate_index','rs232_invert_pins',
-            'printer_emulation_mode','printer_charset_mode','recipients-table'
+            'printer_emulation_mode','printer_charset_mode'
         ];
         for (var i = 0; i < ids.length; i++) {
             if (document.getElementById(ids[i])) return true;
