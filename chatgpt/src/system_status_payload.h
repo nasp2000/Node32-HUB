@@ -1,5 +1,6 @@
 #pragma once
 #include "heap_trace.h"   // measured boot checkpoints (heap_trace.cpp)
+#include "sched_dt_limits.h" // SCHED_DT_SLOT_MAX (CMD-2)
 
 #include <ArduinoJson.h>
 #include <WiFi.h>
@@ -785,7 +786,7 @@ inline void fillSystemStatusJson(JsonDocument& out, SystemStatusPayloadState& st
     }
 
     JsonArray schedDtArray = out.createNestedArray("sched_dt_active");
-    for (int i = 1; i <= 8; i++) {
+    for (int i = 1; i <= SCHED_DT_SLOT_MAX; i++) {
         String cmd, date, time, tpl, type;
         bool enabled = false;
         bool daily = false;

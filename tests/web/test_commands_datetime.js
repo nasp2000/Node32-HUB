@@ -120,6 +120,46 @@ async function run() {
   }
 
   // ════════════════════════════════════════════════════════════════
+  // 16 slots (BACKLOG CMD-2): the page covers every slot the server stores
+  // and lists — /api/scheduled-datetime-slots serialises exactly these.
+  // ════════════════════════════════════════════════════════════════
+  {
+    dom = loadPage(); await wait(dom, 800);
+    win = dom.window; doc = win.document;
+    var body = doc.getElementById('sched_dt_body');
+
+    test('the page offers the full 16-slot range', function() {
+      var guard = 0;
+      while (body.querySelectorAll('tr[data-i]').length < 16 && guard++ < 40) win.__test__.addRow();
+      is(body.querySelectorAll('tr[data-i]').length, 16, '16 rows');
+      var ids = [];
+      body.querySelectorAll('tr[data-i]').forEach(function(tr) { ids.push(tr.getAttribute('data-i')); });
+      is(ids.join(','), '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16', 'contiguous 1..16');
+      is(win.__test__.addRow(), false, 'row 17 refused');
+      is(body.querySelectorAll('tr[data-i]').length, 16, 'still 16 rows');
+    });
+
+    test('slot 16 saves with i=16 (inside the served range)', function() {
+      var sent = null;
+      win.fetch = function(u, o) {
+        if (u === '/api/scheduled-datetime-slot' && o && o.method === 'POST') {
+          sent = o.body;
+          return Promise.resolve({ok:true, status:200, json:function(){ return Promise.resolve({status:'ok'}); }});
+        }
+        return Promise.resolve({ok:true, status:200,
+          json:function(){ return Promise.resolve({}); },
+          text:function(){ return Promise.resolve(''); }});
+      };
+      var row = body.querySelector("tr[data-i='16']");
+      row.querySelector("input[name='sd_cmd_16']").value = 'emailday';
+      row.querySelector('[data-save]').click();
+      ok(sent, 'POST issued');
+      is(sent.get('i'), '16', 'slot index 16 sent');
+      is(sent.get('command'), 'emailday', 'command sent');
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════
   // rm — remove + rebuild with contiguous indices
   // ════════════════════════════════════════════════════════════════
   {

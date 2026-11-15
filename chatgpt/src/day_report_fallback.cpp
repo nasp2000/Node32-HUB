@@ -17,7 +17,9 @@
 namespace {
 
 const char* kJournalPath = "/config/dayrep.json";
-const size_t kJournalMaxBytes = 2048;
+// Serialized journal cap. 18 entries (kMaxEntries) measure ~5.2KB of JSON
+// document memory, so the parse/serialize buffers below use this size.
+const size_t kJournalMaxBytes = 6144;
 
 dayrep::Entry s_entries[dayrep::kMaxEntries];
 bool s_loaded = false;
@@ -49,7 +51,7 @@ bool journalSaveNow() {
     // write there panics, HISTORIC/HomeE32 (8)). No gate on littlefsBegin()
     // here: that call is itself a potential flash op, and the API's executor
     // performs it on a safe stack.
-    SpiRamJsonDocument doc(2048);
+    SpiRamJsonDocument doc(kJournalMaxBytes);
     JsonArray arr = doc.to<JsonArray>();
     for (int i = 0; i < dayrep::kMaxEntries; ++i) {
         if (s_entries[i].slot < 0) continue;
@@ -87,7 +89,7 @@ void journalLoad() {
     int32_t efh = emailFlashOpenRead(kJournalPath);
     if (efh < 0) return;
     String raw;
-    raw.reserve(2048);
+    raw.reserve(kJournalMaxBytes);
     uint8_t jbuf[512];
     while (true) {
         size_t n = emailFlashRead(efh, jbuf, sizeof(jbuf));
@@ -97,7 +99,7 @@ void journalLoad() {
     }
     emailFlashClose(efh);
     if (raw.isEmpty()) return;
-    SpiRamJsonDocument doc(2048);
+    SpiRamJsonDocument doc(kJournalMaxBytes);
     if (deserializeJson(doc, raw) != DeserializationError::Ok) {
         return;
     }

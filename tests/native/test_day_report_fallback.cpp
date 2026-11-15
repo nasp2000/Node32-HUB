@@ -94,3 +94,31 @@ TEST_CASE("needsRetry never refires SENT, enforces spacing + window") {
     CHECK_FALSE(dayrep::needsRetry(stale, sched + 25 * 3600));  // older than 24h window
     CHECK_FALSE(dayrep::needsRetry(stale, 500L));               // clock invalid (no NTP)
 }
+
+TEST_CASE("journal holds one report per sched_dt slot plus manual (CMD-2)") {
+    // 16 date/time slots can each hold a pending day-report on the same day;
+    // the journal must track them all (it covered only 8 slots + manual + spare
+    // before CMD-2), otherwise the newest entries evict older retries.
+    CHECK(dayrep::kMaxEntries >= 18);
+    dayrep::Entry list[dayrep::kMaxEntries];
+    for (int i = 0; i < dayrep::kMaxEntries; ++i) dayrep::entryInit(list[i]);
+    const int dayKey = 20261115;
+    int next = 0;
+    list[next].slot = dayrep::kManualSlot;   // manual dispatch
+    list[next].dayKey = dayKey;
+    next++;
+    for (int slot = 1; slot <= 16; ++slot) {
+        list[next].slot = slot;
+        list[next].dayKey = dayKey;
+        next++;
+    }
+    CHECK(next == 17);
+    CHECK(dayrep::findEntry(list, dayrep::kMaxEntries, dayrep::kManualSlot, dayKey) == 0);
+    for (int slot = 1; slot <= 16; ++slot) {
+        int idx = dayrep::findEntry(list, dayrep::kMaxEntries, slot, dayKey);
+        REQUIRE(idx >= 0);
+        CHECK(list[idx].slot == slot);
+    }
+    // A different day is a different intent, so it never collides.
+    CHECK(dayrep::findEntry(list, dayrep::kMaxEntries, 16, dayKey + 1) < 0);
+}

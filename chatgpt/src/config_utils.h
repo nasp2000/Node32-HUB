@@ -1,4 +1,6 @@
 #pragma once
+
+#include "sched_dt_limits.h"
 #include <Arduino.h>
 #include <stdint.h>
 
@@ -102,6 +104,6 @@ static inline int clampSchedCmdActive(int v) {
 
 static inline int clampSchedDtActive(int v) {
     if (v < 1) return 1;
-    if (v > 8) return 8;
+    if (v > SCHED_DT_SLOT_MAX) return SCHED_DT_SLOT_MAX;
     return v;
 }

@@ -20,6 +20,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include "psram_helpers.h" // SpiRamJsonDocument - allocates large JSON docs in PSRAM
+#include "sched_dt_limits.h" // SCHED_DT_SLOT_MAX - sched_dt storage bounds
 
 // Dual-storage architecture: NVS (boot-critical) + LittleFS (everything else)
 #include "littlefs_manager.h" 
@@ -282,7 +283,7 @@ public:
     ConfigManager() :
         config(24576),      // 24KB pool (16KB filled in real use: alerts import then lost slots; PSRAM plentiful)
         recipDoc(8192),     // recipients_slots (user-typed names + emails arrays) + numeric_rules, 2x worst case
-        schedDoc(ENABLE_SCHEDULER == 1 ? 5120 : 256),   // 5KB if scheduler active (slots + last_run_day anchors); 256B otherwise
+        schedDoc(ENABLE_SCHEDULER == 1 ? 8192 : 256),   // 8KB if scheduler active (SCHED_DT_SLOT_MAX dt slots + sched_cmd slots + last_run_day anchors: 16 full dt slots measure ~5.9KB); 256B otherwise
         modbusDoc(ENABLE_MODBUS == 1 ? 4096 : 256)      // 4KB if modbus active; 256B otherwise (scalar fields only)
     { initDefaults(); }
 
@@ -446,8 +447,8 @@ public:
     }
     // 🧠 Read slot (returns via reference parameters)
     // 🧠 Complete version with type and daily
-    bool getSchedDtSlot(int i, String &cmd, String &date, String &time, String &tpl, bool &enabled, String &type, bool &daily) { // Getter (1..8) with type and daily
-        if (i < 1 || i > 8) return false; // Invalid index
+    bool getSchedDtSlot(int i, String &cmd, String &date, String &time, String &tpl, bool &enabled, String &type, bool &daily) { // Getter (1..SCHED_DT_SLOT_MAX) with type and daily
+        if (i < 1 || i > SCHED_DT_SLOT_MAX) return false; // Invalid index
         char key[5]; snprintf(key, sizeof(key), "s%d", i); // Slot name
         if (!schedDoc.containsKey("sched_dt") || !schedDoc["sched_dt"].containsKey(key)) return false; // Absent
         JsonObject so = schedDoc["sched_dt"][key]; // Object
@@ -471,8 +472,8 @@ public:
         return getSchedDtSlot(i, cmd, date, time, tpl, enabled, type, daily); // ♻️ Call complete version
     }
     // 🧠 Write slot (normalize fields)
-    bool setSchedDtSlot(int i, const String &cmd, const String &date, const String &time, const String &tpl, bool enabled, const String &type = "rs232", bool daily = false) { // Setter (1..8)
-        if (i < 1 || i > 8) return false; // Out of range
+    bool setSchedDtSlot(int i, const String &cmd, const String &date, const String &time, const String &tpl, bool enabled, const String &type = "rs232", bool daily = false) { // Setter (1..SCHED_DT_SLOT_MAX)
+        if (i < 1 || i > SCHED_DT_SLOT_MAX) return false; // Out of range
         if (!schedDoc.containsKey("sched_dt")) schedDoc["sched_dt"] = JsonObject(); // Ensure root
         char key[5]; snprintf(key, sizeof(key), "s%d", i); // Slot name
         if (!schedDoc["sched_dt"].containsKey(key)) { // Create if missing
@@ -497,8 +498,8 @@ public:
         isDirty = true; // Mark dirty - save() will flush to LittleFS via the main loop
         return true; // Ok
     }
-    bool clearSchedDtSlot(int i){ // 🧠 Clear a sched_dt slot after execution (1..8)
-        if(i < 1 || i > 8) return false; // ⚠️ Índice inválido
+    bool clearSchedDtSlot(int i){ // 🧠 Clear a sched_dt slot after execution (1..SCHED_DT_SLOT_MAX)
+        if(i < 1 || i > SCHED_DT_SLOT_MAX) return false; // ⚠️ Índice inválido
         if(!schedDoc.containsKey("sched_dt")) return false; // Structure absent
         char key[5]; snprintf(key, sizeof(key), "s%d", i); // Slot key
         if(!schedDoc["sched_dt"].containsKey(key)) return false; // Slot absent
@@ -521,8 +522,8 @@ public:
         if (!doc.is<JsonArray>()) { Serial.println(F("[SchedDt] Legacy is not an array")); return; } // ⚠️ Tipo errado
         JsonArray arr = doc.as<JsonArray>(); // 📦 Array
         int idx = 1; // 🧠 Next slot
-        for (JsonObject o : arr) { // 🧠 Iterate commands (up to 8)
-            if (idx > 8) { Serial.println(F("[SchedDt] Migration truncated (>8)")); break; } // ⚠️ Limite
+        for (JsonObject o : arr) { // 🧠 Iterate commands (up to SCHED_DT_SLOT_MAX)
+            if (idx > SCHED_DT_SLOT_MAX) { Serial.println(F("[SchedDt] Migration truncated (>16)")); break; } // ⚠️ Limite
             String c = o["command"].as<const char*>() ? o["command"].as<const char*>() : ""; // 🧠 Campo
             String d = o["date"].as<const char*>() ? o["date"].as<const char*>() : ""; // 🧠 Campo
             String t = o["time"].as<const char*>() ? o["time"].as<const char*>() : ""; // 🧠 Campo
@@ -531,7 +532,7 @@ public:
             setSchedDtSlot(idx, c, d, t, tpl, en); // ♻️ Grava
             idx++; // ➕ Incrementa
         }
-    schedDoc["sched_dt_active"] = idx - 1; // Adjust active count after migration (max 8)
+    schedDoc["sched_dt_active"] = idx - 1; // Adjust active count after migration (max SCHED_DT_SLOT_MAX)
         schedDoc["sched_dt_migrated"] = true; // Mark migrated
         isDirty = true; // 🧠 Necessário salvar
         Serial.println(F("[SchedDt] Migration complete")); // ✅ Log
@@ -543,7 +544,7 @@ public:
     // Save last execution day for a daily scheduled command (prevents duplicate runs after reboot)
     // dayKey format: YYYYMMDD (e.g., 20260225)
     void saveSchedDtLastRunDay(int slotIndex, int dayKey) {
-        if (slotIndex < 1 || slotIndex > 16) return; // Valid slots: 1-16
+        if (slotIndex < 1 || slotIndex > SCHED_DT_SLOT_MAX) return; // Valid slots: 1..SCHED_DT_SLOT_MAX
         Preferences pr;
         if (pr.begin("esp32_config", false)) { // Open NVS for writing
             char key[10];
@@ -557,7 +558,7 @@ public:
     // Load last execution day for a daily scheduled command
     // Returns: -1 if not found/never executed, or YYYYMMDD (e.g., 20260225)
     int getSchedDtLastRunDay(int slotIndex) {
-        if (slotIndex < 1 || slotIndex > 16) return -1; // Invalid slot
+        if (slotIndex < 1 || slotIndex > SCHED_DT_SLOT_MAX) return -1; // Invalid slot
         Preferences pr;
         int dayKey = -1;
         if (pr.begin("esp32_config", true)) { // Open NVS for reading
@@ -571,7 +572,7 @@ public:
     
     // Clear last execution day for a slot (useful when disabling/clearing a daily command)
     void clearSchedDtLastRunDay(int slotIndex) {
-        if (slotIndex < 1 || slotIndex > 16) return;
+        if (slotIndex < 1 || slotIndex > SCHED_DT_SLOT_MAX) return;
         Preferences pr;
         if (pr.begin("esp32_config", false)) {
             char key[10];
@@ -667,7 +668,7 @@ public:
 
     // Getter for last_run_day of a sched_dt slot (LittleFS truth, schedDoc)
     int getSchedDtLastRunDayJson(int i) const {
-        if (i < 1 || i > 16) return -1;
+        if (i < 1 || i > SCHED_DT_SLOT_MAX) return -1;
         if (!schedDoc.containsKey("sched_dt") || !schedDoc["sched_dt"].is<JsonObject>()) return -1;
         String key = String("s") + i;
         if (!schedDoc["sched_dt"].containsKey(key) || !schedDoc["sched_dt"][key].is<JsonObject>()) return -1;
@@ -678,7 +679,7 @@ public:
 
     // Setter for last_run_day of a sched_dt slot (LittleFS truth, schedDoc)
     void setSchedDtLastRunDayJson(int i, int dayKey) {
-        if (i < 1 || i > 16) return;
+        if (i < 1 || i > SCHED_DT_SLOT_MAX) return;
         if (!schedDoc.containsKey("sched_dt") || !schedDoc["sched_dt"].is<JsonObject>()) return;
         String key = String("s") + i;
         if (!schedDoc["sched_dt"].containsKey(key) || !schedDoc["sched_dt"][key].is<JsonObject>()) return;

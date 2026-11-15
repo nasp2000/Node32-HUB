@@ -12,6 +12,7 @@
 // Unified handler declarations
 #include "webpages/http_abstraction.h"
 #include "recipient_slot_json.h" // shared slot shape incl. active (RECIP-6)
+#include "sched_dt_limits.h" // SCHED_DT_SLOT_MAX (CMD-2)
 
 #include "psram_helpers.h"
 #include "webpages/handlers_unified/config_handler.h"
@@ -3722,7 +3723,7 @@ static void ethernetSendScheduledCommandSlots(EthernetClient& client) {
 
 static void ethernetSendScheduledDatetimeSlots(EthernetClient& client) {
     String json = F("{\"status\":\"ok\",\"slots\":[");
-    for (int i = 1; i <= 8; ++i) {
+    for (int i = 1; i <= SCHED_DT_SLOT_MAX; ++i) {
         String cmd, date, timev, tpl, type;
         bool enabled = false;
         bool daily = false;
@@ -3832,7 +3833,7 @@ static void ethernetHandleScheduledCommandSlotPost(EthernetClient& client, const
 
 static void ethernetHandleScheduledDatetimeSlotGet(EthernetClient& client, const String& query) {
     int i = ethernetGetFormValue(query, "i").toInt();
-    if (i < 1 || i > 16) {
+    if (i < 1 || i > SCHED_DT_SLOT_MAX) {
         ethernetBootstrapSendResponse(client, "400 Bad Request", "application/json", String((String(F("{\"status\":\"err\",\"msg\":\"")) + L(activeLang->apiErrBadIndex) + "\"}")));
         return;
     }
@@ -3875,7 +3876,7 @@ static void ethernetHandleScheduledDatetimeSlotPost(EthernetClient& client, cons
     if (i < 1) {
         i = ethernetGetFormValue(body, "sd_i").toInt();
     }
-    if (i < 1 || i > 16) {
+    if (i < 1 || i > SCHED_DT_SLOT_MAX) {
         ethernetBootstrapSendResponse(client, "400 Bad Request", "application/json", String(F("{\"status\":\"err\",\"msg\":\"indice\"}")));
         return;
     }

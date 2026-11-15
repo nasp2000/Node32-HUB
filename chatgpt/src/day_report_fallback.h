@@ -26,8 +26,10 @@ static const long kFallbackDelaySec = 20L * 60L;
 static const int kMaxFallbackAttempts = 3;
 // Retry window: ignore entries older than this (stale SD folders may rotate).
 static const long kRetryWindowSec = 24L * 3600L;
-// Max tracked entries in RAM/flash (covers 8 sched_dt slots + manual slot 0 + spare).
-static const int kMaxEntries = 10;
+// Max tracked entries in RAM/flash (covers SCHED_DT_SLOT_MAX sched_dt slots +
+// manual slot 0 + spare). Slots 1..SCHED_DT_SLOT_MAX can each hold one pending
+// report per day, so the journal must be able to track them all.
+static const int kMaxEntries = 18;
 // Manual (non-scheduler) commands use slot 0.
 static const int kManualSlot = 0;
 

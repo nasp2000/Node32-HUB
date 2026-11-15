@@ -11,6 +11,7 @@
 #include "../../ConfigManager.h"
 #include "../../observability.h"
 #include "../../runtime_scheduler.h"
+#include "../../sched_dt_limits.h"
 
 extern ConfigManager configManager;
 
@@ -52,7 +53,7 @@ String escapeJsonStr(const String& input) {
 #if ENABLE_SCHEDULER == 1
 void buildScheduledDatetimeSlotsJson(HttpResponse& res) {
     String json = F("{\"status\":\"ok\",\"slots\":[");
-    for (int i = 1; i <= 8; ++i) {
+    for (int i = 1; i <= SCHED_DT_SLOT_MAX; ++i) {
         String command, date, timeValue, templ, type;
         bool enabled = false, daily = false;
         bool ok = configManager.getSchedDtSlot(i, command, date, timeValue, templ, enabled, type, daily);
@@ -76,7 +77,7 @@ void handleScheduledDatetimeSlotsGet(HttpRequest& req, HttpResponse& res) {
 
 void handleScheduledDatetimeSlotGet(HttpRequest& req, HttpResponse& res) {
     int slotIndex = getParamInt(req.query, "i", -1);
-    if (slotIndex < 1 || slotIndex > 16) {
+    if (slotIndex < 1 || slotIndex > SCHED_DT_SLOT_MAX) {
         res.send(400, "application/json", F("{\"status\":\"err\",\"msg\":\"indice invalido\"}"));
         return;
     }
@@ -108,7 +109,7 @@ void handleScheduledDatetimeSlotPost(HttpRequest& req, HttpResponse& res) {
 
     int slotIndex = getParamInt(src, "i", -1);
     if (slotIndex < 1) slotIndex = getParamInt(src, "sd_i", -1);
-    if (slotIndex < 1 || slotIndex > 16) {
+    if (slotIndex < 1 || slotIndex > SCHED_DT_SLOT_MAX) {
         res.send(400, "application/json", F("{\"status\":\"err\",\"msg\":\"indice\"}"));
         return;
     }

@@ -76,7 +76,7 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/sdcard` · `/files` | Storage config (SD/Flash/PSRAM) / browser, default+selector order SD → LittleFS → PSRAM | static | manual (estado imediato no load: `/api/sd-status` + `/api/sdcard-config`, ambos <20 ms) | B (+V files) | no | `ENABLE_PAGE_SDCARD` / `ENABLE_PAGE_FILES` + `ENABLE_SDCARD` |
 | `/mq135-config` · `/hx711` · `/ina226` · `/sound` · `/max31865` | Sensor measure + calibration | static | manual POST | B | no | sensor flags |
 | `/sensor-config` | Sensor channel/caps config | static | manual POST | B | no | `ENABLE_SENSOR_CONFIG_PAGE` |
-| `/commands` · `/commands-by-datetime` | Scheduled commands (`/commands` = interval, `/commands-by-datetime` = date/time) | static | manual (1× `/api/scheduled-command-slots`; templates só se `chart-caps.rs232`) | B | no | `ENABLE_PAGE_COMMANDS` (both pages) + `ENABLE_PAGE_COMMANDS_INTERVAL` (`/commands` only; `=0` keeps datetime alone, e.g. Waveshare). API `/api/daily-reboot` also with `ENABLE_DAILY_REBOOT` alone — no page |
+| `/commands` · `/commands-by-datetime` | Scheduled commands (`/commands` = interval, `/commands-by-datetime` = date/time, 16 slots each side of the API) | static | manual (1× `/api/scheduled-command-slots`; templates só se `chart-caps.rs232`) | B | no | `ENABLE_PAGE_COMMANDS` (both pages) + `ENABLE_PAGE_COMMANDS_INTERVAL` (`/commands` only; `=0` keeps datetime alone, e.g. Waveshare). API `/api/daily-reboot` also with `ENABLE_DAILY_REBOOT` alone — no page |
 | `/ota` | OTA upload + apply | static | post-reboot poll | B | no | `ENABLE_OTA` |
 | `/api-reference` | API reference | static | one GET | B | no | `ENABLE_API_REFERENCE_PAGE` |
 

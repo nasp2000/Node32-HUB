@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "runtime_scheduler.h"
+#include "sched_dt_limits.h" // SCHED_DT_SLOT_MAX (CMD-2)
 #include "commands.h"
 #include "config_manager_runtime.h"
 #include "telnet_transport.h"
@@ -660,7 +661,7 @@ void processSchedDtSlots() {
 
     if (!schedDtLastRunDayKeyLoaded) {
         bool rtcOk = rebootAnchorRtcValid();
-        for (int i = 1; i <= 16; ++i) {
+        for (int i = 1; i <= SCHED_DT_SLOT_MAX; ++i) {
             schedDtLastRunDayKey[i] = rebootAnchorPickDayKey(
                 rtcOk, s_rebootAnchorRtc.schedDtLastRunDay[i],
                 configManager.getSchedDtLastRunDayJson(i),
@@ -694,7 +695,7 @@ void processSchedDtSlots() {
     }
 
     bool anyCleared = false;
-    for (int i = 1; i <= 10 && i <= 16; ++i) {
+    for (int i = 1; i <= SCHED_DT_SLOT_MAX; ++i) {
         esp_task_wdt_reset();
 
         String cmd, dateStr, timeStr, tpl, type;
@@ -861,7 +862,7 @@ void resetSchedCmdSlotTimer(int slotIdx) {
 }
 
 void resetSchedDtSlotTimer(int slotIdx) {
-    if (slotIdx < 1 || slotIdx > 16) return;
+    if (slotIdx < 1 || slotIdx > SCHED_DT_SLOT_MAX) return;
     schedDtLastRunDayKey[slotIdx] = -1;
     schedDtFiredThisMinute[slotIdx] = false;
     configManager.setSchedDtLastRunDayJson(slotIdx, 0);     // clear LittleFS truth

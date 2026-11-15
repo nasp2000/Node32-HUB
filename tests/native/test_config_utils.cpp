@@ -198,11 +198,13 @@ TEST_CASE("clampSchedCmdActive: bounds") {
 }
 
 TEST_CASE("clampSchedDtActive: bounds") {
+    // CMD-2: the ceiling is SCHED_DT_SLOT_MAX (16), not the old 8.
     CHECK(clampSchedDtActive(1) == 1);
     CHECK(clampSchedDtActive(8) == 8);
     CHECK(clampSchedDtActive(4) == 4);
     CHECK(clampSchedDtActive(0) == 1);
     CHECK(clampSchedDtActive(-5) == 1);
-    CHECK(clampSchedDtActive(9) == 8);
-    CHECK(clampSchedDtActive(20) == 8);
+    CHECK(clampSchedDtActive(9) == 9);
+    CHECK(clampSchedDtActive(SCHED_DT_SLOT_MAX) == SCHED_DT_SLOT_MAX);
+    CHECK(clampSchedDtActive(20) == SCHED_DT_SLOT_MAX);
 }
