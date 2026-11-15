@@ -195,6 +195,67 @@ async function run() {
   }
 
   // ════════════════════════════════════════════════════════════════
+  // Save All (CMD-4): one alert naming the failed row, stop there
+  // ════════════════════════════════════════════════════════════════
+  {
+    dom = loadPage(); await wait(dom, 800);
+    win = dom.window; doc = win.document;
+    var alerts = [], hits = [];
+    win.customAlert = function(m){ alerts.push(String(m)); };
+    var saveAllBtn = doc.getElementById('cmd_save_all');
+
+    // Success: every row posts, one request at a time, no alert.
+    win.fetch = function(url){
+      hits.push(String(url||''));
+      return Promise.resolve({ok:true,status:200,text:function(){return Promise.resolve('{"status":"ok"}');}});
+    };
+    saveAllBtn.click();
+    await wait(dom, 2600);
+
+    test('Save All saves every row and stays silent on success', function() {
+      ok(!!saveAllBtn, 'Save All button exists');
+      is(alerts.length, 0, 'no alert on success');
+      is(hits.length, 10, 'one POST per row (10 rows)');
+      ok(hits.every(function(u){ return u.indexOf('/api/scheduled-command-slot') >= 0; }), 'all posts hit the slot endpoint');
+      is(saveAllBtn.disabled, false, 'button re-enabled');
+    });
+
+    // Mid-loop failure: rows 1-2 saved, row 3 rejected -> one visible error
+    // naming the row, and the run stops there.
+    alerts = []; hits = []; var n = 0;
+    win.fetch = function(url){
+      hits.push(String(url||''));
+      n++;
+      return Promise.resolve(n < 3
+        ? {ok:true,status:200,text:function(){return Promise.resolve('{"status":"ok"}');}}
+        : {ok:false,status:400,text:function(){return Promise.resolve('{"status":"err","msg":"interval"}');}});
+    };
+    saveAllBtn.click();
+    await wait(dom, 900);
+
+    test('a failure in the middle is reported once and stops the run', function() {
+      is(alerts.length, 1, 'exactly one alert');
+      ok(/Save All failed at row 3\/10/.test(alerts[0]||''), 'names the failing row: ' + (alerts[0]||''));
+      ok(/not saved/i.test(alerts[0]||''), 'states that the rest were not saved');
+      is(hits.length, 3, 'stopped at the failing row (3 posts, not 10)');
+      is(saveAllBtn.disabled, false, 'button re-enabled');
+    });
+
+    // Network failure on the first row.
+    alerts = []; hits = [];
+    win.fetch = function(){ hits.push('x'); return Promise.reject(new Error('offline')); };
+    saveAllBtn.click();
+    await wait(dom, 400);
+
+    test('a network failure is surfaced with its reason', function() {
+      is(alerts.length, 1, 'one alert');
+      ok(/Save All failed at row 1\/10/.test(alerts[0]||''), 'names the failing row');
+      ok(/Network error/i.test(alerts[0]||''), 'names the network reason');
+      is(hits.length, 1, 'no further posts');
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════
   // Summary
   // ════════════════════════════════════════════════════════════════
   var total = passed + failed;

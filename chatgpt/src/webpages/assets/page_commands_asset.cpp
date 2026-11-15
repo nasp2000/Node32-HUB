@@ -159,9 +159,10 @@ const char PAGE_COMMANDS_JS[] PROGMEM = R"JS((function(){
         loadTemplates();
     }
     function toggleTemplate(i){ var tr=tb.querySelector("tr[data-i='"+i+"']"); if(!tr)return; var ty=tr.querySelector("select[name='type_"+i+"']"),tpl=tr.querySelector("select[name='tpl_"+i+"']"); if(!ty||!tpl)return; if(ty.value==='system'||ty.value==='modbus'){tpl.style.opacity='0.3';tpl.disabled=true;}else{tpl.style.opacity='1';tpl.disabled=false;} }
-    function saveSlot(i,btn){
+    // Build one row's form without side effects (Save All reuses it).
+    function cmdSlotForm(i){
         var tr=tb.querySelector("tr[data-i='"+i+"']");
-        if(!tr) return;
+        if(!tr) return null;
         var fd=new FormData();
         fd.append('i',i);
         fd.append('type',tr.querySelector("select[name='type_"+i+"']").value);
@@ -171,14 +172,58 @@ const char PAGE_COMMANDS_JS[] PROGMEM = R"JS((function(){
         fd.append('days',tr.querySelector("select[name='days_"+i+"']").value);
         fd.append('template',tr.querySelector("select[name='tpl_"+i+"']").value);
         fd.append('enabled',((tr.querySelector("select[name='en_"+i+"']")||{}).value||'0'));
+        return fd;
+    }
+    // One row POST without UI side effects: Save All needs each result without
+    // raising one alert per row (same shape as the recipients page, RECIP-4).
+    function cmdPostSlot(i){
+        var fd=cmdSlotForm(i);
+        if(!fd) return Promise.resolve({ok:true,index:i,skipped:true,net:false});
+        return fetch('/api/scheduled-command-slot',{method:'POST',body:fd})
+            .then(function(r){return r.text().then(function(txt){return {ok:r.ok,txt:txt};});})
+            .then(function(o){
+                var j=null; try{j=JSON.parse(o.txt);}catch(e){}
+                return {ok:!!(o.ok&&j&&j.status==='ok'),index:i,skipped:false,net:false};
+            })
+            .catch(function(){ return {ok:false,index:i,skipped:false,net:true}; });
+    }
+    function saveSlot(i,btn){
+        if(!cmdSlotForm(i)) return;
         if(btn){disableBtn(btn);showLoading();}
-        fetch('/api/scheduled-command-slot',{method:'POST',body:fd}).then(r=>r.json()).then(j=>{
-            if(j&&j.status==='ok'){ customAlert('\u2705 '+t('cmdsSaved','Command saved!')); showSavedCard(); }
+        cmdPostSlot(i).then(function(res){
+            if(res.ok){ customAlert('\u2705 '+t('cmdsSaved','Command saved!')); showSavedCard(); }
+            else if(res.net){ customAlert('\u274C '+t('cmdsNetError','Network error saving command')); }
             else{ customAlert('\u274C '+t('cmdsError','Error saving command')); }
-        }).catch(function(){
-            customAlert('\u274C '+t('cmdsNetError','Network error saving command'));
         }).finally(function(){if(btn){hideLoading();enableBtn(btn);}});
     }
-    function attachSaveAll(){ if(saveAllBtn) saveAllBtn.addEventListener('click', function(){ var i=1; function seq(){ if(i>currentCount)return; var tr=tb.querySelector("tr[data-i='"+i+"']"); var btn=tr?tr.querySelector('[data-save]'):null; if(btn) saveSlot(i,btn); i++; setTimeout(seq,160);} seq(); }); var addBtn=document.getElementById('add_cmd'); if(addBtn) addBtn.addEventListener('click',function(){ if(currentCount >= MAX){ customAlert(t('cmdsMaxRows','Maximum of '+MAX+' commands reached')); return; } addRow(); }); }
+    // Save All: sequential (one request at a time, 160 ms apart) and it stops
+    // at the FIRST failure, because rows are saved one by one and a later row
+    // must not hide which one broke. The failure alert names the row and the
+    // partial state; a fully successful run is silent (the table already
+    // reflects it), like the recipients page (RECIP-4).
+    var cmdSaveAllBusy=false;
+    function cmdSaveAll(){
+        if(!saveAllBtn||cmdSaveAllBusy) return;
+        var total=currentCount, i=1, failedAt=0, failNet=false;
+        cmdSaveAllBusy=true; disableBtn(saveAllBtn); showLoading();
+        function finish(){
+            cmdSaveAllBusy=false; hideLoading(); enableBtn(saveAllBtn);
+            if(!failedAt) return;
+            var reason=failNet?t('cmdsErrNetwork','Network error'):t('cmdsErrSave','Error');
+            customAlert('\u274C '+t('cmdsSaveAllFail','Save All failed at row')+' '+failedAt+'/'+total
+                        +' \u2014 '+reason+'. '+t('cmdsSaveAllPartial','Rows saved before the failure stay stored; the rest were not saved.'));
+        }
+        function next(){
+            if(i>total){ finish(); return; }
+            var at=i;
+            cmdPostSlot(i).then(function(res){
+                if(!res.ok&&!res.skipped){ failedAt=at; failNet=!!res.net; finish(); return; }
+                i++;
+                setTimeout(next,160);
+            });
+        }
+        next();
+    }
+function attachSaveAll(){ if(saveAllBtn) saveAllBtn.addEventListener('click', cmdSaveAll); var addBtn=document.getElementById('add_cmd'); if(addBtn) addBtn.addEventListener('click',function(){ if(currentCount >= MAX){ customAlert(t('cmdsMaxRows','Maximum of '+MAX+' commands reached')); return; } addRow(); }); }
     init();
 })();)JS";

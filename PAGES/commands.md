@@ -104,7 +104,7 @@ slot (2 slots).
 | 💾 per-row | `[data-save='<i>']` → `saveSlot(i)` / `ss(i)` | `POST /api/scheduled-command-slot` / `/api/scheduled-datetime-slot` |
 | 🗑️ per-row | `[data-del='<i>']` → `removeRow(i)` / `rm(i)` | confirm → rebuild table without that slot (contiguous indices) + `loadAll()` / `la()` |
 | ➕ Add Command | `#add_cmd` / `#add_sd` → `addRow()` | appends a new row up to `MAX` (30 / 16); alert at the cap |
-| 💾 Save All | `#cmd_save_all` / `#sched_dt_save_all` | sequential `saveSlot` for rows 1..currentCount, 160 ms / 180 ms apart |
+| 💾 Save All | `#cmd_save_all` / `#sched_dt_save_all` → `cmdSaveAll()` / `sdtSaveAll()` | one POST per row, 160 ms / 180 ms apart; **stops at the first failure** and reports it once (row/total + reason + partial-state note); a fully successful run is silent |
 
 ---
 
@@ -127,8 +127,17 @@ Both pages use an identical inline IIFE pattern (`PAGE_COMMANDS_JS`,
   (dt adds `date,time,daily`) → `POST` slot endpoint; `status==='ok'` →
   `customAlert('✅ Command saved!')` + `showSavedCard()`; error/network → alert. Loading
   overlay + disabled button around request.
-- **`attachSaveAll()`** — Save All loops rows 1..currentCount calling `saveSlot` at
-  160/180 ms intervals (non-atomic — findings).
+- **`cmdSlotForm()`/`sdtSlotForm()` + `cmdPostSlot()`/`sdtPostSlot()`** — build one
+  row's form and POST it without UI side effects; both the per-row save and Save All
+  use them, so the aggregate path never raises one alert per row.
+- **`cmdSaveAll()`/`sdtSaveAll()`** — Save All posts one row at a time (160/180 ms
+  apart), disables the button for the run (`cmdSaveAllBusy`/`sdtSaveAllBusy`) and
+  **stops at the FIRST failure**. It is still one device write per row (not atomic),
+  but the partial state is explicit: a single alert
+  `❌ cmdsSaveAllFail <row>/<total> — <reason>. cmdsSaveAllPartial` names the row that
+  broke, distinguishes a network error from a server rejection, and states that rows
+  saved before the failure stay stored while the rest were not saved. A fully
+  successful run is silent (the table already reflects it).
 - Project rules: `customAlert`, no arrow functions, `t(k,fb)` i18n, `esc()`/`e()` HTML
   escaping of values before injection.
 
@@ -257,7 +266,7 @@ Slot ranges: interval 1..30, datetime 1..16, daily-reboot 1..2.
 | 1 | **Both pages now support the full slot range.** Interval page `MAX=30`, datetime `MAX=16` (matching the APIs); a **➕ Add Command** button appends rows and each row has a **🗑️ remove** button that rebuilds with contiguous indices. | Medium | **fixed** |
 | 2 | **`/api/scheduled-datetime-slots` serialised only 8 slots** while GET/POST accepted 1..16 — the bulk endpoint under-reports; clients could miss slots 9..16. **Fixed:** 16 real slots are now one contract (`SCHED_DT_SLOT_MAX = 16` in `sched_dt_limits.h`) shared by storage (`ConfigManager`: bounds, NVS `sdt_lr1..16`, `last_run_day` in `schedDoc`), both bulk endpoints (WiFi + Ethernet), the per-slot guards, `sched_dt_active` in `/api/status`, the engine loop (was capped at 10, so slots 11..16 never fired), the day-report journal (10 → 18 entries, it tracked only 8 slots + manual) and the page `MAX`. `schedDoc` capacity raised 5120 → 8192 B (a 16-slot doc measures ~5.9 KB with `sched_cmd` and the CSR was the old overflow). Tests: `test_sched_dt_slots.cpp` (8 cases: constant, clamp bounds, no raw 8/16 literals left in the sched_dt paths, journal capacity, page `MAX`), `test_day_report_fallback.cpp` +1 (17 live entries), `test_commands_datetime.js` +2 (16 rows offered / row 17 refused; slot 16 POSTs `i=16`). | Medium | **fixed** |
 | 3 | **HTML fallbacks hardcoded PT (`Ativo`, `Dias`, `Unid`, `Reinício diário`, …) + `Content-Language: pt`** — converted to English; headers removed. | Low | **fixed** |
-| 4 | **"Save All" is non-atomic** — sequential POSTs at 160/180 ms; mid-loop failure leaves partial save with no error surfaced. | Low | open |
+| 4 | **"Save All" is non-atomic** — sequential POSTs at 160/180 ms; mid-loop failure leaves partial save with no error surfaced. **Fixed:** both pages use `cmdSaveAll()`/`sdtSaveAll()` (rows saved one at a time through `cmdPostSlot()`/`sdtPostSlot()`, re-entrancy guard) which **stop at the first failure** and report it **once** — `❌ Save All failed at row <n>/<total> — <reason>. Rows saved before the failure stay stored; the rest were not saved.` The write is still one device write per row, but the partial state is explicit instead of silent; a fully successful run stays silent. New keys EN/PT: `cmdsSaveAllFail`, `cmdsSaveAllPartial`, `cmdsErrSave`, `cmdsErrNetwork` (+ the previously fallback-only `cmdsSaved`/`cmdsError`/`cmdsNetError` translated). Tests: native `test_commands_save_all.cpp` (3 cases/54 assertions), web `test_commands.js` +3 and `test_commands_datetime.js` +3. | Low | **fixed** |
 | 5 | Daily-reboot also writes legacy NVS `cfg_drbt` — duplicated persistence path that can drift from `/config/schedule.json`. | Low | open |
 | 6 | `getParamInt` treats missing interval as 0; enabled rows without interval get 400 — inconsistent but arguably correct. | Info | open |
 
