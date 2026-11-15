@@ -336,7 +336,7 @@ async function run() {
       ].join('\n'));
       is(sink.count(), 4, 'four plotted moves');
       eq(sink.pts.slice(0, 2), [0, 0], 'starts at the origin');
-      eq(sink.pts.slice(6, 8), [-2, 0], 'ends at the last move');
+      eq(sink.pts.slice(sink.pts.length - 3, sink.pts.length - 1), [-2, 0], 'ends at the last move');
       var b = win.__test__.gmBounds(sink.pts);
       is(b.minX, -2, 'minX'); is(b.maxX, 10.5, 'maxX');
       is(b.minY, 0, 'minY'); is(b.maxY, 20, 'maxY');
@@ -344,8 +344,15 @@ async function run() {
       var sink2 = win.__test__.gmPointsFromText(['G21', 'G90', 'G0 X0 Y0', 'G1 X10 Y0',
                                                  'X20 Y5', 'G21 X30 Y0', 'G4 P0.2'].join('\n'));
       is(sink2.count(), 4, 'modal moves keep plotting after G90/G21');
-      eq(sink2.pts.slice(2, 4), [10, 0], 'second point');
-      eq(sink2.pts.slice(6, 8), [30, 0], 'fourth point');
+      eq(sink2.pts.slice(3, 5), [10, 0], 'second point');
+      eq(sink2.pts.slice(9, 11), [30, 0], 'fourth point');
+
+      // G91 (relative) must accumulate, not jump to the absolute numbers
+      var rel = win.__test__.gmPointsFromText(['G91', 'G1 X10 Y0', 'G1 X10 Y5', 'G90', 'G1 X0 Y0'].join('\n'));
+      is(rel.count(), 3, 'relative file plotted');
+      eq(rel.pts.slice(0, 2), [10, 0], 'first relative move');
+      eq(rel.pts.slice(3, 5), [20, 5], 'second relative move accumulates');
+      eq(rel.pts.slice(6, 8), [0, 0], 'back to absolute after G90');
     });
 
     await test('a phone file gives points and bounds immediately', async function () {
@@ -368,7 +375,7 @@ async function run() {
       };
       ok(win.__test__.gmPreviewSd() === true, 'preview started');
       await wait(dom, 400);
-      is(win.__test__.gmState.points.length, 10, 'five points plotted');
+      is(win.__test__.gmState.points.length, 15, 'five points plotted (x, y, rapid)');
       is(win.__test__.gmState.previewLoading, false, 'loading cleared');
       win.__test__.gmSetStep(2);
       ok(doc.getElementById('gmPrevInfo').textContent.indexOf('5 points') >= 0, 'info line: ' + doc.getElementById('gmPrevInfo').textContent);

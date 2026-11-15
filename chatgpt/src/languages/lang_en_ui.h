@@ -3255,6 +3255,7 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "cmOptVisReset": "RESET",
   "cmVisBurstOk": "Burst requested.",
   "cmVisResetOk": "Vision counters cleared.",
+  "gmPreviewLoaded": "Preview loaded: {name}",
   "gmSysFree": "free",
   "gmOtaCurrent": "Current firmware: {v}",
   "gmActJogZero": "Moving to X0 Y0…",

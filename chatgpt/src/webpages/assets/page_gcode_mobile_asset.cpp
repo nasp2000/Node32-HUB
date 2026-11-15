@@ -54,6 +54,7 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
     overflow: hidden; justify-content: center; justify-content: safe center;
   }
   #gm .screen.on { display: flex; }
+  #gm #gmS2.on { justify-content: flex-start; }
   #gm #gmS1.on, #gm #muPaneLog.on { justify-content: flex-start; }
   #gm #gmS5 { overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
@@ -113,7 +114,7 @@ const char PAGE_GCODE_MOBILE[] PROGMEM = R"GMOBILE(
 
   /* step 2 — preview canvas */
   #gm #gmCanvas {
-    flex: 0 1 auto; width: 100%; height: auto; max-height: 52vh; aspect-ratio: 1 / 1;
+    flex: 0 1 auto; width: 100%; height: auto; max-height: 46vh; aspect-ratio: 1 / 1;
     display: block; border: 1px solid #1e293b; border-radius: 12px; background: #0f172a;
   }
 
@@ -679,6 +680,8 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
   // Points are stored flat: [x0,y0,x1,y1,...]. Past PREVIEW_CAP the array is
   // halved and the stride doubles, so the whole path stays visible without
   // ever holding more than ~CAP points.
+  // Points are flat triplets [x, y, rapid]. G90/G91 and G92 are honoured like
+  // the desktop parser, so a relative file no longer draws a star to (0,0).
   function PointSink(cap) {
     this.cap = cap || PREVIEW_CAP;
     this.pts = [];
@@ -687,15 +690,16 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
     this.curX = 0;
     this.curY = 0;
     this.modal = '';
+    this.absolute = true;
     this.saw = false;
   }
-  PointSink.prototype.add = function (x, y) {
+  PointSink.prototype.add = function (x, y, rapid) {
     this.seen++;
     if (this.seen % this.stride) return;
-    this.pts.push(x, y);
-    if ((this.pts.length / 2) > this.cap) {
+    this.pts.push(x, y, rapid ? 1 : 0);
+    if ((this.pts.length / 3) > this.cap) {
       var out = [];
-      for (var i = 0; i < this.pts.length; i += 4) { out.push(this.pts[i], this.pts[i + 1]); }
+      for (var i = 0; i < this.pts.length; i += 6) { out.push(this.pts[i], this.pts[i + 1], this.pts[i + 2]); }
       this.pts = out;
       this.stride *= 2;
     }
@@ -709,19 +713,28 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
     if (g) {
       var n = parseInt(g[1], 10);
       if (n === 0 || n === 1 || n === 2 || n === 3) this.modal = 'G' + n;
+      else if (n === 90) this.absolute = true;
+      else if (n === 91) this.absolute = false;
+      else if (n === 92) {
+        var gx = line.match(/X\s*(-?\d*\.?\d+)/);
+        var gy = line.match(/Y\s*(-?\d*\.?\d+)/);
+        if (gx) this.curX = parseFloat(gx[1]);
+        if (gy) this.curY = parseFloat(gy[1]);
+        return;
+      }
     }
     var mx = line.match(/X\s*(-?\d*\.?\d+)/);
     var my = line.match(/Y\s*(-?\d*\.?\d+)/);
     if (!mx && !my) return;
-    if (mx) this.curX = parseFloat(mx[1]);
-    if (my) this.curY = parseFloat(my[1]);
+    if (mx) { var vx = parseFloat(mx[1]); this.curX = this.absolute ? vx : this.curX + vx; }
+    if (my) { var vy = parseFloat(my[1]); this.curY = this.absolute ? vy : this.curY + vy; }
     if (this.modal === 'G0' || this.modal === 'G1' || this.modal === 'G2' ||
         this.modal === 'G3' || this.modal === '') {
       this.saw = true;
-      this.add(this.curX, this.curY);
+      this.add(this.curX, this.curY, this.modal === 'G0');
     }
   };
-  PointSink.prototype.count = function () { return this.pts.length / 2; };
+  PointSink.prototype.count = function () { return this.pts.length / 3; };
 
   function pointsFromText(text) {
     var sink = new PointSink(PREVIEW_CAP);
@@ -731,9 +744,9 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
   }
 
   function boundsFromPoints(pts) {
-    if (!pts || pts.length < 4) return null;
+    if (!pts || pts.length < 6) return null;
     var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    for (var i = 0; i < pts.length; i += 2) {
+    for (var i = 0; i < pts.length; i += 3) {
       var x = pts[i], y = pts[i + 1];
       if (x < minX) minX = x;
       if (x > maxX) maxX = x;
@@ -793,13 +806,36 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
     ctx.lineWidth = 1;
     ctx.strokeRect(px(b.minX), py(b.maxY), spanX * scale, spanY * scale);
 
-    ctx.strokeStyle = '#3b82f6';
+    // light grid every 10 % of the area
+    ctx.strokeStyle = '#16213a';
     ctx.lineWidth = 1;
+    for (var gx2 = 1; gx2 < 10; gx2++) {
+      var xx = px(b.minX + spanX * gx2 / 10);
+      ctx.beginPath(); ctx.moveTo(xx, py(b.maxY)); ctx.lineTo(xx, py(b.minY)); ctx.stroke();
+    }
+    for (var gy2 = 1; gy2 < 10; gy2++) {
+      var yy = py(b.minY + spanY * gy2 / 10);
+      ctx.beginPath(); ctx.moveTo(px(b.minX), yy); ctx.lineTo(px(b.maxX), yy); ctx.stroke();
+    }
+
+    // cuts in blue, rapids dashed amber (same language as the desktop preview)
+    var i, started;
     ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(px(pts[0]), py(pts[1]));
-    for (var i = 2; i < pts.length; i += 2) ctx.lineTo(px(pts[i]), py(pts[i + 1]));
-    ctx.stroke();
+    for (var pass = 0; pass < 2; pass++) {
+      var wantRapid = (pass === 1);
+      ctx.strokeStyle = wantRapid ? '#f59e0b' : '#3b82f6';
+      ctx.lineWidth = wantRapid ? 1 : 1.4;
+      ctx.setLineDash(wantRapid ? [4, 3] : []);
+      started = false;
+      ctx.beginPath();
+      for (i = 0; i < pts.length; i += 3) {
+        if ((pts[i + 2] === 1) !== wantRapid) { started = false; continue; }
+        if (!started) { ctx.moveTo(px(pts[i]), py(pts[i + 1])); started = true; }
+        else ctx.lineTo(px(pts[i]), py(pts[i + 1]));
+      }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
 
     // origin cross
     ctx.strokeStyle = '#64748b';
@@ -878,7 +914,7 @@ const char PAGE_GCODE_MOBILE_TAIL[] PROGMEM = R"GMOBILETAIL(  <div class="msg" i
       } else if (partial) {
         setMsg(t('gmPreviewPartial', 'Partial preview (large file).'), '');
       } else {
-        setMsg(previewInfoText(), 'ok');
+        setMsg(tf('gmPreviewLoaded', 'Preview loaded: {name}', { name: st.job ? st.job.name : '' }), 'ok');
       }
       render();
     }
