@@ -100,7 +100,7 @@ The SD list and the Log scroll **inside** their box; everything else is fixed.
 | **USE** (SD) | confirms the SD file and asks the controller for its bounds (`frame-bbox`) |
 | **SEND** (Phone) | `POST /api/grbl/upload-gcode-stream` (SD) or `/api/grbl/psram-upload` (PSRAM) |
 | Preview `↻` | streams `/api/grbl/read-gcode-text` and rebuilds the toolpath |
-| **FRAME** (on Preview) | outline batch, spindle 5 % / F1200 |
+| **FRAME** (on Preview) | outline at **5 % of the controller's `spindle_max_rpm`** (1000 → `S50`), F1200, tool off on the way to the corner, and a tool-off move back to the **centre** at the end |
 | **START** | `/api/grbl/stream?path=` (SD job) or `/api/grbl/psram-stream`; refused while alarmed |
 | **PAUSE / RESUME / STOP** | `/api/grbl/pause` `/resume` `/cancel` |
 | **UNLOCK / RESUME JOB** (alarm) | `$X` · `/api/grbl/resume-alarm` (`confirm=1`) |
@@ -130,6 +130,15 @@ The SD list and the Log scroll **inside** their box; everything else is fixed.
 - **Bounds** — phone file: parsed while reading the text; SD file:
   `frame-bbox` once, in the background when Preview/Play is opened (45 s
   timeout). Fallback: bounds from the preview points.
+- **Frame** — same contract as the desktop page: `M5, G90, G21`, move to the
+  first corner **before** `M3 S<power>` (never travel with the beam on), trace,
+  `M5`, then park at the **centre** of the box with the tool off. Power is
+  `framePowerS()`: 5 % of `spindle_max_rpm` (default 1000 → `S50`); the old
+  formula clamped to `S1000` (full power). Any failure mid-trace still sends a
+  best-effort `M5` so the head is never left lit.
+- **Start** — `sendCmd('M5')` runs first: a beam/spindle left on by an aborted
+  frame must not travel across the part to the first point. If that `M5` is
+  refused, the start is cancelled (`gmErrToolOff`) instead of streaming.
 - **Preview** — `PointSink` parses modal XY moves into a flat array, decimating
   past 40 000 points; the SD text is streamed and cut at 25 s → `partial`. The
   canvas sizes itself to the job aspect (clamped) so the drawing fills it.
@@ -209,11 +218,12 @@ Environment, Node32-OEE, etc.
 | 3 | Old page had no SD list and no preview | fixed |
 | 4 | `frame-bbox` on a 9.8 MB file takes ~21 s on the ESP32 → indeterminate bar, 45 s timeout, Play does not depend on it | by design |
 | 5 | Preview capped at 40 000 points / 25 s and flagged `partial` | by design |
-| 6 | Frame plays at a fixed 5 % / F1200; jog feeds fixed (1000 XY / 300 Z) | by design |
+| 6 | Frame runs at a fixed 5 % of `spindle_max_rpm` / F1200, starts from the corner with the tool off and returns to the centre; jog feeds fixed (1000 XY / 300 Z) | by design |
 | 7 | SD upload buffers the file in PSRAM on the controller (48 MB cap); the phone guards at 48 MB | by design |
 | 8 | Frame was merged into Preview (a button), so the wizard is 5 screens | fixed |
 | 9 | OTA/restart confirmed with a dialog; HOME/ZERO/RESET/0,0 with two taps; taps are never swallowed (only a drag > 14 px cancels) | fixed |
-| 10 | A job longer than the 15 min token lease left the page with a dead token: the next START (or PAUSE/STOP/jog) answered `auth_token_invalid` until a reload — the "second start does nothing" report | fixed (10 min refresh + one retry) |
+| 10 | A job longer than the 15 min token lease left the page with a dead token: the next START (or PAUSE/STOP/jog) answered `auth_token_invalid` until a reload — the "second start does nothing" report | fixed (10 min refresh + one retry), desktop page now identical |
+| 11 | Frame ran at **S1000 = full power** (the formula assumed a "5 % = 5 rpm" scale) and parked the head **lit on the last corner**, so the next START dragged a lit beam to the part | fixed (5 % of max RPM, centre return, `M5` before the stream) |
 
 ---
 

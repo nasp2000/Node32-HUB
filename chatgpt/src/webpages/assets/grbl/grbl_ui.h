@@ -696,6 +696,10 @@ wid_heightmap: 'Height Map',
         });
       }
 
+      // The controller answers a rejected write with HTTP 400 and a JSON body
+      // ({"success":false,"message":"auth_token_invalid"}, sendGrblActionResult).
+      // Throwing on !r.ok used to hide that body, so postAction() never saw the
+      // auth_token_invalid code and never retried the write.
       function apiPost(url, payload) {
         var bodyPayload = payload || {};
         bodyPayload.sid = state.sessionId || 'anon';
@@ -705,8 +709,10 @@ wid_heightmap: 'Height Map',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
           body: toBody(bodyPayload)
         }).then(function(r) {
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          return r.json();
+          return r.json().catch(function() {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return {};
+          });
         });
       }
 
@@ -737,20 +743,36 @@ wid_heightmap: 'Height Map',
         if (uploadBtn) uploadBtn.disabled = !!state.sdUploadActive;
       }
 
+      // The token lives 15 min on the controller (grbl_web_api.cpp kTokenLeaseMs)
+      // and only a WRITE renews it, so a job longer than that leaves a dead
+      // token in this page. Renew it before it can expire (same rule as /m).
+      var TOKEN_REFRESH_MS = 10 * 60 * 1000;
+
       function fetchControlToken() {
         return apiGet('/api/grbl/control-token')
           .then(function(data) {
             if (data && data.success === true && data.token) {
               state.controlToken = String(data.token);
+              state.tokenAt = Date.now();
               return true;
             }
             state.controlToken = '';
+            state.tokenAt = 0;
             return false;
           })
           .catch(function() {
             state.controlToken = '';
+            state.tokenAt = 0;
             return false;
           });
+      }
+
+      function ensureFreshToken() {
+        if (state.controlToken && state.tokenAt &&
+            (Date.now() - state.tokenAt) <= TOKEN_REFRESH_MS) {
+          return Promise.resolve(true);
+        }
+        return fetchControlToken();
       }
 
       function startPollingFallback(intervalMs) {

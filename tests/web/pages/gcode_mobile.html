@@ -816,6 +816,7 @@
     preview_failed: ['gmPreviewFail', 'Could not load the preview.'],
     send_failed: ['gmErrSend', 'The controller refused the command.'],
     no_z_axis: ['gmErrNoZAxis', 'This machine has no Z axis.'],
+    tool_off_failed: ['gmErrToolOff', 'Could not switch the tool off - start cancelled.'],
     auth_token_invalid: ['gmErrToken', 'Control session expired — reload the page.'],
     // start pre-flight (server side)
     preflight_usb_not_running: ['gmErrUsbOff', 'USB host is not running. Tap the ⚡ button to restart it.'],
@@ -1495,6 +1496,18 @@
                                      .catch(function () { return null; });
   }
 
+  // S value for the frame: FRAME_POWER_PCT of the machine's max spindle/laser
+  // RPM, the same rule the desktop page uses (_doRunFrameWithBounds).
+  function framePowerS(status) {
+    var maxS = 1000;
+    if (status) {
+      var cand = parseInt(status.spindle_max_rpm || status.spindle_max || status.max_s || 0, 10);
+      if (!isNaN(cand) && cand > 0) maxS = cand;
+    }
+    var sVal = Math.max(1, Math.round((maxS * FRAME_POWER_PCT) / 100));
+    return Math.min(maxS, sVal);
+  }
+
   function runFrame() {
     if (st.busy || !st.bbox) return false;
     if (!st.canWrite) { setMsg(errorText('no_control'), 'err'); return false; }
@@ -1508,17 +1521,27 @@
         return;
       }
       var b = st.bbox;
-      var mx = Math.round(1000 * FRAME_POWER_PCT / 5);   // S value for 5% of a 1000 rpm scale
-      var sVal = Math.max(1, Math.min(1000, mx));
+      // Low power, scaled like the desktop page: 5 % of the controller's
+      // spindle_max_rpm (default 1000 -> S50). The old formula assumed a
+      // "5 % = 5 rpm" scale and clamped to S1000, i.e. FULL power - it burnt
+      // the piece instead of hovering over it.
+      var sVal = framePowerS(s);
+      var fx = function (v) { return v.toFixed(3); };
+      var cx = fx((b.minX + b.maxX) / 2);
+      var cy = fx((b.minY + b.maxY) / 2);
       var lines = [
         'M5', 'G90', 'G21',
-        'G1 X' + b.minX.toFixed(3) + ' Y' + b.minY.toFixed(3) + ' F' + FRAME_FEED,
+        // laser/spindle OFF for the move to the first corner (no scorch line)
+        'G1 X' + fx(b.minX) + ' Y' + fx(b.minY) + ' F' + FRAME_FEED,
         'M3 S' + String(sVal),
-        'G1 X' + b.maxX.toFixed(3) + ' Y' + b.minY.toFixed(3) + ' F' + FRAME_FEED,
-        'G1 X' + b.maxX.toFixed(3) + ' Y' + b.maxY.toFixed(3) + ' F' + FRAME_FEED,
-        'G1 X' + b.minX.toFixed(3) + ' Y' + b.maxY.toFixed(3) + ' F' + FRAME_FEED,
-        'G1 X' + b.minX.toFixed(3) + ' Y' + b.minY.toFixed(3) + ' F' + FRAME_FEED,
-        'M5'
+        'G1 X' + fx(b.maxX) + ' Y' + fx(b.minY) + ' F' + FRAME_FEED,
+        'G1 X' + fx(b.maxX) + ' Y' + fx(b.maxY) + ' F' + FRAME_FEED,
+        'G1 X' + fx(b.minX) + ' Y' + fx(b.maxY) + ' F' + FRAME_FEED,
+        'G1 X' + fx(b.minX) + ' Y' + fx(b.minY) + ' F' + FRAME_FEED,
+        'M5',
+        // ...and bring the tool back to the CENTRE of the box, tool off,
+        // exactly like the desktop page (never park lit on a corner).
+        'G90 G21 G1 X' + cx + ' Y' + cy + ' F' + FRAME_FEED
       ];
       var chain = Promise.resolve();
       lines.forEach(function (cmd) {
@@ -1529,9 +1552,11 @@
       });
       return chain.then(function () {
         st.busy = false; render();
-        setMsg(t('gmFrameDone', 'Outline done.'), 'ok');
+        setMsg(t('gmFrameCentered', 'Outline done - tool back at the centre.'), 'ok');
       });
     }).catch(function (e) {
+      // Any failure mid-trace must not leave the beam/flywheel running.
+      sendCmd('M5');
       st.busy = false; render();
       setMsg(errorText(String((e && e.message) || 'network')), 'err');
     });
@@ -1545,23 +1570,37 @@
     if (!st.canWrite) { setMsg(errorText('no_control'), 'err'); return false; }
     st.busy = true; render();
     setMsg(t('gmStarting', 'Starting\u2026'), '');
-    var req = (st.job.src === 'sd')
-      ? post('/api/grbl/stream', { slot: 0, path: st.job.path })
-      : post('/api/grbl/psram-stream', { slot: 0 });
-    req.then(function (res) {
-      st.busy = false;
-      if (res.body && res.body.success === true) {
-        st.running = true;
-        st.paused = false;
-        setMsg(t('gmPlayStarted', 'Job started.'), 'ok');
-        pollStatus(true);
-      } else {
-        setMsg(errorText((res.body && res.body.message) ? String(res.body.message) : 'stream_failed'), 'err');
+
+    function launch() {
+      var req = (st.job.src === 'sd')
+        ? post('/api/grbl/stream', { slot: 0, path: st.job.path })
+        : post('/api/grbl/psram-stream', { slot: 0 });
+      return req.then(function (res) {
+        st.busy = false;
+        if (res.body && res.body.success === true) {
+          st.running = true;
+          st.paused = false;
+          setMsg(t('gmPlayStarted', 'Job started.'), 'ok');
+          pollStatus(true);
+        } else {
+          setMsg(errorText((res.body && res.body.message) ? String(res.body.message) : 'stream_failed'), 'err');
+        }
+        render();
+      }).catch(function () {
+        st.busy = false; render();
+        setMsg(errorText('network'), 'err');
+      });
+    }
+
+    // Tool OFF before the machine travels to the first point: a beam or spindle
+    // left on by a previous (aborted) frame would scorch the part on the way.
+    sendCmd('M5').then(function (offOk) {
+      if (!offOk) {
+        st.busy = false; render();
+        setMsg(errorText('tool_off_failed'), 'err');
+        return null;
       }
-      render();
-    }).catch(function () {
-      st.busy = false; render();
-      setMsg(errorText('network'), 'err');
+      return launch();
     });
     return true;
   }

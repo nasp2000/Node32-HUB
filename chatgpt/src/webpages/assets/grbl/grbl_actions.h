@@ -30,7 +30,10 @@ R"GRBL(
       }
 
       function postAction(url, payload, onOkLog, silent) {
-        return apiPost(url, payload)
+        // Parity with /m: renew a token older than the lease BEFORE the write,
+        // so a long job never leaves the page with an expired token.
+        return ensureFreshToken()
+          .then(function() { return apiPost(url, payload); })
           .then(function(data) {
             if (data && data.success) {
               logLine(onOkLog);

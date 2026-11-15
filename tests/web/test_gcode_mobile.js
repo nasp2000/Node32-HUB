@@ -397,14 +397,55 @@ async function run() {
     await test('frame needs bounds and sends the outline batch', async function () {
       ok(!doc.getElementById('gmPrimary').disabled, 'frame enabled with bounds');
       ok(win.__test__.gmRunFrame() === true, 'frame started');
-      await wait(dom, 2500);
+      await wait(dom, 3000);
       var cmds = cmdsSent(win);
-      is(cmds.length, 10, 'outline is M5 G90 G21 + 5 moves + M5');
-      is(cmds[0], 'M5', 'starts with spindle off');
-      ok(/^G1 X0\.000 Y0\.000/.test(cmds[3]), 'moves to the min corner: ' + cmds[3]);
-      ok(/^M3 S/.test(cmds[4]), 'spindle on for the outline');
-      is(cmds[9], 'M5', 'ends with spindle off');
+      is(cmds.length, 11, 'outline is M5 G90 G21 + corner + 4 moves + M5 + centre');
+      is(cmds[0], 'M5', 'starts with the tool OFF');
+      ok(/^G1 X0\.000 Y0\.000/.test(cmds[3]), 'moves to the min corner with the tool off: ' + cmds[3]);
+      ok(/^M3 S/.test(cmds[4]), 'tool on only after the corner');
+      is(cmds[9], 'M5', 'tool off again before leaving the box');
       ok(doc.getElementById('gmMsg').textContent.indexOf('Outline done') >= 0, 'done message');
+    });
+
+    await test('frame runs at LOW power (5 % of the controller max, like the desktop)', function () {
+      // 5 % of the default 1000 rpm scale = S50. The old formula assumed a
+      // "5 % == 5 rpm" scale and clamped to S1000: full power, burns the part.
+      var cmds = cmdsSent(win);
+      is(cmds[4], 'M3 S50', 'default scale S50');
+      ok(cmds[4] !== 'M3 S1000', 'never full power');
+    });
+
+    await test('frame power scales with the machine spindle_max_rpm', async function () {
+      win.__MOCK_API__['/api/grbl/status'] = { success: true, usb_running: true, machine_state: 'IDLE',
+        workflow_state: 'idle', axis_count: 3, spindle_max_rpm: 24000 };
+      win.__postBodies = [];
+      win.__test__.gmState.bbox = { minX: 0, maxX: 10, minY: 0, maxY: 20 };
+      ok(win.__test__.gmRunFrame() === true, 'frame started');
+      await wait(dom, 3000);
+      is(cmdsSent(win)[4], 'M3 S1200', '5 % of 24000 rpm');
+    });
+
+    await test('frame parks the tool back at the CENTRE, tool off, at the end', function () {
+      var cmds = cmdsSent(win);
+      is(cmds[cmds.length - 1], 'G90 G21 G1 X5.000 Y10.000 F1200', 'centre of the box');
+      is(cmds[cmds.length - 2], 'M5', 'tool off before the return');
+    });
+
+    await test('a frame that fails mid-trace still switches the tool off', async function () {
+      var hits = 0;
+      var realSend = win.__MOCK_API__['/api/grbl/send'];
+      win.__MOCK_API__['/api/grbl/send'] = function () {
+        hits++;
+        return (hits >= 6) ? { success: false, message: 'sd_busy' } : { success: true, message: 'ok' };
+      };
+      win.__postBodies = [];
+      win.__test__.gmState.bbox = { minX: 0, maxX: 10, minY: 0, maxY: 20 };
+      win.__test__.gmRunFrame();
+      await wait(dom, 3000);
+      var cmds = cmdsSent(win);
+      is(cmds[cmds.length - 1], 'M5', 'best-effort M5 after the failure');
+      ok(doc.getElementById('gmMsg').textContent.length > 0, 'error reported');
+      win.__MOCK_API__['/api/grbl/send'] = realSend;
     });
 
     await test('without bounds the frame action stays disabled', function () {
@@ -445,19 +486,33 @@ async function run() {
       g.gmSetStep(3);
       ok(g.gmStart() === true, 'start called');
       await wait(dom, 300);
-      ok(sent(win).indexOf('/api/grbl/psram-stream') >= 0, 'psram-stream requested');
+      ok(sent(win).indexOf('/api/grbl/psram-stream') >= 0, 'psram-stream requested: ' + sent(win) + ' | msg=' + doc.getElementById('gmMsg').textContent);
       ok(/slot=0/.test(sent(win)), 'slot sent');
     });
 
-    await test('start from the SD card posts stream with the file path', async function () {
+    await test('start from the SD card switches the tool off BEFORE the stream', async function () {
       g.gmState.job = { src: 'sd', name: 'Cachola.gc', bytes: 517814, path: SD_ROOT + '/Cachola.gc' };
       win.__postBodies = [];
       g.gmStart();
-      await wait(dom, 300);
+      await wait(dom, 400);
       var body = sent(win);
-      ok(body.indexOf('/api/grbl/stream') >= 0, 'stream requested');
+      ok(body.indexOf('/api/grbl/stream') >= 0, 'stream requested: ' + body + ' | msg=' + doc.getElementById('gmMsg').textContent);
       ok(body.indexOf(encodeURIComponent(SD_ROOT + '/Cachola.gc')) >= 0 ||
          body.indexOf(SD_ROOT + '/Cachola.gc') >= 0, 'path sent: ' + body);
+      is(cmdsSent(win)[0], 'M5', 'tool off first - no beam travelling to the part');
+    });
+
+    await test('a machine that will not take M5 cancels the start', async function () {
+      var realSend = win.__MOCK_API__['/api/grbl/send'];
+      win.__MOCK_API__['/api/grbl/send'] = { success: false, message: 'usb_not_running' };
+      win.__postBodies = [];
+      g.gmState.job = { src: 'sd', name: 'Cachola.gc', bytes: 517814, path: SD_ROOT + '/Cachola.gc' };
+      g.gmStart();
+      await wait(dom, 400);
+      is(sent(win).indexOf('/api/grbl/stream'), -1, 'no stream posted with the tool possibly on');
+      ok(doc.getElementById('gmMsg').textContent.indexOf('tool off') >= 0,
+         'explains why: ' + doc.getElementById('gmMsg').textContent);
+      win.__MOCK_API__['/api/grbl/send'] = realSend;
     });
 
     await test('a write token older than the lease is renewed BEFORE the start', async function () {

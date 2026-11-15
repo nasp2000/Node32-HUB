@@ -104,12 +104,23 @@ Keyboard jog + "focus to interact" behaviour wired in `grbl_init.h`.
   `sid` on every mutating POST (`/api/grbl/send`, `/api/grbl/override`, ...). Requesting
   the token without `sid` binds it to `ip:unknown` and a later POST with a different
   `sid` fails with `400 auth_token_invalid` (verified on P4 .7, DIV-1).
+- **Token lease (second START)**: the controller keeps the token **15 min**
+  (`grbl_web_api.cpp` `kTokenLeaseMs`) and only a write renews it, so a longer job
+  leaves the page with a dead token. `postAction` renews a token older than
+  **10 min** before writing and, if a write still answers `auth_token_invalid`,
+  renews once and retries the same POST (`postActionOnce`). A rejected write comes
+  back as **HTTP 400 + JSON**, so `apiPost` reads the body of a 400 - throwing on
+  `!r.ok` would hide the code and the retry would never run.
 - **Parsing**: inline async parser (`grbl_parser_3d.h`) + Web Worker parser
   (`grbl_parser_worker.h`) split G-code into segments; `grbl_2d_controls.h` orchestrates
   build → light preview → scrub/sim; `grbl_2d_render.h` draws top/iso/side (job-aware);
   `grbl_contour.h` produces light contours + wireframe; `grbl_light.h` applies light
   preview / from-bounds / from-wireframe.
-- **Frame run / macros**: `frameRun` + macro execution in `grbl_light.h`.
+- **Frame run / macros**: `frameRun` + macro execution in `grbl_light.h`. The
+  trace is `M5, G90, G21`, move to the first corner **with the tool off**, then
+  `M3 S<power>` - **5 % of `spindle_max_rpm`** (1000 -> `S50`) - trace the box,
+  `M5`, and finally a separate tool-off move back to the **centre** of the box
+  once the machine is idle again.
 - **Streaming**: `grbl_sd.h` — SD browser, upload (`/api/grbl/upload-gcode-stream`,
   `/api/grbl/psram-upload`), load (into queue/play), workspace load, stream
   (`/api/grbl/stream`); `setCommandMode` updates the mode badge

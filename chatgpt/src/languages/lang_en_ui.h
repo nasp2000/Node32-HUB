@@ -3258,6 +3258,8 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "gmPreviewLoaded": "Preview loaded: {name}",
   "gmPreviewFit": "Fit to the job.",
   "gmErrToken": "Control session expired — reload the page.",
+  "gmFrameCentered": "Outline done - tool back at the centre.",
+  "gmErrToolOff": "Could not switch the tool off - start cancelled.",
   "gmSysFree": "free",
   "gmOtaCurrent": "Current firmware: {v}",
   "gmActJogZero": "Moving to X0 Y0…",

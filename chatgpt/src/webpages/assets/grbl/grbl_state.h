@@ -39,6 +39,7 @@ R"GRBL(
         dockPrefsKey: 'node32_grbl_dock_layout_v1',
         sessionId: '',
         controlToken: '',
+        tokenAt: 0,          // millis() when the write token was fetched
         lastStatus: null,
         lastConsoleEventId: 0,
         rehydrated: false,
