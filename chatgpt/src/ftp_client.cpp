@@ -12,6 +12,7 @@
 #include "psram_vfs.h"
 #include "psram_helpers.h"
 #include "littlefs_manager.h"
+#include "diag_trace.h"     // RTC-RAM breadcrumbs (survive a WDT reset)
 #include <WiFiClient.h>
 #if ENABLE_SDCARD==1
 #include <SD_MMC.h>
