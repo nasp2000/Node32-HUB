@@ -188,9 +188,10 @@ function connect(wsUrl) {
 const RENDER_EXPR = `(() => {
   const body = document.body;
   const txt = body ? body.innerText : '';
-  const failedImgs = Array.from(document.images || []).filter(i => i.complete && i.naturalWidth === 0).length;
+  const failedImgs = Array.from(document.images || []).filter(i => i.getAttribute('src') &&
+    i.complete && i.naturalWidth === 0).length;
   const sections = Array.from(document.querySelectorAll('.home-section, [class*=section]')).length;
-  const buttons = document.querySelectorAll('a.btn, button.btn').length;
+  const buttons = document.querySelectorAll('a.btn, button.btn, button, input[type=submit], input[type=button]').length;
   const css = getComputedStyle(document.body);
   const sheets = Array.from(document.styleSheets || []).map(s => s.href || 'inline');
   return {

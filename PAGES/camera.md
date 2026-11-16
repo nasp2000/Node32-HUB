@@ -4,6 +4,11 @@
 > button/input, client logic, API endpoints, persistence and the capture engine.
 > Written for both humans and AI agents.
 
+> Screenshot: `desktop/camera.png` (1440 × 900, live **Cam-P4** board `192.168.1.18` — the
+> desktop page with the stream **stopped** (`Waiting for camera…`), which is the page's own
+> initial state and avoids publishing a live view of the premises; the `<title>` still reads
+> `📷 Câmara` in the PT pack, `BACKLOG.md` CAM-70. Index and proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective

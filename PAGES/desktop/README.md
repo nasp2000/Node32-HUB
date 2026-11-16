@@ -3,10 +3,10 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); eleven images captured** —
+> Status: **inventory raised (50 desktop pages); twelve images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
-> `buffer_viewer`, `access`, `ota`) plus the Waveshare pack (`proximity`,
-> `proximity_dashboard`). Every other row is **pending**.
+> `buffer_viewer`, `access`, `ota`), the Waveshare pack (`proximity`,
+> `proximity_dashboard`) and the camera pack (`camera`). Every other row is **pending**.
 
 ---
 
@@ -73,8 +73,8 @@ It prints a JSON report and exits `1` unless all of these pass:
 | `no %%TOKEN%% in html` | the server-side renderer resolved every `%%TOKEN%%` |
 | `no %%TOKEN%% rendered` | nothing unresolved reached the DOM text |
 | `assets reachable` | `/core.css` and `/auto.js?v=…` (and `config-manager.js` when used) return 200 |
-| `page rendered` | DOM has text and buttons — or, on button-less terminal pages, substantial content (not an empty shell / "Loading…" overlay) |
-| `no broken images` | every `<img>` decoded (`naturalWidth > 0`) |
+| `page rendered` | DOM has text and interactive controls (`a.btn`, `button`, `input[type=submit|button]`) — or, on button-less terminal pages, substantial content (not an empty shell / "Loading…" overlay) |
+| `no broken images` | every `<img>` **that has a `src`** decoded (`naturalWidth > 0`); stream placeholders with no `src` yet are ignored |
 | `loading overlay hidden` | the page finished loading (`#loadingOverlay` hidden) |
 | `no cross-origin sheet` | all stylesheets come from the board itself |
 | `png width 1440` | the file matches the desktop viewport |
@@ -128,11 +128,18 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 |---|---|---|---|
 | GRBL controller (`?desk=1`) | `/grbl-controller` | `grbl_controller.png` | pending |
 
+> **Blocked on hardware, not on the harness** (2026-11-16): `GET /grbl-controller?desk=1` on the
+> Waveshare board `.29` answers **404** — that build has `ENABLE_GRBL=0`, so the route is not
+> compiled at all. The page needs a CNC pack (P4-CNC `.7`, GcodeSender-S3 `.38`) and both were
+> offline when checked; the camera page (next row) was captured instead. Re-run
+> `node desktop_shot.js --host <cnc-ip> --path '/grbl-controller?desk=1' --out ../../PAGES/desktop/grbl_controller.png`
+> as soon as one is powered.
+
 ### 3.4 Camera (Cam-P4 / Cam-M)
 
 | Page | Route | Image | Status |
 |---|---|---|---|
-| Camera live/playback (`?desk=1`) | `/camera` | `camera.png` | pending |
+| Camera live/playback (`?desk=1`) | `/camera` | `camera.png` | **done** |
 | Camera hub | `/hub` | `hub.png` | pending |
 
 ### 3.5 Rambox32 clock (Pigeon)
@@ -203,6 +210,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | `ota.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 948 · 77 517 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 469 chars / 5 buttons rendered (Current Version `v1.120 (Node32-OEE)`, Firmware Update with file picker, System Actions Restart/Factory Reset) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` (version/build only, no IPs) and no `--reload` (labels render correctly first time). Note: the Factory-Reset button reads `Factory Reset` (pack) while the HTML fallback and the explanation block say `Clear Settings` — `PAGES/BACKLOG.md` OTA-1 |
 | `proximity.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 951 · 74 755 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 660 chars / 4 buttons rendered (tabs Status/Config/Shifts/Shiftday/OEE, 8-channel Real-Time Status, `Show: 8 channels` + Save) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` (channel names + counters), no `--reload` (labels correct first time). The status table scrolls inside `.table-wrapper` (890 px visible vs 1020 px table), so the last column `Elapsed` stays behind the horizontal scroll at 1440 — `PAGES/BACKLOG.md` PX-4 |
 | `proximity_dashboard.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 1745 · 251 654 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 957 chars / 6 sections rendered (DAY/LAST HOUR counters, OEE donut + A/P/Q tiles, 3 hourly charts with Gantt strips) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` (counters only). Captured with `--localstorage "prox_visCh=3; prox_dash_opts={\"title\":\"ch\"}"` (client-side prefs only): without them the page stacks 8 charts all titled `Equip15` — `PAGES/BACKLOG.md` PD-6. Shifts show `--` because shift tracking is disabled on this board (`shift-config` → `en:false`), not an error |
+| `camera.png` | Cam-P4 (`Cam-P4`), `192.168.1.18` | `v1.120 - Nov 15 2026 16:09:06 WET`, ETag absent | 1440 × 900 · 463 728 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/auto.js?v=1.120` 200 + 521 chars / 26 controls rendered (top toolbar, Camera Control panel, side tabs Camera/Pictures/Recording/Motion/Vision, `Waiting for camera…` placeholder) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` (`Source USB — 1b3f:1167` is the device id) and no `--reload`. Captured **with the stream stopped** (the page's own initial state): starting it would publish a live view of the premises. The `<title>` still reads `📷 Câmara` (hardcoded PT literal, not a `pageTitle*` LangString) — `PAGES/BACKLOG.md` CAM-70 |
 
 Reproduce the proof (no file written):
 
@@ -219,6 +227,7 @@ node desktop_shot.js --host 192.168.1.29 --path /access --anon --reload --verify
 node desktop_shot.js --host 192.168.1.29 --path /ota --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /proximity --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /proximity-dashboard --localstorage 'prox_visCh=3; prox_dash_opts={"title":"ch"}' --verify-only
+node desktop_shot.js --host 192.168.1.18 --path '/camera?desk=1' --verify-only
 ```
 
 ## 5. Adding an image (checklist)
