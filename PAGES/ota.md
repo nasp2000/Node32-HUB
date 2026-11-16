@@ -5,6 +5,11 @@
 > persistence (none) and the Arduino-`Update` + RSA runtime. Written for both
 > humans and AI agents.
 
+> Screenshot: `desktop/ota.png` (1440 × 948, live Waveshare 8DI8DO board — Current Version
+> `v1.120 (Node32-OEE)`, Firmware Update with the `.bin` picker and System Actions; the
+> factory button renders `Factory Reset` while this doc's §5 and the HTML fallback say
+> `Clear Settings`, `BACKLOG.md` OTA-1. Index and proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective

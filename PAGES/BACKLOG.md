@@ -377,6 +377,14 @@ history and is still the place to look before changing shared wiring.
 |---|---|---|---|---|
 | STR-1 | High | Page loaded from an endpoint that never returned its data: `loadPageData()` reads `d.structures` and `d.saved_configs` from `GET /api/config?section=system`, which had neither. **Fixed** by the same system-section payload (structures + `saved_configs.rs232_*`), so the form shows the saved auto-detect/AMADA state and the RS232 summary. Tests: `test_api_surface_contract.cpp`. | `config_handler.cpp`, `page_structures_asset.cpp` | fixed |
 
+## OTA firmware update (`ota.md` → `/ota`)
+
+| ID | Pri | Issue | Files | Status |
+|---|---|---|---|---|
+| OTA-1 | Low | Factory-reset button name disagrees with itself: the button markup ships the EN fallback 🧼 `Clear Settings` while the EN pack value is 🧼 `Factory Reset` (so the page shows `Factory Reset` once `/api/lang` lands), and the explanation block above still describes it as *"Clear Settings: Resets all settings to factory defaults"*. Found while capturing `PAGES/desktop/ota.png` (image shows `Factory Reset`). Fix: make the fallback equal the pack value and use one name in both the button and the explanation (either `Factory Reset` everywhere, or keep `Clear Settings` in both). | `chatgpt/src/webpages/assets/page_ota_asset.cpp`, `chatgpt/src/languages/lang_en_ui.h` (`otaFactoryBtn`), `PAGES/ota.md` | open |
+
+---
+
 ## Sensor Charts (`sensor_charts.md` → `/sensor-charts`)
 
 | ID | Pri | Issue | Files | Status |
