@@ -4,6 +4,13 @@
 > override, live status polling and the WiFi-runtime on/off card. Written for both humans
 > and AI agents.
 
+> Screenshot: `desktop/ethernet.png` (1440 × 1405, live Waveshare 8DI8DO board **without a
+> W5500** — Current Status honestly reads `IP: 0.0.0.0 | Mode: DHCP`, Configuration form and
+> the WiFi Runtime card with `WiFi ON`; captured with the harness `--anon` so MACs/SSID/IPs
+> are placeholders while unset `0.0.0.0` is kept, and `--wait 20000` for the runtime line.
+> This page cannot report the link state, `BACKLOG.md` ETH-5. Index and proof in
+> `desktop/README.md`).
+
 ---
 
 ## 1. Objective

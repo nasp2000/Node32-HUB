@@ -3,9 +3,9 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); fourteen images captured** —
+> Status: **inventory raised (50 desktop pages); fifteen images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
-> `buffer_viewer`, `access`, `ota`, `wifi`), the Waveshare pack (`proximity`,
+> `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`), the Waveshare pack (`proximity`,
 > `proximity_dashboard`) and the camera pack (`camera`, `hub`). Every other row is
 > **pending**.
 
@@ -61,7 +61,8 @@ JSON the page renders is rewritten in-page (before the first page script) so SSI
 e-mail addresses, SMTP user, subject and credentials become `NODE32-BENCH`,
 `02:00:00:00:00:00`, `192.168.1.10`, `operator@example.com`, `Node32-HUB bench` (list entries
 keep their position — masked `ssid`s become `NODE32-BENCH 1`, `NODE32-BENCH 2`, … so a scan
-list stays readable). `/api/lang`
+list stays readable); **unset addresses are never masked** — an interface with no link keeps
+`0.0.0.0`, because that is state, not identity. `/api/lang`
 is never touched (UI labels stay real) and every masked key is printed as `anon_masked`, so
 §4 can state exactly what was neutralised. Right before the screenshot the same pass also
 redacts **free text** (log/terminal pages): MACs, IPv4 addresses and e-mail addresses inside
@@ -108,7 +109,8 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | API reference | `/api-reference` | `api_reference.png` | pending |
 | Networks overview | `/networks` | `networks.png` | pending |
 | Wi-Fi | `/wifi` | `wifi.png` | **done** |
-| Ethernet | `/ethernet` | `ethernet.png` | pending |
+| `ethernet.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 1405 · 101 491 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 666 chars / 5 buttons rendered (Current Status, Configuration form, WiFi Runtime with Disable/Enable) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` masked 10 JSON keys + 5 DOM values (ethernet `mac`/`mac_override`, WiFi runtime `ssid`/`ip`, the form's MAC/placeholder hints). `--wait 20000` used because the WiFi Runtime line needs the runtime-status fetch (`Fetching WiFi status…` at 8 s). **No W5500 on this board**: the card honestly reads `IP: 0.0.0.0 | Mode: DHCP` (the unset address is deliberately **not** masked) — `PAGES/BACKLOG.md` ETH-5 |
+| Ethernet | `/ethernet` | `ethernet.png` | **done** |
 | E-mail (SMTP) | `/email` | `email.png` | pending |
 | Recipients | `/recipients` | `recipients.png` | pending |
 | Alerts config | `/alerts-config` | `alerts.png` | pending |
@@ -238,6 +240,7 @@ node desktop_shot.js --host 192.168.1.29 --path /proximity-dashboard --localstor
 node desktop_shot.js --host 192.168.1.18 --path '/camera?desk=1' --verify-only
 node desktop_shot.js --host 192.168.1.18 --path /hub --anon --allow-empty "browser-side camera list" --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /wifi --anon --verify-only
+node desktop_shot.js --host 192.168.1.29 --path /ethernet --anon --wait 20000 --verify-only
 ```
 
 ## 5. Adding an image (checklist)

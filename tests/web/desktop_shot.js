@@ -72,6 +72,8 @@ const ANON_JS = String.raw`(function () {
           // leaking the real names: append the array index of the parent object.
           var idx = prefix.match(/\.(\d+)\.$/);
           if (idx && k === 'ssid') sub = sub + ' ' + (Number(idx[1]) + 1);
+          // "no address configured" is state, not identity: keep 0.0.0.0 / broadcast as-is.
+          if (RULES[i][1] === 'ip' && /^(0+\.0+\.0+\.0+|255\.255\.255\.255)$/.test(v)) return;
           o[k] = sub;
           window.__anonLog.push(prefix + k);
           return;
@@ -84,24 +86,31 @@ const ANON_JS = String.raw`(function () {
   // Exposed so the harness can redact the DOM right before the screenshot.
   window.__anonText = function () {
     var stats = { nodes: 0 };
+    function scrub(v) {
+      return v.replace(/\b[0-9A-F]{2}(?::[0-9A-F]{2}){5}\b/gi, SUB.mac)
+              .replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, function (m) {
+                return /^(0+\.0+\.0+\.0+|255\.255\.255\.255)$/.test(m) ? m : SUB.ip;
+              })
+              .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, SUB.email);
+    }
     var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
     var n;
     while ((n = walker.nextNode())) {
       var t = n.nodeValue;
-      var o = t;
-      t = t.replace(/\b[0-9A-F]{2}(?::[0-9A-F]{2}){5}\b/gi, SUB.mac);
-      t = t.replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, SUB.ip);
-      t = t.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, SUB.email);
-      if (t !== o) { n.nodeValue = t; stats.nodes++; }
+      var w = scrub(t);
+      if (w !== t) { n.nodeValue = w; stats.nodes++; }
     }
-    // Input values / placeholders carry the same identifiers (e.g. the hub's IP field).
     Array.prototype.forEach.call(document.querySelectorAll('input, textarea, option'), function (el) {
+      // Live property first: pages fill fields by setting .value, which never
+      // touches the value attribute.
+      if (typeof el.value === 'string' && el.value) {
+        var wv = scrub(el.value);
+        if (wv !== el.value) { el.value = wv; stats.nodes++; }
+      }
       ['value', 'placeholder'].forEach(function (attr) {
         var v = el.getAttribute(attr);
         if (!v) return;
-        var w = v.replace(/\b[0-9A-F]{2}(?::[0-9A-F]{2}){5}\b/gi, SUB.mac)
-                 .replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, SUB.ip)
-                 .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, SUB.email);
+        var w = scrub(v);
         if (w !== v) { el.setAttribute(attr, w); stats.nodes++; }
       });
     });
