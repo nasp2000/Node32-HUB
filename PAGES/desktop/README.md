@@ -3,9 +3,9 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); six images captured** —
-> `home.png`, `status.png`, `files.png`, `sdcard.png`, `monitor.png` and
-> `serial_monitor.png` (common block). Every other row is **pending**.
+> Status: **inventory raised (50 desktop pages); seven images captured** —
+> `home.png`, `status.png`, `files.png`, `sdcard.png`, `monitor.png`, `serial_monitor.png`
+> and `buffer_viewer.png` (common block). Every other row is **pending**.
 
 ---
 
@@ -89,7 +89,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | SD card / storage | `/sdcard` | `sdcard.png` | **done** |
 | Monitor (data reception) | `/monitor` | `monitor.png` | **done** |
 | Serial monitor | `/serial-monitor` | `serial_monitor.png` | **done** |
-| Buffer viewer | `/buffer-viewer` | `buffer_viewer.png` | pending |
+| Buffer viewer | `/buffer-viewer` | `buffer_viewer.png` | **done** |
 | Sensor charts | `/sensor-charts` | `sensor_charts.png` | pending |
 | Dual file | `/dualfile` | `dualfile.png` | pending |
 | Access (sessions/users) | `/access` | `access.png` | pending |
@@ -193,6 +193,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | `sdcard.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 1690 · 207 874 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 2 087 chars / 5 buttons rendered (storage bar `Mounted=Yes`, buffer/cleanup selects, command hints) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` needed (SD totals, formats and the `SystemName_DD-MM-YYYY` rule — no operator values) |
 | `monitor.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 1038 · 136 791 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 4 242 chars / 5 buttons rendered (Actions, Send Command, live RX buffer with proximity telemetry) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` needed (counter/ppm telemetry only). Live tail — a re-capture shows the newest lines, the frame is fixed |
 | `serial_monitor.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 900 · 196 676 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/auto.js?v=1.120` 200 + 30 295 chars rendered (500/500 msgs, heap + ETH diagnostics) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; captured with `--wait 95000` because the page's **first poll asks 500 messages and takes ≈90 s** (`/api/serial-monitor?limit_msgs=500&since=0` → 89 591 ms / 56 109 B; 200 → 7.5 s; 100 → 134 ms; 50 → 66 ms — see `PAGES/BACKLOG.md` MON-7), and with `--anon` (11 DOM text nodes redacted: device MAC `02:00:00:00:00:00`, IPs, e-mails) |
+| `buffer_viewer.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 900 · 193 349 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/auto.js` 200 (65 551 B; the page ships its own inline CSS, no `/core.css`) + 3 996 chars rendered (toolbar, stats `Lines: 10 · Bytes: 3725`, 10 live proximity lines) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` needed (counter/ppm telemetry only). Live view (auto-refresh 5 s) — a re-capture shows newer lines |
 
 Reproduce the proof (no file written):
 
@@ -204,6 +205,7 @@ node desktop_shot.js --host 192.168.1.29 --path /files --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /sdcard --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /monitor --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /serial-monitor --anon --wait 95000 --verify-only
+node desktop_shot.js --host 192.168.1.29 --path /buffer-viewer --verify-only
 ```
 
 ## 5. Adding an image (checklist)

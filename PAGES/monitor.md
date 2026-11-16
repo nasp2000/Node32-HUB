@@ -8,7 +8,9 @@
 > live RX buffer with proximity telemetry) and `desktop/serial_monitor.png` (1440 × 900 —
 > `/serial-monitor` with 500/500 messages; captured with `--wait 95000` because the first
 > poll of 500 messages takes ≈90 s, `BACKLOG.md` MON-7, and with `--anon` so the device
-> MAC/IPs are placeholders). Index and proof in `desktop/README.md`.
+> MAC/IPs are placeholders). `desktop/buffer_viewer.png` (1440 × 900) covers the
+> full-screen **Buffer Viewer** opened from `/monitor` → Open RX Viewer. Index and proof in
+> `desktop/README.md`.
 
 ---
 
