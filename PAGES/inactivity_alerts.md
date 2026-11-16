@@ -4,6 +4,11 @@
 > every button and input, client logic, server API, persistence and the firmware-side
 > alert engine. Written for both humans and AI agents.
 
+> Screenshot: `desktop/alerts.png` (1440 × 1075, live Waveshare 8DI8DO board — Inactivity
+> tab with the six alert slots, alerts/day caps and the Save button; captured with the
+> harness **`--anon`**, so the destination addresses read `operator@example.com` and no real
+> address appears in the image). Index and proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective

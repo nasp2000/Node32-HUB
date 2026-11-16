@@ -3,11 +3,11 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); seventeen images captured** —
+> Status: **inventory raised (50 desktop pages); eighteen images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
-> `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`), the Waveshare
-> pack (`proximity`, `proximity_dashboard`) and the camera pack (`camera`, `hub`). Every
-> other row is **pending**.
+> `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`), the
+> Waveshare pack (`proximity`, `proximity_dashboard`) and the camera pack (`camera`, `hub`).
+> Every other row is **pending**.
 
 ---
 
@@ -114,10 +114,11 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | `ethernet.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 1405 · 101 491 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 666 chars / 5 buttons rendered (Current Status, Configuration form, WiFi Runtime with Disable/Enable) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` masked 10 JSON keys + 5 DOM values (ethernet `mac`/`mac_override`, WiFi runtime `ssid`/`ip`, the form's MAC/placeholder hints). `--wait 20000` used because the WiFi Runtime line needs the runtime-status fetch (`Fetching WiFi status…` at 8 s). **No W5500 on this board**: the card honestly reads `IP: 0.0.0.0 | Mode: DHCP` (the unset address is deliberately **not** masked) — `PAGES/BACKLOG.md` ETH-5 |
 | `email.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 1530 · 106 022 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 786 chars / 4 buttons rendered (Information, Direct SMTP form, Save, Email Test) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; **`--anon` mandatory here**: 14 JSON keys masked (SMTP `username`/`password`, `email.destination`/`subject`) + 2 DOM values, so the image shows `operator` / `operator@example.com` / password `(saved)` — no credential or real address in clear
 | `recipients.png` | HomeE32 (`ENVIRONMENT`), `192.168.1.24` | `v1.120 - Nov 15 2026 16:08:35 WET`, ETag absent | 1440 × 2210 · 279 752 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 5 875 chars / 28 controls rendered (Sender/Rules/Commands tabs, How-to + Operators card, 10-row Recipients List, Save All + Add Rule) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**. **Not from `.29`:** the Waveshare pack compiles the page out (`pack_waveshare.h:78` `ENABLE_PAGE_RECIPIENTS 0` → `GET /recipients` **404**), so the capture came from HomeE32 `.24`, the only live board with the page. `--anon` ran (6 DOM values; this board has `recipients:null`, so no address to leak) and `--click '.acc-tab-bar button:nth-child(2)'` opened the **Rules** tab, which is the page's core UI (default tab is Sender — nearly empty)
+| `alerts.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag absent | 1440 × 1075 · 110 185 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 1 881 chars / 6 buttons rendered (Inactivity/OEE tabs, 6 inactivity rows with timeout + alerts/day + alert emails, Save Alert Configuration) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` masked 9 JSON keys (alert `email.destination`/`smtp_username`/`subject`, the status payload's `ip_address`/`wifi_*`) + 13 DOM values, so no destination address appears in clear
 | Ethernet | `/ethernet` | `ethernet.png` | **done** |
 | E-mail (SMTP) | `/email` | `email.png` | **done** |
 | Recipients | `/recipients` | `recipients.png` | **done** |
-| Alerts config | `/alerts-config` | `alerts.png` | pending |
+| Alerts config | `/alerts-config` | `alerts.png` | **done** |
 | FTP upload | `/ftp` | `ftp.png` | pending |
 | Google Apps Script | `/google-script` | `google_script.png` | pending |
 | Commands (interval) | `/commands` | `commands.png` | pending |
@@ -247,6 +248,7 @@ node desktop_shot.js --host 192.168.1.29 --path /wifi --anon --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /ethernet --anon --wait 20000 --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /email --anon --verify-only
 node desktop_shot.js --host 192.168.1.24 --path /recipients --anon --click '.acc-tab-bar button:nth-child(2)' --verify-only
+node desktop_shot.js --host 192.168.1.29 --path /alerts-config --anon --verify-only
 ```
 
 ## 5. Adding an image (checklist)
