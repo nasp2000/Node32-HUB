@@ -3,8 +3,9 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); three images captured** —
-> `home.png`, `status.png` and `files.png` (common block). Every other row is **pending**.
+> Status: **inventory raised (50 desktop pages); four images captured** —
+> `home.png`, `status.png`, `files.png` and `sdcard.png` (common block). Every other row
+> is **pending**.
 
 ---
 
@@ -81,7 +82,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | Home | `/` | `home.png` | **done** |
 | Status | `/status` | `status.png` | **done** |
 | Files | `/files` | `files.png` | **done** |
-| SD card / storage | `/sdcard` | `sdcard.png` | pending |
+| SD card / storage | `/sdcard` | `sdcard.png` | **done** |
 | Monitor (data reception) | `/monitor` | `monitor.png` | pending |
 | Serial monitor | `/serial-monitor` | `serial_monitor.png` | pending |
 | Buffer viewer | `/buffer-viewer` | `buffer_viewer.png` | pending |
@@ -185,6 +186,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | `home.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `…\|c1\|s1\|w1` | 1440 × 1572 · 182 303 B | HTTP 200 + English + 0 unresolved tokens + `/core.css` 200 (13 114 B) + `/auto.js?v=v1.120` 200 (65 551 B) + 5 sections / 15 buttons rendered + no broken images + overlay hidden + PNG 1440 wide → **10/10 checks pass** |
 | `status.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 2639 · 311 368 B | HTTP 200 + English (`/api/lang` `en`; this route stamps no `Content-Language`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 2 728 chars / 2 buttons / heap table rendered + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; captured with `--anon`, 9 keys neutralised (`ip_address`, `wifi_ip`, `wifi_ssid`, `wifi_mac`, `email.{smtp_username,destination,subject}`, `email_destination`, `recent_ips.0.ip`) — no operator e-mail/SSID/MAC/IP in the file |
 | `files.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag absent (dynamic listing) | 1440 × 1055 · 70 938 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120&b=…` 200 + 415 chars / 9 buttons / SD space card + 2 folder rows rendered + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` needed (folder names `Equip15`/`LOGs`, sizes and dates only — no operator data). **Known gap, not the harness:** the table headers say `Tipo`/`Nome`/`Tamanho` (hardcoded PT, no `data-i18n`) → `PAGES/BACKLOG.md` FIL-7; the image keeps exactly what the board serves |
+| `sdcard.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 1690 · 207 874 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 2 087 chars / 5 buttons rendered (storage bar `Mounted=Yes`, buffer/cleanup selects, command hints) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` needed (SD totals, formats and the `SystemName_DD-MM-YYYY` rule — no operator values) |
 
 Reproduce the proof (no file written):
 
@@ -193,6 +195,7 @@ cd tests/web
 node desktop_shot.js --host 192.168.1.29 --path / --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /status --anon --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /files --verify-only
+node desktop_shot.js --host 192.168.1.29 --path /sdcard --verify-only
 ```
 
 ## 5. Adding an image (checklist)

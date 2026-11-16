@@ -4,6 +4,10 @@
 > PSRAM): purpose, layout, every button/input, client logic, API endpoints, persistence
 > and the firmware storage engine. Written for both humans and AI agents.
 
+> Screenshot: `desktop/sdcard.png` (1440 × 1690, live Waveshare 8DI8DO board — SD mounted
+> with 11.8 MB used, buffer/cleanup selects and the EMAILDAY/LOGDAY/SENSORDAY command hints;
+> index and proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective
