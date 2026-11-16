@@ -2,6 +2,8 @@
 
 > Landing page of the **Node32-Hub** firmware: a stateless, server-rendered link hub. No inputs, no saves, no `fetch` calls — every section is a set of `<a class='btn'>` navigation links injected at request time by `streamHomePageToPrint()`, gated by compile-time `ENABLE_*` flags, `SELECTED_PACK`, and two runtime config switches. Written for both humans and AI agents.
 
+> Screenshot: `desktop/home.png` (1440 × 1572, captured from the live Waveshare 8DI8DO board — pack-dependent hero + Modules section; index and proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective
