@@ -9,6 +9,11 @@
 > initial state and avoids publishing a live view of the premises; the `<title>` still reads
 > `📷 Câmara` in the PT pack, `BACKLOG.md` CAM-70. Index and proof in `desktop/README.md`).
 
+> Screenshot (hub): `desktop/hub.png` (1440 × 900, same Cam-P4 board — `/hub` with its
+> **empty state**, because the camera list is stored per browser in `localStorage['camHub']`
+> and adding one would publish a live snapshot of the premises; captured with
+> `--allow-empty` + `--anon`, the prefilled IP shown as `192.168.1.10`).
+
 ---
 
 ## 1. Objective

@@ -3,10 +3,11 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); twelve images captured** —
+> Status: **inventory raised (50 desktop pages); thirteen images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`), the Waveshare pack (`proximity`,
-> `proximity_dashboard`) and the camera pack (`camera`). Every other row is **pending**.
+> `proximity_dashboard`) and the camera pack (`camera`, `hub`). Every other row is
+> **pending**.
 
 ---
 
@@ -50,7 +51,9 @@ polls, e.g. `--wait 95000` for `/serial-monitor`), `--reload` (load, wait 4 s, r
 wait again — for pages that build their labels once at parse time, before `/api/lang`
 arrives, e.g. `/access`), `--localstorage "k=v; k2=v2"` (seed **client-side** view prefs before
 the load, e.g. `prox_visCh=3` / `prox_dash_opts={"title":"ch"}` — nothing is written to the
-board; the keys used are printed as `localstorage`), `--anon` (neutralise
+board; the keys used are printed as `localstorage`), `--allow-empty "reason"` (accept a page
+that is genuinely an empty state — the reason is printed as `allow_empty` and must be spelled
+out in §4; a blank or half-rendered page still fails), `--anon` (neutralise
 operator-identifying values, see below).
 
 `--anon` keeps the capture publishable: the HTML/CSS/JS are still the board's own, but the
@@ -60,7 +63,8 @@ e-mail addresses, SMTP user, subject and credentials become `NODE32-BENCH`,
 is never touched (UI labels stay real) and every masked key is printed as `anon_masked`, so
 §4 can state exactly what was neutralised. Right before the screenshot the same pass also
 redacts **free text** (log/terminal pages): MACs, IPv4 addresses and e-mail addresses inside
-DOM text nodes become the same placeholders — the count is printed as `anon_text_nodes`.
+DOM text nodes **and in `input`/`textarea`/`option` values and placeholders** become the same
+placeholders — the count is printed as `anon_text_nodes`.
 
 **The harness refuses to write an image that does not prove the page serves it.**
 It prints a JSON report and exits `1` unless all of these pass:
@@ -140,7 +144,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | Page | Route | Image | Status |
 |---|---|---|---|
 | Camera live/playback (`?desk=1`) | `/camera` | `camera.png` | **done** |
-| Camera hub | `/hub` | `hub.png` | pending |
+| Camera hub | `/hub` | `hub.png` | **done** |
 
 ### 3.5 Rambox32 clock (Pigeon)
 
@@ -211,6 +215,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | `proximity.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 951 · 74 755 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 660 chars / 4 buttons rendered (tabs Status/Config/Shifts/Shiftday/OEE, 8-channel Real-Time Status, `Show: 8 channels` + Save) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` (channel names + counters), no `--reload` (labels correct first time). The status table scrolls inside `.table-wrapper` (890 px visible vs 1020 px table), so the last column `Elapsed` stays behind the horizontal scroll at 1440 — `PAGES/BACKLOG.md` PX-4 |
 | `proximity_dashboard.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 1745 · 251 654 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 957 chars / 6 sections rendered (DAY/LAST HOUR counters, OEE donut + A/P/Q tiles, 3 hourly charts with Gantt strips) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` (counters only). Captured with `--localstorage "prox_visCh=3; prox_dash_opts={\"title\":\"ch\"}"` (client-side prefs only): without them the page stacks 8 charts all titled `Equip15` — `PAGES/BACKLOG.md` PD-6. Shifts show `--` because shift tracking is disabled on this board (`shift-config` → `en:false`), not an error |
 | `camera.png` | Cam-P4 (`Cam-P4`), `192.168.1.18` | `v1.120 - Nov 15 2026 16:09:06 WET`, ETag absent | 1440 × 900 · 463 728 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/auto.js?v=1.120` 200 + 521 chars / 26 controls rendered (top toolbar, Camera Control panel, side tabs Camera/Pictures/Recording/Motion/Vision, `Waiting for camera…` placeholder) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` (`Source USB — 1b3f:1167` is the device id) and no `--reload`. Captured **with the stream stopped** (the page's own initial state): starting it would publish a live view of the premises. The `<title>` still reads `📷 Câmara` (hardcoded PT literal, not a `pageTitle*` LangString) — `PAGES/BACKLOG.md` CAM-70 |
+| `hub.png` | Cam-P4 (`Cam-P4`), `192.168.1.18` | `v1.120 - Nov 15 2026 16:09:06 WET`, ETag `v1.120 - Nov 15 2026 16:09:06 WET` | 1440 × 900 · 65 563 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 192 chars / 3 controls rendered (topbar Home/Refresh/Clear, IP field + Add, empty-state line and the 10 s refresh hint) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass** with `--allow-empty` (the camera list lives in the browser's `localStorage['camHub']`, so a fresh profile legitimately shows the empty state; adding an entry would pull a live snapshot of the premises) and `--anon` (1 value masked: the `192.168.1.18` prefilled in the IP field → `192.168.1.10`) |
 
 Reproduce the proof (no file written):
 
@@ -228,6 +233,7 @@ node desktop_shot.js --host 192.168.1.29 --path /ota --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /proximity --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /proximity-dashboard --localstorage 'prox_visCh=3; prox_dash_opts={"title":"ch"}' --verify-only
 node desktop_shot.js --host 192.168.1.18 --path '/camera?desk=1' --verify-only
+node desktop_shot.js --host 192.168.1.18 --path /hub --anon --allow-empty "browser-side camera list" --verify-only
 ```
 
 ## 5. Adding an image (checklist)

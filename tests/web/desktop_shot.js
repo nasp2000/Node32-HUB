@@ -31,9 +31,10 @@ const VERIFY_ONLY = !!arg('verify-only', false);
 const ANON = !!arg('anon', false);
 const WAIT = parseInt(arg('wait', '8000'), 10);
 const RELOAD = !!arg('reload', false);
-const LS = arg('localstorage', null);   // "key=value; key2=value2" – client-side view prefs only
+const LS = arg('localstorage', null);
+const ALLOW_EMPTY = arg('allow-empty', null);  // reason string: page is legitimately empty (never hides a broken render)   // "key=value; key2=value2" – client-side view prefs only
 if (!HOST) {
-  console.error('usage: node desktop_shot.js --host <ip> [--path /] [--out file.png] [--auth u:p] [--verify-only] [--anon] [--wait ms] [--reload] [--localstorage "k=v;k2=v2"]');
+  console.error('usage: node desktop_shot.js --host <ip> [--path /] [--out file.png] [--auth u:p] [--verify-only] [--anon] [--wait ms] [--reload] [--localstorage "k=v;k2=v2"] [--allow-empty "reason"]');
   process.exit(2);
 }
 
@@ -88,6 +89,17 @@ const ANON_JS = String.raw`(function () {
       t = t.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, SUB.email);
       if (t !== o) { n.nodeValue = t; stats.nodes++; }
     }
+    // Input values / placeholders carry the same identifiers (e.g. the hub's IP field).
+    Array.prototype.forEach.call(document.querySelectorAll('input, textarea, option'), function (el) {
+      ['value', 'placeholder'].forEach(function (attr) {
+        var v = el.getAttribute(attr);
+        if (!v) return;
+        var w = v.replace(/\b[0-9A-F]{2}(?::[0-9A-F]{2}){5}\b/gi, SUB.mac)
+                 .replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, SUB.ip)
+                 .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, SUB.email);
+        if (w !== v) { el.setAttribute(attr, w); stats.nodes++; }
+      });
+    });
     window.__anonTextCount = (window.__anonTextCount || 0) + stats.nodes;
     return stats.nodes;
   };  window.fetch = function (input) {
@@ -212,6 +224,7 @@ const RENDER_EXPR = `(() => {
 
 async function main() {
   const report = { host: HOST, path: PAGE, anon: ANON, at: new Date().toISOString() };
+  if (ALLOW_EMPTY) report.allow_empty = String(ALLOW_EMPTY);
   report.http = await httpCheck();
   report.lang_api = await uiLangCheck();
 
@@ -324,7 +337,13 @@ async function main() {
     ['no %%TOKEN%% in html', (h.unresolved_tokens || []).length === 0],
     ['no %%TOKEN%% rendered', (r.tokens_in_text || []).length === 0],
     ['assets reachable', (h.assets || []).every((a) => typeof a !== 'object' || a.status === 200)],
-    ['page rendered', !!r.text_len && r.text_len > 200 && ((r.buttons || 0) > 0 || r.text_len > 800)],
+    ['page rendered', (() => {
+      const ok = !!r.text_len && r.text_len > 200 && ((r.buttons || 0) > 0 || r.text_len > 800);
+      if (ok) return true;
+      // --allow-empty <reason>: the page really is an empty state (e.g. a list kept in the
+      // browser); it still has to render *something* — a blank/broken page never passes.
+      return !!ALLOW_EMPTY && !!r.text_len && r.text_len > 100 && (r.buttons || 0) > 0;
+    })()],
     ['no broken images', r.failed_imgs === 0],
     ['loading overlay hidden', r.loading_overlay_visible === false],
     ['no cross-origin sheet', r.partial_sheets === 0],
