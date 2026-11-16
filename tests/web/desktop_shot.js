@@ -30,8 +30,9 @@ const H = parseInt(arg('h', '900'), 10);
 const VERIFY_ONLY = !!arg('verify-only', false);
 const ANON = !!arg('anon', false);
 const WAIT = parseInt(arg('wait', '8000'), 10);
+const RELOAD = !!arg('reload', false);
 if (!HOST) {
-  console.error('usage: node desktop_shot.js --host <ip> [--path /] [--out file.png] [--auth u:p] [--verify-only] [--anon] [--wait ms]');
+  console.error('usage: node desktop_shot.js --host <ip> [--path /] [--out file.png] [--auth u:p] [--verify-only] [--anon] [--wait ms] [--reload]');
   process.exit(2);
 }
 
@@ -249,6 +250,12 @@ async function main() {
     }
     const nav = await sess.send('Page.navigate', { url });
     report.nav = nav;
+    if (RELOAD) {
+      // Some pages build their labels at parse time, before /api/lang lands: a first
+      // visit shows raw i18n keys, a reload renders from the now-cached pack.
+      await new Promise((r) => setTimeout(r, 4000));
+      await sess.send('Page.reload', {});
+    }
     await new Promise((r) => setTimeout(r, WAIT));
     const loc = await sess.send('Runtime.evaluate', {
       expression: 'location.href + " | " + document.readyState', returnByValue: true,

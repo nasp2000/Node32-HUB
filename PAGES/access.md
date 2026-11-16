@@ -4,6 +4,11 @@
 > every button/input, client logic, API endpoints, persistence and the firmware-side
 > session/authorisation engine. Written for both humans and AI agents.
 
+> Screenshot: `desktop/access.png` (1440 × 981, live Waveshare 8DI8DO board — Users tab with
+> the Administrator/Viewer panels; captured with the harness `--anon` (session IPs masked)
+> and `--reload` — on a cold browser the tab labels stay as raw i18n keys, `BACKLOG.md`
+> ACC-8. Index and proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective
