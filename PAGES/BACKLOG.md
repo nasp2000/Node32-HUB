@@ -155,6 +155,7 @@ history and is still the place to look before changing shared wiring.
 | FIL-4 | Low | Keyboard handler uses arrow functions (`e=>`), diverging from the no-arrow project rule. | `files_page_handler.cpp:825,833` | open |
 | FIL-5 | Low | PSRAM selector shows `(não disponível)` when VFS disabled but stays clickable → dead option. | `files_page_handler.cpp:462-467` | open |
 | FIL-6 | Info | Move/rename/create use hidden-form POST (page navigates) vs delete uses JSON+reload — inconsistent UX. | `files_page_handler.cpp:839-840` | open |
+| FIL-7 | Low | Table headers are still PT-only literals (`Tipo`, `Nome`, `Tamanho`) with no `data-i18n`: with `ui_lang=en` the `/files` table shows PT column titles (visible in `PAGES/desktop/files.png`). FIL-1 closed as "all English fallbacks" but missed these three. Found while capturing the desktop reference image. | `files_page_handler.cpp:517` | open |
 
 ---
 

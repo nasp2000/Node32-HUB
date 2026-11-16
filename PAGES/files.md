@@ -4,6 +4,10 @@
 > client logic, server API, persistence and the firmware-side SD/PSRAM/LittleFS access.
 > Written for both humans and AI agents.
 
+> Screenshot: `desktop/files.png` (1440 × 1055, live Waveshare 8DI8DO board — SD root with
+> `Equip15`/`LOGs`; the table headers still render hardcoded PT `Tipo`/`Nome`/`Tamanho`, see
+> `BACKLOG.md` FIL-7; index and proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective
