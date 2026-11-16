@@ -7,6 +7,13 @@
 > Note: `/proximity` (the configuration page) has its **own doc** — see
 > `PAGES/proximity_sensors.md`.
 
+> Screenshot: `desktop/proximity_dashboard.png` (1440 × 1745, live Waveshare 8DI8DO board —
+> DAY/LAST HOUR counters, OEE donut + A/P/Q tiles and the three hourly charts with Gantt
+> strips; captured with client-side prefs `prox_visCh=3` and chart title = channel, without
+> which the page stacks 8 charts all titled with the system name, `BACKLOG.md` PD-6. Shifts
+> read `--` because shift tracking is off on this board. Index and proof in
+> `desktop/README.md`).
+
 ---
 
 ## 1. Objective

@@ -31,8 +31,9 @@ const VERIFY_ONLY = !!arg('verify-only', false);
 const ANON = !!arg('anon', false);
 const WAIT = parseInt(arg('wait', '8000'), 10);
 const RELOAD = !!arg('reload', false);
+const LS = arg('localstorage', null);   // "key=value; key2=value2" – client-side view prefs only
 if (!HOST) {
-  console.error('usage: node desktop_shot.js --host <ip> [--path /] [--out file.png] [--auth u:p] [--verify-only] [--anon] [--wait ms] [--reload]');
+  console.error('usage: node desktop_shot.js --host <ip> [--path /] [--out file.png] [--auth u:p] [--verify-only] [--anon] [--wait ms] [--reload] [--localstorage "k=v;k2=v2"]');
   process.exit(2);
 }
 
@@ -247,6 +248,17 @@ async function main() {
     await sess.send('Page.enable', {});
     if (ANON) {
       await sess.send('Page.addScriptToEvaluateOnNewDocument', { source: ANON_JS });
+    }
+    if (LS) {
+      // Client-side view prefs only (e.g. prox_visCh) – nothing is written to the board.
+      const pairs = String(LS).split(';').map((p) => p.trim()).filter(Boolean).map((p) => {
+        const i = p.indexOf('=');
+        return [p.slice(0, i), p.slice(i + 1)];
+      });
+      report.localstorage = pairs.map(([k]) => k);
+      const src = 'try{' + pairs.map(([k, v]) =>
+        `localStorage.setItem(${JSON.stringify(k)}, ${JSON.stringify(v)});`).join('') + '}catch(e){}';
+      await sess.send('Page.addScriptToEvaluateOnNewDocument', { source: src });
     }
     const nav = await sess.send('Page.navigate', { url });
     report.nav = nav;

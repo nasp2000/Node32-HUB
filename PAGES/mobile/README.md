@@ -4,8 +4,8 @@ Working folder for the **phone pages**: one image per screen, the shared blocks
 once, and the rules every pack follows. All phone screenshots live here (versioned).
 The **desktop** pages get the same treatment in `PAGES/desktop/` (inventory of
 all 50 desktop pages raised; `home.png`, `status.png`, `files.png`, `sdcard.png`,
-`monitor.png`, `serial_monitor.png`, `buffer_viewer.png`, `access.png`, `ota.png` +
-`proximity.png` captured and verified, rest pending).
+`monitor.png`, `serial_monitor.png`, `buffer_viewer.png`, `access.png`, `ota.png`,
+`proximity.png` + `proximity_dashboard.png` captured and verified, rest pending).
 
 ---
 
