@@ -3,11 +3,11 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); nineteen images captured** —
+> Status: **inventory raised (50 desktop pages); twenty images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
-> `ftp`), the Waveshare pack (`proximity`, `proximity_dashboard`) and the camera pack
-> (`camera`, `hub`). Every other row is **pending**.
+> `ftp`, `commands`), the Waveshare pack (`proximity`, `proximity_dashboard`) and the camera
+> pack (`camera`, `hub`). Every other row is **pending**.
 
 ---
 
@@ -116,13 +116,20 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | `recipients.png` | HomeE32 (`ENVIRONMENT`), `192.168.1.24` | `v1.120 - Nov 15 2026 16:08:35 WET`, ETag absent | 1440 × 2210 · 279 752 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 5 875 chars / 28 controls rendered (Sender/Rules/Commands tabs, How-to + Operators card, 10-row Recipients List, Save All + Add Rule) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**. **Not from `.29`:** the Waveshare pack compiles the page out (`pack_waveshare.h:78` `ENABLE_PAGE_RECIPIENTS 0` → `GET /recipients` **404**), so the capture came from HomeE32 `.24`, the only live board with the page. `--anon` ran (6 DOM values; this board has `recipients:null`, so no address to leak) and `--click '.acc-tab-bar button:nth-child(2)'` opened the **Rules** tab, which is the page's core UI (default tab is Sender — nearly empty)
 | `alerts.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag absent | 1440 × 1075 · 110 185 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 1 881 chars / 6 buttons rendered (Inactivity/OEE tabs, 6 inactivity rows with timeout + alerts/day + alert emails, Save Alert Configuration) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` masked 9 JSON keys (alert `email.destination`/`smtp_username`/`subject`, the status payload's `ip_address`/`wifi_*`) + 13 DOM values, so no destination address appears in clear
 | `ftp.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 1809 · 171 991 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 1 323 chars / 5 buttons rendered (FTP Connection, Automatic upload, Save, Status + recent uploads, Test connection / Upload now) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` masked the JSON `user`/`password` and 1 DOM value — the FTP host `192.168.1.35` was rewritten to `192.168.1.10` by the DOM/text pass (its payload key is plain `host`, which no key rule matches), so no internal server address is published
+| `commands.png` | HomeE32 (`ENVIRONMENT`), `192.168.1.24` | `v1.120 - Nov 15 2026 16:08:35 WET`, ETag absent | 1440 × 1283 · 145 687 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 1 584 chars / 24 controls rendered (Information card, 10 slot rows with type/command/interval/unit/days/template/active, Save All + Add Command) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**. **Not from `.29`:** the Waveshare build compiles `/commands` out (`GET /commands` → 404, only the date/time variant exists there), so the capture came from HomeE32 `.24`, which serves both. No `--anon` needed (empty slots, no addresses) but it ran anyway. **Known gap:** the hint line under the Information card is hardcoded PT (*Deslize horizontalmente…*) — `PAGES/BACKLOG.md` CMD-9
 | Ethernet | `/ethernet` | `ethernet.png` | **done** |
 | E-mail (SMTP) | `/email` | `email.png` | **done** |
 | Recipients | `/recipients` | `recipients.png` | **done** |
 | Alerts config | `/alerts-config` | `alerts.png` | **done** |
 | FTP upload | `/ftp` | `ftp.png` | **done** |
 | Google Apps Script | `/google-script` | `google_script.png` | pending |
-| Commands (interval) | `/commands` | `commands.png` | pending |
+
+> **Blocked on the build, not on the harness** (2026-11-16): `GET /google-script` answers
+> **404** on every live board (`.29`, `.24`, `.18`, `.9`) — `ENABLE_PAGE_GOOGLE_SCRIPT` is
+> commented out in `user_config.h` and **no pack enable**s it (the validator's prerequisite is
+> only `ENABLE_GOOGLE_EMAIL`, which just `pack_rambox.h` turns on, and that board is offline).
+> The next inventory row (`/commands`) was captured instead.
+| Commands (interval) | `/commands` | `commands.png` | **done** |
 | Commands (date & time) | `/commands-by-datetime` | `commands_datetime.png` | pending |
 | Structures (fixtures) | `/structures` | `structures.png` | pending |
 | Printer | `/printer` | `printer.png` | pending |
@@ -251,6 +258,7 @@ node desktop_shot.js --host 192.168.1.29 --path /email --anon --verify-only
 node desktop_shot.js --host 192.168.1.24 --path /recipients --anon --click '.acc-tab-bar button:nth-child(2)' --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /alerts-config --anon --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /ftp --anon --verify-only
+node desktop_shot.js --host 192.168.1.24 --path /commands --anon --verify-only
 ```
 
 ## 5. Adding an image (checklist)

@@ -4,6 +4,11 @@
 > button/input, client logic, API endpoints, persistence and the firmware scheduler.
 > Written for both humans and AI agents.
 
+> Screenshot: `desktop/commands.png` (1440 × 1283, live **HomeE32** board `.24` — the
+> Waveshare pack compiles `/commands` out (404), so the interval page comes from the pack
+> that has it; 10 empty slots, Save All + Add Command). The hint line under the Information
+> card is still hardcoded PT, `BACKLOG.md` CMD-9. Index and proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective
