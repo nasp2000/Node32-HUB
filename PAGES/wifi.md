@@ -3,6 +3,11 @@
 > Reference for the **Wi-Fi configuration page**: SSID/password form, network scanner and
 > the hybrid AP/STA runtime rules. Written for both humans and AI agents.
 
+> Screenshot: `desktop/wifi.png` (1440 × 1169, live Waveshare 8DI8DO board — Information,
+> Configuration form and the Available Networks scan list; captured with the harness `--anon`,
+> so the configured SSID/password and the six scanned networks are placeholders
+> `NODE32-BENCH 1…6` with their real signal bars. Index and proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective

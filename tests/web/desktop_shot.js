@@ -67,7 +67,12 @@ const ANON_JS = String.raw`(function () {
       if (typeof v !== 'string' || !v) return;
       for (var i = 0; i < RULES.length; i++) {
         if (RULES[i][0].test(k)) {
-          o[k] = SUB[RULES[i][1]];
+          var sub = SUB[RULES[i][1]];
+          // Keep repeated list entries distinguishable (e.g. 6 scanned networks) without
+          // leaking the real names: append the array index of the parent object.
+          var idx = prefix.match(/\.(\d+)\.$/);
+          if (idx && k === 'ssid') sub = sub + ' ' + (Number(idx[1]) + 1);
+          o[k] = sub;
           window.__anonLog.push(prefix + k);
           return;
         }
