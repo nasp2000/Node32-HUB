@@ -32,9 +32,10 @@ const ANON = !!arg('anon', false);
 const WAIT = parseInt(arg('wait', '8000'), 10);
 const RELOAD = !!arg('reload', false);
 const LS = arg('localstorage', null);
-const ALLOW_EMPTY = arg('allow-empty', null);  // reason string: page is legitimately empty (never hides a broken render)   // "key=value; key2=value2" – client-side view prefs only
+const ALLOW_EMPTY = arg('allow-empty', null);
+const CLICK = arg('click', null);   // CSS selector clicked once before the screenshot (client-side only)  // reason string: page is legitimately empty (never hides a broken render)   // "key=value; key2=value2" – client-side view prefs only
 if (!HOST) {
-  console.error('usage: node desktop_shot.js --host <ip> [--path /] [--out file.png] [--auth u:p] [--verify-only] [--anon] [--wait ms] [--reload] [--localstorage "k=v;k2=v2"] [--allow-empty "reason"]');
+  console.error('usage: node desktop_shot.js --host <ip> [--path /] [--out file.png] [--auth u:p] [--verify-only] [--anon] [--wait ms] [--reload] [--localstorage "k=v;k2=v2"] [--allow-empty "reason"] [--click "selector"]');
   process.exit(2);
 }
 
@@ -302,6 +303,15 @@ async function main() {
     });
     report.location = loc.result ? loc.result.value : null;
 
+    if (CLICK) {
+      const cl = await sess.send('Runtime.evaluate', {
+        expression: '(function(){var el=document.querySelector(' + JSON.stringify(String(CLICK)) +
+          '); if(!el) return "not-found"; el.click(); return "clicked";})()',
+        returnByValue: true,
+      });
+      report.click = { selector: String(CLICK), result: cl.result ? cl.result.value : 'error' };
+      await new Promise((r) => setTimeout(r, 1500));
+    }
     const ev = await sess.send('Runtime.evaluate', {
       expression: RENDER_EXPR, returnByValue: true,
     });

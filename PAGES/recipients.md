@@ -4,6 +4,13 @@
 > every input/button, client logic, API endpoints, persistence and the firmware-side
 > recipient-matching engine. Written for both humans and AI agents.
 
+> Screenshot: `desktop/recipients.png` (1440 × 2210, live **HomeE32** board `.24` — the
+> Waveshare pack compiles this page out, `GET /recipients` → 404, so the reference comes from
+> the pack that has it enabled). Captured on the **Rules** tab (How-to + Operators card and
+> the 10-row Recipients List; the default Sender tab is nearly empty) with the harness
+> `--click`, and `--anon` masked the DOM values (`recipients:null` on this board, so the rows
+> are empty). Index and proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective
