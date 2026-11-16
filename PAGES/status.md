@@ -4,6 +4,10 @@
 > button, client logic, API endpoint and the firmware-side status payload. Written for both
 > humans and AI agents.
 
+> Screenshot: `desktop/status.png` (1440 × 2639, live Waveshare 8DI8DO board; operator values
+> neutralised with the harness `--anon` — SSID/MAC/IPs/e-mail/subject are placeholders; index
+> and proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective

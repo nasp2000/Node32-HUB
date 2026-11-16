@@ -3,8 +3,8 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); first image captured** —
-> `home.png` (common block, `GET /`). Every other row is **pending**.
+> Status: **inventory raised (50 desktop pages); two images captured** —
+> `home.png` and `status.png` (common block). Every other row is **pending**.
 
 ---
 
@@ -42,7 +42,15 @@ node desktop_shot.js --host 192.168.1.29 --path / --verify-only
 node desktop_shot.js --host 192.168.1.29 --path / --out ../../PAGES/desktop/home.png
 ```
 
-Optional: `--auth user:pass` (default `admin:admin`), `--w` / `--h` (default 1440×900).
+Optional: `--auth user:pass` (default `admin:admin`), `--w` / `--h` (default 1440×900),
+`--anon` (neutralise operator-identifying values, see below).
+
+`--anon` keeps the capture publishable: the HTML/CSS/JS are still the board's own, but the
+JSON the page renders is rewritten in-page (before the first page script) so SSID, MAC, IPs,
+e-mail addresses, SMTP user, subject and credentials become `NODE32-BENCH`,
+`02:00:00:00:00:00`, `192.168.1.10`, `operator@example.com`, `Node32-HUB bench`. `/api/lang`
+is never touched (UI labels stay real) and every masked key is printed as `anon_masked`, so
+§4 can state exactly what was neutralised.
 
 **The harness refuses to write an image that does not prove the page serves it.**
 It prints a JSON report and exits `1` unless all of these pass:
@@ -50,7 +58,8 @@ It prints a JSON report and exits `1` unless all of these pass:
 | Check | What it proves |
 |---|---|
 | `http 200` | the route exists on the board (not a 302/404/503) |
-| `english served` | `Content-Language: en` — image is the English UI |
+| `english ui` | page `Content-Language: en`, or (routes that do not stamp it, e.g. `/status`) `GET /api/lang` in `en` — the strings the page actually renders |
+| `lang api 200 + en` | `/api/lang` answers 200 with `Content-Language: en` + `X-UI-Lang: en` |
 | `no %%TOKEN%% in html` | the server-side renderer resolved every `%%TOKEN%%` |
 | `no %%TOKEN%% rendered` | nothing unresolved reached the DOM text |
 | `assets reachable` | `/core.css` and `/auto.js?v=…` (and `config-manager.js` when used) return 200 |
@@ -70,7 +79,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | Page | Route | Image | Status |
 |---|---|---|---|
 | Home | `/` | `home.png` | **done** |
-| Status | `/status` | `status.png` | pending |
+| Status | `/status` | `status.png` | **done** |
 | Files | `/files` | `files.png` | pending |
 | SD card / storage | `/sdcard` | `sdcard.png` | pending |
 | Monitor (data reception) | `/monitor` | `monitor.png` | pending |
@@ -174,16 +183,20 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | Image | Board / pack | Firmware · ETag | Viewport · size | Verified |
 |---|---|---|---|---|
 | `home.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `…\|c1\|s1\|w1` | 1440 × 1572 · 182 303 B | HTTP 200 + English + 0 unresolved tokens + `/core.css` 200 (13 114 B) + `/auto.js?v=v1.120` 200 (65 551 B) + 5 sections / 15 buttons rendered + no broken images + overlay hidden + PNG 1440 wide → **10/10 checks pass** |
+| `status.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 2639 · 311 368 B | HTTP 200 + English (`/api/lang` `en`; this route stamps no `Content-Language`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 2 728 chars / 2 buttons / heap table rendered + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; captured with `--anon`, 9 keys neutralised (`ip_address`, `wifi_ip`, `wifi_ssid`, `wifi_mac`, `email.{smtp_username,destination,subject}`, `email_destination`, `recent_ips.0.ip`) — no operator e-mail/SSID/MAC/IP in the file |
 
 Reproduce the proof (no file written):
 
 ```bash
-cd tests/web && node desktop_shot.js --host 192.168.1.29 --path / --verify-only
+cd tests/web
+node desktop_shot.js --host 192.168.1.29 --path / --verify-only
+node desktop_shot.js --host 192.168.1.29 --path /status --anon --verify-only
 ```
 
 ## 5. Adding an image (checklist)
 
-1. Capture with the harness at 1440×900, English UI, board/mock in a realistic state.
+1. Capture with the harness at 1440×900, English UI, board/mock in a realistic state; add
+   `--anon` whenever the page shows operator config (SSID, IP, e-mail, credentials).
 2. Save as `PAGES/desktop/<page>.png` (exactly one file for that page).
 3. Add a row to §4 (board, firmware/ETag, size, checks) — the proof travels with the image.
 4. Reference it in `PAGES/<page>.md` (first line of the doc, like the mobile docs).

@@ -28,10 +28,67 @@ const OUT = arg('out', null);
 const W = parseInt(arg('w', '1440'), 10);
 const H = parseInt(arg('h', '900'), 10);
 const VERIFY_ONLY = !!arg('verify-only', false);
+const ANON = !!arg('anon', false);
 if (!HOST) {
-  console.error('usage: node desktop_shot.js --host <ip> [--path /] [--out file.png] [--auth u:p] [--verify-only]');
+  console.error('usage: node desktop_shot.js --host <ip> [--path /] [--out file.png] [--auth u:p] [--verify-only] [--anon]');
   process.exit(2);
 }
+
+// --anon: neutralise personal values in the JSON the page renders (SSID, MAC, IP,
+// e-mail addresses, SMTP user, subject, credentials). The HTML/CSS/JS are still the
+// board's own; only the operator-configured field values are replaced, in-page and
+// before the page's first script runs. Every masked key is reported back.
+const ANON_JS = `(function () {
+  var SUB = {
+    ssid: 'NODE32-BENCH', mac: '02:00:00:00:00:00', ip: '192.168.1.10',
+    email: 'operator@example.com', subject: 'Node32-HUB bench',
+    secret: 'bench', user: 'operator', name: 'OPERATOR'
+  };
+  var RULES = [
+    [/^(wifi_ssid|ssid|ap_ssid|bssid)$/i, 'ssid'],
+    [/^(wifi_mac|ethernet_mac|mac|mac_address)$/i, 'mac'],
+    [/^(ip_address|wifi_ip|ethernet_ip|local_ip|ip)$/i, 'ip'],
+    [/^(smtp_username|smtp_user|email_destination|destination|recipient_email|alert_emails)$/i, 'email'],
+    [/^(email_subject|subject)$/i, 'subject'],
+    [/^(password|smtp_password|token|api_key|secret)$/i, 'secret'],
+    [/^(smtp_user_name|username|user|web_user)$/i, 'user'],
+    [/^(unikon_fancier_name)$/i, 'name']
+  ];
+  window.__anonLog = [];
+  function walk(o, prefix) {
+    if (!o || typeof o !== 'object') return;
+    Object.keys(o).forEach(function (k) {
+      var v = o[k];
+      if (v && typeof v === 'object') { walk(v, prefix + k + '.'); return; }
+      if (typeof v !== 'string' || !v) return;
+      for (var i = 0; i < RULES.length; i++) {
+        if (RULES[i][0].test(k)) {
+          o[k] = SUB[RULES[i][1]];
+          window.__anonLog.push(prefix + k);
+          return;
+        }
+      }
+    });
+  }
+  var origFetch = window.fetch;
+  window.fetch = function (input) {
+    var url = typeof input === 'string' ? input : ((input && input.url) || '');
+    var p = origFetch.apply(this, arguments);
+    if (url.indexOf('/api/') < 0 || url.indexOf('/api/lang') >= 0) return p;
+    return p.then(function (res) {
+      var ct = (res.headers && res.headers.get('content-type')) || '';
+      if (ct.indexOf('json') < 0) return res;
+      return res.clone().text().then(function (txt) {
+        var j;
+        try { j = JSON.parse(txt); } catch (e) { return res; }
+        walk(j, '');
+        return new Response(JSON.stringify(j), {
+          status: res.status, statusText: res.statusText, headers: res.headers
+        });
+      }).catch(function () { return res; });
+    });
+  };
+})();`;
 
 const base = `http://${HOST}`;
 const url = `http://${HOST}${PAGE}`;
@@ -65,16 +122,47 @@ async function httpCheck() {
   };
 }
 
-async function cdp(method, params, wsUrl, id) {
+// Only some routes stamp Content-Language on the page itself (/status does not);
+// the strings a page shows come from GET /api/lang, which always carries it.
+async function uiLangCheck() {
+  const res = await fetch(base + '/api/lang', { headers: { Authorization: authHeader } });
+  return {
+    status: res.status,
+    content_language: res.headers.get('content-language'),
+    x_ui_lang: res.headers.get('x-ui-lang'),
+    etag: res.headers.get('etag'),
+  };
+}
+
+// One persistent CDP session: Page.addScriptToEvaluateOnNewDocument is bound to
+// the session that created it, so the socket must stay open for the whole run.
+function connect(wsUrl) {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(wsUrl);
-    ws.onopen = () => ws.send(JSON.stringify({ id, method, params }));
+    const pending = new Map();
+    let nextId = 0;
     ws.onmessage = (ev) => {
       const msg = JSON.parse(ev.data);
-      if (msg.id === id) { ws.close(); resolve(msg.result); }
+      if (msg.id && pending.has(msg.id)) {
+        const { res, rej } = pending.get(msg.id);
+        pending.delete(msg.id);
+        if (msg.error) rej(new Error(msg.error.message)); else res(msg.result);
+      }
     };
     ws.onerror = reject;
-    setTimeout(() => reject(new Error('cdp timeout ' + method)), 60000);
+    ws.onopen = () => resolve({
+      send(method, params) {
+        const id = ++nextId;
+        return new Promise((res, rej) => {
+          pending.set(id, { res, rej });
+          ws.send(JSON.stringify({ id, method, params }));
+          setTimeout(() => {
+            if (pending.has(id)) { pending.delete(id); rej(new Error('cdp timeout ' + method)); }
+          }, 60000);
+        });
+      },
+      close() { try { ws.close(); } catch (e) { /* already gone */ } },
+    });
   });
 }
 
@@ -103,8 +191,9 @@ const RENDER_EXPR = `(() => {
 })()`;
 
 async function main() {
-  const report = { host: HOST, path: PAGE, at: new Date().toISOString() };
+  const report = { host: HOST, path: PAGE, anon: ANON, at: new Date().toISOString() };
   report.http = await httpCheck();
+  report.lang_api = await uiLangCheck();
 
   const { spawn } = require('child_process');
   const port = 19324;
@@ -114,6 +203,7 @@ async function main() {
   ], { stdio: 'ignore' });
 
   const consoleErrors = [];
+  let sess = null;
   try {
     let tabs = null;
     for (let i = 0; i < 40 && !tabs; i++) {
@@ -127,38 +217,48 @@ async function main() {
     }
     if (!tabs) throw new Error('no debuggable tabs');
     const wsUrl = tabs[0].webSocketDebuggerUrl;
-    let id = 1;
-    await cdp('Emulation.setDeviceMetricsOverride', {
+    sess = await connect(wsUrl);
+    await sess.send('Emulation.setDeviceMetricsOverride', {
       width: W, height: H, deviceScaleFactor: 1, mobile: false,
-    }, wsUrl, id++);
-    await cdp('Network.enable', {}, wsUrl, id++);
-    await cdp('Network.setExtraHTTPHeaders', {
+    });
+    await sess.send('Network.enable', {});
+    await sess.send('Network.setExtraHTTPHeaders', {
       headers: { Authorization: authHeader },
-    }, wsUrl, id++);
-    await cdp('Runtime.enable', {}, wsUrl, id++);
-    await cdp('Page.enable', {}, wsUrl, id++);
-    const nav = await cdp('Page.navigate', { url }, wsUrl, id++);
+    });
+    await sess.send('Runtime.enable', {});
+    await sess.send('Page.enable', {});
+    if (ANON) {
+      await sess.send('Page.addScriptToEvaluateOnNewDocument', { source: ANON_JS });
+    }
+    const nav = await sess.send('Page.navigate', { url });
     report.nav = nav;
     await new Promise((r) => setTimeout(r, 8000));
-    const loc = await cdp('Runtime.evaluate', {
+    const loc = await sess.send('Runtime.evaluate', {
       expression: 'location.href + " | " + document.readyState', returnByValue: true,
-    }, wsUrl, id++);
+    });
     report.location = loc.result ? loc.result.value : null;
 
-    const ev = await cdp('Runtime.evaluate', {
+    const ev = await sess.send('Runtime.evaluate', {
       expression: RENDER_EXPR, returnByValue: true,
-    }, wsUrl, id++);
+    });
     report.render = ev.result ? ev.result.value : null;
 
+    if (ANON) {
+      const mk = await sess.send('Runtime.evaluate', {
+        expression: '(window.__anonLog||[]).slice().sort()', returnByValue: true,
+      });
+      report.anon_masked = mk.result ? mk.result.value : [];
+    }
+
     if (!VERIFY_ONLY && OUT) {
-      const metrics = await cdp('Page.getLayoutMetrics', {}, wsUrl, id++);
+      const metrics = await sess.send('Page.getLayoutMetrics', {});
       const cs = metrics.cssContentSize || metrics.contentSize;
       const height = Math.max(1, Math.ceil(cs.height));
-      const shot = await cdp('Page.captureScreenshot', {
+      const shot = await sess.send('Page.captureScreenshot', {
         format: 'png',
         captureBeyondViewport: true,
         clip: { x: 0, y: 0, width: W, height, scale: 1 },
-      }, wsUrl, id++);
+      });
       const outPath = path.resolve(__dirname, OUT);
       fs.mkdirSync(path.dirname(outPath), { recursive: true });
       fs.writeFileSync(outPath, Buffer.from(shot.data, 'base64'));
@@ -168,14 +268,18 @@ async function main() {
       report.out.png_height = hdr.readUInt32BE(20);
     }
   } finally {
+    if (sess) sess.close();
     chrome.kill();
   }
 
   const r = report.render || {};
   const h = report.http || {};
+  const l = report.lang_api || {};
+  const en = (v) => String(v || '').toLowerCase().startsWith('en');
   const checks = [
     ['http 200', h.status === 200],
-    ['english served', String(h.content_language || '').toLowerCase().startsWith('en')],
+    ['english ui', en(h.content_language) || en(l.content_language) || en(l.x_ui_lang)],
+    ['lang api 200 + en', l.status === 200 && en(l.content_language) && en(l.x_ui_lang)],
     ['no %%TOKEN%% in html', (h.unresolved_tokens || []).length === 0],
     ['no %%TOKEN%% rendered', (r.tokens_in_text || []).length === 0],
     ['assets reachable', (h.assets || []).every((a) => typeof a !== 'object' || a.status === 200)],
