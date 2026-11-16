@@ -6,6 +6,11 @@
 >
 > Note: `/proximity-dashboard` is a **separate page** (own renderer + asset) — gets its own doc.
 
+> Screenshot: `desktop/proximity.png` (1440 × 951, live Waveshare 8DI8DO board — Status tab
+> with the 8-channel Real-Time Status table; the table scrolls inside `.table-wrapper`, so
+> the last column sits behind the horizontal scroll at 1440, `BACKLOG.md` PX-4. Index and
+> proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective

@@ -3,9 +3,9 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); nine images captured** —
-> `home.png`, `status.png`, `files.png`, `sdcard.png`, `monitor.png`, `serial_monitor.png`,
-> `buffer_viewer.png`, `access.png` and `ota.png` (common block). Every other row is
+> Status: **inventory raised (50 desktop pages); ten images captured** —
+> the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
+> `buffer_viewer`, `access`, `ota`) plus `proximity` (first pack page). Every other row is
 > **pending**.
 
 ---
@@ -116,7 +116,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 
 | Page | Route | Image | Status |
 |---|---|---|---|
-| Proximity config + OEE | `/proximity` | `proximity.png` | pending |
+| Proximity config + OEE | `/proximity` | `proximity.png` | **done** |
 | OEE dashboard | `/proximity-dashboard` | `proximity_dashboard.png` | pending |
 
 ### 3.3 CNC (P4-CNC / GcodeSender-S3)
@@ -198,6 +198,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | `buffer_viewer.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 900 · 193 349 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/auto.js` 200 (65 551 B; the page ships its own inline CSS, no `/core.css`) + 3 996 chars rendered (toolbar, stats `Lines: 10 · Bytes: 3725`, 10 live proximity lines) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` needed (counter/ppm telemetry only). Live view (auto-refresh 5 s) — a re-capture shows newer lines |
 | `access.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 981 · 79 625 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/config-manager.js` 200 + `/auto.js?v=1.120` 200 + 616 chars / 4 buttons rendered (4 tabs, Administrator + Viewer panels) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; captured with `--anon` (39 JSON keys masked — every `events[*].ip` in the session history) and `--reload`, because on a cold browser the tab labels stay as raw i18n keys (first visit builds them before `/api/lang` lands) — `PAGES/BACKLOG.md` ACC-8 |
 | `ota.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 948 · 77 517 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 469 chars / 5 buttons rendered (Current Version `v1.120 (Node32-OEE)`, Firmware Update with file picker, System Actions Restart/Factory Reset) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` (version/build only, no IPs) and no `--reload` (labels render correctly first time). Note: the Factory-Reset button reads `Factory Reset` (pack) while the HTML fallback and the explanation block say `Clear Settings` — `PAGES/BACKLOG.md` OTA-1 |
+| `proximity.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 951 · 74 755 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 660 chars / 4 buttons rendered (tabs Status/Config/Shifts/Shiftday/OEE, 8-channel Real-Time Status, `Show: 8 channels` + Save) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` (channel names + counters), no `--reload` (labels correct first time). The status table scrolls inside `.table-wrapper` (890 px visible vs 1020 px table), so the last column `Elapsed` stays behind the horizontal scroll at 1440 — `PAGES/BACKLOG.md` PX-4 |
 
 Reproduce the proof (no file written):
 
@@ -212,6 +213,7 @@ node desktop_shot.js --host 192.168.1.29 --path /serial-monitor --anon --wait 95
 node desktop_shot.js --host 192.168.1.29 --path /buffer-viewer --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /access --anon --reload --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /ota --verify-only
+node desktop_shot.js --host 192.168.1.29 --path /proximity --verify-only
 ```
 
 ## 5. Adding an image (checklist)
