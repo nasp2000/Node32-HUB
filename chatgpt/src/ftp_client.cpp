@@ -502,8 +502,12 @@ static bool ftpStoreStream(WiFiClient& ctl, size_t totalLen, const String& remot
     char ip[24]; uint16_t port = 0;
     if (!ftpParsePasvResponse(resp, ip, sizeof(ip), &port)) { detail = String("PASV parse failed: ") + resp; return false; }
     WiFiClient ds;
-    ds.setTimeout(8000);
-    if (!ds.connect(ip, port)) { detail = String("data connect failed: ") + ip; return false; }
+    // MUST stay below the 5 s TASK_WDT: a single blocking call (connect() or a
+    // select() inside write()) with the old 8000 ms timeout starved IDLE0 and
+    // rebooted the .9 (RTC trace: last step `ftp:stream`, 2026-11-16). 2.5 s per
+    // attempt still covers a slow LAN, and the caller retries.
+    ds.setTimeout(2500);
+    if (!ds.connect(ip, port)) { detail = String("data connect failed: ") + ip; vTaskDelay(pdMS_TO_TICKS(10)); return false; }
     ctl.print(String("STOR ") + remotePath + "\r\n");
     if (!readRespLine(ctl, resp, rs, 10000) || (!ftpReplyIs(resp, 150) && !ftpReplyIs(resp, 125))) {
         detail = String("STOR rejected: ") + resp; ds.stop(); return false;
@@ -558,7 +562,7 @@ bool ftpTestConnection(String& detail) {
     ftpUnlock();
     bool ok = false;
     WiFiClient ctl;
-    ctl.setTimeout(8000);
+    ctl.setTimeout(2500);   // < 5 s TASK_WDT, see the data-socket note in ftpStoreStream
     char resp[192];
     String host = configManager.getFtpHost();
     int port = ftpClampPort(configManager.getFtpPort());
@@ -1006,7 +1010,7 @@ bool ftpUploadFileImpl(FtpLocalFs fs, const String& localPath, const String& rem
         return false;
     }
     WiFiClient ctl;
-    ctl.setTimeout(8000);
+    ctl.setTimeout(2500);   // < 5 s TASK_WDT (see ftpStoreStream): a stalled peer must not reboot us
     char resp[192];
     String host = configManager.getFtpHost();
     int port = ftpClampPort(configManager.getFtpPort());
