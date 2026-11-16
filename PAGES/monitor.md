@@ -4,10 +4,11 @@
 > terminal)** pages: purpose, layout, every button/input, client logic, API endpoints and
 > the firmware-side buffers/log pipeline they surface. Written for both humans and AI agents.
 
-> Screenshot: `desktop/monitor.png` (1440 × 1038, live Waveshare 8DI8DO board — `/monitor`
-> Actions, Send Command and the live RX buffer with proximity telemetry; the `/monitor`
-> half is captured, `/serial-monitor` has its own pending row; index and proof in
-> `desktop/README.md`).
+> Screenshot: `desktop/monitor.png` (1440 × 1038 — `/monitor`: Actions, Send Command and the
+> live RX buffer with proximity telemetry) and `desktop/serial_monitor.png` (1440 × 900 —
+> `/serial-monitor` with 500/500 messages; captured with `--wait 95000` because the first
+> poll of 500 messages takes ≈90 s, `BACKLOG.md` MON-7, and with `--anon` so the device
+> MAC/IPs are placeholders). Index and proof in `desktop/README.md`.
 
 ---
 

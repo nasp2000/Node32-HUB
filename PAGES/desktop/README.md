@@ -3,9 +3,9 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); five images captured** —
-> `home.png`, `status.png`, `files.png`, `sdcard.png` and `monitor.png` (common block).
-> Every other row is **pending**.
+> Status: **inventory raised (50 desktop pages); six images captured** —
+> `home.png`, `status.png`, `files.png`, `sdcard.png`, `monitor.png` and
+> `serial_monitor.png` (common block). Every other row is **pending**.
 
 ---
 
@@ -44,14 +44,18 @@ node desktop_shot.js --host 192.168.1.29 --path / --out ../../PAGES/desktop/home
 ```
 
 Optional: `--auth user:pass` (default `admin:admin`), `--w` / `--h` (default 1440×900),
-`--anon` (neutralise operator-identifying values, see below).
+`--wait ms` (settle time before the screenshot, default 8000 — raise it for slow first
+polls, e.g. `--wait 95000` for `/serial-monitor`), `--anon` (neutralise operator-identifying
+values, see below).
 
 `--anon` keeps the capture publishable: the HTML/CSS/JS are still the board's own, but the
 JSON the page renders is rewritten in-page (before the first page script) so SSID, MAC, IPs,
 e-mail addresses, SMTP user, subject and credentials become `NODE32-BENCH`,
 `02:00:00:00:00:00`, `192.168.1.10`, `operator@example.com`, `Node32-HUB bench`. `/api/lang`
 is never touched (UI labels stay real) and every masked key is printed as `anon_masked`, so
-§4 can state exactly what was neutralised.
+§4 can state exactly what was neutralised. Right before the screenshot the same pass also
+redacts **free text** (log/terminal pages): MACs, IPv4 addresses and e-mail addresses inside
+DOM text nodes become the same placeholders — the count is printed as `anon_text_nodes`.
 
 **The harness refuses to write an image that does not prove the page serves it.**
 It prints a JSON report and exits `1` unless all of these pass:
@@ -64,7 +68,7 @@ It prints a JSON report and exits `1` unless all of these pass:
 | `no %%TOKEN%% in html` | the server-side renderer resolved every `%%TOKEN%%` |
 | `no %%TOKEN%% rendered` | nothing unresolved reached the DOM text |
 | `assets reachable` | `/core.css` and `/auto.js?v=…` (and `config-manager.js` when used) return 200 |
-| `page rendered` | DOM has text and buttons (not an empty shell / overlay) |
+| `page rendered` | DOM has text and buttons — or, on button-less terminal pages, substantial content (not an empty shell / "Loading…" overlay) |
 | `no broken images` | every `<img>` decoded (`naturalWidth > 0`) |
 | `loading overlay hidden` | the page finished loading (`#loadingOverlay` hidden) |
 | `no cross-origin sheet` | all stylesheets come from the board itself |
@@ -84,7 +88,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | Files | `/files` | `files.png` | **done** |
 | SD card / storage | `/sdcard` | `sdcard.png` | **done** |
 | Monitor (data reception) | `/monitor` | `monitor.png` | **done** |
-| Serial monitor | `/serial-monitor` | `serial_monitor.png` | pending |
+| Serial monitor | `/serial-monitor` | `serial_monitor.png` | **done** |
 | Buffer viewer | `/buffer-viewer` | `buffer_viewer.png` | pending |
 | Sensor charts | `/sensor-charts` | `sensor_charts.png` | pending |
 | Dual file | `/dualfile` | `dualfile.png` | pending |
@@ -188,6 +192,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | `files.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag absent (dynamic listing) | 1440 × 1055 · 70 938 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120&b=…` 200 + 415 chars / 9 buttons / SD space card + 2 folder rows rendered + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` needed (folder names `Equip15`/`LOGs`, sizes and dates only — no operator data). **Known gap, not the harness:** the table headers say `Tipo`/`Nome`/`Tamanho` (hardcoded PT, no `data-i18n`) → `PAGES/BACKLOG.md` FIL-7; the image keeps exactly what the board serves |
 | `sdcard.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 1690 · 207 874 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 2 087 chars / 5 buttons rendered (storage bar `Mounted=Yes`, buffer/cleanup selects, command hints) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` needed (SD totals, formats and the `SystemName_DD-MM-YYYY` rule — no operator values) |
 | `monitor.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 1038 · 136 791 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 4 242 chars / 5 buttons rendered (Actions, Send Command, live RX buffer with proximity telemetry) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; no `--anon` needed (counter/ppm telemetry only). Live tail — a re-capture shows the newest lines, the frame is fixed |
+| `serial_monitor.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 900 · 196 676 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/auto.js?v=1.120` 200 + 30 295 chars rendered (500/500 msgs, heap + ETH diagnostics) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; captured with `--wait 95000` because the page's **first poll asks 500 messages and takes ≈90 s** (`/api/serial-monitor?limit_msgs=500&since=0` → 89 591 ms / 56 109 B; 200 → 7.5 s; 100 → 134 ms; 50 → 66 ms — see `PAGES/BACKLOG.md` MON-7), and with `--anon` (11 DOM text nodes redacted: device MAC `02:00:00:00:00:00`, IPs, e-mails) |
 
 Reproduce the proof (no file written):
 
@@ -198,6 +203,7 @@ node desktop_shot.js --host 192.168.1.29 --path /status --anon --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /files --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /sdcard --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /monitor --verify-only
+node desktop_shot.js --host 192.168.1.29 --path /serial-monitor --anon --wait 95000 --verify-only
 ```
 
 ## 5. Adding an image (checklist)

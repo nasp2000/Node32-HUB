@@ -29,8 +29,9 @@ const W = parseInt(arg('w', '1440'), 10);
 const H = parseInt(arg('h', '900'), 10);
 const VERIFY_ONLY = !!arg('verify-only', false);
 const ANON = !!arg('anon', false);
+const WAIT = parseInt(arg('wait', '8000'), 10);
 if (!HOST) {
-  console.error('usage: node desktop_shot.js --host <ip> [--path /] [--out file.png] [--auth u:p] [--verify-only] [--anon]');
+  console.error('usage: node desktop_shot.js --host <ip> [--path /] [--out file.png] [--auth u:p] [--verify-only] [--anon] [--wait ms]');
   process.exit(2);
 }
 
@@ -38,7 +39,7 @@ if (!HOST) {
 // e-mail addresses, SMTP user, subject, credentials). The HTML/CSS/JS are still the
 // board's own; only the operator-configured field values are replaced, in-page and
 // before the page's first script runs. Every masked key is reported back.
-const ANON_JS = `(function () {
+const ANON_JS = String.raw`(function () {
   var SUB = {
     ssid: 'NODE32-BENCH', mac: '02:00:00:00:00:00', ip: '192.168.1.10',
     email: 'operator@example.com', subject: 'Node32-HUB bench',
@@ -71,7 +72,23 @@ const ANON_JS = `(function () {
     });
   }
   var origFetch = window.fetch;
-  window.fetch = function (input) {
+  // Log/terminal pages render operator strings directly (serial logs, MACs, IPs).
+  // Exposed so the harness can redact the DOM right before the screenshot.
+  window.__anonText = function () {
+    var stats = { nodes: 0 };
+    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+    var n;
+    while ((n = walker.nextNode())) {
+      var t = n.nodeValue;
+      var o = t;
+      t = t.replace(/\b[0-9A-F]{2}(?::[0-9A-F]{2}){5}\b/gi, SUB.mac);
+      t = t.replace(/\b\d{1,3}(?:\.\d{1,3}){3}\b/g, SUB.ip);
+      t = t.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, SUB.email);
+      if (t !== o) { n.nodeValue = t; stats.nodes++; }
+    }
+    window.__anonTextCount = (window.__anonTextCount || 0) + stats.nodes;
+    return stats.nodes;
+  };  window.fetch = function (input) {
     var url = typeof input === 'string' ? input : ((input && input.url) || '');
     var p = origFetch.apply(this, arguments);
     if (url.indexOf('/api/') < 0 || url.indexOf('/api/lang') >= 0) return p;
@@ -232,7 +249,7 @@ async function main() {
     }
     const nav = await sess.send('Page.navigate', { url });
     report.nav = nav;
-    await new Promise((r) => setTimeout(r, 8000));
+    await new Promise((r) => setTimeout(r, WAIT));
     const loc = await sess.send('Runtime.evaluate', {
       expression: 'location.href + " | " + document.readyState', returnByValue: true,
     });
@@ -248,6 +265,10 @@ async function main() {
         expression: '(window.__anonLog||[]).slice().sort()', returnByValue: true,
       });
       report.anon_masked = mk.result ? mk.result.value : [];
+      const tx = await sess.send('Runtime.evaluate', {
+        expression: '(window.__anonText ? window.__anonText() : 0)', returnByValue: true,
+      });
+      report.anon_text_nodes = tx.result ? tx.result.value : 0;
     }
 
     if (!VERIFY_ONLY && OUT) {
@@ -283,7 +304,7 @@ async function main() {
     ['no %%TOKEN%% in html', (h.unresolved_tokens || []).length === 0],
     ['no %%TOKEN%% rendered', (r.tokens_in_text || []).length === 0],
     ['assets reachable', (h.assets || []).every((a) => typeof a !== 'object' || a.status === 200)],
-    ['page rendered', !!r.text_len && r.text_len > 200 && r.buttons > 0],
+    ['page rendered', !!r.text_len && r.text_len > 200 && ((r.buttons || 0) > 0 || r.text_len > 800)],
     ['no broken images', r.failed_imgs === 0],
     ['loading overlay hidden', r.loading_overlay_visible === false],
     ['no cross-origin sheet', r.partial_sheets === 0],
