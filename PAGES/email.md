@@ -3,6 +3,12 @@
 > Reference for the **E-mail (SMTP) configuration page**: direct-SMTP settings, test-send
 > button and the persistence/security model. Written for both humans and AI agents.
 
+> Screenshot: `desktop/email.png` (1440 × 1530, live Waveshare 8DI8DO board — Information,
+> Direct SMTP Configuration and Email Test; captured with the harness **`--anon`**, so the
+> SMTP username/password and the destination/subject are placeholders (`operator`,
+> `operator@example.com`, `(saved)`) and no credential appears in clear). Index and proof in
+> `desktop/README.md`).
+
 ---
 
 ## 1. Objective
