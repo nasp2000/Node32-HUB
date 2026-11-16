@@ -13,7 +13,11 @@
 
 namespace {
 constexpr uint32_t kDiagTraceMagic = 0x44545231;   // "DTR1"
-RTC_DATA_ATTR DiagTraceRing gDiagTrace;             // zero-filled on cold boot only
+// RTC_NOINIT_ATTR, not RTC_DATA_ATTR: ESP-IDF re-initialises .rtc.data from the
+// app image on every reset except a deep-sleep wake, so a WDT/panic reset would
+// wipe the ring. .rtc.noinit is left untouched by any reset (garbage only on a
+// power-on, which the magic check rejects).
+RTC_NOINIT_ATTR DiagTraceRing gDiagTrace;
 char s_prevText[900];                               // previous run, for /api/status
 bool s_prevValid = false;
 }  // namespace
