@@ -4,6 +4,11 @@
 > terminal)** pages: purpose, layout, every button/input, client logic, API endpoints and
 > the firmware-side buffers/log pipeline they surface. Written for both humans and AI agents.
 
+> Screenshot: `desktop/monitor.png` (1440 × 1038, live Waveshare 8DI8DO board — `/monitor`
+> Actions, Send Command and the live RX buffer with proximity telemetry; the `/monitor`
+> half is captured, `/serial-monitor` has its own pending row; index and proof in
+> `desktop/README.md`).
+
 ---
 
 ## 1. Objective

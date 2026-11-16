@@ -3,8 +3,8 @@
 Working folder for the **phone pages**: one image per screen, the shared blocks
 once, and the rules every pack follows. All phone screenshots live here (versioned).
 The **desktop** pages get the same treatment in `PAGES/desktop/` (inventory of
-all 50 desktop pages raised; `home.png` + `status.png` + `files.png` + `sdcard.png` captured
-and verified, rest pending).
+all 50 desktop pages raised; `home.png` + `status.png` + `files.png` + `sdcard.png` +
+`monitor.png` captured and verified, rest pending).
 
 ---
 
