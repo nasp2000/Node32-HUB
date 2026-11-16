@@ -5,6 +5,12 @@
 > (SD card, PSRAM VFS or internal flash/LittleFS, recursive) with status,
 > step-wise connection test and upload-now. Written for both humans and AI agents.
 
+> Screenshot: `desktop/ftp.png` (1440 × 1809, live Waveshare 8DI8DO board — FTP Connection,
+> Automatic upload, Save and the Status card with the recent uploads; captured with the
+> harness **`--anon`**, so the server host, `user` and `password` are placeholders
+> (`192.168.1.10`, `operator`, dots) and only folder names/file names stay real. Index and
+> proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective
