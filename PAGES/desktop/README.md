@@ -3,14 +3,14 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); thirty-five images captured** —
+> Status: **inventory raised (50 desktop pages); thirty-six images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`, `rs232`), the Waveshare pack
 > (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`, `modbus_tcp`) and
 > the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus `dualfile`
 >, `api_reference`, `networks`, `structures` and `buzzer` rendered from the shipped asset
-> (§3.12). The remaining 15 rows are blocked by the build/config on every live board (§3.11) and
+> (§3.12). The remaining 14 rows are blocked by the build/config on every live board (§3.11) and
 > are being covered one by one as smoke captures.
 
 Two provenances, marked in the Status column:
@@ -129,6 +129,8 @@ python3 build_desktop_shots.py lpt_db25
 node desktop_smoke_shot.js shots/desktop_lpt_db25.html ../../PAGES/desktop/lpt_db25.png
 python3 build_desktop_shots.py grbl_controller
 node desktop_smoke_shot.js shots/desktop_grbl_controller.html ../../PAGES/desktop/grbl_controller.png
+python3 build_desktop_shots.py modbus_rtu
+node desktop_smoke_shot.js shots/desktop_modbus_rtu.html ../../PAGES/desktop/modbus_rtu.png
 ```
 
 `build_desktop_shots.py` takes the R-string exactly as compiled, keeps its own `<style>` (it
@@ -166,6 +168,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | `buzzer.png` | **harness render** (no live board serves `/buzzer`; the route is compiled only with `ENABLE_BUZZER==1`, which is 0 in every reachable build — `pack_waveshare.h:74-75` forces 0 and the S3/cam builds never define it) | asset unchanged since `c7ea5cf`, tree at `77dfa4a`; no firmware/ETag | 1440 × 1176 · 120 610 B | **smoke capture** (§3.12): `build_desktop_shots.py buzzer` + `desktop_smoke_shot.js` → title `🔔 Buzzer`, 1 025 chars, 8 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. `config-manager.js`/`auto.js` left out as board runtime. **New finding BZR-7** (`PAGES/buzzer.md`): the config fetch ends in `.catch(function(){})` (`page_buzzer_asset.h:120`), so on any failure the banner stays on its initial `Checking...` forever and every toggle shows an unchecked default — indistinguishable from "disabled"
 | `lpt_db25.png` | **harness render** (no live board serves `/lpt-db25`; `ENABLE_DB25` is 0 in `user_config.h:423`, and DB25 needs a board with the parallel port) | asset unchanged since `c7ea5cf`, tree at `ece0d0e`; no firmware/ETag | 1440 × 956 · 76 920 B | **smoke capture** (§3.12): `build_desktop_shots.py lpt_db25` + `desktop_smoke_shot.js` → title `🖨️ LPT DB25`, 782 chars, 2 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. `config-manager.js`/`auto.js` left out as board runtime. **New finding LPT-7** (`PAGES/lpt_db25.md`): `loadConfig()` retries itself every 2 s for ever on any failure (`page_lpt_db25_asset.cpp:131`), with no message — a page whose endpoint is missing silently shows the HTML defaults and keeps polling
 | `grbl_controller.png` | **harness render** (no live board serves `/grbl-controller`; `ENABLE_GRBL` is 1 only in `pack_p4_cnc.h:73` / `pack_s3_cnc_usb.h:44`, and both boards are offline) | asset assembled from `page_grbl_controller_asset.cpp` + 25 `grbl/*.h` fragments, unchanged since `c7ea5cf`; tree at `23a9eac`; no firmware/ETag | 1440 × 2240 · 459 022 B | **smoke capture** (§3.12): `build_desktop_shots.py grbl_controller` + `desktop_smoke_shot.js` → title `🛠️ GcodeSender`, 2 459 chars, 87 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Renders the whole controller: quick-action bar, G-code Job + UART Connection + Override + Recent Errors (left), Workspace with DRO `X 12.340 / Y 45.670 / Z -1.250`, G54, Preview W 400 × H 300, Console with `GRBL READY / CONTROL MODE free / SESSION REHYDRATED idle` (centre), Jog & Shortcuts, Frame, Macros, Z Probe (`State 0`, `Signal HIGH`) and Height Map (right). `config-manager.js`/`auto.js` left out as board runtime. **Finding #10** (`PAGES/grbl_controller.md`): ~1 100 px of empty canvas under two thirds of the page
+| `modbus_rtu.png` | **harness render** (no live board serves `/modbus-rtu`; the route is inside `#if ENABLE_MODBUS==1` and only Cam-P4 `.18` has Modbus on among the live boards — and it runs TCP only) | asset unchanged since `c7ea5cf`, tree at `ea50645`; no firmware/ETag | 1440 × 971 · 68 760 B | **smoke capture** (§3.12): `build_desktop_shots.py modbus_rtu` + `desktop_smoke_shot.js` → title `Modbus RTU`, 481 chars, 5 controls, 1 table / 1 row, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. The page is captured **in its real broken state**: `page_modbus_asset.cpp:164` closes a single-quoted JS string on an inner `data-i18n='mbSlaveAddrLabel'`, so the script never parses (`SyntaxError: Unexpected identifier 'mbSlaveAddrLabel'`), `initModbusRtuPage` stays undefined (`ReferenceError` from the renderer footer), `/api/modbus/config` is never fetched and the screen keeps its HTML defaults — 0/4 devices, 1200 baud, nothing checked. That is **`BACKLOG.md` MODBUS-7 (High)**; the seed (two devices, five registers) is in the builder ready for the day it is fixed
 
 > **History — the page was unusable for a while (`PAGES/BACKLOG.md` SC-9, still open)** (HomeE32
 > `.24`): `GET /sensor-charts` was 200 but the page needs one of **two chart sessions**; with
@@ -283,7 +286,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 
 | Page | Route | Image | Status |
 |---|---|---|---|
-| Modbus RTU | `/modbus-rtu` | `modbus_rtu.png` | pending |
+| Modbus RTU | `/modbus-rtu` | `modbus_rtu.png` | **done** (smoke — §3.12; the page script is dead, `BACKLOG.md` MODBUS-7) |
 | Modbus TCP | `/modbus-tcp` | `modbus_tcp.png` | **done** (captured on **Cam-P4** `.18`, the only live board with `ENABLE_MODBUS_TCP 1`) |
 | Modbus live data | `/modbus-live` | `modbus_live.png` | pending |
 
@@ -332,7 +335,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 
 ### 3.11 Blocked routes — smoke matrix
 
-The 15 rows still **pending** have no live page to capture (seven of the original 22 are
+The 14 rows still **pending** have no live page to capture (eight of the original 22 are
 now delivered as smoke captures, §3.12). Each was probed **once** on all
 four live boards (`.29` Waveshare, `.24` HomeE32, `.18` Cam-P4, `.9` Cam-M1) with
 
@@ -358,7 +361,7 @@ turned on for a capture — which is a firmware change and out of scope for this
 | `/grbl-controller` | `grbl_controller.png` | 404 ×4 | `ENABLE_GRBL` — only `pack_p4_cnc.h:73` and `pack_s3_cnc_usb.h:44` — **captured by smoke, §3.12** |
 | `/rambox` | `rambox.png` | 404 ×4 | Rambox pack — that board is offline |
 | `/lpt-db25` | `lpt_db25.png` | 404 ×4 | `ENABLE_DB25 0` (`user_config.h:423`) — **captured by smoke, §3.12** |
-| `/modbus-rtu` | `modbus_rtu.png` | 404 ×4 | `ENABLE_MODBUS_RTU 0` everywhere (e.g. `pack_cam_p4.h:115-116`) |
+| `/modbus-rtu` | `modbus_rtu.png` | 404 ×4 | `ENABLE_MODBUS_RTU 0` everywhere (e.g. `pack_cam_p4.h:115-116`) — **captured by smoke, §3.12** |
 | `/modbus-live` | `modbus_live.png` | **302 → `/`** on `.18`, 404 ×3 | page guard: Modbus not active in config (`web_routes_modbus.cpp:254-262`) |
 | `/can` | `can.png` | 404 ×4 | `ENABLE_CAN 0` in every pack |
 | `/hx711` | `hx711.png` | 404 ×4 | `ENABLE_HX711 0` in every pack |
@@ -396,6 +399,7 @@ captured with `--expand` (all sections open); the row says so when it applies.
 
 | Route | Image | Rendered from | Notes |
 |---|---|---|---|
+| `/modbus-rtu` | `modbus_rtu.png` | `page_modbus_asset.cpp` → the `PAGE_MODBUS_RTU` R-string (the file also holds the TCP and Live pages) + the page shell and its `initModbusRtuPage()` footer | 1440 × 971. Seed `/api/modbus/config` with two devices (Inversor: slave 1, Tensao 0.1 V, Corrente 0.01 A, Frequencia 32-bit; Contador: slave 2, Energia 32-bit, Estado) **cannot take effect**: the inline script throws a `SyntaxError` before defining `initModbusRtuPage`, so the image shows the real broken state — 0/4 devices, 1200 baud, every checkbox off — **MODBUS-7** |
 | `/grbl-controller` | `grbl_controller.png` | `page_grbl_controller_asset.cpp` — **assembled** from its 25 `grbl/*.h` fragments by the builder — + the page shell | 1440 × 2240. Seed: `/api/grbl/status` in the shape the firmware returns (Idle, `mpos_*`/`wpos_*` with the `_valid` flags, `max_travel_*` 400×300×120, `usb_slots` CH340 115200 connected, `machine_status_known` + `probe_triggered:false`, `poll_interval_ms` 800) plus the transport/control-token/list-gcode endpoints. Big empty canvas under the left and centre columns — finding #10 in `PAGES/grbl_controller.md` |
 | `/lpt-db25` | `lpt_db25.png` | `chatgpt/src/webpages/assets/page_lpt_db25_asset.cpp` (fragment) + the page shell | 1440 × 956. Seed: `/api/config?section=system` `{printer_emulation_mode:1, charset_mode:1, email{auto_send:true,max_lines:180,min_content_length:3}, autoEmailEnabledTimeout:20000, autoEmailDisabledTimeout:600000}` — non-default values so the image proves the loader works (Epson ESC/P, Latin-1, 20 s, 10 min, 180 lines) |
 | `/buzzer` | `buzzer.png` | `chatgpt/src/webpages/assets/page_buzzer_asset.h` (fragment) + the page shell | 1440 × 1176. Seed: `/api/buzzer-config` `{enabled:true, pin:46, on_boot:true, on_alarm:true, on_error:true, on_save/on_sensor_alert/on_network:false}` — the state that makes the status banner and all six toggles meaningful. Status and Test with the five patterns + Stop, then Configuration (master, GPIO pin, six event toggles) |
@@ -471,6 +475,8 @@ python3 build_desktop_shots.py lpt_db25
 node desktop_smoke_shot.js shots/desktop_lpt_db25.html ../../PAGES/desktop/lpt_db25.png
 python3 build_desktop_shots.py grbl_controller
 node desktop_smoke_shot.js shots/desktop_grbl_controller.html ../../PAGES/desktop/grbl_controller.png
+python3 build_desktop_shots.py modbus_rtu
+node desktop_smoke_shot.js shots/desktop_modbus_rtu.html ../../PAGES/desktop/modbus_rtu.png
 ```
 
 ## 5. Adding an image (checklist)

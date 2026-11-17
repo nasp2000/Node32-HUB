@@ -206,6 +206,42 @@ GRBL_SEED = r"""
 </script>
 """
 
+MODBUS_RTU_SEED = r"""
+<script>
+(function () {
+  // GET /api/modbus/config — the RTU side of the shared Modbus config. Two devices
+  // (only the !isTcp ones are rendered here) with a few registers each, all values
+  // in the shape mbCollectForm() writes back.
+  function reg(addr, fc, type, order, label, unit, scale) {
+    return { addr: addr, fc: fc, type: type, order: order || 0, bit: 0,
+      label: label, unit: unit, scale: scale || 1, offset: 0, log: true, pretty: true };
+  }
+  window.__MOCK_API__ = {
+    '/api/modbus/config': {
+      enabled: true, rtu_enabled: true, tcp_enabled: false,
+      rtu_baud: 19200, rtu_parity: 'N', rtu_stop_bits: 1, rtu_de_pin: -1, slave_id: 1,
+      devices: [
+        { slaveId: 1, name: 'Inversor', enabled: true, isTcp: false, tcpHost: '', tcpPort: 502,
+          pollMs: 2000, retries: 3, timeoutMs: 500, regs: [
+            reg(0, 3, 0, 0, 'Tensao', 'V', 0.1),
+            reg(1, 3, 0, 0, 'Corrente', 'A', 0.01),
+            reg(2, 3, 2, 0, 'Frequencia', 'Hz', 0.01)
+          ] },
+        { slaveId: 2, name: 'Contador', enabled: true, isTcp: false, tcpHost: '', tcpPort: 502,
+          pollMs: 5000, retries: 3, timeoutMs: 500, regs: [
+            reg(100, 3, 2, 0, 'Energia', 'kWh', 0.1),
+            reg(200, 3, 0, 0, 'Estado', '', 1)
+          ] }
+      ]
+    },
+    '/api/modbus/scan-status': { success: true, running: false, found: [] },
+    '/api/modbus/scan-rtu': { success: true },
+    '/api/modbus/scan-stop': { success: true }
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -237,10 +273,23 @@ PAGES = {
     'buzzer': ('page_buzzer_asset.h', BUZZER_SEED, 'fragment'),
     'lpt_db25': ('page_lpt_db25_asset.cpp', LPT_DB25_SEED, 'fragment'),
     'grbl_controller': ('page_grbl_controller_asset.cpp', GRBL_SEED, 'built'),
+    'modbus_rtu': ('page_modbus_asset.cpp', MODBUS_RTU_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
 # body — the structures tab engine is one. (file, R-string tag)
+FOOTER = {
+    # emulated by the RTU routes' buildPageFrame(..., extraFooterScript)
+    'modbus_rtu': "<script>if(document.readyState==='loading')"
+                  "{document.addEventListener('DOMContentLoaded',initModbusRtuPage);}"
+                  "else{initModbusRtuPage();}</script>",
+}
+
+# Assets that hold several pages: pick the R-string that belongs to this route.
+RSTRING = {
+    'modbus_rtu': 'PAGE_MODBUS_RTU',
+}
+
 PRELUDE = {
     'structures': ('chatgpt/src/webpages/renderers/structures_page_renderer.cpp', 'JSTABS'),
 }
@@ -253,6 +302,7 @@ FRAGMENT_TITLES = {
     'buzzer': '🔔 Buzzer',
     'lpt_db25': '🖨️ LPT DB25',
     'grbl_controller': '🛠️ GcodeSender',
+    'modbus_rtu': 'Modbus RTU',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)
@@ -289,10 +339,16 @@ def core_css():
 def build(name):
     asset_name, seed, kind = PAGES[name]
     src = (ASSETS / asset_name).read_text(encoding='utf-8', errors='replace')
-    m = RAW.search(src)
-    if not m:
-        raise SystemExit('no PROGMEM R-string in ' + asset_name)
-    body = m.group(2)
+    if name in RSTRING:
+        mm = re.search(r'const char ' + RSTRING[name] + r'\[\] PROGMEM = R"([A-Za-z0-9]+)\((.*?)\)\1";', src, re.S)
+        if not mm:
+            raise SystemExit('R-string ' + RSTRING[name] + ' not found in ' + asset_name)
+        body = mm.group(2)
+    else:
+        m = RAW.search(src)
+        if not m:
+            raise SystemExit('no PROGMEM R-string in ' + asset_name)
+        body = m.group(2)
 
     if kind == 'built':
         body = assemble_parts(ASSETS / asset_name)
@@ -319,6 +375,8 @@ def build(name):
             assert pm, 'prelude ' + tag + ' not found in ' + src_file
             html += pm.group(1)
         html += body
+        if name in FOOTER:
+            html += FOOTER[name]
         html += '</body></html>'
         html = re.sub(r'(<head[^>]*>)', lambda mm: mm.group(1) + MOCK_JS + seed, html, count=1)
     else:

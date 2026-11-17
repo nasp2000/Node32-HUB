@@ -3,6 +3,16 @@
 > Reference for the three Modbus pages: RTU master config + slave scan, TCP client
 > register map, and the live values dashboard. Written for both humans and AI agents.
 
+> Screenshot (`/modbus-rtu`): `desktop/modbus_rtu.png` (1440 × 971, **smoke capture** — no live
+> board serves the RTU page; only Cam-P4 `.18` has Modbus compiled in and it runs TCP only).
+> Rendered from the `PAGE_MODBUS_RTU` R-string with the page shell and the renderer's
+> `initModbusRtuPage()` footer, `/api/modbus/config` seeded with two devices / five registers.
+> **The image shows the page broken**: `page_modbus_asset.cpp:164` closes a single-quoted JS
+> string on an inner `data-i18n='mbSlaveAddrLabel'`, the inline script never parses
+> (`SyntaxError`), `initModbusRtuPage` stays undefined (`ReferenceError` from the footer) and the
+> screen keeps its HTML defaults — 0/4 devices, 1200 baud, nothing checked. That is
+> **`BACKLOG.md` MODBUS-7 (High)**. Index and proof in `desktop/README.md` §3.12.
+
 > Screenshot: `desktop/modbus_tcp.png` (1440 × 1041, live **Cam-P4** board `.18` — the only
 > live board with `ENABLE_MODBUS_TCP 1`: Live / RTU tabs, Global Configuration, the
 > register-columns legend, TCP Devices with `+ Add TCP Device`, TCP Scan (subnet / start /
