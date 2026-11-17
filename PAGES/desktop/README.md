@@ -3,12 +3,12 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); twenty-four images captured** —
+> Status: **inventory raised (50 desktop pages); twenty-five images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`), the Waveshare pack
 > (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`) and the
-> environment pack (`sensor_config`). Every other row is **pending**.
+> environment pack (`sensor_config`, `mq135_config`). Every other row is **pending**.
 
 ---
 
@@ -139,6 +139,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | `printer.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag absent | 1440 × 940 · 80 308 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 791 chars / 3 buttons rendered (System Name + mDNS, Language, NTP / Time Zone, Save) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` ran (nothing to mask — the page shows the machine name `Equip15`, a language and a timezone, no address or credential). NB: `/printer` renders the **System Settings** form (name/mDNS/language/NTP), not a printer emulation form — the inventory keeps the route-based name `printer.png`
 | `do.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag absent | 1440 × 1208 · 63 022 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 454 chars / 12 buttons rendered (Output Control with All ON/All OFF + 8 relay cards, Output Configuration with 8 name/invert rows, Save Config) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` ran (nothing to mask — relay states, names and the `/config/do.json` hint). Measured: the configuration table (1322 px) fits its panel (1362 px) at 1440, so nothing is clipped. Output states are re-read on load, so a re-capture is not byte-identical (same frame, 1440 × 1208)
 | `sensor_config.png` | HomeE32 (`ENVIRONMENT`), `192.168.1.24` | `v1.120 - Nov 15 2026 16:08:35 WET`, ETag `v1.120 - Nov 15 2026 16:08:35 WET` | 1440 × 1649 · 155 450 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 1 122 chars / 4 controls rendered (Main Control, Sensor Readings table, Output Options, Statistics 24h, Save Configuration) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**. **Not from `.29`:** the Waveshare pack has no AHT20/BMP280, so `/sensor-config` is 404 there; HomeE32 `.24` is the pack that serves it. Captured with `--click-text OK` because the page opens a *Configuration loaded* alert on load (without it the modal covers the page) and `--anon` (nothing to mask)
+| `mq135_config.png` | HomeE32 (`ENVIRONMENT`), `192.168.1.24` | `v1.120 - Nov 15 2026 16:08:35 WET`, ETag `v1.120 - Nov 15 2026 16:08:35 WET` | 1440 × 1690 · 172 508 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 1 211 chars / 4 controls rendered (Main Control with `📅 Last reading: 05:20:25 (17/11/2026)` + Sensor Stable, Calibration with R0 13008 Ω, ADC RAW 3524 / RS 7606.5 Ω / RS/R0 0.585, Detected Gases for the eight gases with the AQI scale (`Good (46)`), Output Options, Save Configuration) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**. **Not from `.29`:** the Waveshare pack has no MQ-135, so `/mq135-config` is 404 there; HomeE32 `.24` is the pack that serves it. Captured with `--click-text OK` (the page opens a *Configuration loaded* alert on load) and `--reload`, because on a **cold** browser the i18n pass lands after the config fetch and overwrites the timestamp element with its static text `No reading available` — the second render shows the real reading (`PAGES/BACKLOG.md` MQ-1). `--anon` ran (nothing to mask: gas ppm, offsets, R0/ADC values, no address).
 | Ethernet | `/ethernet` | `ethernet.png` | **done** |
 | E-mail (SMTP) | `/email` | `email.png` | **done** |
 | Recipients | `/recipients` | `recipients.png` | **done** |
@@ -220,7 +221,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | Page | Route | Image | Status |
 |---|---|---|---|
 | Sensor channels/caps | `/sensor-config` | `sensor_config.png` | **done** |
-| Air quality MQ135 | `/mq135-config` | `mq135_config.png` | pending |
+| Air quality MQ135 | `/mq135-config` | `mq135_config.png` | **done** |
 | Weight HX711 | `/hx711` | `hx711.png` | pending |
 | Current/power INA226 | `/ina226` | `ina226.png` | pending |
 | Sound level | `/sound` | `sound.png` | pending |
@@ -298,6 +299,7 @@ node desktop_shot.js --host 192.168.1.29 --path /commands-by-datetime --anon --v
 node desktop_shot.js --host 192.168.1.29 --path /printer --anon --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /do --anon --verify-only
 node desktop_shot.js --host 192.168.1.24 --path /sensor-config --anon --click-text OK --verify-only
+node desktop_shot.js --host 192.168.1.24 --path /mq135-config --anon --reload --click-text OK --verify-only
 ```
 
 ## 5. Adding an image (checklist)

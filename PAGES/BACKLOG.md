@@ -365,6 +365,12 @@ history and is still the place to look before changing shared wiring.
 |---|---|---|---|---|
 | HX-2 | High | Ethernet API surface incomplete: only `POST /api/hx711-config` was wired, so the page could not load (`GET`), measure or tare over Ethernet. **Already fixed** by the unified route registry (`GET /api/hx711-config`, `POST /api/hx711-measure`, `POST /api/hx711-tare` all via `registerApiRoute()`; Ethernet resolves the same table). Pinned by `test_api_surface_contract.cpp`. | `web_routes_config.cpp`, `ethernet_bootstrap_routes.h` | fixed |
 
+## MQ-135 air quality (`mq135.md` → `/mq135-config`)
+
+| ID | Pri | Issue | Files | Status |
+|---|---|---|---|---|
+| MQ-1 | Medium | **A cold first visit shows "No reading available" while the page is full of live readings.** `#lastReadingTime` carries `data-i18n='mq135NoReading'` *and* is the element `updateReadingValues()` writes the timestamp into (`page_mq135_config_asset.h:143,434-445`). On a browser with no `ui_lang_cache` the i18n pass (`applyI18nMap`, `auto_js.h:930`) resolves after `GET /api/mq135-config`, so it rewrites the element with the static translation — the bar keeps the *has-data* green (`#065f46`) but reads "No reading available" above live ppm values (proof: `PAGES/BACKLOG.md` entry recorded with the `PAGES/desktop/mq135_config.png` capture; a warm reload renders `📅 Last reading: 05:20:25 (17/11/2026)`). Fix: drop the `data-i18n` attribute as soon as the JS writes the value (`el.removeAttribute('data-i18n')`), or put the timestamp in a child span. Same pattern to audit in `page_sensor_config_asset.h` (`sensorNoReading`, which happens to win the race today). | `chatgpt/src/webpages/assets/page_mq135_config_asset.h`, `chatgpt/src/webpages/auto_js.h`, `chatgpt/src/webpages/assets/page_sensor_config_asset.h`, `PAGES/mq135.md` | open |
+
 ## LPT / DB25 (`lpt_db25.md` → `/lpt-db25`)
 
 | ID | Pri | Issue | Files | Status |
