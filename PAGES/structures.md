@@ -4,6 +4,15 @@
 > every button/input, client logic, API endpoints, persistence and the firmware-side
 > ISQ20 parsing/formatting engine. Written for both humans and AI agents.
 
+> Screenshot: `desktop/structures.png` (1440 × 1683, **smoke capture** — no live board serves the
+> route: `ENABLE_STRUCTURES_PAGE` is 0 in `user_config.h` and in every reachable pack, only
+> `pack_rs232.h` sets 1). Rendered from the shipped fragment + `STRUCTURES_TABS_JS` with the
+> `/api/config?section=system` payload it reads and `/api/rs232-cols` `{cols:12,
+> structure:"amada_isq20_awse"}`. Shows Home, `🏭 Amada Welding`, Quick Navigation, the four
+> sections (Overview / Settings with RS232 active `19200 baud · 8N1`, Parsing Rules, Diagnostics
+> `amada_isq20_awse (ok)` + 12 columns, Error Dictionary) and Save — **stacked**, which is finding
+> **STR-6**. Index and proof in `desktop/README.md` §3.12.
+
 ---
 
 ## 1. Objective
@@ -43,7 +52,11 @@ Renderer order: shell → `STRUCTURES_TABS_JS` → `PAGE_STRUCTURES_BODY` →
 main.page > div.wrap
  ├ [🏠 Home]                          ← always first child of .wrap (project rule)
  ├ H1 "🏭 Amada Welding"
- ├ .aw-tab-bar                        ← injected by STRUCTURES_TABS_JS before #sec-nav
+ ├ .aw-tab-bar                        ← intended: injected by STRUCTURES_TABS_JS before #sec-nav
+ │                                      **STR-6: it is NOT injected** — the engine runs before the
+ │                                      body exists (`structures_page_renderer.cpp:88-91`), so the
+ │                                      four sections below are always stacked and Quick Navigation
+ │                                      is the only section switcher
  ├ #sec-nav      "🧬 Quick Navigation" (anchors: ℹ️ Overview, ⚙️ Configuration, 📈 Diagnostics, ⚠️ Errors)
  ├ #sec-overview "1) ℹ️ Amada Overview" (3 static info cards: auto detection, MTF1/AWSE, header filter)
  ├ #sec-config   "2) ⚙️ Amada Settings"
@@ -197,6 +210,7 @@ Static bodies (overview cards, diagnostics hint, error dictionary) and select op
 | STR-3 | **Silent server-side mutation of user input.** Both flags on with auto off → AWSE forced `false` (`config_handler.cpp:123`); out-of-range `amada_header_every` → silently reset to `20` (`:133`); any 0–100 value accepted while the UI offers only 0/10/20/30/50/100. Direct API callers get no error. | Low | Return 400 with a message for conflicting flags / out-of-range values, or at least echo the applied values. |
 | STR-4 | **PT/EN mix and non-translated strings.** Select options `"10 linhas"`…`"100 linhas"` (`page_structures_asset.cpp:111`), link `"✏️ configurar"` (`:76`), tab fallback labels `'Visão geral'`/`'Configuração'`/`'Diagnóstico'`/`'Erros'` (`structures_page_renderer.cpp:55`); overview, diagnostic hint and error-dictionary bodies are hardcoded English with no `data-i18n`. | Low | Add i18n keys for options/link/tabs fallbacks (EN fallback) and the static bodies. |
 | STR-5 | **Structures applied for every POST section.** `applyStructuresFromBody()` runs unconditionally (`config_handler.cpp:429`), so any `POST /api/config` (e.g. `section=wifi`) carrying those keys mutates structures state and appends `"Structures "` to an unrelated message. | Low | Call it only when `section == "system"`. |
+| STR-6 | **The tab engine never runs, so the four tabs never appear.** `streamStructuresPageToPrint()` prints `STRUCTURES_TABS_JS` **before** `PAGE_STRUCTURES_BODY` (`structures_page_renderer.cpp:88-91`), but that script ends with a bare `setup()` — at parse time `#sec-overview`, `#sec-config`, `#sec-diagnostic` and `#sec-errors` do not exist yet, the guard `if (!secOverview || !secConfig || !secDiagnostic || !secErrors) return;` fires and nothing is built. Measured on the rendered page (smoke capture, `PAGES/desktop/structures.png`): `.aw-tab-bar` = 0, `.aw-tab-btn` = 0, all four sections `display:block`; the page shows Quick Navigation plus the four sections stacked, not the tabs described in §3. Fix: `document.addEventListener('DOMContentLoaded', setup)` (or move the block after the body) and keep the anchor navigation as the fallback. | Medium | `structures_page_renderer.cpp` (`STRUCTURES_TABS_JS` tail), `PAGES/structures.md` §3 | open |
 
 ---
 

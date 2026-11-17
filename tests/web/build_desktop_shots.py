@@ -110,6 +110,35 @@ NETWORKS_SEED = r"""
 </script>
 """
 
+STRUCTURES_SEED = r"""
+<script>
+(function () {
+  // /api/config?section=system carries the AMADA block the page reads, plus the
+  // rs232_* summary its diagnostic card prints.
+  window.__MOCK_API__ = {
+    '/api/config?section=system': {
+      structures: {
+        auto_detect: true,
+        amada_isq20_mtf1: { enabled: false },
+        amada_isq20_awse: { enabled: true },
+        amada_filter_headers: true,
+        amada_header_every: 20
+      },
+      saved_configs: {
+        rs232_enabled: true,
+        rs232_baudrate_list: [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200],
+        rs232_baudrate_index: 4,
+        rs232_data_bits: 8,
+        rs232_parity: 'none',
+        rs232_stop_bits: 1
+      }
+    },
+    '/api/rs232-cols': { cols: 12, structure: 'amada_isq20_awse' }
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -137,12 +166,20 @@ PAGES = {
     'dualfile': ('page_dualfile_asset.h', DUALFILE_SEED, 'raw'),
     'api_reference': ('page_api_reference_asset.h', '', 'fragment'),
     'networks': ('page_networks_asset.cpp', NETWORKS_SEED, 'fragment'),
+    'structures': ('page_structures_asset.cpp', STRUCTURES_SEED, 'fragment'),
+}
+
+# Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
+# body — the structures tab engine is one. (file, R-string tag)
+PRELUDE = {
+    'structures': ('chatgpt/src/webpages/renderers/structures_page_renderer.cpp', 'JSTABS'),
 }
 
 FRAGMENT_TITLES = {
     # same string the renderer passes to streamPageShellStart()
     'api_reference': '🔌 Referência de API',
     'networks': '🌐 Other Networks',
+    'structures': '🏭 Amada Welding',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)
@@ -171,7 +208,14 @@ def build(name):
         html = SHELL_HEAD.replace('{title}', FRAGMENT_TITLES[name])
         if css:
             html += '<style>\n/* core.css inlined for the harness */\n' + css + '\n</style>'
-        html += '<script>var _F=' + API_REFERENCE_FLAGS + ';</script>'
+        if name == 'api_reference':
+            html += '<script>var _F=' + API_REFERENCE_FLAGS + ';</script>'
+        if name in PRELUDE:
+            src_file, tag = PRELUDE[name]
+            pre_src = (WEB / '..' / '..' / src_file).resolve().read_text(encoding='utf-8', errors='replace')
+            pm = re.search(r'R"' + tag + r'\((.*?)\)' + tag + r'"', pre_src, re.S)
+            assert pm, 'prelude ' + tag + ' not found in ' + src_file
+            html += pm.group(1)
         html += body
         html += '</body></html>'
         html = re.sub(r'(<head[^>]*>)', lambda mm: mm.group(1) + MOCK_JS + seed, html, count=1)

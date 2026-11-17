@@ -3,15 +3,15 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); thirty-one images captured** —
+> Status: **inventory raised (50 desktop pages); thirty-two images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`, `rs232`), the Waveshare pack
 > (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`, `modbus_tcp`) and
 > the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus `dualfile`
->, `api_reference` and `networks` rendered from the shipped asset (§3.12). The remaining 19
-> rows are blocked by the build/config on every live board (§3.11) and are being covered one by
-> one as smoke captures.
+>, `api_reference`, `networks` and `structures` rendered from the shipped asset (§3.12). The
+> remaining 18 rows are blocked by the build/config on every live board (§3.11) and are being
+> covered one by one as smoke captures.
 
 Two provenances, marked in the Status column:
 
@@ -121,6 +121,8 @@ python3 build_desktop_shots.py api_reference
 node desktop_smoke_shot.js shots/desktop_api_reference.html ../../PAGES/desktop/api_reference.png --expand
 python3 build_desktop_shots.py networks
 node desktop_smoke_shot.js shots/desktop_networks.html ../../PAGES/desktop/networks.png
+python3 build_desktop_shots.py structures
+node desktop_smoke_shot.js shots/desktop_structures.html ../../PAGES/desktop/structures.png
 ```
 
 `build_desktop_shots.py` takes the R-string exactly as compiled, keeps its own `<style>` (it
@@ -154,6 +156,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | `dualfile.png` | **harness render** (no live board serves `/dualfile`; `ENABLE_DUALFILE` is 1 only in `pack_p4_usb_server.h`) | asset unchanged since `c7ea5cf`, tree at `b672df5`; no firmware/ETag | 1440 × 900 · 64 725 B | **smoke capture** (§3.12): `python3 build_desktop_shots.py dualfile` + `desktop_smoke_shot.js` → title `Dual File Manager`, 729 chars, 7 controls, 4 tables / 42 rows, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks** (the local equivalents; `english ui` / `lang api` are not applicable without a board). Data comes from the mock seed (SD 28.0 MB free, Flash 2.8 MB free), the layout and JS are the shipped ones. **Finding: DF-6** — the right pane's storage selector is never initialised from `state[side].storage`, so it reads SD while the pane lists Flash (and stays stale after Ctrl+U swap)
 | `api_reference.png` | **harness render** (no live board serves `/api-reference`; `ENABLE_API_REFERENCE_PAGE` is 0 in `user_config.h` and in every pack) | asset unchanged since `c7ea5cf`, tree at `b672df5`; no firmware/ETag | 1440 × 6735 · 777 901 B | **smoke capture** (§3.12): `build_desktop_shots.py api_reference` + `desktop_smoke_shot.js --expand` → title `🔌 Referência de API`, 6 058 chars, 81 buttons, 16 tables / 283 rows, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Frame reproduced byte-for-byte from `streamPageShellStart()` (`core.css` inlined, i18n marked ready because `auto.js` is not part of the harness), `_F` set to the Waveshare flags so the flag-filtering shows what that board would show. **Two findings in `PAGES/api_reference.md`: APIR-6** (the `▶` try-button loses to `core.css`'s `button` rule → full-width pill per GET row) and **APIR-7** (PT fallbacks remain in several summaries/labels, contradicting APIR-4's "fallbacks are English now")
 | `networks.png` | **harness render** (no live board serves `/networks`; the route is compiled only with `ENABLE_TELNET==1`, which is 0 in `user_config.h` and in every pack) | asset unchanged since `c7ea5cf`, tree at `b672df5`; no firmware/ETag | 1440 × 940 · 37 917 B | **smoke capture** (§3.12): `build_desktop_shots.py networks` + `desktop_smoke_shot.js` → title `🌐 Other Networks`, 156 chars, 2 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Frame reproduced from `streamPageShellStart()`/`buildPageFrame()` (`core.css` inlined, i18n marked ready; `auto.js` and `config-manager.js` — board runtime — left out). Seed answers `/api/telnet-status` with `{enabled:true}` because the page only exists where Telnet is compiled in. Doc accuracy fix in the same change: **NET-2** was stale — both render paths now use `L(activeLang->pageTitleNetworksOther)`; only the home button is still hardcoded PT (`home_page_renderer.h:368`)
+| `structures.png` | **harness render** (no live board serves `/structures`; `ENABLE_STRUCTURES_PAGE` is 0 in `user_config.h:287` and every reachable pack — only `pack_rs232.h:77-78` sets 1) | asset unchanged since `c7ea5cf`, tree at `18899b4`; no firmware/ETag | 1440 × 1683 · 154 368 B | **smoke capture** (§3.12): `build_desktop_shots.py structures` + `desktop_smoke_shot.js` → title `🏭 Amada Welding`, 1 324 chars, 6 controls, 1 table / 8 rows, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Renderer order reproduced: shell → `STRUCTURES_TABS_JS` → body (`structures_page_renderer.cpp:88-91`); `config-manager.js` and `auto.js` left out as board runtime. **Finding STR-6** (`PAGES/structures.md`): `setup()` runs from the PROGMEM block printed *before* the body, finds no `#sec-*` nodes and returns — the `.aw-tab-bar` is never injected (DOM probe: `aw-tab-btn` 0, all four sections `display:block`), so the page always shows the four sections stacked instead of the four tabs the doc describes
 
 > **History — the page was unusable for a while (`PAGES/BACKLOG.md` SC-9, still open)** (HomeE32
 > `.24`): `GET /sensor-charts` was 200 but the page needs one of **two chart sessions**; with
@@ -214,7 +217,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 > The next inventory row (`/commands`) was captured instead.
 | Commands (interval) | `/commands` | `commands.png` | **done** |
 | Commands (date & time) | `/commands-by-datetime` | `commands_datetime.png` | **done** |
-| Structures (fixtures) | `/structures` | `structures.png` | pending |
+| Structures (fixtures) | `/structures` | `structures.png` | **done** (smoke — §3.12) |
 
 > **Blocked on the build, not on the harness** (2026-11-17): `GET /structures` answers **404**
 > on every live board (`.29`, `.24`, `.18`, `.9`). `user_config.h:287` sets
@@ -320,7 +323,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 
 ### 3.11 Blocked routes — smoke matrix
 
-The 19 rows still **pending** have no live page to capture (three of the original 22 are
+The 18 rows still **pending** have no live page to capture (four of the original 22 are
 now delivered as smoke captures, §3.12). Each was probed **once** on all
 four live boards (`.29` Waveshare, `.24` HomeE32, `.18` Cam-P4, `.9` Cam-M1) with
 
@@ -341,7 +344,7 @@ turned on for a capture — which is a firmware change and out of scope for this
 | `/api-reference` | `api_reference.png` | 404 ×4 | `ENABLE_API_REFERENCE_PAGE 0` (`user_config.h:285` and every pack) — **captured by smoke, §3.12** |
 | `/networks` | `networks.png` | 404 ×4 | `ENABLE_TELNET 0` (`user_config.h:291` and every pack) — **captured by smoke, §3.12** |
 | `/google-script` | `google_script.png` | 404 ×4 | `ENABLE_PAGE_GOOGLE_SCRIPT` never defined (commented out) |
-| `/structures` | `structures.png` | 404 ×4 | `ENABLE_STRUCTURES_PAGE 0` — only `pack_rs232.h:77-78` sets 1 |
+| `/structures` | `structures.png` | 404 ×4 | `ENABLE_STRUCTURES_PAGE 0` — only `pack_rs232.h:77-78` sets 1 — **captured by smoke, §3.12** |
 | `/buzzer` | `buzzer.png` | 404 ×4 | `ENABLE_BUZZER` undefined (…`:367-368`) / forced 0 in `pack_waveshare.h:74-75` |
 | `/grbl-controller` | `grbl_controller.png` | 404 ×4 | `ENABLE_GRBL` — only `pack_p4_cnc.h:73` and `pack_s3_cnc_usb.h:44` |
 | `/rambox` | `rambox.png` | 404 ×4 | Rambox pack — that board is offline |
@@ -384,6 +387,7 @@ captured with `--expand` (all sections open); the row says so when it applies.
 
 | Route | Image | Rendered from | Notes |
 |---|---|---|---|
+| `/structures` | `structures.png` | `chatgpt/src/webpages/assets/page_structures_asset.cpp` (fragment) + `STRUCTURES_TABS_JS` from the renderer + the page shell | 1440 × 1683. Seeded with the `/api/config?section=system` payload the page reads (`structures{auto_detect, amada_isq20_awse.enabled, filter_headers, header_every}`, `saved_configs{rs232_*}`) and `/api/rs232-cols` `{cols:12, structure:"amada_isq20_awse"}`. Shows **STR-6**: the four sections are stacked because the tab engine runs before the body exists |
 | `/networks` | `networks.png` | `chatgpt/src/webpages/assets/page_networks_asset.cpp` (fragment) + the page shell | 1440 × 940. The page is **Telnet-only** (the route lives under `#if ENABLE_TELNET==1`), so the seed answers `/api/telnet-status` with `{enabled:true}` — the only configuration in which the page exists at all. Home + `🌐 Other Networks` + the Telnet card (enable checkbox, password field, Save) |
 | `/api-reference` | `api_reference.png` | `chatgpt/src/webpages/assets/page_api_reference_asset.h` + the `_F` flag object of `streamApiReferencePage()` (Waveshare values) | 1440 × 6735, **all 16 `<details>` opened with `--expand`** (on load they are collapsed). `_F` filtering hides the six sections this pack has off (RS232, Sensores, Modbus, GRBL, Câmara, Áudio) → 10 sections / 97 rows. Shows **APIR-6**: every `▶` test button is crushed by `core.css`'s global `button` rule into a full-width pill on its own line |
 | `/dualfile` | `dualfile.png` | `chatgpt/src/webpages/assets/page_dualfile_asset.h` (`ENABLE_DUALFILE`, P4 USB-server pack only) | 1440 × 900, two panes on `/` (left SD: gcode/logs/photos/reports + 3 files; right Flash: config/charts/reports + 3 files), F1–F10 bar, command line. Shows **DF-6**: the right pane lists Flash while its storage selector still reads *SD* |
@@ -447,6 +451,8 @@ python3 build_desktop_shots.py api_reference
 node desktop_smoke_shot.js shots/desktop_api_reference.html ../../PAGES/desktop/api_reference.png --expand
 python3 build_desktop_shots.py networks
 node desktop_smoke_shot.js shots/desktop_networks.html ../../PAGES/desktop/networks.png
+python3 build_desktop_shots.py structures
+node desktop_smoke_shot.js shots/desktop_structures.html ../../PAGES/desktop/structures.png
 ```
 
 ## 5. Adding an image (checklist)
