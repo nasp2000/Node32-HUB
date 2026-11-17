@@ -3,13 +3,23 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); twenty-eight images captured** —
+> Status: **inventory raised (50 desktop pages); twenty-nine images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`, `rs232`), the Waveshare pack
 > (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`, `modbus_tcp`) and
-> the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`). Every other row is
-> **pending** — 22 of them are blocked by the build/config on every live board, see §3.11.
+> the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus `dualfile`
+> rendered from the shipped asset (§3.12). The remaining 21 rows are blocked by the
+> build/config on every live board (§3.11) and are being covered one by one as smoke captures.
+
+Two provenances, marked in the Status column:
+
+- **`done`** — captured from a **live board** over HTTP with `desktop_shot.js` (the default and
+  the strongest proof: real firmware, real config, real session engine).
+- **`done (smoke)`** — the route exists in the firmware but **no live board serves it** (flag
+  off in every pack we can reach). The image is rendered from the **shipped asset** in the
+  harness (§3.12): same HTML/CSS/JS the firmware streams, with the `fetch` calls answered by a
+  local mock seed instead of the board. No board is touched, no flag is changed.
 
 ---
 
@@ -98,6 +108,24 @@ It prints a JSON report and exits `1` unless all of these pass:
 Legend: **pending** = image not taken yet · **done** = image present here.
 Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 
+**Smoke capture (routes no live board serves).** Two small tools in `tests/web/`:
+
+```bash
+# 1) build the harness copy from the shipped PROGMEM asset (nothing touches a board)
+python3 build_desktop_shots.py dualfile          # -> shots/desktop_dualfile.html
+# 2) render it at desktop size (1440 wide, full height) over CDP
+node desktop_smoke_shot.js shots/desktop_dualfile.html ../../PAGES/desktop/dualfile.png
+```
+
+`build_desktop_shots.py` takes the R-string exactly as compiled, keeps its own `<style>` (it
+inlines `core.css` only when the asset links it), and injects `window.__MOCK_API__` + a
+no-network `fetch` shim so the page fills with realistic data. `desktop_smoke_shot.js` sets a
+1440×900 desktop viewport, waits, reports `title / text_len / controls / tables / rows /
+failed_imgs / overlay / overflow`, and captures the full page. Its checks are the local
+equivalents of the live ones (`title present`, `page rendered`, `no broken images`,
+`loading overlay hidden`, `no horizontal overflow`, `png width 1440`) — **there is no
+`english ui` / `lang api` check because there is no board**: the language comes from the asset.
+
 **Caveat — `pass` is about the document that ends up loaded.** A page that redirects itself
 (`location.href='/'`) still yields `pass: true` with 10/10, because the checks run on whatever
 document the tab is showing. Always read `location` and `render.title` in the JSON before
@@ -117,6 +145,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | Serial monitor | `/serial-monitor` | `serial_monitor.png` | **done** |
 | Buffer viewer | `/buffer-viewer` | `buffer_viewer.png` | **done** |
 | Sensor charts | `/sensor-charts` | `sensor_charts.png` | **done** (captured on HomeE32 `.24` once the chart-session lockout cleared — `BACKLOG.md` SC-9) |
+| `dualfile.png` | **harness render** (no live board serves `/dualfile`; `ENABLE_DUALFILE` is 1 only in `pack_p4_usb_server.h`) | asset as compiled at `efb1686`, no firmware/ETag | 1440 × 900 · 64 725 B | **smoke capture** (§3.12): `python3 build_desktop_shots.py dualfile` + `desktop_smoke_shot.js` → title `Dual File Manager`, 729 chars, 7 controls, 4 tables / 42 rows, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks** (the local equivalents; `english ui` / `lang api` are not applicable without a board). Data comes from the mock seed (SD 28.0 MB free, Flash 2.8 MB free), the layout and JS are the shipped ones. **Finding: DF-6** — the right pane's storage selector is never initialised from `state[side].storage`, so it reads SD while the pane lists Flash (and stays stale after Ctrl+U swap)
 
 > **History — the page was unusable for a while (`PAGES/BACKLOG.md` SC-9, still open)** (HomeE32
 > `.24`): `GET /sensor-charts` was 200 but the page needs one of **two chart sessions**; with
@@ -129,7 +158,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 > two headless captures re-wedged it immediately afterwards, so the re-capture command stays
 > here for the day the firmware releases dead slots:
 > `node desktop_shot.js --host <ip> --path /sensor-charts --wait 12000 --out ../../PAGES/desktop/sensor_charts.png`
-| Dual file | `/dualfile` | `dualfile.png` | pending |
+| Dual file | `/dualfile` | `dualfile.png` | **done** (smoke — rendered from the shipped asset, see §3.12) |
 | Access (sessions/users) | `/access` | `access.png` | **done** |
 | OTA | `/ota` | `ota.png` | **done** |
 | API reference | `/api-reference` | `api_reference.png` | pending |
@@ -299,7 +328,7 @@ turned on for a capture — which is a firmware change and out of scope for this
 
 | Route | Image | Answer (.29/.24/.18/.9) | Why there is no page |
 |---|---|---|---|
-| `/dualfile` | `dualfile.png` | 404 ×4 | `ENABLE_DUALFILE` — only `pack_p4_usb_server.h:68` sets 1 |
+| `/dualfile` | `dualfile.png` | 404 ×4 | `ENABLE_DUALFILE` — only `pack_p4_usb_server.h:68` sets 1 — **captured by smoke, §3.12** |
 | `/api-reference` | `api_reference.png` | 404 ×4 | `ENABLE_API_REFERENCE_PAGE 0` (`user_config.h:285` and every pack) |
 | `/networks` | `networks.png` | 404 ×4 | `ENABLE_TELNET 0` (`user_config.h:291` and every pack) |
 | `/google-script` | `google_script.png` | 404 ×4 | `ENABLE_PAGE_GOOGLE_SCRIPT` never defined (commented out) |
@@ -321,6 +350,28 @@ turned on for a capture — which is a firmware change and out of scope for this
 | `/ecra` | `ecra.png` | 404 ×4 | same Touch7 pack |
 | `/ipg-laser` | `ipg_laser.png` | 404 ×4 | `ENABLE_IPG_LASER 0` in every pack |
 | `/usb-server` | `usb_server.png` | 404 ×4 | `ENABLE_USBIP_SERVER` — only `pack_p4_usb_server.h:30` sets 1 |
+
+### 3.12 Smoke captures — routes only the firmware has
+
+For the rows in §3.11 the page exists in the build but no live board serves it. Following the
+phone pages (`PAGES/mobile/`, rendered the same way from their assets), the image is produced
+from the **shipped asset** with the harness, never from a hand-made mock-up:
+
+```bash
+cd tests/web
+python3 build_desktop_shots.py <page>                                  # shots/desktop_<page>.html
+node desktop_smoke_shot.js shots/desktop_<page>.html ../../PAGES/desktop/<page>.png
+```
+
+What the image therefore **is**: the exact `PAGE_<NAME>` R-string the firmware streams (own
+`<style>`, own JS, i18n attributes), laid out by Chromium at 1440 px with `window.__MOCK_API__`
+answering the `/api/...` calls. What it **is not**: a board capture — no real SD card, no live
+session engine, no `/api/lang` (so the strings are the asset's own fallbacks), and `/core.css`
+is inlined when the asset links it.
+
+| Route | Image | Rendered from | Notes |
+|---|---|---|---|
+| `/dualfile` | `dualfile.png` | `chatgpt/src/webpages/assets/page_dualfile_asset.h` (`ENABLE_DUALFILE`, P4 USB-server pack only) | 1440 × 900, two panes on `/` (left SD: gcode/logs/photos/reports + 3 files; right Flash: config/charts/reports + 3 files), F1–F10 bar, command line. Shows **DF-6**: the right pane lists Flash while its storage selector still reads *SD* |
 
 ## 4. Capture log (proof per image)
 
@@ -373,6 +424,9 @@ node desktop_shot.js --host 192.168.1.24 --path /mq135-config --anon --reload --
 node desktop_shot.js --host 192.168.1.29 --path /rs232 --anon --verify-only
 node desktop_shot.js --host 192.168.1.18 --path /modbus-tcp --anon --verify-only
 node desktop_shot.js --host 192.168.1.24 --path /sensor-charts --anon --wait 12000 --verify-only
+# smoke capture (no live board serves the route)
+python3 build_desktop_shots.py dualfile
+node desktop_smoke_shot.js shots/desktop_dualfile.html ../../PAGES/desktop/dualfile.png
 ```
 
 ## 5. Adding an image (checklist)

@@ -4,6 +4,15 @@
 > button/input, client logic, API endpoints and the firmware-side SD/PSRAM/LittleFS access.
 > Written for both humans and AI agents.
 
+
+> Screenshot: `desktop/dualfile.png` (1440 × 900, **smoke capture** — no live board serves
+> `/dualfile`: `ENABLE_DUALFILE` is 1 only in the P4 USB-server pack, so the image is rendered
+> from the shipped asset with `tests/web/build_desktop_shots.py` + `desktop_smoke_shot.js`,
+> mock API seed, same HTML/CSS/JS the firmware streams). Left pane SD (`gcode`, `logs`,
+> `photos`, `reports` + three files), right pane Flash (`config`, `charts`, `reports` + three
+> files), F1–F10 bar and the command line. It also documents **DF-6**: the right pane lists
+> Flash while its storage selector still reads *SD*. Index and proof in `desktop/README.md`
+> §3.12.
 ---
 
 ## 1. Objective
