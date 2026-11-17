@@ -97,6 +97,19 @@ DUALFILE_SEED = r"""
 </script>
 """
 
+NETWORKS_SEED = r"""
+<script>
+(function () {
+  // The page only exists where ENABLE_TELNET=1 (the route is inside that guard), so the
+  // telnet card is the whole page: answer the status probe the way that build does.
+  window.__MOCK_API__ = {
+    '/api/telnet-status': { enabled: true },
+    '/api/telnet-config': { success: true, message: 'Configuration saved!' }
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -123,11 +136,13 @@ PAGES = {
     # name: (asset file, seed script, page kind)
     'dualfile': ('page_dualfile_asset.h', DUALFILE_SEED, 'raw'),
     'api_reference': ('page_api_reference_asset.h', '', 'fragment'),
+    'networks': ('page_networks_asset.cpp', NETWORKS_SEED, 'fragment'),
 }
 
 FRAGMENT_TITLES = {
     # same string the renderer passes to streamPageShellStart()
     'api_reference': '🔌 Referência de API',
+    'networks': '🌐 Other Networks',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)

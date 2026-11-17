@@ -5,6 +5,14 @@
 > Telnet server engine. Written for both humans and AI agents.
 > This is NOT the `/wifi` page (see `PAGES/wifi.md`).
 
+> Screenshot: `desktop/networks.png` (1440 × 940, **smoke capture** — no live board serves the
+> route: it is compiled only with `ENABLE_TELNET==1`, which is 0 in `user_config.h` and in every
+> pack, so the image is rendered from the shipped asset with `tests/web/build_desktop_shots.py` +
+> `desktop_smoke_shot.js`, `/api/telnet-status` answered `{enabled:true}` — the only configuration
+> in which the page exists). Home, `🌐 Other Networks`, the Telnet card (Enable Telnet checked,
+> `Telnet Password (leave empty to keep current)`, Save) and nothing else — the page is
+> Telnet-only by design. Index and proof in `desktop/README.md` §3.12.
+
 ---
 
 ## 1. Objective
@@ -156,7 +164,7 @@ All used keys exist in `lang_en_ui.h` (PT mirrors in `lang_pt_ui.h`): `btnHome` 
 | # | Finding | Severity | Suggested fix |
 |---|---|---|---|
 | NET-1 | **Page loads on Ethernet but its APIs don't exist there.** `GET /networks` is served on W5500 (`ethernet_bootstrap_routes.h:224-230`) but no Ethernet dispatch exists for `/api/telnet-status`, `/api/telnet-toggle` or `/api/telnet-config`; helpers `ethernetSendTelnetStatus` / `ethernetHandleTelnetTogglePost` (`ethernet_bootstrap_handlers.h:1011-1023`) have zero call sites, and the comment at `:1025` promises a `POST /api/telnet-config` handler that was never written. Over Ethernet the checkbox never initialises (error swallowed, `page_networks_asset.cpp:51`) and Save fails. | Medium | Wire the three endpoints into the Ethernet bootstrap dispatcher (shared handlers already exist) or return 404 for `/networks` on Ethernet until then. |
-| NET-2 | **Hardcoded Portuguese chrome around translated content.** Frame title `"Outras Redes"` is hardcoded in both render paths (`web_routes_networks.cpp:28`, `networks_page_renderer.cpp:5`) while the H1 is i18n `"🌐 Other Networks"` (`netTelnetPageTitle`); the home-page button `"Outras Redes"` likewise has no `data-i18n` (`home_page_renderer.h:355`). Under EN locale the tab/title/button stay PT. | Low | Add e.g. `netPageTitle`/`navNetworks` keys and use them in all three spots. |
+| NET-2 | **Hardcoded Portuguese chrome around translated content — partly fixed.** The frame title was hardcoded `"Outras Redes"`; **both render paths now pass `L(activeLang->pageTitleNetworksOther)`** (`web_routes_networks.cpp:29`, `networks_page_renderer.cpp:5`), so the tab title follows the language. Still open: the home-page button is hardcoded PT — `"🌐 Outras Redes"` with no `data-i18n` (`home_page_renderer.h:368`) — so an EN build keeps that one PT label. | Low | Give the home button a key (`navNetworks`) like the rest of the home grid. |
 | NET-3 | **Dead PT password sentinel.** `handleTelnetConfigPost` skips `telnet_password_new` when it equals `"(não alterado)"`/`"(nao alterado)"` (`network_handler.cpp:641`), but the client placeholder is English `(unchanged)` and an empty field returns earlier — the check is unreachable and PT (same pattern as ACC-3 on `/access`). | Low | Drop the sentinel comparison; empty-means-keep is sufficient. |
 | NET-4 | **Server messages in PT on an EN-first page.** `POST /api/telnet-config` / toggle responses (`"Nenhuma alteração detectada"`, `"Configuração Telnet guardada"`, `"Erro ao guardar"`, `network_handler.cpp:604,648,655,657`) are shown verbatim by `customAlert`, so EN users see PT confirmations. | Low | Return stable codes and let the client render `netConfigSaved`-style keys, or at least mirror the client's locale. |
 | NET-5 | **Toggle endpoint with no caller + stale docs/comments.** `POST /api/telnet-toggle` is registered (`web_routes_network.cpp:50`) but no UI calls it (the form uses `/api/telnet-config`); the API-reference page documents `toggle` but not `telnet-config` (`page_api_reference_asset.h:103-104`); header comment `web_routes_networks.h:5` claims `"all /api/networks-* endpoints"` though no such endpoints exist (asset comments also say `Varias Redes`, `page_networks_asset.cpp:2`). | Info | Either add a toggle button to the page or remove the endpoint; fix the reference page and comments to name `/api/telnet-*`. |
