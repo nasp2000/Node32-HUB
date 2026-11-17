@@ -3,6 +3,14 @@
 > Reference for the three Modbus pages: RTU master config + slave scan, TCP client
 > register map, and the live values dashboard. Written for both humans and AI agents.
 
+> Screenshot: `desktop/modbus_tcp.png` (1440 × 1041, live **Cam-P4** board `.18` — the only
+> live board with `ENABLE_MODBUS_TCP 1`: Live / RTU tabs, Global Configuration, the
+> register-columns legend, TCP Devices with `+ Add TCP Device`, TCP Scan (subnet / start /
+> end / timeout) and Save TCP). Captured with the harness `--anon` (nothing to mask). The
+> image also documents two open defects: the scan description prints a broken attribute as
+> text (`data-i18n='mbScanSubnet'>`, MODBUS-6) and the page keeps PT literals on an English
+> build (MODBUS-3). Index and proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective

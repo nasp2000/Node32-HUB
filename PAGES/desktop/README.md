@@ -3,12 +3,12 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); twenty-six images captured** —
+> Status: **inventory raised (50 desktop pages); twenty-seven images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`, `rs232`), the Waveshare pack
-> (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`) and the
-> environment pack (`sensor_config`, `mq135_config`). Every other row is **pending**.
+> (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`, `modbus_tcp`) and
+> the environment pack (`sensor_config`, `mq135_config`). Every other row is **pending**.
 
 ---
 
@@ -150,6 +150,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | `sensor_config.png` | HomeE32 (`ENVIRONMENT`), `192.168.1.24` | `v1.120 - Nov 15 2026 16:08:35 WET`, ETag `v1.120 - Nov 15 2026 16:08:35 WET` | 1440 × 1649 · 155 450 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 1 122 chars / 4 controls rendered (Main Control, Sensor Readings table, Output Options, Statistics 24h, Save Configuration) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**. **Not from `.29`:** the Waveshare pack has no AHT20/BMP280, so `/sensor-config` is 404 there; HomeE32 `.24` is the pack that serves it. Captured with `--click-text OK` because the page opens a *Configuration loaded* alert on load (without it the modal covers the page) and `--anon` (nothing to mask)
 | `mq135_config.png` | HomeE32 (`ENVIRONMENT`), `192.168.1.24` | `v1.120 - Nov 15 2026 16:08:35 WET`, ETag `v1.120 - Nov 15 2026 16:08:35 WET` | 1440 × 1690 · 172 508 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 1 211 chars / 4 controls rendered (Main Control with `📅 Last reading: 05:20:25 (17/11/2026)` + Sensor Stable, Calibration with R0 13008 Ω, ADC RAW 3524 / RS 7606.5 Ω / RS/R0 0.585, Detected Gases for the eight gases with the AQI scale (`Good (46)`), Output Options, Save Configuration) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**. **Not from `.29`:** the Waveshare pack has no MQ-135, so `/mq135-config` is 404 there; HomeE32 `.24` is the pack that serves it. Captured with `--click-text OK` (the page opens a *Configuration loaded* alert on load) and `--reload`, because on a **cold** browser the i18n pass lands after the config fetch and overwrites the timestamp element with its static text `No reading available` — the second render shows the real reading (`PAGES/BACKLOG.md` MQ-1). `--anon` ran (nothing to mask: gas ppm, offsets, R0/ADC values, no address).
 | `rs232.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 1431 · 131 209 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 1 156 chars / 7 controls rendered (Configuration and Advanced tabs, `Status: Active (19200 bps)`, Enable RS232, Baud 19200 / Data 8 / Parity None / Stop 1, Templates card with Save Template + Delete Selected, Save) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` masked 6 JSON keys (`wifi.ssid`, `wifi.password`, `smtp.username`, `smtp.password`, `email.destination`, `email.subject`) and the rendered text stayed clean. **This page is also the finding:** the build has `ENABLE_RS232 0` / `ENABLE_SNIFFER 0` (its own self-test manifest expects `PAGE("/rs232", (ENABLE_RS232 || ENABLE_SNIFFER))`), yet `/rs232` answers 200, reports **Active (19200 bps)** and `GET /api/rs232-status` + `GET /api/rs232-templates` are **404** — `PAGES/BACKLOG.md` RS232-8
+| `modbus_tcp.png` | Cam-P4 (`Cam-P4`), `192.168.1.18` | `v1.120 - Nov 15 2026 16:09:06 WET`, ETag `v1.120 - Nov 15 2026 16:09:06 WET` | 1440 × 1041 · 80 523 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 536 chars / 6 controls rendered (Live / RTU tabs, Global Configuration with the two global enables, the register-columns legend, TCP Devices with `+ Add TCP Device`, TCP Scan with the subnet/start/end/timeout fields, Save TCP) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` ran (nothing to mask — subnet/start/end IPs are the plain `192.168.1` scan defaults, no credential). **Only `.18` serves it:** `ENABLE_MODBUS_TCP 1` in `pack_cam_p4.h:117-118`, 404 on `.29`/`.24`/`.9`. **Two visible defects, both in the BACKLOG:** the scan description prints the broken attribute `data-i18n='mbScanSubnet'>` as text (MODBUS-6) and the page is still half Portuguese on an English build — subtitle, both global enables, the legend summary, `Subnet (ex: 192.168.1)` and `IP fim` (MODBUS-3)
 | Ethernet | `/ethernet` | `ethernet.png` | **done** |
 | E-mail (SMTP) | `/email` | `email.png` | **done** |
 | Recipients | `/recipients` | `recipients.png` | **done** |
@@ -222,7 +223,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | Page | Route | Image | Status |
 |---|---|---|---|
 | Modbus RTU | `/modbus-rtu` | `modbus_rtu.png` | pending |
-| Modbus TCP | `/modbus-tcp` | `modbus_tcp.png` | pending |
+| Modbus TCP | `/modbus-tcp` | `modbus_tcp.png` | **done** (captured on **Cam-P4** `.18`, the only live board with `ENABLE_MODBUS_TCP 1`) |
 | Modbus live data | `/modbus-live` | `modbus_live.png` | pending |
 | CAN bus | `/can` | `can.png` | pending |
 
@@ -311,6 +312,7 @@ node desktop_shot.js --host 192.168.1.29 --path /do --anon --verify-only
 node desktop_shot.js --host 192.168.1.24 --path /sensor-config --anon --click-text OK --verify-only
 node desktop_shot.js --host 192.168.1.24 --path /mq135-config --anon --reload --click-text OK --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /rs232 --anon --verify-only
+node desktop_shot.js --host 192.168.1.18 --path /modbus-tcp --anon --verify-only
 ```
 
 ## 5. Adding an image (checklist)
