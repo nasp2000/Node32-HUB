@@ -62,7 +62,7 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/dualfile` | Copy/write LittleFS↔SD | static | 30 s poll | B | **A** (*) | `ENABLE_DUALFILE` |
 | `/usb-server` | USB/IP status + clients | local | 6 s | B | **A** | `ENABLE_USBIP_SERVER` |
 | `/ethernet` | Ethernet + DHCP config | static | 6 s + 8 s | B | no | `ENABLE_ETHERNET` |
-| `/networks` | Network overview | static | manual | B | **A** (*) | — |
+| `/networks` | Network overview | static | manual | B | **A** (*) | — (**page compiled only with `ENABLE_TELNET==1`, and that is 0 in `user_config.h:291` and in every pack → 404 on all live boards**) |
 | `/wifi` | WiFi AP/STA + scan | static | scan 5 s | B | no | — |
 | `/google-script` | Google Apps Script setup | static | manual | B | no | `ENABLE_PAGE_GOOGLE_SCRIPT` |
 | `/access` | Sessions/users/access control + live session list (`/api/session-history`, terminate-all) | static + on demand | one GET on load; session list reloaded by the Refresh button and after a kick | B | **A** (*) | `ENABLE_PAGE_ACCESS` |
@@ -71,7 +71,7 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/recipients` | Email recipient groups | static | manual | B | no | `ENABLE_PAGE_RECIPIENTS` |
 | `/ftp` | FTP upload client + test + last-sends history (persisted `/config/ftp_status.json`, loaded once on page open) | static | manual | B | no | `ENABLE_FTP_CLIENT` + `ENABLE_PAGE_FTP` |
 | `/structures` | Custom fixtures page | static | manual | B | no | `ENABLE_STRUCTURES_PAGE` |
-| `/rs232` · `/lpt-db25` | RS232/LPT-DB25 config + pins; always shows the values **in force** (live runtime values, so a Rambox clock profile appears here) and stays editable — `active_module` / `active_module_manual` from `GET /api/config?section=rs232` | static | manual | B | no | `ENABLE_RS232` / `ENABLE_DB25` |
+| `/rs232` · `/lpt-db25` | RS232/LPT-DB25 config + pins; always shows the values **in force** (live runtime values, so a Rambox clock profile appears here) and stays editable — `active_module` / `active_module_manual` from `GET /api/config?section=rs232` | static | manual | B | no | `ENABLE_RS232` / `ENABLE_DB25` (**the `/rs232` page is registered even when `ENABLE_RS232==0` while `/api/rs232-*` are not — `BACKLOG.md` RS232-8**) |
 | `/printer` · `/buzzer` · `/do` | **System Settings** (name/mDNS/language/NTP — not a printer form) / buzzer test / digital outputs | static | manual | B | no | — / `ENABLE_BUZZER` (route only exists when 1; S3/cam builds leave it undefined → 404) / `BOARD_HAS_TCA9554_DO` |
 | `/sdcard` · `/files` | Storage config (SD/Flash/PSRAM) / browser, default+selector order SD → LittleFS → PSRAM | static | manual (estado imediato no load: `/api/sd-status` + `/api/sdcard-config`, ambos <20 ms) | B (+V files) | no | `ENABLE_PAGE_SDCARD` / `ENABLE_PAGE_FILES` + `ENABLE_SDCARD` |
 | `/mq135-config` · `/hx711` · `/ina226` · `/sound` · `/max31865` | Sensor measure + calibration | static | manual POST | B | no | sensor flags (each route only exists in the pack that owns the sensor — `/mq135-config` 404 on Waveshare, 200 on HomeE32) |

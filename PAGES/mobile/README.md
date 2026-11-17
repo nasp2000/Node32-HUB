@@ -7,8 +7,8 @@ all 50 desktop pages raised; `home.png`, `status.png`, `files.png`, `sdcard.png`
 `monitor.png`, `serial_monitor.png`, `buffer_viewer.png`, `access.png`, `ota.png`,
 `proximity.png`, `proximity_dashboard.png`, `camera.png`, `hub.png`, `wifi.png`,
 `ethernet.png`, `email.png`, `recipients.png`, `alerts.png`, `ftp.png`, `commands.png`,
-`commands_datetime.png`, `printer.png`, `do.png`, `sensor_config.png` + `mq135_config.png`
-captured and verified, rest pending).
+`commands_datetime.png`, `printer.png`, `do.png`, `sensor_config.png`, `mq135_config.png` +
+`rs232.png` captured and verified, rest pending).
 
 ---
 
