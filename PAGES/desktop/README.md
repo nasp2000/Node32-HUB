@@ -3,14 +3,15 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); twenty-nine images captured** —
+> Status: **inventory raised (50 desktop pages); thirty images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`, `rs232`), the Waveshare pack
 > (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`, `modbus_tcp`) and
 > the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus `dualfile`
-> rendered from the shipped asset (§3.12). The remaining 21 rows are blocked by the
-> build/config on every live board (§3.11) and are being covered one by one as smoke captures.
+> and `api_reference` rendered from the shipped asset (§3.12). The remaining 20 rows are
+> blocked by the build/config on every live board (§3.11) and are being covered one by one as
+> smoke captures.
 
 Two provenances, marked in the Status column:
 
@@ -115,6 +116,8 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 python3 build_desktop_shots.py dualfile          # -> shots/desktop_dualfile.html
 # 2) render it at desktop size (1440 wide, full height) over CDP
 node desktop_smoke_shot.js shots/desktop_dualfile.html ../../PAGES/desktop/dualfile.png
+# pages that hide their content behind <details> can be captured expanded:
+node desktop_smoke_shot.js shots/desktop_api_reference.html ../../PAGES/desktop/api_reference.png --expand
 ```
 
 `build_desktop_shots.py` takes the R-string exactly as compiled, keeps its own `<style>` (it
@@ -146,6 +149,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | Buffer viewer | `/buffer-viewer` | `buffer_viewer.png` | **done** |
 | Sensor charts | `/sensor-charts` | `sensor_charts.png` | **done** (captured on HomeE32 `.24` once the chart-session lockout cleared — `BACKLOG.md` SC-9) |
 | `dualfile.png` | **harness render** (no live board serves `/dualfile`; `ENABLE_DUALFILE` is 1 only in `pack_p4_usb_server.h`) | asset as compiled at `efb1686`, no firmware/ETag | 1440 × 900 · 64 725 B | **smoke capture** (§3.12): `python3 build_desktop_shots.py dualfile` + `desktop_smoke_shot.js` → title `Dual File Manager`, 729 chars, 7 controls, 4 tables / 42 rows, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks** (the local equivalents; `english ui` / `lang api` are not applicable without a board). Data comes from the mock seed (SD 28.0 MB free, Flash 2.8 MB free), the layout and JS are the shipped ones. **Finding: DF-6** — the right pane's storage selector is never initialised from `state[side].storage`, so it reads SD while the pane lists Flash (and stays stale after Ctrl+U swap)
+| `api_reference.png` | **harness render** (no live board serves `/api-reference`; `ENABLE_API_REFERENCE_PAGE` is 0 in `user_config.h` and in every pack) | asset as compiled at `efb1686`, no firmware/ETag | 1440 × 6735 · 777 901 B | **smoke capture** (§3.12): `build_desktop_shots.py api_reference` + `desktop_smoke_shot.js --expand` → title `🔌 Referência de API`, 6 058 chars, 81 buttons, 16 tables / 283 rows, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Frame reproduced byte-for-byte from `streamPageShellStart()` (`core.css` inlined, i18n marked ready because `auto.js` is not part of the harness), `_F` set to the Waveshare flags so the flag-filtering shows what that board would show. **Two findings in `PAGES/api_reference.md`: APIR-6** (the `▶` try-button loses to `core.css`'s `button` rule → full-width pill per GET row) and **APIR-7** (PT fallbacks remain in several summaries/labels, contradicting APIR-4's "fallbacks are English now")
 
 > **History — the page was unusable for a while (`PAGES/BACKLOG.md` SC-9, still open)** (HomeE32
 > `.24`): `GET /sensor-charts` was 200 but the page needs one of **two chart sessions**; with
@@ -161,7 +165,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | Dual file | `/dualfile` | `dualfile.png` | **done** (smoke — rendered from the shipped asset, see §3.12) |
 | Access (sessions/users) | `/access` | `access.png` | **done** |
 | OTA | `/ota` | `ota.png` | **done** |
-| API reference | `/api-reference` | `api_reference.png` | pending |
+| API reference | `/api-reference` | `api_reference.png` | **done** (smoke — §3.12) |
 
 > **Blocked on the build, not on the harness** (2026-11-17): `GET /api-reference` answers **404**
 > on all four reachable boards (`.29`, `.24`, `.18`, `.9`). `user_config.h:285` sets
@@ -312,7 +316,8 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 
 ### 3.11 Blocked routes — smoke matrix
 
-The 22 rows still **pending** have no live page to capture. Each was probed **once** on all
+The 20 rows still **pending** have no live page to capture (two of the original 22 are
+now delivered as smoke captures, §3.12). Each was probed **once** on all
 four live boards (`.29` Waveshare, `.24` HomeE32, `.18` Cam-P4, `.9` Cam-M1) with
 
 ```bash
@@ -329,7 +334,7 @@ turned on for a capture — which is a firmware change and out of scope for this
 | Route | Image | Answer (.29/.24/.18/.9) | Why there is no page |
 |---|---|---|---|
 | `/dualfile` | `dualfile.png` | 404 ×4 | `ENABLE_DUALFILE` — only `pack_p4_usb_server.h:68` sets 1 — **captured by smoke, §3.12** |
-| `/api-reference` | `api_reference.png` | 404 ×4 | `ENABLE_API_REFERENCE_PAGE 0` (`user_config.h:285` and every pack) |
+| `/api-reference` | `api_reference.png` | 404 ×4 | `ENABLE_API_REFERENCE_PAGE 0` (`user_config.h:285` and every pack) — **captured by smoke, §3.12** |
 | `/networks` | `networks.png` | 404 ×4 | `ENABLE_TELNET 0` (`user_config.h:291` and every pack) |
 | `/google-script` | `google_script.png` | 404 ×4 | `ENABLE_PAGE_GOOGLE_SCRIPT` never defined (commented out) |
 | `/structures` | `structures.png` | 404 ×4 | `ENABLE_STRUCTURES_PAGE 0` — only `pack_rs232.h:77-78` sets 1 |
@@ -367,10 +372,15 @@ What the image therefore **is**: the exact `PAGE_<NAME>` R-string the firmware s
 `<style>`, own JS, i18n attributes), laid out by Chromium at 1440 px with `window.__MOCK_API__`
 answering the `/api/...` calls. What it **is not**: a board capture — no real SD card, no live
 session engine, no `/api/lang` (so the strings are the asset's own fallbacks), and `/core.css`
-is inlined when the asset links it.
+is inlined when the asset links it. `auto.js` is **not** part of the harness (it is the board
+runtime: language fetch, session keepalive, Home/Back footer), so the builder marks
+`html[data-i18n-ready='1']` itself — without that flag `core.css` hides every `[data-i18n]`
+element and the page renders as empty boxes. Pages that hide their body behind `<details>` are
+captured with `--expand` (all sections open); the row says so when it applies.
 
 | Route | Image | Rendered from | Notes |
 |---|---|---|---|
+| `/api-reference` | `api_reference.png` | `chatgpt/src/webpages/assets/page_api_reference_asset.h` + the `_F` flag object of `streamApiReferencePage()` (Waveshare values) | 1440 × 6735, **all 16 `<details>` opened with `--expand`** (on load they are collapsed). `_F` filtering hides the six sections this pack has off (RS232, Sensores, Modbus, GRBL, Câmara, Áudio) → 10 sections / 97 rows. Shows **APIR-6**: every `▶` test button is crushed by `core.css`'s global `button` rule into a full-width pill on its own line |
 | `/dualfile` | `dualfile.png` | `chatgpt/src/webpages/assets/page_dualfile_asset.h` (`ENABLE_DUALFILE`, P4 USB-server pack only) | 1440 × 900, two panes on `/` (left SD: gcode/logs/photos/reports + 3 files; right Flash: config/charts/reports + 3 files), F1–F10 bar, command line. Shows **DF-6**: the right pane lists Flash while its storage selector still reads *SD* |
 
 ## 4. Capture log (proof per image)
@@ -427,6 +437,8 @@ node desktop_shot.js --host 192.168.1.24 --path /sensor-charts --anon --wait 120
 # smoke capture (no live board serves the route)
 python3 build_desktop_shots.py dualfile
 node desktop_smoke_shot.js shots/desktop_dualfile.html ../../PAGES/desktop/dualfile.png
+# pages that hide their content behind <details> can be captured expanded:
+node desktop_smoke_shot.js shots/desktop_api_reference.html ../../PAGES/desktop/api_reference.png --expand
 ```
 
 ## 5. Adding an image (checklist)

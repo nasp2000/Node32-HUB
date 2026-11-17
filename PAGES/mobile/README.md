@@ -8,8 +8,8 @@ all 50 desktop pages raised; `home.png`, `status.png`, `files.png`, `sdcard.png`
 `proximity.png`, `proximity_dashboard.png`, `camera.png`, `hub.png`, `wifi.png`,
 `ethernet.png`, `email.png`, `recipients.png`, `alerts.png`, `ftp.png`, `commands.png`,
 `commands_datetime.png`, `printer.png`, `do.png`, `sensor_config.png`, `mq135_config.png`,
-`rs232.png`, `modbus_tcp.png`, `sensor_charts.png` and `dualfile.png` (smoke render)
-captured and verified, rest pending).
+`rs232.png`, `modbus_tcp.png`, `sensor_charts.png`, `dualfile.png` and `api_reference.png`
+(the last two are smoke renders) captured and verified, rest pending).
 
 ---
 

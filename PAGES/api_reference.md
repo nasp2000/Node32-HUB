@@ -4,6 +4,14 @@
 > client logic, backing data source, feature-flag filtering engine and i18n. Written for
 > both humans and AI agents.
 
+> Screenshot: `desktop/api_reference.png` (1440 × 6735, **smoke capture** — no live board
+> serves the route: the flag is 0 in `user_config.h` and in every pack). Rendered from this
+> asset with the page shell of `streamPageShellStart()` and the `_F` object of the Waveshare
+> pack, all 16 `<details>` opened; `_F` filters out the six sections that pack has off (RS232,
+> Sensores, Modbus, GRBL, Câmara, Áudio) leaving 10 sections / 97 rows. It documents
+> **APIR-6** (each `▶` try-button is rendered by `core.css` as a full-width pill on its own
+> line) and **APIR-7** (PT fallbacks). Index and proof in `desktop/README.md` §3.12.
+
 ---
 
 ## 1. Objective
@@ -148,6 +156,8 @@ with matching entries in `lang_pt_ui.h`. `apiRefHome`
 | APIR-3 | **Only GET rows are interactive.** Row wiring selects `span.g` (`page_api_reference_asset.h:338`), so POST/DEL routes get no link and no try-button — over half the Modbus/GRBL/SD rows are inert. | Low | Extend try-buttons to POST (empty-body probe with confirm) or mark non-GET rows as reference-only via a legend. |
 | APIR-4 | **Dead `apiRefHome` key + hardcoded PT `<title>`.** `apiRefHome` is defined in both language files (`lang_en_ui.h:1730`) but never referenced (Home link uses `btnHome`). HTML fallbacks are English now (fixed since the finding was written); remaining PT hardcoded string is the `<title>` emitted by `streamApiReferencePage()` (`api_reference_renderer.h:12`, UTF-8 bytes for "Referência de API", no `data-i18n`). | Low | Drop `apiRefHome`; pass the title through the i18n dict like the H1. |
 | APIR-5 | **No web tests.** `tests/web/` has zero coverage for this page (grep for `api-reference\|apiRef` finds nothing); badge drift (APIR-1) would have been caught by a row-count assertion. | Low | Add a DOM test: badge number equals row count per `<details>`, and every `td.r` route exists in `route_registry_api.cpp`. |
+| APIR-6 | **The `▶` try-button is laid out as a full-width pill under the route.** `page_api_reference_asset.h:396` styles it as `.try-btn{…padding:1px 6px;font-size:11px;…}` and appends it to the route cell, but `core.css` has a global `button,a.btn{display:block;width:100%;max-width:420px;margin:6px auto;min-height:40px;padding:8px 24px !important;border-radius:9999px !important}` — the `!important` wins over `.try-btn`, so every GET row grows to ~110 px with the button centred on its own line instead of sitting inline next to the route (visible in `PAGES/desktop/api_reference.png`, 6 735 px tall mostly because of this). Fix: give the asset's rule the specificity/`!important` it needs (`td.r .try-btn{display:inline-block!important;width:auto!important;min-height:0!important;padding:1px 6px!important;border-radius:4px!important}`) or scope the core rule to `.btn` only. | Medium | `page_api_reference_asset.h` (`.try-btn`), `core_css.h` (`button,a.btn`) | open |
+| APIR-7 | **APIR-4 is only half true: several HTML fallbacks are still Portuguese.** The `data-i18n` attributes are all present, but the fallback text behind them is PT in this asset — `<th>Rota</th>` (`apiRefRoute`), and the summaries `Config Global`, `Comandos Agendados`, `Sensores`, `Proximidade`, `OTA & Sistema` (the others are EN: `Status & Monitor`, `Rede / WiFi / Ethernet`, `Email`, `SD Card / Files`, `GRBL G-Code Sender`, `Access Control`, `Digital Outputs`). `AGENTS.md` requires English fallbacks; they only surface on a cold cache or when `/api/lang` fails, which is exactly what the smoke capture shows. Fix: translate those five summaries + the `Rota` header in the asset (keep the `data-i18n` keys). | Low | `page_api_reference_asset.h` | open |
 
 ---
 

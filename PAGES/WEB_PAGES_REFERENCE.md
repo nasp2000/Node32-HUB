@@ -78,7 +78,7 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/sensor-config` | Sensor channel/caps config | static | manual POST | B | no | `ENABLE_SENSOR_CONFIG_PAGE` |
 | `/commands` · `/commands-by-datetime` | Scheduled commands (`/commands` = interval, `/commands-by-datetime` = date/time, 16 slots each side of the API) | static | manual (1× `/api/scheduled-command-slots`; templates só se `chart-caps.rs232`) | B | no | `ENABLE_PAGE_COMMANDS` (both pages) + `ENABLE_PAGE_COMMANDS_INTERVAL` (`/commands` only; `=0` keeps datetime alone, e.g. Waveshare). API `/api/daily-reboot` also with `ENABLE_DAILY_REBOOT` alone — no page |
 | `/ota` | OTA upload + apply | static | post-reboot poll | B | no | `ENABLE_OTA` |
-| `/api-reference` | API reference | static | one GET | B | no | `ENABLE_API_REFERENCE_PAGE` (**0** in `user_config.h:285` and in every pack → 404 on all live boards) |
+| `/api-reference` | API reference | static | one GET | B | no | `ENABLE_API_REFERENCE_PAGE` (**0** in `user_config.h:285` and in every pack → 404 on all live boards; the desktop image is a harness render of the shipped asset, `PAGES/desktop/README.md` §3.12) |
 
 ## Language (i18n) — applies to every page
 

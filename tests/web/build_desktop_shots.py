@@ -52,6 +52,10 @@ MOCK_JS = r"""
   window.showSavedCard = function () {};
   window._rs232Enabled = false;
   window._modbusEnabled = false;
+  // core.css hides [data-i18n] until auto.js flips this flag; without auto.js the
+  // page would render as empty boxes, so the harness marks the pack as applied
+  // (the strings stay the asset's own fallbacks — there is no /api/lang offline).
+  document.documentElement.setAttribute('data-i18n-ready', '1');
 })();
 </script>
 """
@@ -93,12 +97,40 @@ DUALFILE_SEED = r"""
 </script>
 """
 
-SEEDS = {
-    # name: (asset file, seed script)
-    'dualfile': ('page_dualfile_asset.h', DUALFILE_SEED),
+API_REFERENCE_FLAGS = (
+    # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
+    # values (pack_waveshare.h) — the pack used as the reference board everywhere in
+    # PAGES/desktop/. No pack enables the page itself, so this is "how it would look
+    # on that board with ENABLE_API_REFERENCE_PAGE=1".
+    "{modbus:0,proximity:1,sdcard:1,mq135:0,ota:1,sniffer:0,db25:0,debug_api:0,"
+    "ethernet:1,rs232:0,telnet:0,sensors:0,do_out:1,grbl:0,camera:0,uda1334a:0}"
+)
+
+# Page shell, byte-identical to streamPageShellStart() (page_render_common.h).
+SHELL_HEAD = (
+    "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
+    "<meta name='viewport' content='width=device-width,initial-scale=1'><title>{title}</title>"
+    "<link rel='stylesheet' href='/core.css'></head><body>"
+    "<div id='loadingOverlay' style='display:none;position:fixed;top:0;left:0;right:0;bottom:0;"
+    "background:rgba(10,25,41,0.95);z-index:99999;align-items:center;justify-content:center'>"
+    "<div style='text-align:center'><div style='border:4px solid #1e40af;border-top:4px solid #3b82f6;"
+    "border-radius:50%;width:50px;height:50px;animation:spin 1s linear infinite;margin:0 auto'></div>"
+    "<p style='color:#e6f1ff;margin-top:15px;font-size:14px' data-i18n='loading'>Processing...</p>"
+    "</div></div><style>@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>"
+)
+
+PAGES = {
+    # name: (asset file, seed script, page kind)
+    'dualfile': ('page_dualfile_asset.h', DUALFILE_SEED, 'raw'),
+    'api_reference': ('page_api_reference_asset.h', '', 'fragment'),
 }
 
-RAW = re.compile(r'R"([A-Z0-9]+)\((.*)\)\1"', re.S)
+FRAGMENT_TITLES = {
+    # same string the renderer passes to streamPageShellStart()
+    'api_reference': '🔌 Referência de API',
+}
+
+RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)
 
 
 def core_css():
@@ -108,20 +140,34 @@ def core_css():
 
 
 def build(name):
-    asset_name, seed = SEEDS[name]
+    asset_name, seed, kind = PAGES[name]
     src = (ASSETS / asset_name).read_text(encoding='utf-8', errors='replace')
     m = RAW.search(src)
     if not m:
         raise SystemExit('no PROGMEM R-string in ' + asset_name)
-    html = m.group(2)
+    body = m.group(2)
 
-    if "'/core.css'" in html or '"/core.css"' in html:
+    if kind == 'fragment':
+        # The renderer wraps this asset: shell head -> _F flags -> body -> auto.js -> close.
+        # auto.js is deliberately left out of the harness (it is the live board's runtime:
+        # /api/lang, session keepalive, Home/Back footer); the collapse/expand and the
+        # route-test buttons are the asset's own JS.
         css = core_css()
-        if css and '</head>' in html:
-            html = html.replace('</head>',
-                                '<style>\n/* core.css inlined for the harness */\n' + css + '\n</style>\n</head>', 1)
-
-    html = re.sub(r'(<head[^>]*>)', lambda mm: mm.group(1) + MOCK_JS + seed, html, count=1)
+        html = SHELL_HEAD.replace('{title}', FRAGMENT_TITLES[name])
+        if css:
+            html += '<style>\n/* core.css inlined for the harness */\n' + css + '\n</style>'
+        html += '<script>var _F=' + API_REFERENCE_FLAGS + ';</script>'
+        html += body
+        html += '</body></html>'
+        html = re.sub(r'(<head[^>]*>)', lambda mm: mm.group(1) + MOCK_JS + seed, html, count=1)
+    else:
+        html = body
+        if "'/core.css'" in html or '"/core.css"' in html:
+            css = core_css()
+            if css and '</head>' in html:
+                html = html.replace('</head>',
+                                    '<style>\n/* core.css inlined for the harness */\n' + css + '\n</style>\n</head>', 1)
+        html = re.sub(r'(<head[^>]*>)', lambda mm: mm.group(1) + MOCK_JS + seed, html, count=1)
 
     SHOTS.mkdir(exist_ok=True)
     out = SHOTS / ('desktop_' + name + '.html')
@@ -135,9 +181,9 @@ if __name__ == '__main__':
     if not args:
         print(__doc__)
         sys.exit(0)
-    names = list(SEEDS) if args[0] == '--all' else args
+    names = list(PAGES) if args[0] == '--all' else args
     for n in names:
-        if n not in SEEDS:
-            print('no seed for', n, '- add it to SEEDS')
+        if n not in PAGES:
+            print('no entry for', n, '- add it to PAGES')
             sys.exit(1)
         build(n)

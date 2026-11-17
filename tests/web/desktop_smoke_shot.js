@@ -21,9 +21,10 @@ const OUT = process.argv[3];
 const W = parseInt(arg('w', '1440'), 10);
 const H = parseInt(arg('h', '900'), 10);
 const WAIT = parseInt(arg('wait', '5000'), 10);
+const EXPAND = process.argv.includes('--expand');  // open every <details> (collapsed = first-visit state)
 
 const fail = (msg) => { console.error(msg); process.exit(1); };
-if (!SRC || !OUT) fail('usage: node desktop_smoke_shot.js <file.html> <out.png> [--w 1440] [--h 900] [--wait 5000]');
+if (!SRC || !OUT) fail('usage: node desktop_smoke_shot.js <file.html> <out.png> [--w 1440] [--h 900] [--wait 5000] [--expand]');
 
 (async () => {
   const port = 19393;
@@ -61,6 +62,16 @@ if (!SRC || !OUT) fail('usage: node desktop_smoke_shot.js <file.html> <out.png> 
     await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
     await send('Page.navigate', { url: 'file://' + path.resolve(SRC) });
     await new Promise((r) => setTimeout(r, WAIT));
+
+    if (EXPAND) {
+      const ex = await send('Runtime.evaluate', {
+        expression: 'JSON.stringify((function(){var d=document.querySelectorAll("details");for(var i=0;i<d.length;i++)d[i].open=true;return d.length;})())',
+        returnByValue: true,
+      });
+      const exv = ex.result && ex.result.result ? ex.result.result.value : null;
+      report.expanded = exv ? JSON.parse(exv) : 0;
+      await new Promise((r) => setTimeout(r, 600));
+    }
 
     const probe = await send('Runtime.evaluate', {
       expression: `JSON.stringify((function(){
