@@ -4,6 +4,15 @@
 > every button/input, client logic, API endpoints, persistence and the
 > firmware-side non-blocking buzzer engine. Written for both humans and AI agents.
 
+> Screenshot: `desktop/buzzer.png` (1440 × 1176, **smoke capture** — no live board serves the
+> route: `ENABLE_BUZZER` is 0/undefined in every reachable build). Rendered from the shipped
+> fragment with `/api/buzzer-config` answered `{enabled:true, pin:46, on_boot:true,
+> on_alarm:true, on_error:true, on_save/on_sensor_alert/on_network:false}` — the state that makes
+> the banner (`Buzzer active — GPIO 46`) and the six toggles meaningful. Home, `🔔 Configure
+> Buzzer`, Status and Test (OK / Warning / Error / Long / Alarm + Stop), Configuration (master,
+> GPIO pin with the Waveshare/N16R8 note, the six `Beep on:` rows) and Save. Index and proof in
+> `desktop/README.md` §3.12.
+
 ---
 
 ## 1. Objective
@@ -203,6 +212,7 @@ unused by the page (see BZR-5).
 | BZR-4 | **Dead Ethernet wrapper functions.** `ethernetHandleBuzzerConfigGet` (`ethernet_bootstrap_handlers.h:2487`) and `ethernetHandleBuzzerStopPost` (`:2512`) are defined but never called — Ethernet serves those endpoints via the registry fallback (`ethernet_bootstrap_routes.h:807-808`). Harmless but misleading. | Info | Delete the two wrappers or route the fallback through them. |
 | BZR-5 | **Orphan i18n keys + non-i18n'd labels.** `buzzerTipFreq`/`buzzerTipDuration` (`lang_en_ui.h:1709-1710`, PT mirrors) have no matching inputs in the asset — leftover from a removed frequency/duration UI. Conversely, all headings, labels and status texts are hardcoded English with no `data-i18n`. | Info | Remove the two orphan keys; add `data-i18n` for headings/status or accept EN-only and document it. |
 | BZR-6 | **5 of 6 event checkboxes have no firmware trigger.** `buzzerOnBoot/OnAlarm/OnSensorAlert/OnNetwork/OnError` are defined (`buzzer.cpp:234-258`) but have no call sites in `src`; only `on_save` is wired (sensor/RS232 handlers, `notifyScreenConfigSaved`). E.g. the network label promises "2 long beeps when connection is lost" but `buzzerOnNetwork()` only plays one `BEEP_LONG` and is never called. | Medium | Either wire the triggers (setup boot, proximity manager, network events, error paths) or mark the checkboxes roadmap-only so users are not misled. |
+| BZR-7 | **A failed config read leaves the banner on `Checking...` for ever, with every toggle unchecked.** The load is `fetch('/api/buzzer-config')…​.catch(function() {});` (`page_buzzer_asset.h:100-120`) — the empty catch swallows network errors, 404/501 from a build without the endpoint, and malformed JSON alike, so the status span keeps its initial `Checking...` (`:15`) and the checkboxes keep their HTML defaults (all off except the ones hardcoded in the markup). The operator cannot tell "buzzer disabled" from "status unknown", and the page looks like a healthy idle state. Fix: put the failure in the banner — `.catch(function(){ st.textContent = 'Status unavailable'; st.style.color = '#f87171'; })` — and disable Save/Test while the config is unknown. | Low | `page_buzzer_asset.h` (config loader), `PAGES/buzzer.md` | open |
 
 ---
 

@@ -139,6 +139,20 @@ STRUCTURES_SEED = r"""
 </script>
 """
 
+BUZZER_SEED = r"""
+<script>
+(function () {
+  // GET /api/buzzer-config: master enable + GPIO + the six event toggles.
+  window.__MOCK_API__ = {
+    '/api/buzzer-config': { enabled: true, pin: 46, on_boot: true, on_save: false,
+      on_alarm: true, on_sensor_alert: false, on_network: false, on_error: true },
+    '/api/buzzer-test': { success: true },
+    '/api/buzzer-stop': { success: true }
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -167,6 +181,7 @@ PAGES = {
     'api_reference': ('page_api_reference_asset.h', '', 'fragment'),
     'networks': ('page_networks_asset.cpp', NETWORKS_SEED, 'fragment'),
     'structures': ('page_structures_asset.cpp', STRUCTURES_SEED, 'fragment'),
+    'buzzer': ('page_buzzer_asset.h', BUZZER_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -180,6 +195,7 @@ FRAGMENT_TITLES = {
     'api_reference': '🔌 Referência de API',
     'networks': '🌐 Other Networks',
     'structures': '🏭 Amada Welding',
+    'buzzer': '🔔 Buzzer',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)
