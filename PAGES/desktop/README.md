@@ -3,12 +3,13 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); twenty-seven images captured** —
+> Status: **inventory raised (50 desktop pages); twenty-eight images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`, `rs232`), the Waveshare pack
 > (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`, `modbus_tcp`) and
-> the environment pack (`sensor_config`, `mq135_config`). Every other row is **pending**.
+> the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`). Every other row is
+> **pending** — 22 of them are blocked by the build/config on every live board, see §3.11.
 
 ---
 
@@ -115,18 +116,18 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | Monitor (data reception) | `/monitor` | `monitor.png` | **done** |
 | Serial monitor | `/serial-monitor` | `serial_monitor.png` | **done** |
 | Buffer viewer | `/buffer-viewer` | `buffer_viewer.png` | **done** |
-| Sensor charts | `/sensor-charts` | `sensor_charts.png` | pending |
+| Sensor charts | `/sensor-charts` | `sensor_charts.png` | **done** (captured on HomeE32 `.24` once the chart-session lockout cleared — `BACKLOG.md` SC-9) |
 
-> **Route serves, page currently unusable — `PAGES/BACKLOG.md` SC-9** (2026-11-17, HomeE32
-> `.24`): `GET /sensor-charts` is 200 and the page renders, but it needs one of **two chart
-> sessions**; with `charts_exempt_sessions` ON (the Access default) those sessions **never
-> expire**, so the two abandoned tabs from earlier captures still hold both slots →
-> `POST /api/sensor-charts-session` keeps answering `503 Max 2 concurrent chart viewers` and
-> the page immediately does `customAlert(...); location.href='/'`. **Re-tested later the same
-> day (28th capture attempt):** `POST /api/sensor-charts-session` → `503` again, the harness
-> reports **10/10** but on the *bounced* document — `location` came back as
-> `http://192.168.1.24/` and `render.title` as `HomeE32`, i.e. the Home page, so nothing was
-> written (see the §2 caveat). Re-capture after the fix (or after a reboot) with:
+> **History — the page was unusable for a while (`PAGES/BACKLOG.md` SC-9, still open)** (HomeE32
+> `.24`): `GET /sensor-charts` was 200 but the page needs one of **two chart sessions**; with
+> `charts_exempt_sessions` ON those sessions never expire, so abandoned captures held both slots
+> → `POST /api/sensor-charts-session` answered `503 Max 2 concurrent chart viewers` and the page
+> did `customAlert(...); location.href='/'` (Home). **Resolved for this capture:** after the
+> board rebooted (`reset_reason SOFTWARE`, uptime 152 s) both slots were free
+> (`POST → 200`, released → 204 twice) and the capture went through with `location` staying on
+> `/sensor-charts` and the title `Monitoring Charts`. **The underlying leak is not fixed** —
+> two headless captures re-wedged it immediately afterwards, so the re-capture command stays
+> here for the day the firmware releases dead slots:
 > `node desktop_shot.js --host <ip> --path /sensor-charts --wait 12000 --out ../../PAGES/desktop/sensor_charts.png`
 | Dual file | `/dualfile` | `dualfile.png` | pending |
 | Access (sessions/users) | `/access` | `access.png` | **done** |
@@ -161,6 +162,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | `mq135_config.png` | HomeE32 (`ENVIRONMENT`), `192.168.1.24` | `v1.120 - Nov 15 2026 16:08:35 WET`, ETag `v1.120 - Nov 15 2026 16:08:35 WET` | 1440 × 1690 · 172 508 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 1 211 chars / 4 controls rendered (Main Control with `📅 Last reading: 05:20:25 (17/11/2026)` + Sensor Stable, Calibration with R0 13008 Ω, ADC RAW 3524 / RS 7606.5 Ω / RS/R0 0.585, Detected Gases for the eight gases with the AQI scale (`Good (46)`), Output Options, Save Configuration) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**. **Not from `.29`:** the Waveshare pack has no MQ-135, so `/mq135-config` is 404 there; HomeE32 `.24` is the pack that serves it. Captured with `--click-text OK` (the page opens a *Configuration loaded* alert on load) and `--reload`, because on a **cold** browser the i18n pass lands after the config fetch and overwrites the timestamp element with its static text `No reading available` — the second render shows the real reading (`PAGES/BACKLOG.md` MQ-1). `--anon` ran (nothing to mask: gas ppm, offsets, R0/ADC values, no address).
 | `rs232.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 1431 · 131 209 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 1 156 chars / 7 controls rendered (Configuration and Advanced tabs, `Status: Active (19200 bps)`, Enable RS232, Baud 19200 / Data 8 / Parity None / Stop 1, Templates card with Save Template + Delete Selected, Save) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` masked 6 JSON keys (`wifi.ssid`, `wifi.password`, `smtp.username`, `smtp.password`, `email.destination`, `email.subject`) and the rendered text stayed clean. **This page is also the finding:** the build has `ENABLE_RS232 0` / `ENABLE_SNIFFER 0` (its own self-test manifest expects `PAGE("/rs232", (ENABLE_RS232 || ENABLE_SNIFFER))`), yet `/rs232` answers 200, reports **Active (19200 bps)** and `GET /api/rs232-status` + `GET /api/rs232-templates` are **404** — `PAGES/BACKLOG.md` RS232-8
 | `modbus_tcp.png` | Cam-P4 (`Cam-P4`), `192.168.1.18` | `v1.120 - Nov 15 2026 16:09:06 WET`, ETag `v1.120 - Nov 15 2026 16:09:06 WET` | 1440 × 1041 · 80 523 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 536 chars / 6 controls rendered (Live / RTU tabs, Global Configuration with the two global enables, the register-columns legend, TCP Devices with `+ Add TCP Device`, TCP Scan with the subnet/start/end/timeout fields, Save TCP) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` ran (nothing to mask — subnet/start/end IPs are the plain `192.168.1` scan defaults, no credential). **Only `.18` serves it:** `ENABLE_MODBUS_TCP 1` in `pack_cam_p4.h:117-118`, 404 on `.29`/`.24`/`.9`. **Two visible defects, both in the BACKLOG:** the scan description prints the broken attribute `data-i18n='mbScanSubnet'>` as text (MODBUS-6) and the page is still half Portuguese on an English build — subtitle, both global enables, the legend summary, `Subnet (ex: 192.168.1)` and `IP fim` (MODBUS-3)
+| `sensor_charts.png` | HomeE32 (`ENVIRONMENT`), `192.168.1.24` | `v1.120 - Nov 15 2026 16:08:35 WET`, ETag absent (dynamic page) | 1440 × 2185 · 337 067 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 4 115 chars / 27 controls rendered (REFRESH 5 min + G1/G2/G3 sensor selectors, Live/8h/6h/24h/Dec/Realtime strip, Realtime + CSV + PNG, `Updated at 17:31:53 · Data: 6 of 6 total (stride 1)`, the Temperature / Humidity / Atmospheric Pressure charts with MIN/MAX/AVG/CURRENT stats) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` ran (nothing to mask — indoor temperature/humidity/pressure only). `location` verified on `/sensor-charts` with the title `Monitoring Charts` (the harness `pass` alone is not enough here — see the §2 caveat and SC-9; a first attempt re-wedged the two chart sessions and had to be cleared by a reboot)
 | Ethernet | `/ethernet` | `ethernet.png` | **done** |
 | E-mail (SMTP) | `/email` | `email.png` | **done** |
 | Recipients | `/recipients` | `recipients.png` | **done** |
@@ -279,6 +281,47 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | `/cam/snapshot`, `/cam/stream`, `/cam/raw`, `/cam/playback`, `/cam/motion/diff` | binary JPEG/MJPEG streams, not pages |
 | `/healthz`, `/favicon.ico` | non-page endpoints |
 
+### 3.11 Blocked routes — smoke matrix
+
+The 22 rows still **pending** have no live page to capture. Each was probed **once** on all
+four live boards (`.29` Waveshare, `.24` HomeE32, `.18` Cam-P4, `.9` Cam-M1) with
+
+```bash
+for ip in 192.168.1.29 192.168.1.24 192.168.1.18 192.168.1.9; do
+  curl -s -o /dev/null -w "$ip %{http_code}\n" -u admin:admin -m 6 http://$ip<route>
+done
+```
+
+and the answer plus the compile-time reason is recorded below, so the next attempt starts from
+the cause instead of re-probing. **They will not change until a board with that pack is online**
+(GcodeSender-S3, P4-CNC, P4 USB-server, Rambox, Harmonica, Touch7) or a flag is deliberately
+turned on for a capture — which is a firmware change and out of scope for this folder.
+
+| Route | Image | Answer (.29/.24/.18/.9) | Why there is no page |
+|---|---|---|---|
+| `/dualfile` | `dualfile.png` | 404 ×4 | `ENABLE_DUALFILE` — only `pack_p4_usb_server.h:68` sets 1 |
+| `/api-reference` | `api_reference.png` | 404 ×4 | `ENABLE_API_REFERENCE_PAGE 0` (`user_config.h:285` and every pack) |
+| `/networks` | `networks.png` | 404 ×4 | `ENABLE_TELNET 0` (`user_config.h:291` and every pack) |
+| `/google-script` | `google_script.png` | 404 ×4 | `ENABLE_PAGE_GOOGLE_SCRIPT` never defined (commented out) |
+| `/structures` | `structures.png` | 404 ×4 | `ENABLE_STRUCTURES_PAGE 0` — only `pack_rs232.h:77-78` sets 1 |
+| `/buzzer` | `buzzer.png` | 404 ×4 | `ENABLE_BUZZER` undefined (…`:367-368`) / forced 0 in `pack_waveshare.h:74-75` |
+| `/grbl-controller` | `grbl_controller.png` | 404 ×4 | `ENABLE_GRBL` — only `pack_p4_cnc.h:73` and `pack_s3_cnc_usb.h:44` |
+| `/rambox` | `rambox.png` | 404 ×4 | Rambox pack — that board is offline |
+| `/lpt-db25` | `lpt_db25.png` | 404 ×4 | `ENABLE_DB25 0` (`user_config.h:423`) |
+| `/modbus-rtu` | `modbus_rtu.png` | 404 ×4 | `ENABLE_MODBUS_RTU 0` everywhere (e.g. `pack_cam_p4.h:115-116`) |
+| `/modbus-live` | `modbus_live.png` | **302 → `/`** on `.18`, 404 ×3 | page guard: Modbus not active in config (`web_routes_modbus.cpp:254-262`) |
+| `/can` | `can.png` | 404 ×4 | `ENABLE_CAN 0` in every pack |
+| `/hx711` | `hx711.png` | 404 ×4 | `ENABLE_HX711 0` in every pack |
+| `/ina226` | `ina226.png` | 404 ×4 | `ENABLE_INA226 0` in every pack |
+| `/sound` | `sound.png` | 404 ×4 | `ENABLE_SOUND_SENSOR 0` in every pack |
+| `/max31865` | `max31865.png` | 404 ×4 | `ENABLE_MAX31865 0` in every pack |
+| `/radio-ui` | `radio_ui.png` | 404 ×4 | `ENABLE_UDA1334A` — only `pack_radio.h:127` sets 1 |
+| `/uda1334a` | `uda1334a.png` | 404 ×4 | same flag as `/radio-ui` (`page_audio` family) |
+| `/falas` | `falas.png` | 404 ×4 | Touch7 pack (`web_routes_touch7.cpp`) — that board is offline |
+| `/ecra` | `ecra.png` | 404 ×4 | same Touch7 pack |
+| `/ipg-laser` | `ipg_laser.png` | 404 ×4 | `ENABLE_IPG_LASER 0` in every pack |
+| `/usb-server` | `usb_server.png` | 404 ×4 | `ENABLE_USBIP_SERVER` — only `pack_p4_usb_server.h:30` sets 1 |
+
 ## 4. Capture log (proof per image)
 
 | Image | Board / pack | Firmware · ETag | Viewport · size | Verified |
@@ -329,6 +372,7 @@ node desktop_shot.js --host 192.168.1.24 --path /sensor-config --anon --click-te
 node desktop_shot.js --host 192.168.1.24 --path /mq135-config --anon --reload --click-text OK --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /rs232 --anon --verify-only
 node desktop_shot.js --host 192.168.1.18 --path /modbus-tcp --anon --verify-only
+node desktop_shot.js --host 192.168.1.24 --path /sensor-charts --anon --wait 12000 --verify-only
 ```
 
 ## 5. Adding an image (checklist)
