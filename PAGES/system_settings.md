@@ -4,6 +4,11 @@
 > name, mDNS, language, timezone/NTP. It posts to `/api/config` with
 > `section=system` and is persisted in `/config/system.json`.
 
+> Screenshot: `desktop/printer.png` (1440 × 940, live Waveshare 8DI8DO board — System Name
+> `Equip15` with the mDNS link, Language, NTP / Time Zone and Save; `/printer` serves this
+> settings form, so the route-based image name is `printer.png`). Index and proof in
+> `desktop/README.md`).
+
 ## 1. Objective
 
 Device-level settings central to the hub identity and scheduling, editable from

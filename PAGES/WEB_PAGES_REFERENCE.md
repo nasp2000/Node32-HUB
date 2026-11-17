@@ -72,7 +72,7 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/ftp` | FTP upload client + test + last-sends history (persisted `/config/ftp_status.json`, loaded once on page open) | static | manual | B | no | `ENABLE_FTP_CLIENT` + `ENABLE_PAGE_FTP` |
 | `/structures` | Custom fixtures page | static | manual | B | no | `ENABLE_STRUCTURES_PAGE` |
 | `/rs232` · `/lpt-db25` | RS232/LPT-DB25 config + pins; always shows the values **in force** (live runtime values, so a Rambox clock profile appears here) and stays editable — `active_module` / `active_module_manual` from `GET /api/config?section=rs232` | static | manual | B | no | `ENABLE_RS232` / `ENABLE_DB25` |
-| `/printer` · `/buzzer` · `/do` | Printer / buzzer test / outputs | static | manual | B | no | — / `ENABLE_BUZZER` / `BOARD_HAS_TCA9554_DO` |
+| `/printer` · `/buzzer` · `/do` | **System Settings** (name/mDNS/language/NTP — not a printer form) / buzzer test / digital outputs | static | manual | B | no | — / `ENABLE_BUZZER` / `BOARD_HAS_TCA9554_DO` |
 | `/sdcard` · `/files` | Storage config (SD/Flash/PSRAM) / browser, default+selector order SD → LittleFS → PSRAM | static | manual (estado imediato no load: `/api/sd-status` + `/api/sdcard-config`, ambos <20 ms) | B (+V files) | no | `ENABLE_PAGE_SDCARD` / `ENABLE_PAGE_FILES` + `ENABLE_SDCARD` |
 | `/mq135-config` · `/hx711` · `/ina226` · `/sound` · `/max31865` | Sensor measure + calibration | static | manual POST | B | no | sensor flags |
 | `/sensor-config` | Sensor channel/caps config | static | manual POST | B | no | `ENABLE_SENSOR_CONFIG_PAGE` |
