@@ -9,6 +9,12 @@
 > that has it; 10 empty slots, Save All + Add Command). The hint line under the Information
 > card is still hardcoded PT, `BACKLOG.md` CMD-9. Index and proof in `desktop/README.md`).
 
+> Screenshot (date & time): `desktop/commands_datetime.png` (1440 × 1054, live Waveshare
+> 8DI8DO board `.29` — Daily Restart with the two fixed `SYS: REBOOT` lines and three
+> Scheduled Commands slots). Same PT hint (CMD-9) and the Type column renders **blank**
+> because slot 1 stores `type:"rs232"` and this build has no RS232 option — a save would
+> silently rewrite it to `system`, `BACKLOG.md` CMD-10.
+
 ---
 
 ## 1. Objective
