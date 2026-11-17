@@ -45,3 +45,34 @@ void diagTraceDumpToLog();
 // /api/status as `diag_trace_prev` so a crash can be read over HTTP even if the
 // SD log is unreachable.
 const char* diagTracePreviousText();
+
+// ---------------------------------------------------------------------------
+// Stage + progress snapshot: one record, overwritten in place, also in RTC RAM.
+// The ring above answers "which phase"; this answers "how far inside it" — the
+// question a TASK_WDT leaves unanswered (it reports the task that did NOT run,
+// IDLE0, so the core dump is useless). A transfer that dies at 94 % of the bytes
+// is a different bug from one that dies at 0.
+// ---------------------------------------------------------------------------
+void diagStage(uint8_t stage, uint32_t a, uint32_t b);
+
+// Previous run's stage line ("" when the previous run never set one), served by
+// /api/status as `diag_stage_prev`.
+const char* diagStagePreviousText();
+
+// ---------------------------------------------------------------------------
+// CPU-hog sampler ("who starved IDLE0?").
+//
+// CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS is on, so every task carries a runtime
+// counter. While armed, a priority-20 task samples the table every 250 ms and
+// records into RTC RAM the task that consumed >=80 % of the interval — the one
+// that keeps IDLE0 from running and makes the watchdog blame IDLE0 instead of
+// the culprit. Priority 20 preempts the web task (10) and the FTP monitor (1),
+// i.e. it still runs while they spin.
+//
+// Armed only around an FTP cycle (cost is a table walk twice a second).
+// ---------------------------------------------------------------------------
+void diagHogArm(bool on);
+
+// Previous run's hog line ("" when nothing was recorded), served by
+// /api/status as `diag_hog_prev`.
+const char* diagHogPreviousText();

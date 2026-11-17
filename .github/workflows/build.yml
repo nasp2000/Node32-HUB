@@ -162,12 +162,15 @@ jobs:
         working-directory: chatgpt
         env:
           DIST_THIRD_PARTY: "0"
+          EXPORT_ELF_MAP: "1"   # keep firmware.elf: a TASK_WDT crash is only decodable with it
         run: python rename_firmware.py --copy --env ${{ matrix.env }} --pack ${{ matrix.pack }}
       - name: Upload firmware artifacts
         if: env.MATRIX_ENV == '' || env.MATRIX_ENV == matrix.env
         uses: actions/upload-artifact@v7
         with:
           name: firmware-${{ matrix.env }}-${{ matrix.pack }}
-          path: chatgpt/build/**/*.bin
+          path: |
+            chatgpt/build/**/*.bin
+            chatgpt/build/**/*.elf
           if-no-files-found: warn
           retention-days: 7

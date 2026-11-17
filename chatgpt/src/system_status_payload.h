@@ -138,6 +138,8 @@ inline void fillSystemStatusJson(JsonDocument& out, SystemStatusPayloadState& st
     out["min_free_heap"] = ESP.getMinFreeHeap();
     out["memory_pressure_level"] = memoryPressureLevelName(memoryPressureCurrentLevel());
     out["diag_trace_prev"] = diagTracePreviousText();   // RTC breadcrumbs of the previous run
+    out["diag_stage_prev"] = diagStagePreviousText();   // ...and how far inside the last phase it got
+    out["diag_hog_prev"] = diagHogPreviousText();       // ...and which task was stealing IDLE0's CPU
     out["memory_pressure_code"] = (int)memoryPressureCurrentLevel();
     out["memory_pressure_retry_ms"] = (uint32_t)memoryPressureSuggestedRetryMs();
     out["memory_pressure_since_ms"] = (uint32_t)gMemoryPressureState.levelSinceMs;

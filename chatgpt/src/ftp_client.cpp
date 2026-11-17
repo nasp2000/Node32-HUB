@@ -14,6 +14,9 @@
 #include "littlefs_manager.h"
 #include "diag_trace.h"     // RTC-RAM breadcrumbs (survive a WDT reset)
 #include <WiFiClient.h>
+#include <esp_task_wdt.h>   // feed IDLE0's watchdog during long transfers (see ftpWdtFeed)
+#include <lwip/sockets.h>   // bounded, non-blocking data-socket writes (see ftpWriteBounded)
+#include <errno.h>
 #if ENABLE_SDCARD==1
 #include <SD_MMC.h>
 #endif
@@ -305,6 +308,61 @@ static void ftpLock() {
 }
 static void ftpUnlock() { if (s_mutex) xSemaphoreGive(s_mutex); }
 
+// IDLE0's watchdog (CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0, 5 s, PANIC) fires
+// when nothing lets the idle task run for 5 s — and the .9 upload did exactly
+// that: ftpStoreStream on the web task, CRASH_TASK_WDT Task=IDLE0, six times on
+// 2026-11-15/16. Note esp_task_wdt_reset() only counts for a task that is
+// subscribed to the TWDT (IDF >= 5), so feeding from an unsubscribed task is a
+// no-op: the transfer therefore SUBSCRIBES the calling task for its duration
+// (FtpWdtGuard) and resets on every unit of progress. That keeps the watchdog
+// meaningful — a chunk or a socket write that really hangs still trips it —
+// while a slow-but-moving transfer no longer blames IDLE0.
+static inline void ftpWdtFeed() { esp_task_wdt_reset(); }
+
+// Subscribe the caller for one transfer, unhook on every exit path.
+struct FtpWdtGuard {
+    bool owned;
+    FtpWdtGuard() : owned(esp_task_wdt_add(NULL) == ESP_OK) {}
+    ~FtpWdtGuard() { if (owned) esp_task_wdt_delete(NULL); }
+    FtpWdtGuard(const FtpWdtGuard&) = delete;
+    FtpWdtGuard& operator=(const FtpWdtGuard&) = delete;
+};
+
+// Bounded, non-blocking write to the FTP data socket.
+//
+// NetworkClient::write() is not usable for a slow peer: each attempt does a
+// select() with a ONE-SECOND timeout (WIFI_CLIENT_SELECT_TIMEOUT_US) and up to
+// 10 retries, i.e. one call can occupy the caller for 10 s, and on a "writable
+// but EAGAIN" socket it re-selects immediately. Either way the .9 crossed the
+// 5 s watchdog inside a single write. Here every wait is 100 ms, every wait
+// yields, and the total is bounded, so the caller always regains control and
+// can feed the watchdog. Returns bytes written, or -1 on a hard error/timeout.
+static int ftpWriteBounded(int fd, const uint8_t* buf, size_t len, uint32_t budgetMs) {
+    if (fd < 0 || !buf || !len) return -1;
+    unsigned long t0 = millis();
+    size_t done = 0;
+    while (done < len) {
+        ssize_t n = lwip_send(fd, buf + done, len - done, MSG_DONTWAIT);
+        if (n > 0) { done += (size_t)n; continue; }
+        if (n == 0) { vTaskDelay(pdMS_TO_TICKS(2)); }
+        else if (errno != EAGAIN && errno != EWOULDBLOCK) return -1;
+        else {
+            fd_set set;
+            FD_ZERO(&set);
+            FD_SET(fd, &set);
+            struct timeval tv;
+            tv.tv_sec = 0;
+            tv.tv_usec = 100000;      // 100 ms, never the 1 s of NetworkClient
+            int r = select(fd + 1, nullptr, &set, nullptr, &tv);
+            if (r < 0) return -1;
+        }
+        if ((millis() - t0) > budgetMs) return -1;
+        ftpWdtFeed();
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+    return (int)done;
+}
+
 static bool readRespLine(WiFiClient& c, char* out, size_t outSize, uint32_t timeoutMs) {
     size_t n = 0;
     unsigned long t0 = millis();
@@ -315,6 +373,7 @@ static bool readRespLine(WiFiClient& c, char* out, size_t outSize, uint32_t time
             if (ch != '\r') out[n++] = ch;
         }
         if (!c.connected()) { out[n] = 0; return n > 0; }
+        ftpWdtFeed();   // waits are up to 15 s after a transfer: keep IDLE0's watchdog fed
         vTaskDelay(pdMS_TO_TICKS(10));
     }
     out[n] = 0;
@@ -495,12 +554,16 @@ static bool ftpStoreStream(WiFiClient& ctl, size_t totalLen, const String& remot
                            char* resp, size_t rs, String& detail, size_t& sentBytes,
                            FtpChunkReader reader, void* ctx) {
     diagTraceMark("ftp:stream");
+    FtpWdtGuard wdt;   // this task answers for its own liveness while streaming
+    (void)wdt;
     ctl.print("TYPE I\r\n");
     if (!readRespLine(ctl, resp, rs, 8000) || !ftpReplyIs(resp, 200)) { detail = String("TYPE failed: ") + resp; return false; }
+    diagStage(1, 0, 0);                     // 1 = TYPE I accepted
     ctl.print("PASV\r\n");
     if (!readRespLine(ctl, resp, rs, 8000) || !ftpReplyIs(resp, 227)) { detail = String("PASV failed: ") + resp; return false; }
     char ip[24]; uint16_t port = 0;
     if (!ftpParsePasvResponse(resp, ip, sizeof(ip), &port)) { detail = String("PASV parse failed: ") + resp; return false; }
+    diagStage(2, (uint32_t)port, 0);        // 2 = data address known
     WiFiClient ds;
     // MUST stay below the 5 s TASK_WDT: a single blocking call (connect() or a
     // select() inside write()) with the old 8000 ms timeout starved IDLE0 and
@@ -508,10 +571,12 @@ static bool ftpStoreStream(WiFiClient& ctl, size_t totalLen, const String& remot
     // attempt still covers a slow LAN, and the caller retries.
     ds.setTimeout(2500);
     if (!ds.connect(ip, port)) { detail = String("data connect failed: ") + ip; vTaskDelay(pdMS_TO_TICKS(10)); return false; }
+    diagStage(3, (uint32_t)port, 0);        // 3 = data socket connected
     ctl.print(String("STOR ") + remotePath + "\r\n");
     if (!readRespLine(ctl, resp, rs, 10000) || (!ftpReplyIs(resp, 150) && !ftpReplyIs(resp, 125))) {
         detail = String("STOR rejected: ") + resp; ds.stop(); return false;
     }
+    diagStage(4, (uint32_t)totalLen, 0);    // 4 = server accepted STOR (150/125)
     // DMA-safe bounce buffer (internal RAM only) with graceful shrink fallback.
     size_t chunkCap = FTP_STREAM_CHUNK;
     uint8_t* chunk = (uint8_t*)heap_caps_malloc(chunkCap, MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
@@ -520,37 +585,46 @@ static bool ftpStoreStream(WiFiClient& ctl, size_t totalLen, const String& remot
     if (!chunk) { detail = "no internal RAM for stream buffer"; ds.stop(); return false; }
     size_t off = 0;
     bool ok = true;
+    uint32_t chunks = 0;
+    uint32_t halfMarked = 0;
     while (off < totalLen) {
+        ftpWdtFeed();
+        diagStage(5, (uint32_t)off, chunks);    // 5 = streaming, a = bytes read, b = chunks
         size_t got = reader(ctx, chunk, chunkCap);
         if (!got) { detail = "source read failed (file changed mid-upload?)"; ok = false; break; }
+        // One bounded write per segment: never NetworkClient::write (10 s worst case).
+        int fd = ds.fd();
+        if (fd < 0) { detail = "data socket closed"; ok = false; break; }
         size_t woff = 0;
-        int stalled = 0;
         while (woff < got) {
             size_t n = got - woff;
             if (n > 1460) n = 1460;
-            size_t w = ds.write(chunk + woff, n);
-            if (w == 0) {
+            int w = ftpWriteBounded(fd, chunk + woff, n, 4000);
+            if (w <= 0) {
                 // Socket buffer full on a slow link / busy peer. Failing here
-                // used to abort the file, and a task retrying in this loop is
-                // above IDLE0: the 2026-11-15 .9 reboot (TASK_WDT, Task=IDLE0)
-                // happened while a 1.1 MB .avi was being pushed. Wait a tick
-                // (bounded) so the network drains AND the idle task runs.
-                if (++stalled > 150) { detail = "data write stalled"; ok = false; break; }
-                vTaskDelay(pdMS_TO_TICKS(2));
-                continue;
+                // used to abort the file; spinning here starves IDLE0. Wait a
+                // tick (bounded) so the network drains AND the idle task runs.
+                diagStage(7, (uint32_t)off, (uint32_t)errno);   // 7 = write failed
+                detail = String("data write failed (") + String((unsigned)off) + "B in)";
+                ok = false;
+                break;
             }
-            stalled = 0;
-            woff += w;
+            woff += (size_t)w;
         }
         if (!ok) break;
         off += got;
+        chunks++;
+        if (!halfMarked && off * 2 >= totalLen) { halfMarked = 1; diagTraceMark("ftp:50%"); }
         // Long transfers must not starve the idle task (TASK_WDT watches IDLE0).
+        ftpWdtFeed();
         vTaskDelay(pdMS_TO_TICKS(1));
     }
     heap_caps_free(chunk);
     if (!ok) { ds.stop(); return false; }
     ds.stop();
+    diagStage(6, (uint32_t)off, chunks);    // 6 = stream done, waiting for 226
     if (!readRespLine(ctl, resp, rs, 15000) || !ftpReplyIs(resp, 226)) { detail = String("STOR incomplete: ") + resp; return false; }
+    diagStage(9, (uint32_t)totalLen, chunks);   // 9 = stored + 226 acknowledged
     sentBytes = totalLen;
     return true;
 }
@@ -1089,6 +1163,13 @@ static int ftpRunCycle(String& detail) {
     if (!configManager.getFtpEnabled() || !ftpIsAvailable()) { detail = "disabled/incomplete"; return 0; }
     diagTraceMark("ftp:cycle");
     ftpLock(); if (s_status.busy) { ftpUnlock(); detail = "busy"; return 0; } s_status.busy = true; ftpUnlock();
+    // Sample CPU ownership for the duration of the cycle (diag_trace): if the
+    // board dies with TASK_WDT the next boot names the task that took IDLE0's
+    // CPU, which the core dump cannot (it saves IDLE0's frames).
+    struct HogArm {
+        HogArm() { diagHogArm(true); }
+        ~HogArm() { diagHogArm(false); }
+    } hogArm;
     String localRef = configManager.getFtpLocalDir();
     String filter = configManager.getFtpFilter();
     bool onlyNew = configManager.getFtpOnlyNew();
