@@ -4,6 +4,11 @@
 > every button/input, client logic, API endpoints, persistence and the
 > firmware-side TCA9554 relay engine. Written for both humans and AI agents.
 
+> Screenshot: `desktop/do.png` (1440 × 1208, live Waveshare 8DI8DO board — Output Control with
+> All ON/All OFF and the eight relay cards (all OFF), Output Configuration with the eight
+> name/invert rows and Save Config; captured with the harness `--anon`, which had nothing to
+> mask here). Index and proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective
