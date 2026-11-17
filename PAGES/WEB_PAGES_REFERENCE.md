@@ -48,7 +48,7 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/cam/snapshot` · `/cam/stream` · `/cam/raw` · `/cam/playback` · `/cam/motion/diff` | JPEG/MJPEG/raw/motion/playback streams | stream | on demand / long-lived; raw +10 s status watchdog (CAM-63) | B | **A** (~) | `ENABLE_CAMERA` |
 | `/proximity` | Proximity config + OEE shift/day | local | 2 s | B | **A** | `ENABLE_PROXIMITY` |
 | `/proximity-dashboard` | OEE dashboard, donuts + shift table + 10-min stop strip | local | 2 s + 3 s hist + 2 min stops | B | **A** | `ENABLE_PROXIMITY` |
-| `/modbus-rtu` · `/modbus-tcp` · `/modbus-live` | Modbus scan/monitor/live-viewer | local | 800 ms / 3–5 s | B | **A** | `ENABLE_MODBUS` (+RTU/TCP) — per-page flags `ENABLE_MODBUS_RTU` / `ENABLE_MODBUS_TCP`; only Cam-P4 (`.18`) has TCP on among the live boards, so `/modbus-rtu` and `/modbus-live` are 404 there |
+| `/modbus-rtu` · `/modbus-tcp` · `/modbus-live` | Modbus scan/monitor/live-viewer | local | 800 ms / 3–5 s | B | **A** | `ENABLE_MODBUS` (+RTU/TCP) — per-page flags `ENABLE_MODBUS_RTU` / `ENABLE_MODBUS_TCP`; only Cam-P4 (`.18`) has TCP on among the live boards, so `/modbus-rtu` is 404 there and **`/modbus-live` answers 302 → `/`** until Modbus is active in config (`web_routes_modbus.cpp:254-262`) |
 | `/can` | CAN bus monitor/trace | local | 2 s + 1 s frames | B | **A** | `ENABLE_CAN` |
 | `/radio-ui` | Radio/audio player | hybrid | setInterval | B | **A** | `ENABLE_UDA1334A` |
 | `/uda1334a` | Audio DAC/PCM test | static | manual | B | no | `ENABLE_UDA1334A` |

@@ -97,6 +97,13 @@ It prints a JSON report and exits `1` unless all of these pass:
 Legend: **pending** = image not taken yet · **done** = image present here.
 Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 
+**Caveat — `pass` is about the document that ends up loaded.** A page that redirects itself
+(`location.href='/'`) still yields `pass: true` with 10/10, because the checks run on whatever
+document the tab is showing. Always read `location` and `render.title` in the JSON before
+keeping a PNG: on `/sensor-charts` (chart-session lockout, `SC-9`) the run reported 10/10 while
+the tab was on Home. If `location` is not the requested path, the capture is void.
+
+
 ### 3.1 Common block (served by every pack)
 
 | Page | Route | Image | Status |
@@ -115,8 +122,11 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 > sessions**; with `charts_exempt_sessions` ON (the Access default) those sessions **never
 > expire**, so the two abandoned tabs from earlier captures still hold both slots →
 > `POST /api/sensor-charts-session` keeps answering `503 Max 2 concurrent chart viewers` and
-> the page immediately does `customAlert(...); location.href='/'`. Re-capture after the fix
-> (or after a reboot) with:
+> the page immediately does `customAlert(...); location.href='/'`. **Re-tested later the same
+> day (28th capture attempt):** `POST /api/sensor-charts-session` → `503` again, the harness
+> reports **10/10** but on the *bounced* document — `location` came back as
+> `http://192.168.1.24/` and `render.title` as `HomeE32`, i.e. the Home page, so nothing was
+> written (see the §2 caveat). Re-capture after the fix (or after a reboot) with:
 > `node desktop_shot.js --host <ip> --path /sensor-charts --wait 12000 --out ../../PAGES/desktop/sensor_charts.png`
 | Dual file | `/dualfile` | `dualfile.png` | pending |
 | Access (sessions/users) | `/access` | `access.png` | **done** |
@@ -225,6 +235,12 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | Modbus RTU | `/modbus-rtu` | `modbus_rtu.png` | pending |
 | Modbus TCP | `/modbus-tcp` | `modbus_tcp.png` | **done** (captured on **Cam-P4** `.18`, the only live board with `ENABLE_MODBUS_TCP 1`) |
 | Modbus live data | `/modbus-live` | `modbus_live.png` | pending |
+
+> **Hidden by its own guard, not by a build flag** (2026-11-17): `/modbus-live` answers **302 →
+> `/`** on Cam-P4 `.18`, the only live board with `ENABLE_MODBUS_TCP 1` (`web_routes_modbus.cpp:254-262`
+> redirects when `modbus.enabled` is false or neither `rtu_enabled`/`tcp_enabled` is set — on that
+> board Modbus is not active, so the page hides itself). 404 on `.29`, `.24`, `.9`. Re-capture on
+> a board whose Modbus config is active, reviving this page is a config write (out of scope here).
 | CAN bus | `/can` | `can.png` | pending |
 
 ### 3.7 Sensors (HomeE32)
