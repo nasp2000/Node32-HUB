@@ -2,6 +2,12 @@
 
 > One-stop reference for the **Ambient Sensor (AHT20/BMP280) config page**: purpose, layout, every input/button, client logic, API endpoints, LittleFS persistence and the firmware-side `SensorConfigManager` engine. Written for both humans and AI agents.
 
+> Screenshot: `desktop/sensor_config.png` (1440 × 1649, live **HomeE32** board `.24` — Main
+> Control with the last reading and buffer, the Sensor Readings table (AHT20/BMP280, humidity,
+> pressure, dew point, heat index, altitude…), Output Options, Statistics 24h and Save). The
+> page opens a *Configuration loaded* alert on load, dismissed with the harness `--click-text OK`.
+> Index and proof in `desktop/README.md`).
+
 ---
 
 ## 1. Objective

@@ -3,12 +3,12 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); twenty-three images captured** —
+> Status: **inventory raised (50 desktop pages); twenty-four images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`), the Waveshare pack
-> (`proximity`, `proximity_dashboard`) and the camera pack (`camera`, `hub`). Every other
-> row is **pending**.
+> (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`) and the
+> environment pack (`sensor_config`). Every other row is **pending**.
 
 ---
 
@@ -54,7 +54,10 @@ arrives, e.g. `/access`), `--localstorage "k=v; k2=v2"` (seed **client-side** vi
 the load, e.g. `prox_visCh=3` / `prox_dash_opts={"title":"ch"}` — nothing is written to the
 board; the keys used are printed as `localstorage`), `--click "selector"` (clicks one element
 once before the screenshot — client-side only, for pages whose default tab is not the
-interesting one, e.g. `/recipients` → Rules; the result is printed as `click`), `--allow-empty "reason"` (accept a page
+interesting one, e.g. `/recipients` → Rules; the result is printed as `click`),
+`--click-text "OK"` (clicks the button whose visible label matches, e.g. dismiss the
+`customAlert` a page opens on load — `/sensor-config` shows "Configuration loaded"; printed as
+`click_text`), `--allow-empty "reason"` (accept a page
 that is genuinely an empty state — the reason is printed as `allow_empty` and must be spelled
 out in §4; a blank or half-rendered page still fails), `--anon` (neutralise
 operator-identifying values, see below).
@@ -106,10 +109,24 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | Serial monitor | `/serial-monitor` | `serial_monitor.png` | **done** |
 | Buffer viewer | `/buffer-viewer` | `buffer_viewer.png` | **done** |
 | Sensor charts | `/sensor-charts` | `sensor_charts.png` | pending |
+
+> **Route serves, page currently unusable — `PAGES/BACKLOG.md` SC-9** (2026-11-17, HomeE32
+> `.24`): `GET /sensor-charts` is 200 and the page renders, but it needs one of **two chart
+> sessions**; with `charts_exempt_sessions` ON (the Access default) those sessions **never
+> expire**, so the two abandoned tabs from earlier captures still hold both slots →
+> `POST /api/sensor-charts-session` keeps answering `503 Max 2 concurrent chart viewers` and
+> the page immediately does `customAlert(...); location.href='/'`. Re-capture after the fix
+> (or after a reboot) with:
+> `node desktop_shot.js --host <ip> --path /sensor-charts --wait 12000 --out ../../PAGES/desktop/sensor_charts.png`
 | Dual file | `/dualfile` | `dualfile.png` | pending |
 | Access (sessions/users) | `/access` | `access.png` | **done** |
 | OTA | `/ota` | `ota.png` | **done** |
 | API reference | `/api-reference` | `api_reference.png` | pending |
+
+> **Blocked on the build, not on the harness** (2026-11-17): `GET /api-reference` answers **404**
+> on all four reachable boards (`.29`, `.24`, `.18`, `.9`). `user_config.h:285` sets
+> `ENABLE_API_REFERENCE_PAGE 0` and every pack keeps it 0 (the page is compiled out to save
+> flash). The sensor/charts section was attempted next — see the note under **Sensor charts**.
 | Networks overview | `/networks` | `networks.png` | pending |
 | Wi-Fi | `/wifi` | `wifi.png` | **done** |
 | `ethernet.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag `v1.120 - Nov 15 2026 19:16:43 WET` | 1440 × 1405 · 101 491 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 666 chars / 5 buttons rendered (Current Status, Configuration form, WiFi Runtime with Disable/Enable) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` masked 10 JSON keys + 5 DOM values (ethernet `mac`/`mac_override`, WiFi runtime `ssid`/`ip`, the form's MAC/placeholder hints). `--wait 20000` used because the WiFi Runtime line needs the runtime-status fetch (`Fetching WiFi status…` at 8 s). **No W5500 on this board**: the card honestly reads `IP: 0.0.0.0 | Mode: DHCP` (the unset address is deliberately **not** masked) — `PAGES/BACKLOG.md` ETH-5 |
@@ -121,6 +138,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 | `commands_datetime.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag absent | 1440 × 1054 · 115 086 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 958 chars / 12 controls rendered (Daily Restart card with the two fixed `SYS: REBOOT` lines, Scheduled Commands with 3 slot rows, Save All + Add Command) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` ran (no addresses on this page). **Two gaps visible, both in the BACKLOG:** the hint line is still hardcoded PT (CMD-9) and the Type column renders **blank** because slot 1 stores `type:"rs232"` while this Waveshare build has no RS232 option — the select ends with `selectedIndex -1`, and any save falls back to `system`, silently rewriting the slot (CMD-10)
 | `printer.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag absent | 1440 × 940 · 80 308 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 791 chars / 3 buttons rendered (System Name + mDNS, Language, NTP / Time Zone, Save) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` ran (nothing to mask — the page shows the machine name `Equip15`, a language and a timezone, no address or credential). NB: `/printer` renders the **System Settings** form (name/mDNS/language/NTP), not a printer emulation form — the inventory keeps the route-based name `printer.png`
 | `do.png` | Waveshare 8DI8DO (`Node32-OEE`), `192.168.1.29` | `v1.120 - Nov 15 2026 19:16:43 WET`, ETag absent | 1440 × 1208 · 63 022 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 454 chars / 12 buttons rendered (Output Control with All ON/All OFF + 8 relay cards, Output Configuration with 8 name/invert rows, Save Config) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**; `--anon` ran (nothing to mask — relay states, names and the `/config/do.json` hint). Measured: the configuration table (1322 px) fits its panel (1362 px) at 1440, so nothing is clipped. Output states are re-read on load, so a re-capture is not byte-identical (same frame, 1440 × 1208)
+| `sensor_config.png` | HomeE32 (`ENVIRONMENT`), `192.168.1.24` | `v1.120 - Nov 15 2026 16:08:35 WET`, ETag `v1.120 - Nov 15 2026 16:08:35 WET` | 1440 × 1649 · 155 450 B | HTTP 200 + English UI (`/api/lang` `en`) + 0 unresolved tokens + `/core.css` 200 + `/auto.js?v=1.120` 200 + 1 122 chars / 4 controls rendered (Main Control, Sensor Readings table, Output Options, Statistics 24h, Save Configuration) + no broken images + overlay hidden + PNG 1440 wide → **11/11 checks pass**. **Not from `.29`:** the Waveshare pack has no AHT20/BMP280, so `/sensor-config` is 404 there; HomeE32 `.24` is the pack that serves it. Captured with `--click-text OK` because the page opens a *Configuration loaded* alert on load (without it the modal covers the page) and `--anon` (nothing to mask)
 | Ethernet | `/ethernet` | `ethernet.png` | **done** |
 | E-mail (SMTP) | `/email` | `email.png` | **done** |
 | Recipients | `/recipients` | `recipients.png` | **done** |
@@ -201,7 +219,7 @@ Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
 
 | Page | Route | Image | Status |
 |---|---|---|---|
-| Sensor channels/caps | `/sensor-config` | `sensor_config.png` | pending |
+| Sensor channels/caps | `/sensor-config` | `sensor_config.png` | **done** |
 | Air quality MQ135 | `/mq135-config` | `mq135_config.png` | pending |
 | Weight HX711 | `/hx711` | `hx711.png` | pending |
 | Current/power INA226 | `/ina226` | `ina226.png` | pending |
@@ -279,6 +297,7 @@ node desktop_shot.js --host 192.168.1.24 --path /commands --anon --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /commands-by-datetime --anon --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /printer --anon --verify-only
 node desktop_shot.js --host 192.168.1.29 --path /do --anon --verify-only
+node desktop_shot.js --host 192.168.1.24 --path /sensor-config --anon --click-text OK --verify-only
 ```
 
 ## 5. Adding an image (checklist)

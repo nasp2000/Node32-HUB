@@ -33,9 +33,10 @@ const WAIT = parseInt(arg('wait', '8000'), 10);
 const RELOAD = !!arg('reload', false);
 const LS = arg('localstorage', null);
 const ALLOW_EMPTY = arg('allow-empty', null);
-const CLICK = arg('click', null);   // CSS selector clicked once before the screenshot (client-side only)  // reason string: page is legitimately empty (never hides a broken render)   // "key=value; key2=value2" – client-side view prefs only
+const CLICK = arg('click', null);   // CSS selector clicked once before the screenshot (client-side only)
+const CLICK_TEXT = arg('click-text', null);  // button whose visible text matches, clicked once (e.g. dismiss an "OK" alert)  // reason string: page is legitimately empty (never hides a broken render)   // "key=value; key2=value2" – client-side view prefs only
 if (!HOST) {
-  console.error('usage: node desktop_shot.js --host <ip> [--path /] [--out file.png] [--auth u:p] [--verify-only] [--anon] [--wait ms] [--reload] [--localstorage "k=v;k2=v2"] [--allow-empty "reason"] [--click "selector"]');
+  console.error('usage: node desktop_shot.js --host <ip> [--path /] [--out file.png] [--auth u:p] [--verify-only] [--anon] [--wait ms] [--reload] [--localstorage "k=v;k2=v2"] [--allow-empty "reason"] [--click "selector"] [--click-text "OK"]');
   process.exit(2);
 }
 
@@ -303,6 +304,16 @@ async function main() {
     });
     report.location = loc.result ? loc.result.value : null;
 
+    if (CLICK_TEXT) {
+      const ct = await sess.send('Runtime.evaluate', {
+        expression: '(function(){var t=' + JSON.stringify(String(CLICK_TEXT)) +
+          ';var b=Array.prototype.find.call(document.querySelectorAll("button, a.btn"), function(x){' +
+          'return (x.textContent||"").trim()===t;});if(!b)return "not-found";b.click();return "clicked";})()',
+        returnByValue: true,
+      });
+      report.click_text = { text: String(CLICK_TEXT), result: ct.result ? ct.result.value : 'error' };
+      await new Promise((r) => setTimeout(r, 800));
+    }
     if (CLICK) {
       const cl = await sess.send('Runtime.evaluate', {
         expression: '(function(){var el=document.querySelector(' + JSON.stringify(String(CLICK)) +
