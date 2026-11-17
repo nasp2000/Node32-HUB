@@ -172,6 +172,40 @@ LPT_DB25_SEED = r"""
 </script>
 """
 
+GRBL_SEED = r"""
+<script>
+(function () {
+  // Same shape the firmware returns from GET /api/grbl/status (polled every
+  // poll_interval_ms): DRO needs mpos_*/wpos_* with the *_valid flags, the hub
+  // needs usb_slots, the console needs console_events.
+  window.__MOCK_API__ = {
+    '/api/grbl/status': {
+      success: true,
+      state: 'Idle', grbl_status: 'Idle', status_raw: '<Idle|MPos:12.340,45.670,-1.250|FS:0,0>',
+      axis_count: 3, active_wcs: 'G54',
+      mpos_valid: true, wpos_valid: true,
+      mpos_x: 12.340, mpos_y: 45.670, mpos_z: -1.250,
+      wpos_x: 12.340, wpos_y: 45.670, wpos_z: -1.250,
+      machine_x: 12.340, machine_y: 45.670, machine_z: -1.250,
+      work_x: 12.340, work_y: 45.670, work_z: -1.250,
+      max_travel_x: 400, max_travel_y: 300, max_travel_z: 120,
+      poll_interval_ms: 800, control_mode: 'free',
+      machine_status_known: true, probe_triggered: false, poll_health: 'ok',
+      job_active: false, workflow_state: 'idle', alarm_active: false, hold_reason: '',
+      usb_running: true, usb_connected: 1, usb_backend: 'host', grbl_transport: 'uart',
+      control_can_write: true,
+      usb_slots: [{ slot: 1, chip: 'CH340', baud: 115200, connected: true }],
+      console_events: []
+    },
+    '/api/grbl/transport': { success: true, message: 'ok', grbl_transport: 'uart' },
+    '/api/grbl/control-token': { token: 'ctrl-token' },
+    '/api/grbl/list-gcode': { success: true, path: '/', entries: [] },
+    '/api/grbl/poll-interval': { success: true }
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -202,6 +236,7 @@ PAGES = {
     'structures': ('page_structures_asset.cpp', STRUCTURES_SEED, 'fragment'),
     'buzzer': ('page_buzzer_asset.h', BUZZER_SEED, 'fragment'),
     'lpt_db25': ('page_lpt_db25_asset.cpp', LPT_DB25_SEED, 'fragment'),
+    'grbl_controller': ('page_grbl_controller_asset.cpp', GRBL_SEED, 'built'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -217,9 +252,32 @@ FRAGMENT_TITLES = {
     'structures': '🏭 Amada Welding',
     'buzzer': '🔔 Buzzer',
     'lpt_db25': '🖨️ LPT DB25',
+    'grbl_controller': '🛠️ GcodeSender',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)
+
+
+
+def assemble_parts(cpp_path):
+    """Rebuild a PROGMEM page that is #include-assembled from fragments.
+
+    `page_grbl_controller_asset.cpp` is a sequence of R"GRBL(...)GRBL" literals
+    interleaved with `#include "grbl/<part>.h"`, and each of those headers is one
+    more R-string. Concatenating them in order yields exactly what
+    `strlen_P(PAGE_GRBL_CONTROLLER)` streams to the browser.
+    """
+    text = cpp_path.read_text(encoding='utf-8', errors='replace')
+    token = re.compile(r'#include\s+"(grbl/[^"]+)"|R"GRBL\((.*?)\)GRBL"', re.S)
+    out = []
+    for m in token.finditer(text):
+        if m.group(1):
+            part = (cpp_path.parent / m.group(1)).read_text(encoding='utf-8', errors='replace')
+            pm = re.search(r'R"GRBL\((.*?)\)GRBL"', part, re.S)
+            out.append(pm.group(1) if pm else '')
+        else:
+            out.append(m.group(2))
+    return ''.join(out)
 
 
 def core_css():
@@ -236,7 +294,10 @@ def build(name):
         raise SystemExit('no PROGMEM R-string in ' + asset_name)
     body = m.group(2)
 
-    if kind == 'fragment':
+    if kind == 'built':
+        body = assemble_parts(ASSETS / asset_name)
+
+    if kind in ('fragment', 'built'):
         # The renderer wraps this asset: shell head -> _F flags -> body -> auto.js -> close.
         # auto.js is deliberately left out of the harness (it is the live board's runtime:
         # /api/lang, session keepalive, Home/Back footer); the collapse/expand and the
@@ -247,6 +308,10 @@ def build(name):
             html += '<style>\n/* core.css inlined for the harness */\n' + css + '\n</style>'
         if name == 'api_reference':
             html += '<script>var _F=' + API_REFERENCE_FLAGS + ';</script>'
+        if kind == 'built':
+            # emitted by streamGrblControllerPageToPrint() before the body
+            html += ('<script>window._localPagesNeverExpire=true;</script>'
+                     '<script>window.GRBL_TRANSPORT_SELECTOR=false;</script>')
         if name in PRELUDE:
             src_file, tag = PRELUDE[name]
             pre_src = (WEB / '..' / '..' / src_file).resolve().read_text(encoding='utf-8', errors='replace')

@@ -4,6 +4,17 @@
 > widgets, every button/input, client logic, API endpoints, streaming and persistence.
 > Written for both humans and AI agents.
 
+> Screenshot: `desktop/grbl_controller.png` (1440 × 2240, **smoke capture** — no live board
+> serves the route: `ENABLE_GRBL` is 1 only in the P4-CNC and GcodeSender-S3 packs, both
+> offline). The page is assembled from its 25 `grbl/*.h` fragments exactly as the firmware
+> builds `PAGE_GRBL_CONTROLLER`, and `/api/grbl/status` is seeded in the shape the firmware
+> returns (Idle, `mpos`/`wpos` 12.340 / 45.670 / -1.250 with the `_valid` flags, travel
+> 400 × 300 × 120 mm, one CH340 slot at 115200 connected, `machine_status_known` with
+> `probe_triggered:false`). Shows the full controller: quick-action bar, G-code Job / UART
+> Connection / Override / Recent Errors, Workspace + DRO + G54 + Preview, Console
+> (`GRBL READY`, `CONTROL MODE free`, `SESSION REHYDRATED idle`), Jog, Frame, Macros, Z Probe
+> (`State 0`, `Signal HIGH`) and Height Map. Index and proof in `desktop/README.md` §3.12.
+
 ---
 
 ## 1. Objective
@@ -312,6 +323,7 @@ missing from both files** (fall back to English) — see findings.
 | 7 | `poll-interval` server endpoint is orphaned — no `grbl_poll_ms` input exists so users can't change the REST poll interval (default 500 ms). | Low | Add the input or remove the endpoint. |
 | 8 | On non-CNC packs with `ENABLE_GRBL`, the page serves but **every `/api/grbl/*` returns 404** (route block is pack-gated). | Info | Gate the page route with the same pack condition. |
 | 9 | **S3 reboot loop with OTG+UART (fixed 2026-09-06, reworked 2026-09-09)**: board rebooted ~every 30 s with both the USB-OTG cable and the UART adapter plugged — host tasks + Serial2 contention (TWDT), GPIO20 boot glitch, VBUS backpower. | Fixed | Pack S3 is now USB-OTG-only with lazy host start (`ENABLE_USB_HOST=1`, host off at boot, UART `#if 0`-disabled); toggle button starts/stops host per session, hub UI hidden (P4-only). |
+| 10 | **The three-column layout leaves a third of the page empty.** At 1440 × 900 the rendered page is **2 240 px** tall: the left rail ends at ~940 px and the Workspace/Console at ~1 100 px, while the right rail (Jog & Shortcuts, Frame, Macros, Z Probe, Height Map) runs to the bottom — so ~1 100 px of empty canvas sit under two thirds of the screen and the operator scrolls a long way for the right-hand cards. Measured on the smoke capture (`PAGES/desktop/grbl_controller.png`). Fix: rebalance the grid (move Macros + Height Map into the centre column under the Console, or make each column independently scrollable with `align-items:start`). | Low | `grbl_css.h` (grid), `grbl_html_shell.h` (column order), `PAGES/grbl_controller.md` | open |
 
 ---
 

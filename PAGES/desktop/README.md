@@ -3,14 +3,14 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); thirty-four images captured** —
+> Status: **inventory raised (50 desktop pages); thirty-five images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`, `rs232`), the Waveshare pack
 > (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`, `modbus_tcp`) and
 > the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus `dualfile`
 >, `api_reference`, `networks`, `structures` and `buzzer` rendered from the shipped asset
-> (§3.12). The remaining 16 rows are blocked by the build/config on every live board (§3.11) and
+> (§3.12). The remaining 15 rows are blocked by the build/config on every live board (§3.11) and
 > are being covered one by one as smoke captures.
 
 Two provenances, marked in the Status column:
@@ -127,6 +127,8 @@ python3 build_desktop_shots.py buzzer
 node desktop_smoke_shot.js shots/desktop_buzzer.html ../../PAGES/desktop/buzzer.png
 python3 build_desktop_shots.py lpt_db25
 node desktop_smoke_shot.js shots/desktop_lpt_db25.html ../../PAGES/desktop/lpt_db25.png
+python3 build_desktop_shots.py grbl_controller
+node desktop_smoke_shot.js shots/desktop_grbl_controller.html ../../PAGES/desktop/grbl_controller.png
 ```
 
 `build_desktop_shots.py` takes the R-string exactly as compiled, keeps its own `<style>` (it
@@ -163,6 +165,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | `structures.png` | **harness render** (no live board serves `/structures`; `ENABLE_STRUCTURES_PAGE` is 0 in `user_config.h:287` and every reachable pack — only `pack_rs232.h:77-78` sets 1) | asset unchanged since `c7ea5cf`, tree at `18899b4`; no firmware/ETag | 1440 × 1683 · 154 368 B | **smoke capture** (§3.12): `build_desktop_shots.py structures` + `desktop_smoke_shot.js` → title `🏭 Amada Welding`, 1 324 chars, 6 controls, 1 table / 8 rows, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Renderer order reproduced: shell → `STRUCTURES_TABS_JS` → body (`structures_page_renderer.cpp:88-91`); `config-manager.js` and `auto.js` left out as board runtime. **Finding STR-6** (`PAGES/structures.md`): `setup()` runs from the PROGMEM block printed *before* the body, finds no `#sec-*` nodes and returns — the `.aw-tab-bar` is never injected (DOM probe: `aw-tab-btn` 0, all four sections `display:block`), so the page always shows the four sections stacked instead of the four tabs the doc describes
 | `buzzer.png` | **harness render** (no live board serves `/buzzer`; the route is compiled only with `ENABLE_BUZZER==1`, which is 0 in every reachable build — `pack_waveshare.h:74-75` forces 0 and the S3/cam builds never define it) | asset unchanged since `c7ea5cf`, tree at `77dfa4a`; no firmware/ETag | 1440 × 1176 · 120 610 B | **smoke capture** (§3.12): `build_desktop_shots.py buzzer` + `desktop_smoke_shot.js` → title `🔔 Buzzer`, 1 025 chars, 8 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. `config-manager.js`/`auto.js` left out as board runtime. **New finding BZR-7** (`PAGES/buzzer.md`): the config fetch ends in `.catch(function(){})` (`page_buzzer_asset.h:120`), so on any failure the banner stays on its initial `Checking...` forever and every toggle shows an unchecked default — indistinguishable from "disabled"
 | `lpt_db25.png` | **harness render** (no live board serves `/lpt-db25`; `ENABLE_DB25` is 0 in `user_config.h:423`, and DB25 needs a board with the parallel port) | asset unchanged since `c7ea5cf`, tree at `ece0d0e`; no firmware/ETag | 1440 × 956 · 76 920 B | **smoke capture** (§3.12): `build_desktop_shots.py lpt_db25` + `desktop_smoke_shot.js` → title `🖨️ LPT DB25`, 782 chars, 2 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. `config-manager.js`/`auto.js` left out as board runtime. **New finding LPT-7** (`PAGES/lpt_db25.md`): `loadConfig()` retries itself every 2 s for ever on any failure (`page_lpt_db25_asset.cpp:131`), with no message — a page whose endpoint is missing silently shows the HTML defaults and keeps polling
+| `grbl_controller.png` | **harness render** (no live board serves `/grbl-controller`; `ENABLE_GRBL` is 1 only in `pack_p4_cnc.h:73` / `pack_s3_cnc_usb.h:44`, and both boards are offline) | asset assembled from `page_grbl_controller_asset.cpp` + 25 `grbl/*.h` fragments, unchanged since `c7ea5cf`; tree at `23a9eac`; no firmware/ETag | 1440 × 2240 · 459 022 B | **smoke capture** (§3.12): `build_desktop_shots.py grbl_controller` + `desktop_smoke_shot.js` → title `🛠️ GcodeSender`, 2 459 chars, 87 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Renders the whole controller: quick-action bar, G-code Job + UART Connection + Override + Recent Errors (left), Workspace with DRO `X 12.340 / Y 45.670 / Z -1.250`, G54, Preview W 400 × H 300, Console with `GRBL READY / CONTROL MODE free / SESSION REHYDRATED idle` (centre), Jog & Shortcuts, Frame, Macros, Z Probe (`State 0`, `Signal HIGH`) and Height Map (right). `config-manager.js`/`auto.js` left out as board runtime. **Finding #10** (`PAGES/grbl_controller.md`): ~1 100 px of empty canvas under two thirds of the page
 
 > **History — the page was unusable for a while (`PAGES/BACKLOG.md` SC-9, still open)** (HomeE32
 > `.24`): `GET /sensor-charts` was 200 but the page needs one of **two chart sessions**; with
@@ -252,7 +255,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 
 | Page | Route | Image | Status |
 |---|---|---|---|
-| GRBL controller (`?desk=1`) | `/grbl-controller` | `grbl_controller.png` | pending |
+| GRBL controller (`?desk=1`) | `/grbl-controller` | `grbl_controller.png` | **done** (smoke — §3.12) |
 
 > **Blocked on hardware, not on the harness** (2026-11-16): `GET /grbl-controller?desk=1` on the
 > Waveshare board `.29` answers **404** — that build has `ENABLE_GRBL=0`, so the route is not
@@ -329,7 +332,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 
 ### 3.11 Blocked routes — smoke matrix
 
-The 16 rows still **pending** have no live page to capture (six of the original 22 are
+The 15 rows still **pending** have no live page to capture (seven of the original 22 are
 now delivered as smoke captures, §3.12). Each was probed **once** on all
 four live boards (`.29` Waveshare, `.24` HomeE32, `.18` Cam-P4, `.9` Cam-M1) with
 
@@ -352,7 +355,7 @@ turned on for a capture — which is a firmware change and out of scope for this
 | `/google-script` | `google_script.png` | 404 ×4 | `ENABLE_PAGE_GOOGLE_SCRIPT` never defined (commented out) |
 | `/structures` | `structures.png` | 404 ×4 | `ENABLE_STRUCTURES_PAGE 0` — only `pack_rs232.h:77-78` sets 1 — **captured by smoke, §3.12** |
 | `/buzzer` | `buzzer.png` | 404 ×4 | `ENABLE_BUZZER` undefined (…`:367-368`) / forced 0 in `pack_waveshare.h:74-75` — **captured by smoke, §3.12** |
-| `/grbl-controller` | `grbl_controller.png` | 404 ×4 | `ENABLE_GRBL` — only `pack_p4_cnc.h:73` and `pack_s3_cnc_usb.h:44` |
+| `/grbl-controller` | `grbl_controller.png` | 404 ×4 | `ENABLE_GRBL` — only `pack_p4_cnc.h:73` and `pack_s3_cnc_usb.h:44` — **captured by smoke, §3.12** |
 | `/rambox` | `rambox.png` | 404 ×4 | Rambox pack — that board is offline |
 | `/lpt-db25` | `lpt_db25.png` | 404 ×4 | `ENABLE_DB25 0` (`user_config.h:423`) — **captured by smoke, §3.12** |
 | `/modbus-rtu` | `modbus_rtu.png` | 404 ×4 | `ENABLE_MODBUS_RTU 0` everywhere (e.g. `pack_cam_p4.h:115-116`) |
@@ -393,6 +396,7 @@ captured with `--expand` (all sections open); the row says so when it applies.
 
 | Route | Image | Rendered from | Notes |
 |---|---|---|---|
+| `/grbl-controller` | `grbl_controller.png` | `page_grbl_controller_asset.cpp` — **assembled** from its 25 `grbl/*.h` fragments by the builder — + the page shell | 1440 × 2240. Seed: `/api/grbl/status` in the shape the firmware returns (Idle, `mpos_*`/`wpos_*` with the `_valid` flags, `max_travel_*` 400×300×120, `usb_slots` CH340 115200 connected, `machine_status_known` + `probe_triggered:false`, `poll_interval_ms` 800) plus the transport/control-token/list-gcode endpoints. Big empty canvas under the left and centre columns — finding #10 in `PAGES/grbl_controller.md` |
 | `/lpt-db25` | `lpt_db25.png` | `chatgpt/src/webpages/assets/page_lpt_db25_asset.cpp` (fragment) + the page shell | 1440 × 956. Seed: `/api/config?section=system` `{printer_emulation_mode:1, charset_mode:1, email{auto_send:true,max_lines:180,min_content_length:3}, autoEmailEnabledTimeout:20000, autoEmailDisabledTimeout:600000}` — non-default values so the image proves the loader works (Epson ESC/P, Latin-1, 20 s, 10 min, 180 lines) |
 | `/buzzer` | `buzzer.png` | `chatgpt/src/webpages/assets/page_buzzer_asset.h` (fragment) + the page shell | 1440 × 1176. Seed: `/api/buzzer-config` `{enabled:true, pin:46, on_boot:true, on_alarm:true, on_error:true, on_save/on_sensor_alert/on_network:false}` — the state that makes the status banner and all six toggles meaningful. Status and Test with the five patterns + Stop, then Configuration (master, GPIO pin, six event toggles) |
 | `/structures` | `structures.png` | `chatgpt/src/webpages/assets/page_structures_asset.cpp` (fragment) + `STRUCTURES_TABS_JS` from the renderer + the page shell | 1440 × 1683. Seeded with the `/api/config?section=system` payload the page reads (`structures{auto_detect, amada_isq20_awse.enabled, filter_headers, header_every}`, `saved_configs{rs232_*}`) and `/api/rs232-cols` `{cols:12, structure:"amada_isq20_awse"}`. Shows **STR-6**: the four sections are stacked because the tab engine runs before the body exists |
@@ -465,6 +469,8 @@ python3 build_desktop_shots.py buzzer
 node desktop_smoke_shot.js shots/desktop_buzzer.html ../../PAGES/desktop/buzzer.png
 python3 build_desktop_shots.py lpt_db25
 node desktop_smoke_shot.js shots/desktop_lpt_db25.html ../../PAGES/desktop/lpt_db25.png
+python3 build_desktop_shots.py grbl_controller
+node desktop_smoke_shot.js shots/desktop_grbl_controller.html ../../PAGES/desktop/grbl_controller.png
 ```
 
 ## 5. Adding an image (checklist)

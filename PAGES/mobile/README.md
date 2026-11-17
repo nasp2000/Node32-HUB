@@ -9,8 +9,8 @@ all 50 desktop pages raised; `home.png`, `status.png`, `files.png`, `sdcard.png`
 `ethernet.png`, `email.png`, `recipients.png`, `alerts.png`, `ftp.png`, `commands.png`,
 `commands_datetime.png`, `printer.png`, `do.png`, `sensor_config.png`, `mq135_config.png`,
 `rs232.png`, `modbus_tcp.png`, `sensor_charts.png`, `dualfile.png`, `api_reference.png`,
-`networks.png`, `structures.png`, `buzzer.png` and `lpt_db25.png` (the last six are smoke
-renders) captured and verified, rest pending).
+`networks.png`, `structures.png`, `buzzer.png`, `lpt_db25.png` and `grbl_controller.png`
+(the last seven are smoke renders) captured and verified, rest pending).
 
 ---
 
