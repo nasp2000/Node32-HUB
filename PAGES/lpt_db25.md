@@ -4,6 +4,15 @@
 > button/input, client logic, API endpoints, persistence and the firmware-side
 > Nano-bridge / printer-emulation engine. Written for both humans and AI agents.
 
+> Screenshot: `desktop/lpt_db25.png` (1440 × 956, **smoke capture** — no live board serves the
+> route: `ENABLE_DB25` is 0 in `user_config.h:423` and the DB25 boards are offline). Rendered
+> from the shipped fragment with `/api/config?section=system` seeded non-default
+> (`printer_emulation_mode:1` Epson ESC/P, `charset_mode:1` Latin-1, `email{auto_send:true,
+> max_lines:180, min_content_length:3}`, `autoEmailEnabledTimeout:20000`,
+> `autoEmailDisabledTimeout:600000`) so the image proves the loader works: emulation/charset
+> selects, minimum characters 3, auto-send checked, 20 s / 10 min timeouts and 180 lines.
+> Index and proof in `desktop/README.md` §3.12.
+
 ---
 
 ## 1. Objective
@@ -205,6 +214,7 @@ All confirmed present in both `lang_en_ui.h` and `lang_pt_ui.h` (EN lines cited)
 | LPT-4 | **No server-side range validation for emulation/charset.** POST accepts any int via `v.toInt()` (`config_handler.cpp:265-269`), while the serial path validates `0..2` (`process_line_impl.h:893-909`, `wifi_config_impl.h:107-115`). `emulation_mode=99` persists silently and the getter just returns it (`ConfigManager.h:973-980`). | Low | Clamp/validate `0..2` in `handleConfigPost` like the serial path does. |
 | LPT-5 | **Email/timeout fields bypass the immediate save.** POST `section=system` calls `saveSection("system")`, whose payload is only `printer` + system keys (`ConfigManager.cpp:2115-2130`); the `email.*`/timeout keys live in other stems (`:2131-2144`), so on this page only the printer modes are guaranteed durable immediately. | Low | Also `saveSection("smtp_email")` when email/timeout keys were touched, or document the deferred-save dependency. |
 | LPT-6 | **Zero test coverage.** `tests/web/` has no `test_lpt*`, `test_db25*` or `test_printer*` file (verified by directory listing + content grep — only `node_modules` matches), so findings LPT-1–4 have no regression net. | Info | Add a `tests/web/test_lpt_db25.js` asserting GET-shape keys vs JS-read keys, plus POST round-trip of the 7 fields. |
+| LPT-7 | **The config loader retries itself for ever, silently.** `loadConfig()` ends with `.catch(function(){setTimeout(loadConfig,2000);})` (`page_lpt_db25_asset.cpp:131`), so any failure — network, or a build where `GET /api/config?section=system` does not answer — schedules an unconditional 2-second retry with no backoff, no cap and no user-visible message. The page then sits on the HTML defaults (Generic / UTF-8 / 10 s / 5 min / 66 lines) looking perfectly configured, while firing a request every 2 s for as long as the tab is open. Fix: bound the retries (e.g. 3 with backoff), then show a banner (`status-message`) with a Retry button instead of polling for ever. | Low | `page_lpt_db25_asset.cpp` (`loadConfig` catch), `PAGES/lpt_db25.md` | open |
 
 ---
 

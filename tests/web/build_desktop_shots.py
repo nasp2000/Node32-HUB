@@ -153,6 +153,25 @@ BUZZER_SEED = r"""
 </script>
 """
 
+LPT_DB25_SEED = r"""
+<script>
+(function () {
+  // GET /api/config?section=system now carries the printer block (LPT-1 fix), the
+  // e-mail block and both auto-send timeouts; values chosen non-default so the
+  // capture shows the page actually loaded its state.
+  window.__MOCK_API__ = {
+    '/api/config?section=system': {
+      printer_emulation_mode: 1,          // Epson ESC/P (Experimental)
+      charset_mode: 1,                    // Latin-1 (Experimental)
+      email: { auto_send: true, max_lines: 180, min_content_length: 3 },
+      autoEmailEnabledTimeout: 20000,     // 20 s
+      autoEmailDisabledTimeout: 600000    // 10 min
+    }
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -182,6 +201,7 @@ PAGES = {
     'networks': ('page_networks_asset.cpp', NETWORKS_SEED, 'fragment'),
     'structures': ('page_structures_asset.cpp', STRUCTURES_SEED, 'fragment'),
     'buzzer': ('page_buzzer_asset.h', BUZZER_SEED, 'fragment'),
+    'lpt_db25': ('page_lpt_db25_asset.cpp', LPT_DB25_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -196,6 +216,7 @@ FRAGMENT_TITLES = {
     'networks': '🌐 Other Networks',
     'structures': '🏭 Amada Welding',
     'buzzer': '🔔 Buzzer',
+    'lpt_db25': '🖨️ LPT DB25',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)

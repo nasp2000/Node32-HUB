@@ -3,14 +3,14 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); thirty-three images captured** —
+> Status: **inventory raised (50 desktop pages); thirty-four images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`, `rs232`), the Waveshare pack
 > (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`, `modbus_tcp`) and
 > the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus `dualfile`
 >, `api_reference`, `networks`, `structures` and `buzzer` rendered from the shipped asset
-> (§3.12). The remaining 17 rows are blocked by the build/config on every live board (§3.11) and
+> (§3.12). The remaining 16 rows are blocked by the build/config on every live board (§3.11) and
 > are being covered one by one as smoke captures.
 
 Two provenances, marked in the Status column:
@@ -125,6 +125,8 @@ python3 build_desktop_shots.py structures
 node desktop_smoke_shot.js shots/desktop_structures.html ../../PAGES/desktop/structures.png
 python3 build_desktop_shots.py buzzer
 node desktop_smoke_shot.js shots/desktop_buzzer.html ../../PAGES/desktop/buzzer.png
+python3 build_desktop_shots.py lpt_db25
+node desktop_smoke_shot.js shots/desktop_lpt_db25.html ../../PAGES/desktop/lpt_db25.png
 ```
 
 `build_desktop_shots.py` takes the R-string exactly as compiled, keeps its own `<style>` (it
@@ -160,6 +162,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | `networks.png` | **harness render** (no live board serves `/networks`; the route is compiled only with `ENABLE_TELNET==1`, which is 0 in `user_config.h` and in every pack) | asset unchanged since `c7ea5cf`, tree at `b672df5`; no firmware/ETag | 1440 × 940 · 37 917 B | **smoke capture** (§3.12): `build_desktop_shots.py networks` + `desktop_smoke_shot.js` → title `🌐 Other Networks`, 156 chars, 2 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Frame reproduced from `streamPageShellStart()`/`buildPageFrame()` (`core.css` inlined, i18n marked ready; `auto.js` and `config-manager.js` — board runtime — left out). Seed answers `/api/telnet-status` with `{enabled:true}` because the page only exists where Telnet is compiled in. Doc accuracy fix in the same change: **NET-2** was stale — both render paths now use `L(activeLang->pageTitleNetworksOther)`; only the home button is still hardcoded PT (`home_page_renderer.h:368`)
 | `structures.png` | **harness render** (no live board serves `/structures`; `ENABLE_STRUCTURES_PAGE` is 0 in `user_config.h:287` and every reachable pack — only `pack_rs232.h:77-78` sets 1) | asset unchanged since `c7ea5cf`, tree at `18899b4`; no firmware/ETag | 1440 × 1683 · 154 368 B | **smoke capture** (§3.12): `build_desktop_shots.py structures` + `desktop_smoke_shot.js` → title `🏭 Amada Welding`, 1 324 chars, 6 controls, 1 table / 8 rows, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Renderer order reproduced: shell → `STRUCTURES_TABS_JS` → body (`structures_page_renderer.cpp:88-91`); `config-manager.js` and `auto.js` left out as board runtime. **Finding STR-6** (`PAGES/structures.md`): `setup()` runs from the PROGMEM block printed *before* the body, finds no `#sec-*` nodes and returns — the `.aw-tab-bar` is never injected (DOM probe: `aw-tab-btn` 0, all four sections `display:block`), so the page always shows the four sections stacked instead of the four tabs the doc describes
 | `buzzer.png` | **harness render** (no live board serves `/buzzer`; the route is compiled only with `ENABLE_BUZZER==1`, which is 0 in every reachable build — `pack_waveshare.h:74-75` forces 0 and the S3/cam builds never define it) | asset unchanged since `c7ea5cf`, tree at `77dfa4a`; no firmware/ETag | 1440 × 1176 · 120 610 B | **smoke capture** (§3.12): `build_desktop_shots.py buzzer` + `desktop_smoke_shot.js` → title `🔔 Buzzer`, 1 025 chars, 8 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. `config-manager.js`/`auto.js` left out as board runtime. **New finding BZR-7** (`PAGES/buzzer.md`): the config fetch ends in `.catch(function(){})` (`page_buzzer_asset.h:120`), so on any failure the banner stays on its initial `Checking...` forever and every toggle shows an unchecked default — indistinguishable from "disabled"
+| `lpt_db25.png` | **harness render** (no live board serves `/lpt-db25`; `ENABLE_DB25` is 0 in `user_config.h:423`, and DB25 needs a board with the parallel port) | asset unchanged since `c7ea5cf`, tree at `ece0d0e`; no firmware/ETag | 1440 × 956 · 76 920 B | **smoke capture** (§3.12): `build_desktop_shots.py lpt_db25` + `desktop_smoke_shot.js` → title `🖨️ LPT DB25`, 782 chars, 2 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. `config-manager.js`/`auto.js` left out as board runtime. **New finding LPT-7** (`PAGES/lpt_db25.md`): `loadConfig()` retries itself every 2 s for ever on any failure (`page_lpt_db25_asset.cpp:131`), with no message — a page whose endpoint is missing silently shows the HTML defaults and keeps polling
 
 > **History — the page was unusable for a while (`PAGES/BACKLOG.md` SC-9, still open)** (HomeE32
 > `.24`): `GET /sensor-charts` was 200 but the page needs one of **two chart sessions**; with
@@ -271,7 +274,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 |---|---|---|---|
 | Rambox unified page (`?desk=1`) | `/rambox` | `rambox.png` | pending |
 | RS232 | `/rs232` | `rs232.png` | **done** (captured on the Waveshare `.29` — no Rambox is online; see the log row and `BACKLOG.md` RS232-8) |
-| LPT / DB25 | `/lpt-db25` | `lpt_db25.png` | pending |
+| LPT / DB25 | `/lpt-db25` | `lpt_db25.png` | **done** (smoke — §3.12) |
 
 ### 3.6 Modbus / CAN
 
@@ -326,7 +329,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 
 ### 3.11 Blocked routes — smoke matrix
 
-The 17 rows still **pending** have no live page to capture (five of the original 22 are
+The 16 rows still **pending** have no live page to capture (six of the original 22 are
 now delivered as smoke captures, §3.12). Each was probed **once** on all
 four live boards (`.29` Waveshare, `.24` HomeE32, `.18` Cam-P4, `.9` Cam-M1) with
 
@@ -351,7 +354,7 @@ turned on for a capture — which is a firmware change and out of scope for this
 | `/buzzer` | `buzzer.png` | 404 ×4 | `ENABLE_BUZZER` undefined (…`:367-368`) / forced 0 in `pack_waveshare.h:74-75` — **captured by smoke, §3.12** |
 | `/grbl-controller` | `grbl_controller.png` | 404 ×4 | `ENABLE_GRBL` — only `pack_p4_cnc.h:73` and `pack_s3_cnc_usb.h:44` |
 | `/rambox` | `rambox.png` | 404 ×4 | Rambox pack — that board is offline |
-| `/lpt-db25` | `lpt_db25.png` | 404 ×4 | `ENABLE_DB25 0` (`user_config.h:423`) |
+| `/lpt-db25` | `lpt_db25.png` | 404 ×4 | `ENABLE_DB25 0` (`user_config.h:423`) — **captured by smoke, §3.12** |
 | `/modbus-rtu` | `modbus_rtu.png` | 404 ×4 | `ENABLE_MODBUS_RTU 0` everywhere (e.g. `pack_cam_p4.h:115-116`) |
 | `/modbus-live` | `modbus_live.png` | **302 → `/`** on `.18`, 404 ×3 | page guard: Modbus not active in config (`web_routes_modbus.cpp:254-262`) |
 | `/can` | `can.png` | 404 ×4 | `ENABLE_CAN 0` in every pack |
@@ -390,6 +393,7 @@ captured with `--expand` (all sections open); the row says so when it applies.
 
 | Route | Image | Rendered from | Notes |
 |---|---|---|---|
+| `/lpt-db25` | `lpt_db25.png` | `chatgpt/src/webpages/assets/page_lpt_db25_asset.cpp` (fragment) + the page shell | 1440 × 956. Seed: `/api/config?section=system` `{printer_emulation_mode:1, charset_mode:1, email{auto_send:true,max_lines:180,min_content_length:3}, autoEmailEnabledTimeout:20000, autoEmailDisabledTimeout:600000}` — non-default values so the image proves the loader works (Epson ESC/P, Latin-1, 20 s, 10 min, 180 lines) |
 | `/buzzer` | `buzzer.png` | `chatgpt/src/webpages/assets/page_buzzer_asset.h` (fragment) + the page shell | 1440 × 1176. Seed: `/api/buzzer-config` `{enabled:true, pin:46, on_boot:true, on_alarm:true, on_error:true, on_save/on_sensor_alert/on_network:false}` — the state that makes the status banner and all six toggles meaningful. Status and Test with the five patterns + Stop, then Configuration (master, GPIO pin, six event toggles) |
 | `/structures` | `structures.png` | `chatgpt/src/webpages/assets/page_structures_asset.cpp` (fragment) + `STRUCTURES_TABS_JS` from the renderer + the page shell | 1440 × 1683. Seeded with the `/api/config?section=system` payload the page reads (`structures{auto_detect, amada_isq20_awse.enabled, filter_headers, header_every}`, `saved_configs{rs232_*}`) and `/api/rs232-cols` `{cols:12, structure:"amada_isq20_awse"}`. Shows **STR-6**: the four sections are stacked because the tab engine runs before the body exists |
 | `/networks` | `networks.png` | `chatgpt/src/webpages/assets/page_networks_asset.cpp` (fragment) + the page shell | 1440 × 940. The page is **Telnet-only** (the route lives under `#if ENABLE_TELNET==1`), so the seed answers `/api/telnet-status` with `{enabled:true}` — the only configuration in which the page exists at all. Home + `🌐 Other Networks` + the Telnet card (enable checkbox, password field, Save) |
@@ -459,6 +463,8 @@ python3 build_desktop_shots.py structures
 node desktop_smoke_shot.js shots/desktop_structures.html ../../PAGES/desktop/structures.png
 python3 build_desktop_shots.py buzzer
 node desktop_smoke_shot.js shots/desktop_buzzer.html ../../PAGES/desktop/buzzer.png
+python3 build_desktop_shots.py lpt_db25
+node desktop_smoke_shot.js shots/desktop_lpt_db25.html ../../PAGES/desktop/lpt_db25.png
 ```
 
 ## 5. Adding an image (checklist)
