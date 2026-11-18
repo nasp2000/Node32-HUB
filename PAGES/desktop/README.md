@@ -3,15 +3,17 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); forty-three images captured** —
+> Status: **inventory raised (50 desktop pages); forty-four images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`, `rs232`), the Waveshare pack
 > (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`, `modbus_tcp`) and
-> the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus `dualfile`
->, `api_reference`, `networks`, `structures` and `buzzer` rendered from the shipped asset
-> (§3.12). The remaining 7 rows are blocked by the build/config on every live board (§3.11) and
-> are being covered by smoke captures.
+> the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus **sixteen
+> smoke renders** of pages no live board serves (`dualfile`, `api_reference`, `networks`,
+> `structures`, `buzzer`, `lpt_db25`, `grbl_controller`, `modbus_rtu`, `modbus_live`, `rambox`,
+> `hx711`, `ina226`, `max31865`, `sound`, `can`, `uda1334a` — §3.12). The remaining 6 rows are
+> blocked by the build/config on every live board (§3.11) and are being covered by smoke
+> captures.
 
 Two provenances, marked in the Status column:
 
@@ -145,6 +147,8 @@ python3 build_desktop_shots.py sound
 node desktop_smoke_shot.js shots/desktop_sound.html ../../PAGES/desktop/sound.png
 python3 build_desktop_shots.py can
 node desktop_smoke_shot.js shots/desktop_can.html ../../PAGES/desktop/can.png
+python3 build_desktop_shots.py uda1334a
+node desktop_smoke_shot.js shots/desktop_uda1334a.html ../../PAGES/desktop/uda1334a.png
 ```
 
 `build_desktop_shots.py` takes the R-string exactly as compiled, keeps its own `<style>` (it
@@ -190,6 +194,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | `max31865.png` | **harness render** (no live board serves `/max31865`; `ENABLE_MAX31865` is 0 in every pack we can reach) | asset unchanged since `c7ea5cf`, tree at `5a471e8`; no firmware/ETag | 1440 × 1179 · 88 821 B | **smoke capture** (§3.12): `build_desktop_shots.py max31865` + `desktop_smoke_shot.js` → title **`🌡️ Sensor RTD MAX31865`** (PT string hardcoded in the renderer, **MAX-8**), 613 chars, 3 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows Current Reading **87.42 °C** with the fault badge, Measure Now, Main Control (enable + 1 minute), RTD Configuration (PT100, 3-wire, Celsius, offset −0.35) and Output Options + Save. Two entity literals are visible (`&#10003; OK`, `&#128197; Last reading`) because those strings are `t()` fallbacks and `auto.js`/`/api/lang` is not part of the harness — both keys exist in the packs
 | `sound.png` | **harness render** (no live board serves `/sound`; `ENABLE_SOUND_SENSOR` is 0 in every pack we can reach) | asset unchanged since `c7ea5cf`, tree at `4e6ece0`; no firmware/ETag | 1440 × 1057 · 87 182 B | **smoke capture** (§3.12): `build_desktop_shots.py sound` + `desktop_smoke_shot.js` → title `🔊 Sound Sensor` (the `pageTitleSound` key, EN), 518 chars, 3 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows Current Reading (PEAK-TO-PEAK 1832 ADC, AMPLITUDE 147.9 mV, DBFS LEVEL −36.4 dBFS in orange), the level bar, Measure Now, Main Control (enable + 1 minute), Sampling Parameters (50 ms window, 4096 samples) and Output Options + Save. `&#128197;` before `Last reading` is the asset's `t()` fallback (the pack key carries 📅; `auto.js` is out of the harness). Same pass also confirmed **SND-5 is fixed** — title, home button and POST error now go through i18n keys and the asset fallbacks are all English
 | `can.png` | **harness render** (no live board serves `/can`; `ENABLE_CAN` is 0 in every pack we can reach) | asset unchanged since `c7ea5cf`, tree at `d7d5d75`; no firmware/ETag | 1440 × 940 · 47 902 B | **smoke capture** (§3.12): `build_desktop_shots.py can` + `desktop_smoke_shot.js` → title `🔌 CAN Bus (TWAI)` (hardcoded EN, **CAN-8**), 200 chars, 10 controls, 1 table / 7 rows, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows the asset's tab row (Status active, Frames / Send / Config) and the Bus Status card: **RUNNING** badge, `Mode: Normal 500Kbps`, TX 311 / RX 1842 / Buffer 128 / TEC 0 / REC 0 / Errors 2, Clear buffer and Pause monitor. **New findings** (`PAGES/can.md`): **CAN-7** — the renderer's `CAN_TABS_SCRIPT` cannot parse (`SyntaxError: Unexpected token '>'`; it embeds `L(activeLang->tabLabelState)` in the PROGMEM JS), so the intended i18n bar never appears and only the asset's own bar exists (CAN-1 said two rows — corrected); **CAN-8** — the shell title is hardcoded EN and there is no `pageTitleCan` key
+| `uda1334a.png` | **harness render** (no live board serves `/uda1334a`; `ENABLE_UDA1334A` is 0 outside `pack_radio.h`) | asset unchanged since `c7ea5cf`, tree at `da71270`; no firmware/ETag | 1440 × 1280 · 98 212 B | **smoke capture** (§3.12): `build_desktop_shots.py uda1334a` + `desktop_smoke_shot.js` → title `🔊 UDA1334A Sound Card` (the `pageTitleUda1334a` key, EN), 742 chars, 3 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows the three cards stacked — **Status** (Inicializado Sim · Sampling Rate 44100 Hz · Profundidade de Bits 16 bits · Ativado Sim), **Configuration** (44,100 Hz, 16 bits, Automatic Routing checked, Teste de Som) and **Information**, plus Save. **New findings** (`PAGES/uda1334a.md`): **UDA-6** — `UDA_TABS_SCRIPT` runs while the body is still unparsed (`.wrap` null → `setup()` returns), so the tab bar it is meant to build never exists (measured `.uda-tab-btn` 0, `.uda-tab-bar` 0, panels 0, cards 3; the script itself is valid JS, unlike CAN-7); **UDA-7** — PT fallbacks in the asset and a hardcoded PT home tile. The visible PT labels are `data-i18n` fallbacks (both packs carry every key; `auto.js` is out of the harness)
 
 > **History — the page was unusable for a while (`PAGES/BACKLOG.md` SC-9, still open)** (HomeE32
 > `.24`): `GET /sensor-charts` was 200 but the page needs one of **two chart sessions**; with
@@ -334,7 +339,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | Page | Route | Image | Status |
 |---|---|---|---|
 | Radio / MP3 player | `/radio-ui` | `radio_ui.png` | pending |
-| UDA1334A DAC test | `/uda1334a` | `uda1334a.png` | pending |
+| UDA1334A DAC test | `/uda1334a` | `uda1334a.png` | **done** (smoke — §3.12) |
 | Voice/peers | `/falas` | `falas.png` | pending |
 | Touch7 screen mirror | `/ecra` | `ecra.png` | pending |
 
@@ -356,7 +361,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 
 ### 3.11 Blocked routes — smoke matrix
 
-The 7 rows still **pending** have no live page to capture (fifteen of the original 22 are
+The 6 rows still **pending** have no live page to capture (sixteen of the original 22 are
 now delivered as smoke captures, §3.12). Each was probed **once** on all
 four live boards (`.29` Waveshare, `.24` HomeE32, `.18` Cam-P4, `.9` Cam-M1) with
 
@@ -390,7 +395,7 @@ turned on for a capture — which is a firmware change and out of scope for this
 | `/sound` | `sound.png` | 404 ×4 | `ENABLE_SOUND_SENSOR 0` in every pack — **captured by smoke, §3.12** |
 | `/max31865` | `max31865.png` | 404 ×4 | `ENABLE_MAX31865 0` in every pack — **captured by smoke, §3.12** |
 | `/radio-ui` | `radio_ui.png` | 404 ×4 | `ENABLE_UDA1334A` — only `pack_radio.h:127` sets 1 |
-| `/uda1334a` | `uda1334a.png` | 404 ×4 | same flag as `/radio-ui` (`page_audio` family) |
+| `/uda1334a` | `uda1334a.png` | 404 ×4 | same flag as `/radio-ui` (`page_audio` family) — **captured by smoke, §3.12** |
 | `/falas` | `falas.png` | 404 ×4 | Touch7 pack (`web_routes_touch7.cpp`) — that board is offline |
 | `/ecra` | `ecra.png` | 404 ×4 | same Touch7 pack |
 | `/ipg-laser` | `ipg_laser.png` | 404 ×4 | `ENABLE_IPG_LASER 0` in every pack |
@@ -420,6 +425,7 @@ captured with `--expand` (all sections open); the row says so when it applies.
 
 | Route | Image | Rendered from | Notes |
 |---|---|---|---|
+| `/uda1334a` | `uda1334a.png` | `chatgpt/src/webpages/assets/page_audio_dac_uda1334a_asset.cpp` (fragment) + `UDA_TABS_SCRIPT` from the renderer + the page shell | 1440 × 1280. Seed `/api/uda1334a-config` exactly as `UDA1334AConfigManager::toJson()` emits it (`enabled:true`, `sampleRate:44100`, `bitDepth:16`, `autoRoutingEnabled:true`, `initialized:true`); `-test` → `{success:true}`. Three stacked cards, **no tab bar**: **UDA-6** (the injected tab script runs before `.wrap` exists) |
 | `/can` | `can.png` | `chatgpt/src/webpages/assets/page_can_asset.h` (fragment) + `CAN_TABS_SCRIPT` from the renderer + the page shell | 1440 × 940. Seed from `can_handler.cpp`: `/api/can/status` (`RUNNING`, 500 Kbps, TX 311 / RX 1842, buffer 128, TEC/REC 0, 2 errors), `/api/can/frames` (6 frames incl. one extended `0x18FF50E5`), `/api/can/config`. Captured on the default **Status** tab — the other three are `display:none` panels driven by the asset's own working tab bar. **CAN-7**: the renderer's injected tab script is C++ inside a JS string and throws |
 | `/sound` | `sound.png` | `chatgpt/src/webpages/assets/page_sound_asset.h` (fragment) + the page shell | 1440 × 1057. Seed `/api/sound-config` exactly as `SoundConfigManager::toJson()` emits it (`adc_pin:34`, `sample_window_ms:50`, `sample_count:4096`, `alert_dbfs:-20`, `last_peak_to_peak:1832`, `last_peak_mv:147.9`, `last_dbfs:-36.4`). Doc accuracy: **SND-5** (PT title, PT home button, PT POST error, mixed `Erro:`/`Error:` fallbacks) is now fixed in the tree |
 | `/max31865` | `max31865.png` | `chatgpt/src/webpages/assets/page_max31865_asset.h` (fragment) + the page shell | 1440 × 1179. Seed `/api/max31865-config` exactly as `MAX31865ConfigManager::toJson()` emits it (`cs/mosi/miso/clk` 15/11/13/12, `rtd_type:0` PT100, `wiring:1` 3-wire, `temp_unit:0` °C, `calibration_offset:-0.35`, `alert_low/high` −20/200, `last_temp:87.42`, `last_unit:"°C"`, `last_fault:0`). Tab title is the hardcoded PT string **MAX-8**; `alert_low/high` are **MAX-7** |
@@ -519,6 +525,8 @@ python3 build_desktop_shots.py sound
 node desktop_smoke_shot.js shots/desktop_sound.html ../../PAGES/desktop/sound.png
 python3 build_desktop_shots.py can
 node desktop_smoke_shot.js shots/desktop_can.html ../../PAGES/desktop/can.png
+python3 build_desktop_shots.py uda1334a
+node desktop_smoke_shot.js shots/desktop_uda1334a.html ../../PAGES/desktop/uda1334a.png
 ```
 
 ## 5. Adding an image (checklist)

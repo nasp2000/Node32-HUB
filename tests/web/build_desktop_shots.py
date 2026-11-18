@@ -454,6 +454,26 @@ CAN_SEED = r"""
 </script>
 """
 
+UDA1334A_SEED = r"""
+<script>
+(function () {
+  // GET /api/uda1334a-config == UDA1334AConfigManager::toJson()
+  // (audio_dac_uda1334a_config.cpp:151-162): enabled, sampleRate, bitDepth,
+  // autoRoutingEnabled, initialized. POST -test returns {"success":true}.
+  window.__MOCK_API__ = {
+    '/api/uda1334a-config': {
+      enabled: true,
+      sampleRate: 44100,
+      bitDepth: 16,
+      autoRoutingEnabled: true,
+      initialized: true
+    },
+    '/api/uda1334a-test': { success: true }
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -493,6 +513,7 @@ PAGES = {
     'max31865': ('page_max31865_asset.h', MAX31865_SEED, 'fragment'),
     'sound': ('page_sound_asset.h', SOUND_SEED, 'fragment'),
     'can': ('page_can_asset.h', CAN_SEED, 'fragment'),
+    'uda1334a': ('page_audio_dac_uda1334a_asset.cpp', UDA1334A_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -518,6 +539,9 @@ PRELUDE = {
     # printed before the body by streamCanPageToPrint() — and it is broken on purpose:
     # the string contains C++ (L(activeLang->tabLabelState)) so the browser throws (CAN-7).
     'can': ('chatgpt/src/webpages/renderers/can_page_renderer.cpp', 'JSTABS'),
+    # printed BEFORE the body by streamUDA1334APageToPrint(); its IIFE runs while
+    # .wrap does not exist yet, so setup() returns early and no tab bar is created (UDA-6).
+    'uda1334a': ('chatgpt/src/webpages/renderers/page_audio_dac_uda1334a_renderer.cpp', 'JSTABS'),
 }
 
 FRAGMENT_TITLES = {
@@ -544,6 +568,8 @@ FRAGMENT_TITLES = {
     # Hardcoded EN in can_page_renderer.cpp:22 ("\xF0\x9F\x94\x8C CAN Bus (TWAI)");
     # there is no pageTitleCan key yet (CAN-7 notes it).
     'can': '🔌 CAN Bus (TWAI)',
+    # L(activeLang->pageTitleUda1334a): EN "🔊 UDA1334A Sound Card" (PT "🔊 Placa de Som UDA1334A")
+    'uda1334a': '🔊 UDA1334A Sound Card',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)
