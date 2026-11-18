@@ -4,6 +4,18 @@
 > every button/input, client logic, API endpoints, persistence and the firmware audio
 > engine. Written for both humans and AI agents.
 
+
+> Screenshot: `desktop/radio_ui.png` (1440 × 910, **smoke capture** — `ENABLE_UDA1334A` is 1 only in
+> `pack_radio.h` and the Harmonica Box is offline). Rendered from the shipped fragment + the page shell,
+> with `/api/radio/status` seeded exactly as `radioAudioStatusJson()` emits it (`radio_audio_runtime.cpp:2674-2740`):
+> STREAMING, volume 68, repeat 1, queue 6 / index 2, 4 favourites, EQ `[4,1,-1,2,3]`, Wi-Fi −57 dBm,
+> `active_ms` 1 192 000 (19:52), plus `/api/radio/queue` (the firmware's own seeded 80s80s entries),
+> `/favorites`, `/library`, `/resume` and `/schedule`. `artwork`/`station_favicon` are seeded empty on
+> purpose: the page derives `/api/radio/artwork` and the station favicon from them and the harness must not
+> fetch external images. The capture shows the **Play** panel at its default state and produced **finding 11**
+> (the `≥768px` rule that should hide the dedicated Play pill never applies). Index and proof in
+> `desktop/README.md` §3.12.
+
 ---
 
 ## 1. Objective
@@ -203,6 +215,7 @@ fallback.
 | 8 | **Queue API truncation**: GET caps at 120 vs POST 256 → the page can show a shorter queue than real (`status.queue_count` is accurate). | Low | Align caps. |
 | 9 | Client/server queue mirror can drift while the server auto-advances; reload restores from server (acceptable). | Info | Re-sync on visibilitychange. |
 | 10 | **Streaming "minutes playing" stuck at 0:00** — `active_ms` was `millis()` since `s_streamStartMs`, which resets to ~0 on every stream reconnect; radios showed 0:00 while SD (single start) looked fine. **fixed:** accumulated `s_streamPlayedMs` + current segment, monotonic across reconnects. | Medium | **fixed** |
+| 11 | **The `≥768px` rule that hides the extra Play pill is dead.** `page_radio_ui_asset.cpp:212` has #nbPlay{display:none} in the desktop media query, but a later block ("Authoritative player sizes") declares #app button{display:inline-flex} (`:217`). Specificity 1,0,1 beats 1,0,0, so the bottom bar keeps **five** slots at every width: measured `flex` at 1440 / 1024 / 800 / 480 px with 5 `.bn` buttons, while the design expects 4 (arrow + 3 rotating) once the player has room for the whole tab list. Fix: `#app #nbPlay{display:none}` in the media query (or `!important`). | Low | Scope the reset to `#app #nbPlay` / re-order the sheet. |
 
 ---
 

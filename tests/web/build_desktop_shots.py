@@ -474,6 +474,85 @@ UDA1334A_SEED = r"""
 </script>
 """
 
+RADIO_UI_SEED = r"""
+<script>
+(function () {
+  // Payloads copied from radio_audio_runtime.cpp: /api/radio/status
+  // (radioAudioStatusJson(), :2674-2740), /api/radio/queue (:2513-2544),
+  // /api/radio/favorites (:2625-2640), /api/radio/library (:3238-3300),
+  // /api/radio/resume and /api/radio/schedule. Queue/favorites entries are the
+  // firmware's own seeded 80s80s stations (kDefaultRadioQueue, :47-...).
+  // artwork/station_favicon are left empty on purpose: the page derives
+  // /api/radio/artwork + the station favicon URL from them, and the harness must
+  // not fetch external images (it would show as broken images).
+  window.__MOCK_API__ = {
+    '/api/radio/status': {
+      success: true, message: 'Playback active',
+      active: true, stream: true,
+      volume: 68, current: '', cache_bytes: 1572864, error: '',
+      reconnect_pending: false, reconnect_attempt: 0, stream_profile: 1,
+      queue_count: 6, queue_index: 2, favorites_count: 4, resume_pending: false,
+      shuffle: false, repeat: 1,
+      sleep_active: false, sleep_min: 0, sleep_remaining: 0,
+      eq_bands: 5, eq_gains: [4, 1, -1, 2, 3],
+      wifi_rssi: -57,
+      title: 'Blue Monday', artist: 'New Order',
+      artwork: '', station_favicon: '', station: '80s80s Alternative',
+      active_ms: 1192000, next_reconnect_ms: 0,
+      library_available: true, sd_mounted: true, sd_fallback: false
+    },
+    '/api/radio/queue': {
+      success: true, message: 'Queue status', index: 2,
+      items: [
+        'https://streams.80s80s.de/80s80sDAB/mp3-128/homepage/',
+        'https://streams.80s80s.de/80s80sDAB/mp3-192/homepage/',
+        'https://streams.80s80s.de/alternative/mp3-128/homepage/',
+        'https://streams.80s80s.de/alternative/mp3-192/homepage/',
+        'https://streams.80s80s.de/newwave/mp3-128/homepage/',
+        'https://streams.80s80s.de/newwave/mp3-192/homepage/'
+      ]
+    },
+    '/api/radio/favorites': {
+      success: true, message: 'Favorites status',
+      items: [
+        { name: '90s90s Dance', url: 'https://streams.90s90s.de/dance/mp3-128/', favicon: '' },
+        { name: '80s80s New Wave', url: 'https://streams.80s80s.de/newwave/mp3-128/', favicon: '' },
+        { name: '80s80s Alternative', url: 'https://streams.80s80s.de/alternative/mp3-128/', favicon: '' },
+        { name: 'Antena 3', url: 'http://radiocast.rtp.pt/antena380a.mp3', favicon: '' }
+      ]
+    },
+    '/api/radio/library': {
+      success: true, is_root: true, count: 4,
+      folders: [
+        { name: 'Depeche Mode', path: '/library/Depeche Mode' },
+        { name: 'New Order', path: '/library/New Order' }
+      ],
+      items: [
+        { name: '01 - Enjoy the Silence.mp3', path: '/library/Depeche Mode/01 - Enjoy the Silence.mp3' },
+        { name: '02 - Personal Jesus.mp3', path: '/library/Depeche Mode/02 - Personal Jesus.mp3' },
+        { name: '01 - Blue Monday.mp3', path: '/library/New Order/01 - Blue Monday.mp3' },
+        { name: '02 - Bizarre Love Triangle.mp3', path: '/library/New Order/02 - Bizarre Love Triangle.mp3' }
+      ]
+    },
+    '/api/radio/playlists': { success: true, playlists: ['80s classics', 'Warm-up'] },
+    '/api/radio/resume': { success: true, autoResume: true, resumeFirst: false },
+    '/api/radio/schedule': { success: true, slots: [] },
+    '/api/radio/play-url': { success: true, message: 'Playing' },
+    '/api/radio/play-sd': { success: true, message: 'Playing' },
+    '/api/radio/volume': { success: true },
+    '/api/radio/seek': { success: true },
+    '/api/radio/stop': { success: true },
+    '/api/radio/next': { success: true },
+    '/api/radio/shuffle': { success: true },
+    '/api/radio/repeat': { success: true },
+    '/api/radio/sleep': { success: true },
+    '/api/radio/eq': { success: true },
+    '/api/radio/queue-set': { success: true }
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -514,6 +593,7 @@ PAGES = {
     'sound': ('page_sound_asset.h', SOUND_SEED, 'fragment'),
     'can': ('page_can_asset.h', CAN_SEED, 'fragment'),
     'uda1334a': ('page_audio_dac_uda1334a_asset.cpp', UDA1334A_SEED, 'fragment'),
+    'radio_ui': ('page_radio_ui_asset.cpp', RADIO_UI_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -570,6 +650,9 @@ FRAGMENT_TITLES = {
     'can': '🔌 CAN Bus (TWAI)',
     # L(activeLang->pageTitleUda1334a): EN "🔊 UDA1334A Sound Card" (PT "🔊 Placa de Som UDA1334A")
     'uda1334a': '🔊 UDA1334A Sound Card',
+    # Hardcoded in radio_ui_page_renderer.cpp:10 ("\\xF0\\x9F\\x8E\\xB5 Harmonica Box");
+    # the page has no i18n at all (radio_ui.md §9) — finding RAD-1.
+    'radio_ui': '🎵 Harmonica Box',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)

@@ -75,7 +75,10 @@ if (!SRC || !OUT) fail('usage: node desktop_smoke_shot.js <file.html> <out.png> 
 
     const probe = await send('Runtime.evaluate', {
       expression: `JSON.stringify((function(){
-        var imgs = Array.prototype.filter.call(document.images, function(i){ return i.complete && i.naturalWidth === 0; });
+        // A src-less <img> is a placeholder, not a broken image: it never issued a request
+        // (e.g. the radio page's #artImg, display:none until artwork arrives).
+        var imgs = Array.prototype.filter.call(document.images, function(i){
+          return (i.getAttribute('src') || '').length > 0 && i.complete && i.naturalWidth === 0; });
         var overlays = Array.prototype.filter.call(document.querySelectorAll('#loadingOverlay'),
           function(o){ return getComputedStyle(o).display !== 'none'; });
         return {
