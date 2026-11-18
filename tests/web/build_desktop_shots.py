@@ -317,6 +317,31 @@ RAMBOX_SEED = r"""
 </script>
 """
 
+HX711_SEED = r"""
+<script>
+(function () {
+  // GET /api/hx711-config == HX711ConfigManager::toJson() (sensor_hx711_config.cpp:112-133),
+  // and the measure/tare POSTs return the same document.
+  var cfg = {
+    sensor_enabled: true,
+    data_pin: 4, clk_pin: 5, gain: 128, samples: 8,
+    read_interval_sec: 60,
+    scale_factor: -432.1500, tare_offset: 84120,
+    weight_unit: 0,                  // 0 = g (HX711_UNIT_GRAM)
+    inject_to_buffer: true, output_csv: true,
+    alert_min: 0, alert_max: 5000,
+    last_weight: 1247.3850, last_raw: 898432,
+    last_reading_time: Math.floor(Date.now() / 1000) - 45
+  };
+  window.__MOCK_API__ = {
+    '/api/hx711-config':  cfg,
+    '/api/hx711-measure': cfg,
+    '/api/hx711-tare':    cfg
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -351,6 +376,7 @@ PAGES = {
     'modbus_rtu': ('page_modbus_asset.cpp', MODBUS_RTU_SEED, 'fragment'),
     'modbus_live': ('page_modbus_asset.cpp', MODBUS_LIVE_SEED, 'fragment'),
     'rambox': ('page_rambox_asset.h', RAMBOX_SEED, 'fragment'),
+    'hx711': ('page_hx711_asset.h', HX711_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -386,6 +412,7 @@ FRAGMENT_TITLES = {
     'modbus_rtu': 'Modbus RTU',
     'modbus_live': '📈 Modbus Live',
     'rambox': 'RAMBOX 🐦',
+    'hx711': '⚖️ HX711 Weight Sensor',  # L(activeLang->pageTitleHx711), EN value
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)

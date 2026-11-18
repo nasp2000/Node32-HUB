@@ -3,15 +3,15 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); thirty-eight images captured** —
+> Status: **inventory raised (50 desktop pages); thirty-nine images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`, `rs232`), the Waveshare pack
 > (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`, `modbus_tcp`) and
 > the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus `dualfile`
 >, `api_reference`, `networks`, `structures` and `buzzer` rendered from the shipped asset
-> (§3.12). The remaining 12 rows are blocked by the build/config on every live board (§3.11) and
-> are being covered one by one as smoke captures.
+> (§3.12). The remaining 11 rows are blocked by the build/config on every live board (§3.11) and
+> are being covered by smoke captures.
 
 Two provenances, marked in the Status column:
 
@@ -135,6 +135,8 @@ python3 build_desktop_shots.py modbus_live
 node desktop_smoke_shot.js shots/desktop_modbus_live.html ../../PAGES/desktop/modbus_live.png
 python3 build_desktop_shots.py rambox
 node desktop_smoke_shot.js shots/desktop_rambox.html ../../PAGES/desktop/rambox.png
+python3 build_desktop_shots.py hx711
+node desktop_smoke_shot.js shots/desktop_hx711.html ../../PAGES/desktop/hx711.png
 ```
 
 `build_desktop_shots.py` takes the R-string exactly as compiled, keeps its own `<style>` (it
@@ -175,6 +177,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | `modbus_rtu.png` | **harness render** (no live board serves `/modbus-rtu`; the route is inside `#if ENABLE_MODBUS==1` and only Cam-P4 `.18` has Modbus on among the live boards — and it runs TCP only) | asset unchanged since `c7ea5cf`, tree at `ea50645`; no firmware/ETag | 1440 × 971 · 68 760 B | **smoke capture** (§3.12): `build_desktop_shots.py modbus_rtu` + `desktop_smoke_shot.js` → title `Modbus RTU`, 481 chars, 5 controls, 1 table / 1 row, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. The page is captured **in its real broken state**: `page_modbus_asset.cpp:164` closes a single-quoted JS string on an inner `data-i18n='mbSlaveAddrLabel'`, so the script never parses (`SyntaxError: Unexpected identifier 'mbSlaveAddrLabel'`), `initModbusRtuPage` stays undefined (`ReferenceError` from the renderer footer), `/api/modbus/config` is never fetched and the screen keeps its HTML defaults — 0/4 devices, 1200 baud, nothing checked. That is **`BACKLOG.md` MODBUS-7 (High)**; the seed (two devices, five registers) is in the builder ready for the day it is fixed
 | `modbus_live.png` | **harness render** (no live board renders it: `/modbus-live` answers **302 → `/`** on the only Modbus board, `.18`, because Modbus is not active in its config) | asset unchanged since `c7ea5cf`, tree at `3dc17f8`; no firmware/ETag | 1440 × 1031 · 79 134 B | **smoke capture** (§3.12): `build_desktop_shots.py modbus_live` + `desktop_smoke_shot.js` → title `📈 Modbus Live`, 518 chars, 4 controls, 2 tables / 7 rows, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows the page in the state its guard allows: header `Actualizado: 00:15:26`, Poll Agora / Stop Auto, **Inversor** (`482 leituras ✗ 0 erros`: Tensao 229.7000 V, Corrente 4.3100 A, Frequencia 50.0200 Hz, all ✅) and **Contador** (`120 leituras ✗ 2 erros`: Energia 12345.6000 kWh ✅, Estado `N/A` ✗), then the orange **Manual Write** card. Texts are PT-only (`Modbus — Dados Live`, `Poll Agora`, `Manual Write`, `– selecionar –`) — the MODBUS-3 family. **New finding MODBUS-8** (`BACKLOG.md`): the write dropdown labels devices with `d.slaveId`/`d.isTcp`, fields `/api/modbus/live` does not emit, so every option reads `(ID undefined)` — measured with the faithful payload
 | `rambox.png` | **harness render** (no live board serves `/rambox`; the route is compiled only with `ENABLE_UNIKON`/`ENABLE_BRICON` and the Rambox pack's board is offline) | asset unchanged since `c7ea5cf`, tree at `7ee7ea0`; no firmware/ETag | 1440 × 940 · 69 277 B | **smoke capture** (§3.12): `build_desktop_shots.py rambox` + `desktop_smoke_shot.js` → title `RAMBOX 🐦`, 458 chars, 18 controls, 4 tables / 41 rows, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows the unified clock page: `Aparelho: Unikon` selector, the status badge, the five tabs (Config active, Chegadas, Pombos, Prova, Estado) and the Config panel (`Relogio activo`, poll 1 min, `Usar a configuração da RS232`, `Formato oficial`, e-mail, `Ligação fixa do Unikon: 9600 8N1`, Guardar, Perfil do módulo). Text is PT — the asset's own fallbacks; `auto.js` (left out of the harness) is what would translate them. **New finding RMB-5** (`PAGES/rambox.md`): the badge reads `Unikon RAMBOX — ligado · ligado · rambox`
+| `hx711.png` | **harness render** (no live board serves `/hx711`; `ENABLE_HX711` is 0 in every pack we can reach) | asset unchanged since `c7ea5cf`, tree at `01949f4`; no firmware/ETag | 1440 × 1227 · 95 071 B | **smoke capture** (§3.12): `build_desktop_shots.py hx711` + `desktop_smoke_shot.js` → title `⚖️ HX711 Weight Sensor` (the `pageTitleHx711` string), 726 chars, 4 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows Current Reading **1247.385 g** in green, Measure Now / Tare (Zero), Main Control (`Enable HX711 Sensor`, interval 1 minute), Calibration (gain 128 Channel A, 8 samples, scale factor -432.15, tare offset 84120, weight unit `g (gram)`) and Output Options (Monitor Data, CSV) + Save Configuration. The line under the weight reads `&#128197; Last reading: …` **literally**: that is the asset's fallback and only `auto.js`/`/api/lang` (left out of the harness) turns the entity into 📅 — both packs already carry the emoji. **New finding HX-7**: `alert_min`/`alert_max` are persisted, returned and parsed but nothing consumes them and the page has no inputs
 
 > **History — the page was unusable for a while (`PAGES/BACKLOG.md` SC-9, still open)** (HomeE32
 > `.24`): `GET /sensor-charts` was 200 but the page needs one of **two chart sessions**; with
@@ -309,7 +312,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 |---|---|---|---|
 | Sensor channels/caps | `/sensor-config` | `sensor_config.png` | **done** |
 | Air quality MQ135 | `/mq135-config` | `mq135_config.png` | **done** |
-| Weight HX711 | `/hx711` | `hx711.png` | pending |
+| Weight HX711 | `/hx711` | `hx711.png` | **done** (smoke — §3.12) |
 | Current/power INA226 | `/ina226` | `ina226.png` | pending |
 | Sound level | `/sound` | `sound.png` | pending |
 | RTD MAX31865 | `/max31865` | `max31865.png` | pending |
@@ -341,7 +344,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 
 ### 3.11 Blocked routes — smoke matrix
 
-The 12 rows still **pending** have no live page to capture (ten of the original 22 are
+The 11 rows still **pending** have no live page to capture (eleven of the original 22 are
 now delivered as smoke captures, §3.12). Each was probed **once** on all
 four live boards (`.29` Waveshare, `.24` HomeE32, `.18` Cam-P4, `.9` Cam-M1) with
 
@@ -370,7 +373,7 @@ turned on for a capture — which is a firmware change and out of scope for this
 | `/modbus-rtu` | `modbus_rtu.png` | 404 ×4 | `ENABLE_MODBUS_RTU 0` everywhere (e.g. `pack_cam_p4.h:115-116`) — **captured by smoke, §3.12** |
 | `/modbus-live` | `modbus_live.png` | **302 → `/`** on `.18`, 404 ×3 | page guard: Modbus not active in config (`web_routes_modbus.cpp:254-262`) — **captured by smoke, §3.12** |
 | `/can` | `can.png` | 404 ×4 | `ENABLE_CAN 0` in every pack |
-| `/hx711` | `hx711.png` | 404 ×4 | `ENABLE_HX711 0` in every pack |
+| `/hx711` | `hx711.png` | 404 ×4 | `ENABLE_HX711 0` in every pack — **captured by smoke, §3.12** |
 | `/ina226` | `ina226.png` | 404 ×4 | `ENABLE_INA226 0` in every pack |
 | `/sound` | `sound.png` | 404 ×4 | `ENABLE_SOUND_SENSOR 0` in every pack |
 | `/max31865` | `max31865.png` | 404 ×4 | `ENABLE_MAX31865 0` in every pack |
@@ -405,6 +408,7 @@ captured with `--expand` (all sections open); the row says so when it applies.
 
 | Route | Image | Rendered from | Notes |
 |---|---|---|---|
+| `/hx711` | `hx711.png` | `chatgpt/src/webpages/assets/page_hx711_asset.h` (fragment) + the page shell | 1440 × 1227. Seed `/api/hx711-config` exactly as `HX711ConfigManager::toJson()` emits it (`sensor_enabled`, pins, `gain:128`, `samples:8`, `read_interval_sec:60`, `scale_factor:-432.15`, `tare_offset:84120`, `weight_unit:0`, `alert_min/max`, `last_weight:1247.385`, `last_raw`, `last_reading_time`); measure/tare return the same document. Shows **HX-7** (alert thresholds with no consumer and no UI) and the `&#128197;` fallback that only `auto.js` would replace |
 | `/rambox` | `rambox.png` | `chatgpt/src/webpages/assets/page_rambox_asset.h` (fragment) + the page shell | 1440 × 940. Seeded with the Unikon payloads the page requests on load — `/api/unikon-status` (clock/club/race block, `activeModule:"rambox"`), `-arrivals` (5), `-pombal` (6), `-contests` (4) — exactly as `unikon_handler.cpp` formats them. Config tab active, as on a first visit. Shows **RMB-5**: the status badge prints `ligado` twice and appends the raw module name |
 | `/modbus-live` | `modbus_live.png` | `page_modbus_asset.cpp` → the `PAGE_MODBUS_LIVE` R-string + the page shell and its `initModbusLivePage()` footer | 1440 × 1031. Seed `/api/modbus/live` in the exact shape `handleModbusLiveGet()` emits (`name`, `enabled`, `pollCount`, `errorCount`, `regs[{label,unit,val,ok}]`): two devices, five registers, one failed read (`N/A` ✗). **The route's own guard 302s to `/` when Modbus is not active**, so this is the page as it renders in the only state where it exists at all. Finding **MODBUS-8**: the Manual Write dropdown prints `d.slaveId`/`d.isTcp`, keys the payload does not carry |
 | `/modbus-rtu` | `modbus_rtu.png` | `page_modbus_asset.cpp` → the `PAGE_MODBUS_RTU` R-string (the file also holds the TCP and Live pages) + the page shell and its `initModbusRtuPage()` footer | 1440 × 971. Seed `/api/modbus/config` with two devices (Inversor: slave 1, Tensao 0.1 V, Corrente 0.01 A, Frequencia 32-bit; Contador: slave 2, Energia 32-bit, Estado) **cannot take effect**: the inline script throws a `SyntaxError` before defining `initModbusRtuPage`, so the image shows the real broken state — 0/4 devices, 1200 baud, every checkbox off — **MODBUS-7** |
@@ -489,6 +493,8 @@ python3 build_desktop_shots.py modbus_live
 node desktop_smoke_shot.js shots/desktop_modbus_live.html ../../PAGES/desktop/modbus_live.png
 python3 build_desktop_shots.py rambox
 node desktop_smoke_shot.js shots/desktop_rambox.html ../../PAGES/desktop/rambox.png
+python3 build_desktop_shots.py hx711
+node desktop_smoke_shot.js shots/desktop_hx711.html ../../PAGES/desktop/hx711.png
 ```
 
 ## 5. Adding an image (checklist)
