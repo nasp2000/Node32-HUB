@@ -342,6 +342,32 @@ HX711_SEED = r"""
 </script>
 """
 
+INA226_SEED = r"""
+<script>
+(function () {
+  // GET /api/ina226-config == INA226ConfigManager::toJson() (sensor_ina226_config.cpp:123-145);
+  // the measure POST returns the same document.
+  var cfg = {
+    sensor_enabled: true,
+    i2c_addr: 64,                    // 0x40 — A0=GND, A1=GND
+    shunt_ohm: 0.1000, max_current_a: 10.0000, averaging: 4,
+    current_unit: 0,                 // 0 = A
+    read_interval_sec: 60,
+    inject_to_buffer: true, output_csv: true,
+    show_bus_voltage: true, show_shunt_voltage: true, show_current: true, show_power: true,
+    alert_current_max: 8.0000, alert_power_max: 100.0000,
+    last_bus_v: 24.0130, last_shunt_v: 0.0234,
+    last_current_a: 2.3410, last_power_w: 56.2200,
+    last_reading_time: Math.floor(Date.now() / 1000) - 30
+  };
+  window.__MOCK_API__ = {
+    '/api/ina226-config':  cfg,
+    '/api/ina226-measure': cfg
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -377,6 +403,7 @@ PAGES = {
     'modbus_live': ('page_modbus_asset.cpp', MODBUS_LIVE_SEED, 'fragment'),
     'rambox': ('page_rambox_asset.h', RAMBOX_SEED, 'fragment'),
     'hx711': ('page_hx711_asset.h', HX711_SEED, 'fragment'),
+    'ina226': ('page_ina226_asset.h', INA226_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -413,6 +440,9 @@ FRAGMENT_TITLES = {
     'modbus_live': '📈 Modbus Live',
     'rambox': 'RAMBOX 🐦',
     'hx711': '⚖️ HX711 Weight Sensor',  # L(activeLang->pageTitleHx711), EN value
+    # NOT the INA226 title: ina226_page_renderer.cpp:10 passes pageTitleMax31865 (INA-7),
+    # so this is exactly what a board ships in <title>.
+    'ina226': '🌡️ MAX31865 RTD Sensor',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)
