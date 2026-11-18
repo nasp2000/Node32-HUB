@@ -553,6 +553,136 @@ RADIO_UI_SEED = r"""
 </script>
 """
 
+IPG_LASER_SEED = r"""
+<script>
+(function () {
+  // Payloads exactly as the firmware emits them (ENABLE_IPG_LASER=1 build).
+  // GET /api/ipg-laser-status (handlers/ipg_laser_handler.cpp:18-46): the current* fields
+  // mirror the RS232 section config, required* are the manual's fixed 57600 8N1/no-flow.
+  // Seed = a board already set up for the laser: baudrate_index 6 -> 57600
+  // (RS232_BAUDRATES, diagnostics_impl.h:149), 8N1, xon/xoff off, and no template applied
+  // (current_template is only written by a manual send, runtime_rs232_queue.cpp:174), so
+  // renderStatus() shows the green "Compatible profile". An untouched board
+  // (baudrate_index 4 -> 19200, ConfigManager.cpp:107-128) shows the amber badge instead.
+  // GET /api/ipg-laser-commands (:55-76) returns the module's own kCommandCatalog
+  // (ipg_laser_module.cpp:24-119) - all 61 entries copied 1:1, not a sample.
+  // GET /api/ipg-laser-log (:78-96) returns the TX/RX ring (ipg_laser_module.cpp:103,
+  // :121, :183): replies are the catalog's own "response" strings, oldest entry first.
+  // GET /api/config?section=rs232 is the same RS232 profile the status payload reports.
+  //
+  // NOTE: as shipped, the asset's inline <script> is a SyntaxError (six single-quoted
+  // strings carry unescaped data-i18n='...' attributes, page_ipg_laser_asset.cpp:273-538
+  // - finding IPG-7), so no handler below ever runs and the capture shows the page in
+  // that real "not loading" state. The payloads stay here because they are correct and
+  // become visible the moment IPG-7 is fixed; they are never fabricated for the image.
+  window.__MOCK_API__ = {
+    '/api/ipg-laser-available': { available: true, message: 'IPG Laser module is enabled.' },
+    '/api/ipg-laser-status': {
+      captureActive: false, captureEndsInMs: 0, lastRxAgeMs: 4200,
+      logCount: 14, lastCommand: 'RPW',
+      currentBaudrate: 57600, currentDataBits: 8, currentParity: 'none',
+      currentStopBits: 1, currentFlowControl: false, currentTemplate: '',
+      requiredBaudrate: 57600, requiredDataBits: 8, requiredParity: 'none',
+      requiredStopBits: 1, requiredFlowControl: 'none',
+      transport: 'RS232 null-modem 3-wire',
+      remoteModeNote: 'Laser must be in REMOTE mode with interlocks satisfied before EMON.'
+    },
+    '/api/ipg-laser-commands': {
+      count: 61,
+      commands: [
+        {"code": "ABN", "category": "Guide", "usage": "ABN", "description": "Enable the aiming beam.", "response": "ABN", "notes": "Fails if external guide control is enabled."},
+        {"code": "ABF", "category": "Guide", "usage": "ABF", "description": "Disable the aiming beam.", "response": "ABF", "notes": "Fails if external guide control is enabled."},
+        {"code": "DEABC", "category": "Guide", "usage": "DEABC", "description": "Disable external aiming beam control.", "response": "DEABC", "notes": "Required to control guide beam via RS232."},
+        {"code": "DEC", "category": "Control", "usage": "DEC", "description": "Disable external analog current control.", "response": "DEC", "notes": "Also disables dynamic scaling in waveform mode."},
+        {"code": "DGM", "category": "Control", "usage": "DGM", "description": "Disable gate mode.", "response": "DGM", "notes": "Rejected while emission is on."},
+        {"code": "DLE", "category": "Control", "usage": "DLE", "description": "Disable hardware emission control.", "response": "DLE", "notes": "Rejected while emission is on."},
+        {"code": "DMOD", "category": "Control", "usage": "DMOD", "description": "Disable modulation mode.", "response": "DMOD", "notes": "Rejected while emission is on."},
+        {"code": "DPM", "category": "Control", "usage": "DPM", "description": "Disable pulse mode.", "response": "DPM", "notes": "QCW models only."},
+        {"code": "EEABC", "category": "Guide", "usage": "EEABC", "description": "Enable external aiming beam control.", "response": "EEABC", "notes": "Allows hardware guide control input."},
+        {"code": "EEC", "category": "Control", "usage": "EEC", "description": "Enable external analog current control.", "response": "EEC", "notes": "Rejected while emission is on."},
+        {"code": "EGM", "category": "Control", "usage": "EGM", "description": "Enable gate mode.", "response": "EGM", "notes": "Uses external gate input to trigger internal pulses."},
+        {"code": "ELE", "category": "Control", "usage": "ELE", "description": "Enable hardware emission control.", "response": "ELE", "notes": "Rejected while emission is on."},
+        {"code": "EMOD", "category": "Control", "usage": "EMOD", "description": "Enable modulation mode.", "response": "EMOD", "notes": "Rejected while emission is on."},
+        {"code": "EMOFF", "category": "Emission", "usage": "EMOFF", "description": "Stop laser emission.", "response": "EMOFF", "notes": "Immediate stop command."},
+        {"code": "EMON", "category": "Emission", "usage": "EMON", "description": "Start laser emission.", "response": "EMON", "notes": "Requires valid setpoint and remote-ready state."},
+        {"code": "EPM", "category": "Control", "usage": "EPM", "description": "Enable pulse mode.", "response": "EPM", "notes": "QCW models only."},
+        {"code": "ESTA", "category": "Readback", "usage": "ESTA", "description": "Read extended device status words for diagnostics.", "response": "ESTA: 256;0;...", "notes": "Used mainly for remote troubleshooting."},
+        {"code": "HELP", "category": "Utility", "usage": "HELP [CMD]", "description": "List commands or show details for one command.", "response": "HELP: ...", "notes": "Commands are case-insensitive."},
+        {"code": "LFP", "category": "Front Panel", "usage": "LFP", "description": "Lock the touch-screen front panel.", "response": "LFP", "notes": "Touch-screen option only."},
+        {"code": "RBAUD", "category": "Readback", "usage": "RBAUD", "description": "Read the active RS232 baud-rate index.", "response": "RBAUD: 8", "notes": "Index 8 maps to 57600 bps."},
+        {"code": "RCE", "category": "Service", "usage": "RCE <code>", "description": "Clear a critical error using an IPG service code.", "response": "RCE: Code Accepted", "notes": "Service use only."},
+        {"code": "RCS", "category": "Readback", "usage": "RCS", "description": "Read current setpoint in percent.", "response": "RCS: 56.7", "notes": "Percent of maximum diode current."},
+        {"code": "RCT", "category": "Readback", "usage": "RCT", "description": "Read internal laser temperature in Celsius.", "response": "RCT: 34.5", "notes": "Useful for health monitoring."},
+        {"code": "REC", "category": "Readback", "usage": "REC", "description": "Read the critical error counter.", "response": "REC: 37", "notes": "Persistent count."},
+        {"code": "RERR", "category": "Service", "usage": "RERR", "description": "Reset resettable errors.", "response": "RERR", "notes": "Equivalent to hardware error reset."},
+        {"code": "RET", "category": "Readback", "usage": "RET", "description": "Read elapsed on-time in minutes.", "response": "RET: 1105", "notes": "Cumulative runtime."},
+        {"code": "RFV", "category": "Readback", "usage": "RFV", "description": "Read software revision.", "response": "RFV: 7.28;2.83;ND", "notes": "Firmware versions separated by semicolons."},
+        {"code": "RMEC", "category": "Readback", "usage": "RMEC", "description": "Read stored module error code.", "response": "RMEC: 0", "notes": "Zero means normal operation."},
+        {"code": "RNC", "category": "Readback", "usage": "RNC", "description": "Read minimum allowed current setpoint.", "response": "RNC: 10.0", "notes": "Percent of maximum current."},
+        {"code": "ROP", "category": "Readback", "usage": "ROP", "description": "Read average output power in watts.", "response": "ROP: 99.6", "notes": "May also return Off or Low."},
+        {"code": "RPP", "category": "Readback", "usage": "RPP", "description": "Read peak output power in watts.", "response": "RPP: 730", "notes": "May also return Off or Low."},
+        {"code": "RPRR", "category": "Readback", "usage": "RPRR", "description": "Read pulse repetition rate in Hz.", "response": "RPRR: 10.00", "notes": "Pulse mode only."},
+        {"code": "RPW", "category": "Readback", "usage": "RPW", "description": "Read pulse width in ms.", "response": "RPW: 5.550", "notes": "Pulse mode only."},
+        {"code": "RSN", "category": "Readback", "usage": "RSN", "description": "Read device serial number.", "response": "RSN: 6103081", "notes": "Useful for inventory and hostname defaults."},
+        {"code": "SBAUD", "category": "Network/Serial", "usage": "SBAUD <index>", "description": "Set RS232 baud-rate index.", "response": "SBAUD: 9", "notes": "Via RS232 there is no reply because speed changes immediately."},
+        {"code": "SDC", "category": "Setpoint", "usage": "SDC <percent>", "description": "Set diode current in percent.", "response": "SDC: 34.2", "notes": "Rejected if out of range or external control is enabled."},
+        {"code": "SPRR", "category": "Setpoint", "usage": "SPRR <hz>", "description": "Set pulse repetition rate.", "response": "SPRR: 10", "notes": "Can fail with duty cycle too high."},
+        {"code": "SPW", "category": "Setpoint", "usage": "SPW <ms>", "description": "Set pulse width.", "response": "SPW: 5.5", "notes": "Can fail with argument out of range or duty cycle too high."},
+        {"code": "STA", "category": "Readback", "usage": "STA", "description": "Read 32-bit status word.", "response": "STA: 4100", "notes": "Bitfield reports emission, modes and alarms."},
+        {"code": "UFP", "category": "Front Panel", "usage": "UFP", "description": "Unlock the touch-screen front panel.", "response": "UFP", "notes": "Touch-screen option only; fails in REMOTE with key restrictions."},
+        {"code": "DDHCP", "category": "Ethernet", "usage": "DDHCP", "description": "Disable DHCP.", "response": "DDHCP", "notes": "Rejected while emission is on."},
+        {"code": "EDHCP", "category": "Ethernet", "usage": "EDHCP", "description": "Enable DHCP.", "response": "EDHCP", "notes": "Rejected while emission is on."},
+        {"code": "RDGW", "category": "Ethernet", "usage": "RDGW", "description": "Read default gateway.", "response": "RDGW: 192.168.1.1", "notes": "Dot-decimal format."},
+        {"code": "RDHCP", "category": "Ethernet", "usage": "RDHCP", "description": "Read DHCP status.", "response": "RDHCP: OFF", "notes": "Returns ON or OFF."},
+        {"code": "RIP", "category": "Ethernet", "usage": "RIP", "description": "Read IP address.", "response": "RIP: 192.168.1.230", "notes": "Dot-decimal format."},
+        {"code": "RLHN", "category": "Ethernet", "usage": "RLHN", "description": "Read local host name.", "response": "RLHN: IPG-12004020", "notes": "Derived from serial by default."},
+        {"code": "RMAC", "category": "Ethernet", "usage": "RMAC", "description": "Read MAC address.", "response": "RMAC: A1-B2-C3-D4-E5-F6", "notes": "Six hex groups separated by hyphens."},
+        {"code": "RMASK", "category": "Ethernet", "usage": "RMASK", "description": "Read subnet mask.", "response": "RMASK: 255.255.240.0", "notes": "Dot-decimal format."},
+        {"code": "RSTIP", "category": "Ethernet", "usage": "RSTIP", "description": "Reset TCP/IP settings to IPG defaults.", "response": "RSTIP", "notes": "Rejected while emission is on."},
+        {"code": "SDGW", "category": "Ethernet", "usage": "SDGW <ip>", "description": "Set default gateway.", "response": "SDGW: 192.168.0.1", "notes": "Rejected while emission is on."},
+        {"code": "SIP", "category": "Ethernet", "usage": "SIP <ip>", "description": "Set IP address.", "response": "SIP: 192.168.1.231", "notes": "Rejected while emission is on."},
+        {"code": "SMAC", "category": "Ethernet", "usage": "SMAC <mac>", "description": "Set MAC address.", "response": "SMAC: 12-34-56-78-EF-EF", "notes": "Rejected while emission is on."},
+        {"code": "SMASK", "category": "Ethernet", "usage": "SMASK <mask>", "description": "Set subnet mask.", "response": "SMASK: 255.255.0.0", "notes": "Rejected while emission is on."},
+        {"code": "SLHN", "category": "Ethernet", "usage": "SLHN <host>", "description": "Set local host name.", "response": "SLHN: IPG-12004020", "notes": "Rejected while emission is on."},
+        {"code": "DWPM", "category": "Waveform", "usage": "DWPM", "description": "Disable waveform pulse mode.", "response": "DWPM", "notes": "Pulse shaping option only."},
+        {"code": "EWPM", "category": "Waveform", "usage": "EWPM", "description": "Enable waveform pulse mode.", "response": "EWPM", "notes": "Requires pulse/sequence availability and pulse mode."},
+        {"code": "PCFG", "category": "Waveform", "usage": "PCFG", "description": "Read waveform mode configuration.", "response": "PCFG: [] [Status:Disabled]", "notes": "Reports mode and selected ID."},
+        {"code": "PRLS", "category": "Waveform", "usage": "PRLS", "description": "List stored pulse profiles.", "response": "PRLS: [] [0:New Shape 0]", "notes": "Pulse shaping option only."},
+        {"code": "PRSEL", "category": "Waveform", "usage": "PRSEL <id>", "description": "Select pulse profile ID.", "response": "PRSEL: [2:New Shape 2]", "notes": "Also switches to single pulse profile mode."},
+        {"code": "SQLS", "category": "Waveform", "usage": "SQLS", "description": "List stored pulse sequences.", "response": "SQLS: [] [4:New Program 4]", "notes": "Pulse shaping option only."},
+        {"code": "SQSEL", "category": "Waveform", "usage": "SQSEL <id>", "description": "Select pulse sequence ID.", "response": "SQSEL: [4:New Program 4]", "notes": "Also switches to sequence mode."},
+      ]
+    },
+    '/api/ipg-laser-log': {
+      count: 14,
+      entries: [
+        {"ageMs": 22400, "direction": "TX", "text": "STA"},
+        {"ageMs": 21000, "direction": "RX", "text": "STA: 4100"},
+        {"ageMs": 19600, "direction": "TX", "text": "RFV"},
+        {"ageMs": 18200, "direction": "RX", "text": "RFV: 7.28;2.83;ND"},
+        {"ageMs": 16800, "direction": "TX", "text": "ROP"},
+        {"ageMs": 15400, "direction": "RX", "text": "ROP: 99.6"},
+        {"ageMs": 14000, "direction": "TX", "text": "RPP"},
+        {"ageMs": 12600, "direction": "RX", "text": "RPP: 730"},
+        {"ageMs": 11200, "direction": "TX", "text": "RCS"},
+        {"ageMs": 9800, "direction": "RX", "text": "RCS: 56.7"},
+        {"ageMs": 8400, "direction": "TX", "text": "RPRR"},
+        {"ageMs": 7000, "direction": "RX", "text": "RPRR: 10.00"},
+        {"ageMs": 5600, "direction": "TX", "text": "RPW"},
+        {"ageMs": 4200, "direction": "RX", "text": "RPW: 5.550"},
+      ]
+    },
+    '/api/ipg-laser-send': { success: true, message: 'Command queued. Waiting for laser response.' },
+    '/api/ipg-laser-clear': { success: true, message: 'IPG response log cleared.' },
+    '/api/config?section=rs232': {
+      rs232_baudrate: 57600, rs232_data_bits: 8, rs232_parity: 'none',
+      rs232_stop_bits: 1, rs232_enabled: true
+    }
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -594,6 +724,7 @@ PAGES = {
     'can': ('page_can_asset.h', CAN_SEED, 'fragment'),
     'uda1334a': ('page_audio_dac_uda1334a_asset.cpp', UDA1334A_SEED, 'fragment'),
     'radio_ui': ('page_radio_ui_asset.cpp', RADIO_UI_SEED, 'fragment'),
+    'ipg_laser': ('page_ipg_laser_asset.cpp', IPG_LASER_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -653,6 +784,9 @@ FRAGMENT_TITLES = {
     # Hardcoded in radio_ui_page_renderer.cpp:10 ("\\xF0\\x9F\\x8E\\xB5 Harmonica Box");
     # the page has no i18n at all (radio_ui.md §9) — finding RAD-1.
     'radio_ui': '🎵 Harmonica Box',
+    # Hardcoded in ipg_laser_page_renderer.cpp:8 ("\xF0\x9F\x94\xA5 IPG Laser RS232");
+    # there is no pageTitleIpgLaser key (IPG-1 covers the whole page's missing i18n).
+    'ipg_laser': '🔥 IPG Laser RS232',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)

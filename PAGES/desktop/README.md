@@ -3,17 +3,17 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); forty-five images captured** —
+> Status: **inventory raised (50 desktop pages); forty-six images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`, `rs232`), the Waveshare pack
 > (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`, `modbus_tcp`) and
-> the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus **seventeen
+> the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus **eighteen
 > smoke renders** of pages no live board serves (`dualfile`, `api_reference`, `networks`,
 > `structures`, `buzzer`, `lpt_db25`, `grbl_controller`, `modbus_rtu`, `modbus_live`, `rambox`,
-> `hx711`, `ina226`, `max31865`, `sound`, `can`, `uda1334a`, `radio_ui` — §3.12). The remaining 5
-> rows are blocked by the build/config on every live board (§3.11) and are being covered by
-> smoke captures.
+> `hx711`, `ina226`, `max31865`, `sound`, `can`, `uda1334a`, `radio_ui`, `ipg_laser` — §3.12). The
+> remaining 4 rows are blocked by the build/config on every live board (§3.11) and are being
+> covered by smoke captures.
 
 Two provenances, marked in the Status column:
 
@@ -151,6 +151,8 @@ python3 build_desktop_shots.py uda1334a
 node desktop_smoke_shot.js shots/desktop_uda1334a.html ../../PAGES/desktop/uda1334a.png
 python3 build_desktop_shots.py radio_ui
 node desktop_smoke_shot.js shots/desktop_radio_ui.html ../../PAGES/desktop/radio_ui.png
+python3 build_desktop_shots.py ipg_laser
+node desktop_smoke_shot.js shots/desktop_ipg_laser.html ../../PAGES/desktop/ipg_laser.png
 ```
 
 `build_desktop_shots.py` takes the R-string exactly as compiled, keeps its own `<style>` (it
@@ -198,6 +200,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | `can.png` | **harness render** (no live board serves `/can`; `ENABLE_CAN` is 0 in every pack we can reach) | asset unchanged since `c7ea5cf`, tree at `d7d5d75`; no firmware/ETag | 1440 × 940 · 47 902 B | **smoke capture** (§3.12): `build_desktop_shots.py can` + `desktop_smoke_shot.js` → title `🔌 CAN Bus (TWAI)` (hardcoded EN, **CAN-8**), 200 chars, 10 controls, 1 table / 7 rows, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows the asset's tab row (Status active, Frames / Send / Config) and the Bus Status card: **RUNNING** badge, `Mode: Normal 500Kbps`, TX 311 / RX 1842 / Buffer 128 / TEC 0 / REC 0 / Errors 2, Clear buffer and Pause monitor. **New findings** (`PAGES/can.md`): **CAN-7** — the renderer's `CAN_TABS_SCRIPT` cannot parse (`SyntaxError: Unexpected token '>'`; it embeds `L(activeLang->tabLabelState)` in the PROGMEM JS), so the intended i18n bar never appears and only the asset's own bar exists (CAN-1 said two rows — corrected); **CAN-8** — the shell title is hardcoded EN and there is no `pageTitleCan` key
 | `uda1334a.png` | **harness render** (no live board serves `/uda1334a`; `ENABLE_UDA1334A` is 0 outside `pack_radio.h`) | asset unchanged since `c7ea5cf`, tree at `da71270`; no firmware/ETag | 1440 × 1280 · 98 212 B | **smoke capture** (§3.12): `build_desktop_shots.py uda1334a` + `desktop_smoke_shot.js` → title `🔊 UDA1334A Sound Card` (the `pageTitleUda1334a` key, EN), 742 chars, 3 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows the three cards stacked — **Status** (Inicializado Sim · Sampling Rate 44100 Hz · Profundidade de Bits 16 bits · Ativado Sim), **Configuration** (44,100 Hz, 16 bits, Automatic Routing checked, Teste de Som) and **Information**, plus Save. **New findings** (`PAGES/uda1334a.md`): **UDA-6** — `UDA_TABS_SCRIPT` runs while the body is still unparsed (`.wrap` null → `setup()` returns), so the tab bar it is meant to build never exists (measured `.uda-tab-btn` 0, `.uda-tab-bar` 0, panels 0, cards 3; the script itself is valid JS, unlike CAN-7); **UDA-7** — PT fallbacks in the asset and a hardcoded PT home tile. The visible PT labels are `data-i18n` fallbacks (both packs carry every key; `auto.js` is out of the harness)
 | `radio_ui.png` | **harness render** (no live board serves `/radio-ui`; `ENABLE_UDA1334A` is 1 only in `pack_radio.h` and the Harmonica Box is offline) | asset unchanged since `c7ea5cf`, tree at `415d4ca`; no firmware/ETag | 1440 × 910 · 540 828 B | **smoke capture** (§3.12): `build_desktop_shots.py radio_ui` + `desktop_smoke_shot.js` → title `🎵 Harmonica Box` (hardcoded in the renderer; the page has no i18n at all), 1 221 chars, 127 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows the full-screen player (`#app` capped at 780 px, centred) on the **Play** panel: spinning vinyl placeholder, `80S80S ALTERNATIVE` / **Blue Monday** / New Order / `STREAMING`, the equaliser bars, `19:52` with the streaming progress bar, ⏮ ⏸ ⏹ ⏭, `SHUFFLE` / repeat `1` / sleep `⏰ OFF` / `ROCK`, volume **68 %**, the `http://…` + Play row and the bottom nav (`PLAY` `LIBRARY` `RADIOS` `RECENT` `MORE`). **New finding 11** (`PAGES/radio_ui.md`): the `@media(min-width:768px){#nbPlay{display:none}}` rule is dead — the later `#app button{display:inline-flex}` (specificity 1,0,1) outranks `#nbPlay` (1,0,0), so the dedicated Play pill survives at every width (measured: `flex` at 1440/1024/800/480 px, 5 bottom-nav buttons). Also fixed the smoke harness on the way: `no broken images` now ignores `<img>` without a `src` (the page's `#artImg` placeholder), matching the rule `desktop_shot.js:220` already used
+| `ipg_laser.png` | **harness render** (no live board serves `/ipg-laser`; `ENABLE_IPG_LASER` is 0 (`config_defaults.h:254-255`, commented out in `user_config.h:238`) and in every pack, so no build serves the route) | asset unchanged since `c7ea5cf`, tree at `b7ad24f`; no firmware/ETag | 1440 × 2551 · 242 502 B | **smoke capture** (§3.12): `build_desktop_shots.py ipg_laser` + `desktop_smoke_shot.js` → title `🔥 IPG Laser RS232` (hardcoded in `ipg_laser_page_renderer.cpp:8`; there is no `pageTitleIpgLaser` key), 1 795 chars, 23 controls, 1 table / **2 rows**, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. The low text/row counts are the page's real state: **new finding IPG-7** (`PAGES/ipg_laser.md`, `PAGES/BACKLOG.md`) — the asset's inline `<script>` is a `SyntaxError` (`SyntaxError: Unexpected identifier 'ipgProfileOk'`, measured in Chromium), because six single-quoted JS strings carry unescaped `data-i18n='…'` attributes (`page_ipg_laser_asset.cpp:273,280,291,310,372,538`). Nothing else in that script runs: `#ipgStatus` keeps `Loading module state...`, the RS232 line keeps `a carregar...`, the log keeps `Sem respostas ainda.` and the catalog stays on `A carregar comandos...` with its placeholder row — the page is inert on any board that enables the flag. The seed is nevertheless the real payload set (status from the handler, **all 61** catalog entries, a 14-line TX/RX log whose replies are the catalog's own `response` strings) and becomes visible the moment IPG-7 is fixed. **IPG-8**: `tests/web/test_ipg.js` is green (29/29) because it runs a hand-copied fixture (`tests/web/pages/ipg.html`) that has drifted from the asset (no `data-i18n` in its badge, PT text), so the suite cannot catch this class of breakage. **IPG-9**: the Connection Recommendation heading prints the literal `data-i18n='ipgLinkRecomm'>` (malformed tag at `:57`), leaving that key unreachable in both language packs |
 
 > **History — the page was unusable for a while (`PAGES/BACKLOG.md` SC-9, still open)** (HomeE32
 > `.24`): `GET /sensor-charts` was 200 but the page needs one of **two chart sessions**; with
@@ -350,7 +353,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 
 | Page | Route | Image | Status |
 |---|---|---|---|
-| IPG laser RS232 | `/ipg-laser` | `ipg_laser.png` | pending |
+| IPG laser RS232 | `/ipg-laser` | `ipg_laser.png` | **done** (smoke — §3.12; the page script is dead as shipped, `BACKLOG.md` IPG-7) |
 | USB/IP server | `/usb-server` | `usb_server.png` | pending |
 
 ### 3.10 Deliberately **not** in this folder
@@ -401,7 +404,7 @@ turned on for a capture — which is a firmware change and out of scope for this
 | `/uda1334a` | `uda1334a.png` | 404 ×4 | same flag as `/radio-ui` (`page_audio` family) — **captured by smoke, §3.12** |
 | `/falas` | `falas.png` | 404 ×4 | Touch7 pack (`web_routes_touch7.cpp`) — that board is offline |
 | `/ecra` | `ecra.png` | 404 ×4 | same Touch7 pack |
-| `/ipg-laser` | `ipg_laser.png` | 404 ×4 | `ENABLE_IPG_LASER 0` in every pack |
+| `/ipg-laser` | `ipg_laser.png` | 404 ×4 | `ENABLE_IPG_LASER 0` in every pack — **captured by smoke, §3.12** |
 | `/usb-server` | `usb_server.png` | 404 ×4 | `ENABLE_USBIP_SERVER` — only `pack_p4_usb_server.h:30` sets 1 |
 
 ### 3.12 Smoke captures — routes only the firmware has
@@ -428,6 +431,7 @@ captured with `--expand` (all sections open); the row says so when it applies.
 
 | Route | Image | Rendered from | Notes |
 |---|---|---|---|
+| `/ipg-laser` | `ipg_laser.png` | `chatgpt/src/webpages/assets/page_ipg_laser_asset.cpp` (fragment) + the page shell | 1440 × 2551. Seed from the real handlers: `/api/ipg-laser-status` (`handlers/ipg_laser_handler.cpp:18-46` — a board set up for the laser, `baudrate_index` 6 → 57600 8N1, no flow control, no template; the required profile is the manual's fixed 57600/8N1) + the whole `kCommandCatalog` (**all 61 entries**, `ipg_laser_module.cpp:24-119`, not a sample) + a 14-line TX/RX log whose replies are the catalog's own `response` strings + `/api/config?section=rs232` agreeing with the status. **Finding IPG-7**: the asset's inline `<script>` is a `SyntaxError` (`data-i18n='…'` inside single-quoted strings, `:273-538`) so **nothing on the page ever runs** — the image is the real shipped state: status, RS232 line and catalog stay on their placeholders, `rows = 2` |
 | `/radio-ui` | `radio_ui.png` | `chatgpt/src/webpages/assets/page_radio_ui_asset.cpp` (fragment) + the page shell | 1440 × 910. Seed from `radio_audio_runtime.cpp`: `/api/radio/status` (`radioAudioStatusJson()`, :2674-2740 — STREAMING, volume 68, repeat 1, queue 6 index 2, favorites 4, EQ [4,1,-1,2,3], wifi −57, `active_ms` 1 192 000), `/api/radio/queue` (the firmware's own seeded 80s80s entries), `/api/radio/favorites`, `/api/radio/library`, `/api/radio/resume`, `/api/radio/schedule`. `artwork`/`station_favicon` empty on purpose (no external fetch in the harness). **Finding 11** — the `≥768px` rule `#nbPlay{display:none}` never applies |
 | `/uda1334a` | `uda1334a.png` | `chatgpt/src/webpages/assets/page_audio_dac_uda1334a_asset.cpp` (fragment) + `UDA_TABS_SCRIPT` from the renderer + the page shell | 1440 × 1280. Seed `/api/uda1334a-config` exactly as `UDA1334AConfigManager::toJson()` emits it (`enabled:true`, `sampleRate:44100`, `bitDepth:16`, `autoRoutingEnabled:true`, `initialized:true`); `-test` → `{success:true}`. Three stacked cards, **no tab bar**: **UDA-6** (the injected tab script runs before `.wrap` exists) |
 | `/can` | `can.png` | `chatgpt/src/webpages/assets/page_can_asset.h` (fragment) + `CAN_TABS_SCRIPT` from the renderer + the page shell | 1440 × 940. Seed from `can_handler.cpp`: `/api/can/status` (`RUNNING`, 500 Kbps, TX 311 / RX 1842, buffer 128, TEC/REC 0, 2 errors), `/api/can/frames` (6 frames incl. one extended `0x18FF50E5`), `/api/can/config`. Captured on the default **Status** tab — the other three are `display:none` panels driven by the asset's own working tab bar. **CAN-7**: the renderer's injected tab script is C++ inside a JS string and throws |
@@ -533,6 +537,8 @@ python3 build_desktop_shots.py uda1334a
 node desktop_smoke_shot.js shots/desktop_uda1334a.html ../../PAGES/desktop/uda1334a.png
 python3 build_desktop_shots.py radio_ui
 node desktop_smoke_shot.js shots/desktop_radio_ui.html ../../PAGES/desktop/radio_ui.png
+python3 build_desktop_shots.py ipg_laser
+node desktop_smoke_shot.js shots/desktop_ipg_laser.html ../../PAGES/desktop/ipg_laser.png
 ```
 
 ## 5. Adding an image (checklist)

@@ -11,7 +11,8 @@ all 50 desktop pages raised; `home.png`, `status.png`, `files.png`, `sdcard.png`
 `rs232.png`, `modbus_tcp.png`, `sensor_charts.png`, `dualfile.png`, `api_reference.png`,
 `networks.png`, `structures.png`, `buzzer.png`, `lpt_db25.png`, `grbl_controller.png` and
 `modbus_rtu.png`, `modbus_live.png`, `rambox.png`, `hx711.png`, `ina226.png`, `max31865.png`,
-`sound.png`, `can.png`, `uda1334a.png` and `radio_ui.png` (the last seventeen are smoke renders) captured and verified, rest pending).
+`sound.png`, `can.png`, `uda1334a.png`, `radio_ui.png` and `ipg_laser.png` (the last
+eighteen are smoke renders) captured and verified, rest pending).
 
 ---
 

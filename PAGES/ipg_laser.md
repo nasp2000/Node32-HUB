@@ -4,6 +4,18 @@
 > button/input, client logic, API endpoints, persistence (stateless) and the
 > firmware-side laser engine. Written for both humans and AI agents.
 
+
+> Screenshot: `desktop/ipg_laser.png` (1440 × 2551, **smoke capture** — `ENABLE_IPG_LASER` is 0 in
+> every reachable build). Rendered from the shipped fragment + the page shell, with
+> `/api/ipg-laser-status` / `-commands` / `-log` / `/api/config?section=rs232` seeded from the
+> real handlers (a laser-ready board: 57600 8N1, no flow control; **all 61** `kCommandCatalog`
+> entries; a 14-line TX/RX log). **The image is the page as it really ships**: the inline
+> `<script>` is a `SyntaxError` (**IPG-7**), so no handler runs and every live region stays on its
+> placeholder — status `Loading module state...`, RS232 `a carregar...`, log `Sem respostas ainda.`,
+> catalog `A carregar comandos...`. The same capture produced **IPG-8** (the jsdom suite runs a
+> drifted fixture, so it stays green) and **IPG-9** (the malformed `<div>` that prints
+> `data-i18n='ipgLinkRecomm'>`). Index and proof in `desktop/README.md` §3.12.
+
 ---
 
 ## 1. Objective
@@ -211,6 +223,9 @@ in `languages/lang_en_ui.h` (and PT twins in `lang_pt_ui.h`):
 | IPG-4 | Three overlapping pollers with no overlap guard (`:560-562`: status+log every 1.5 s, RS232 every 3 s). `loadRs232Status()` hits `/api/config?section=rs232` (`:490`) every 3 s forever, even when the tab is hidden. | Low | Skip ticks while a request is in flight and pause intervals on `document.hidden`. |
 | IPG-5 | Dead `template` parameter. Both send handlers parse `doc["template"]` (`handlers/ipg_laser_handler.cpp:151`, `ethernet_bootstrap_handlers.h:2822`) but the page body only ever contains `{command}` (`page_ipg_laser_asset.cpp:440`). | Info | Either expose a template selector or drop the field. |
 | IPG-6 | Wrong escaping context in catalog rows. The `Usar` button interpolates `escapeHtml(row.code)` into a JS single-quoted `onclick` string (`:391`) — HTML-escaping does not neutralise quotes for JS context. Currently safe only because catalog codes are `[A-Z0-9]+` (`ipg_laser_module.cpp:24-86`). | Info | Use `data-code` + delegated listener instead of inline `onclick`. |
+| IPG-7 | **The whole page script is dead: a quoting bug kills the inline `<script>`.** Six single-quoted JS strings carry an unescaped single-quoted attribute, so the literal ends at `data-i18n=` and the parser hits the key as an identifier: `SyntaxError: Unexpected identifier 'ipgProfileOk'` at the first one (`page_ipg_laser_asset.cpp:273`, then `:280`, `:291`, `:310`, `:372`, `:538`). Nothing else in that script is defined or run: no `loadStatus`/`loadCommands`/`loadLog`/`loadRs232Status`, no `sendIpgCommand`, no pollers, no `checkIpgModuleAvailable` — so `/api/ipg-laser-status`, `-commands`, `-log` and `/api/config?section=rs232` are never requested, the page sits on its HTML placeholders (`Loading module state...`, `a carregar...`, `Sem respostas ainda.`, `A carregar comandos...`, one placeholder row) and every button is a no-op (`onclick` names an undefined function). Measured on the smoke render (`PAGES/desktop/ipg_laser.png`, 2026-11-18, Chromium over CDP): `typeof loadStatus === 'undefined'`, 1 795 chars, 2 table rows even with valid payloads. No pack currently enables `ENABLE_IPG_LASER`, which is why this never showed up on a board. Fix: double-quote the six attributes (`data-i18n="ipgProfileOk"` …) — one-character-class change; add a jsdom smoke that parses the **shipped asset** and asserts `typeof loadCommands === 'function'`. | High | `chatgpt/src/webpages/assets/page_ipg_laser_asset.cpp:273,280,291,310,372,538` |
+| IPG-8 | **The page's jsdom suite cannot see the bug above.** `tests/web/test_ipg.js` runs `tests/web/pages/ipg.html`, a standalone copy with its own mock layer and its own JS (badge without `data-i18n`, PT text like `Perfil compatível`), untouched since the initial source drop (`c7ea5cf`) — so it reports 29/29 while the shipped asset throws before defining anything. Any page whose test fixture is a copy instead of the asset has this blind spot. | Medium | Generate `pages/ipg.html` from the asset (like `build_desktop_shots.py` does) or extract the `<script>` from `page_ipg_laser_asset.cpp` and assert it parses; keep the mock layer as the only harness addition. |
+| IPG-9 | **The Connection Recommendation heading prints a broken attribute as text.** `page_ipg_laser_asset.cpp:57` reads `<div style='…;margin-bottom:8px'> data-i18n='ipgLinkRecomm'>ⓘ Connection Recommendation</div>`: the stray `>` closes the element on the spot, so the page shows the literal `data-i18n='ipgLinkRecomm'>` before the sentence and the key (**present in both language packs**) is never applied. | Low | `<div style='…' data-i18n='ipgLinkRecomm'>ⓘ Connection Recommendation</div>` (one `>` moved). |
 
 ---
 
@@ -226,7 +241,7 @@ in `languages/lang_en_ui.h` (and PT twins in `lang_pt_ui.h`):
 | Ethernet page + API mirrors | `chatgpt/src/ethernet_bootstrap_routes.h:416-422,586-591,728-729`, `chatgpt/src/ethernet_bootstrap_handlers.h:2741-2839` |
 | Runtime engine | `chatgpt/src/ipg_laser_module.{h,cpp}` (catalog, ring log, capture window, RS232 queueing) |
 | Wiring (setup/loop/RS232 tap) | `chatgpt/src/setup_impl.h:292-293`, `chatgpt/src/loop_impl.h:31-32,700-702`, `chatgpt/src/webpages/webpage_impl.h:47,109` |
-| Feature flag default / opt-in / packs | `chatgpt/src/config_defaults.h:238-241`, `chatgpt/user_config.h:207`, `chatgpt/packs/pack_*.h` (all `0`) |
+| Feature flag default / opt-in / packs | `chatgpt/src/config_defaults.h:238-241`, `chatgpt/user_config.h:238` (`config_defaults.h:254-255` is the 0 default), `chatgpt/packs/pack_*.h` (all `0`) |
 | i18n keys | `chatgpt/src/languages/lang_en_ui.h:1958-1967` (+ `:7`), `chatgpt/src/languages/lang_pt_ui.h:1958-1967` (+ `:7`) |
-| Tests | `tests/web/test_ipg.js`, `tests/web/pages/ipg.html` (escapeHtml, renderStatus badge, all 19 JS functions); `tests/native/test_config_defaults.cpp:63,124` (flag is 0/1, default 0) |
+| Tests | `tests/web/test_ipg.js` on `tests/web/pages/ipg.html` (escapeHtml, renderStatus badge, all 19 JS functions) — a **copy**, not the asset → blind to IPG-8; `tests/native/test_config_defaults.cpp:63,124` (flag is 0/1, default 0) |
 | Manifest / self-test / status | `chatgpt/src/webpages/handlers_unified/test_manifest_handler.cpp:278`, `.../selftest_handler.cpp:77,147`, `chatgpt/src/system_status_payload.h:552` |
