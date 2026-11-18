@@ -368,6 +368,33 @@ INA226_SEED = r"""
 </script>
 """
 
+MAX31865_SEED = r"""
+<script>
+(function () {
+  // GET /api/max31865-config == MAX31865ConfigManager::toJson()
+  // (sensor_max31865_config.cpp:111-137); measure returns the same document.
+  var cfg = {
+    sensor_enabled: true,
+    cs_pin: 15, mosi_pin: 11, miso_pin: 13, clk_pin: 12,
+    rtd_type: 0,                    // 0 = PT100
+    wiring: 1,                      // 1 = 3-wire
+    temp_unit: 0,                   // 0 = Celsius
+    calibration_offset: -0.3500,
+    read_interval_sec: 60,
+    inject_to_buffer: true, output_csv: true,
+    alert_low: -20.0000, alert_high: 200.0000,
+    last_temp: 87.4200, last_unit: '\u00b0C',
+    last_fault: 0,
+    last_reading_time: Math.floor(Date.now() / 1000) - 25
+  };
+  window.__MOCK_API__ = {
+    '/api/max31865-config':  cfg,
+    '/api/max31865-measure': cfg
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -404,6 +431,7 @@ PAGES = {
     'rambox': ('page_rambox_asset.h', RAMBOX_SEED, 'fragment'),
     'hx711': ('page_hx711_asset.h', HX711_SEED, 'fragment'),
     'ina226': ('page_ina226_asset.h', INA226_SEED, 'fragment'),
+    'max31865': ('page_max31865_asset.h', MAX31865_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -443,6 +471,10 @@ FRAGMENT_TITLES = {
     # NOT the INA226 title: ina226_page_renderer.cpp:10 passes pageTitleMax31865 (INA-7),
     # so this is exactly what a board ships in <title>.
     'ina226': '🌡️ MAX31865 RTD Sensor',
+    # Also PT and also hardcoded: max31865_page_renderer.cpp:10 passes the literal
+    # "\xF0\x9F\x8C\xA1\xEF\xB8\x8F Sensor RTD MAX31865" instead of
+    # L(activeLang->pageTitleMax31865) — finding MAX-8. This is what ships in <title>.
+    'max31865': '🌡️ Sensor RTD MAX31865',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)

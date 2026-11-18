@@ -3,14 +3,14 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); forty images captured** —
+> Status: **inventory raised (50 desktop pages); forty-one images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`, `rs232`), the Waveshare pack
 > (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`, `modbus_tcp`) and
 > the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus `dualfile`
 >, `api_reference`, `networks`, `structures` and `buzzer` rendered from the shipped asset
-> (§3.12). The remaining 10 rows are blocked by the build/config on every live board (§3.11) and
+> (§3.12). The remaining 9 rows are blocked by the build/config on every live board (§3.11) and
 > are being covered by smoke captures.
 
 Two provenances, marked in the Status column:
@@ -139,6 +139,8 @@ python3 build_desktop_shots.py hx711
 node desktop_smoke_shot.js shots/desktop_hx711.html ../../PAGES/desktop/hx711.png
 python3 build_desktop_shots.py ina226
 node desktop_smoke_shot.js shots/desktop_ina226.html ../../PAGES/desktop/ina226.png
+python3 build_desktop_shots.py max31865
+node desktop_smoke_shot.js shots/desktop_max31865.html ../../PAGES/desktop/max31865.png
 ```
 
 `build_desktop_shots.py` takes the R-string exactly as compiled, keeps its own `<style>` (it
@@ -181,6 +183,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | `rambox.png` | **harness render** (no live board serves `/rambox`; the route is compiled only with `ENABLE_UNIKON`/`ENABLE_BRICON` and the Rambox pack's board is offline) | asset unchanged since `c7ea5cf`, tree at `7ee7ea0`; no firmware/ETag | 1440 × 940 · 69 277 B | **smoke capture** (§3.12): `build_desktop_shots.py rambox` + `desktop_smoke_shot.js` → title `RAMBOX 🐦`, 458 chars, 18 controls, 4 tables / 41 rows, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows the unified clock page: `Aparelho: Unikon` selector, the status badge, the five tabs (Config active, Chegadas, Pombos, Prova, Estado) and the Config panel (`Relogio activo`, poll 1 min, `Usar a configuração da RS232`, `Formato oficial`, e-mail, `Ligação fixa do Unikon: 9600 8N1`, Guardar, Perfil do módulo). Text is PT — the asset's own fallbacks; `auto.js` (left out of the harness) is what would translate them. **New finding RMB-5** (`PAGES/rambox.md`): the badge reads `Unikon RAMBOX — ligado · ligado · rambox`
 | `hx711.png` | **harness render** (no live board serves `/hx711`; `ENABLE_HX711` is 0 in every pack we can reach) | asset unchanged since `c7ea5cf`, tree at `01949f4`; no firmware/ETag | 1440 × 1227 · 95 071 B | **smoke capture** (§3.12): `build_desktop_shots.py hx711` + `desktop_smoke_shot.js` → title `⚖️ HX711 Weight Sensor` (the `pageTitleHx711` string), 726 chars, 4 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows Current Reading **1247.385 g** in green, Measure Now / Tare (Zero), Main Control (`Enable HX711 Sensor`, interval 1 minute), Calibration (gain 128 Channel A, 8 samples, scale factor -432.15, tare offset 84120, weight unit `g (gram)`) and Output Options (Monitor Data, CSV) + Save Configuration. The line under the weight reads `&#128197; Last reading: …` **literally**: that is the asset's fallback and only `auto.js`/`/api/lang` (left out of the harness) turns the entity into 📅 — both packs already carry the emoji. **New finding HX-7**: `alert_min`/`alert_max` are persisted, returned and parsed but nothing consumes them and the page has no inputs
 | `ina226.png` | **harness render** (no live board serves `/ina226`; `ENABLE_INA226` is 0 in every pack we can reach) | asset unchanged since `c7ea5cf`, tree at `4d19743`; no firmware/ETag | 1440 × 1424 · 111 828 B | **smoke capture** (§3.12): `build_desktop_shots.py ina226` + `desktop_smoke_shot.js` → title **`🌡️ MAX31865 RTD Sensor`** (not an INA226 title — that is what `ina226_page_renderer.cpp:10` passes, finding **INA-7**), 830 chars, 3 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows Real-Time Readings **BUS 24.013 V / CURRENT 2.3410 A / POWER 56.220 W / SHUNT 23.400 mV**, Measure Now, Main Control (enable + 1 minute), Hardware Configuration (I2C `0x40`, shunt 0.1 Ω, max current 10 A, averaging 4, unit A), Active Measurements (all four) and Output Options + Save. The `&#128197;` before `Last reading` is the asset's fallback (same note as `hx711.png`)
+| `max31865.png` | **harness render** (no live board serves `/max31865`; `ENABLE_MAX31865` is 0 in every pack we can reach) | asset unchanged since `c7ea5cf`, tree at `5a471e8`; no firmware/ETag | 1440 × 1179 · 88 821 B | **smoke capture** (§3.12): `build_desktop_shots.py max31865` + `desktop_smoke_shot.js` → title **`🌡️ Sensor RTD MAX31865`** (PT string hardcoded in the renderer, **MAX-8**), 613 chars, 3 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows Current Reading **87.42 °C** with the fault badge, Measure Now, Main Control (enable + 1 minute), RTD Configuration (PT100, 3-wire, Celsius, offset −0.35) and Output Options + Save. Two entity literals are visible (`&#10003; OK`, `&#128197; Last reading`) because those strings are `t()` fallbacks and `auto.js`/`/api/lang` is not part of the harness — both keys exist in the packs
 
 > **History — the page was unusable for a while (`PAGES/BACKLOG.md` SC-9, still open)** (HomeE32
 > `.24`): `GET /sensor-charts` was 200 but the page needs one of **two chart sessions**; with
@@ -318,7 +321,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | Weight HX711 | `/hx711` | `hx711.png` | **done** (smoke — §3.12) |
 | Current/power INA226 | `/ina226` | `ina226.png` | **done** (smoke — §3.12) |
 | Sound level | `/sound` | `sound.png` | pending |
-| RTD MAX31865 | `/max31865` | `max31865.png` | pending |
+| RTD MAX31865 | `/max31865` | `max31865.png` | **done** (smoke — §3.12) |
 
 ### 3.8 Audio / radio (Harmonica Box, Touch7)
 
@@ -347,7 +350,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 
 ### 3.11 Blocked routes — smoke matrix
 
-The 10 rows still **pending** have no live page to capture (twelve of the original 22 are
+The 9 rows still **pending** have no live page to capture (thirteen of the original 22 are
 now delivered as smoke captures, §3.12). Each was probed **once** on all
 four live boards (`.29` Waveshare, `.24` HomeE32, `.18` Cam-P4, `.9` Cam-M1) with
 
@@ -379,7 +382,7 @@ turned on for a capture — which is a firmware change and out of scope for this
 | `/hx711` | `hx711.png` | 404 ×4 | `ENABLE_HX711 0` in every pack — **captured by smoke, §3.12** |
 | `/ina226` | `ina226.png` | 404 ×4 | `ENABLE_INA226 0` in every pack — **captured by smoke, §3.12** |
 | `/sound` | `sound.png` | 404 ×4 | `ENABLE_SOUND_SENSOR 0` in every pack |
-| `/max31865` | `max31865.png` | 404 ×4 | `ENABLE_MAX31865 0` in every pack |
+| `/max31865` | `max31865.png` | 404 ×4 | `ENABLE_MAX31865 0` in every pack — **captured by smoke, §3.12** |
 | `/radio-ui` | `radio_ui.png` | 404 ×4 | `ENABLE_UDA1334A` — only `pack_radio.h:127` sets 1 |
 | `/uda1334a` | `uda1334a.png` | 404 ×4 | same flag as `/radio-ui` (`page_audio` family) |
 | `/falas` | `falas.png` | 404 ×4 | Touch7 pack (`web_routes_touch7.cpp`) — that board is offline |
@@ -411,6 +414,7 @@ captured with `--expand` (all sections open); the row says so when it applies.
 
 | Route | Image | Rendered from | Notes |
 |---|---|---|---|
+| `/max31865` | `max31865.png` | `chatgpt/src/webpages/assets/page_max31865_asset.h` (fragment) + the page shell | 1440 × 1179. Seed `/api/max31865-config` exactly as `MAX31865ConfigManager::toJson()` emits it (`cs/mosi/miso/clk` 15/11/13/12, `rtd_type:0` PT100, `wiring:1` 3-wire, `temp_unit:0` °C, `calibration_offset:-0.35`, `alert_low/high` −20/200, `last_temp:87.42`, `last_unit:"°C"`, `last_fault:0`). Tab title is the hardcoded PT string **MAX-8**; `alert_low/high` are **MAX-7** |
 | `/ina226` | `ina226.png` | `chatgpt/src/webpages/assets/page_ina226_asset.h` (fragment) + the page shell | 1440 × 1424. Seed `/api/ina226-config` exactly as `INA226ConfigManager::toJson()` emits it (`i2c_addr:64`, `shunt_ohm:0.1`, `max_current_a:10`, `averaging:4`, `current_unit:0`, the four `show_*` flags, `alert_current_max:8`, `alert_power_max:100`, `last_bus_v:24.013`, `last_current_a:2.341`, `last_power_w:56.22`, `last_shunt_v:0.0234`). Shows **INA-7** in the tab title (`MAX31865 RTD Sensor`) and the `&#128197;` fallback the harness cannot translate |
 | `/hx711` | `hx711.png` | `chatgpt/src/webpages/assets/page_hx711_asset.h` (fragment) + the page shell | 1440 × 1227. Seed `/api/hx711-config` exactly as `HX711ConfigManager::toJson()` emits it (`sensor_enabled`, pins, `gain:128`, `samples:8`, `read_interval_sec:60`, `scale_factor:-432.15`, `tare_offset:84120`, `weight_unit:0`, `alert_min/max`, `last_weight:1247.385`, `last_raw`, `last_reading_time`); measure/tare return the same document. Shows **HX-7** (alert thresholds with no consumer and no UI) and the `&#128197;` fallback that only `auto.js` would replace |
 | `/rambox` | `rambox.png` | `chatgpt/src/webpages/assets/page_rambox_asset.h` (fragment) + the page shell | 1440 × 940. Seeded with the Unikon payloads the page requests on load — `/api/unikon-status` (clock/club/race block, `activeModule:"rambox"`), `-arrivals` (5), `-pombal` (6), `-contests` (4) — exactly as `unikon_handler.cpp` formats them. Config tab active, as on a first visit. Shows **RMB-5**: the status badge prints `ligado` twice and appends the raw module name |
@@ -501,6 +505,8 @@ python3 build_desktop_shots.py hx711
 node desktop_smoke_shot.js shots/desktop_hx711.html ../../PAGES/desktop/hx711.png
 python3 build_desktop_shots.py ina226
 node desktop_smoke_shot.js shots/desktop_ina226.html ../../PAGES/desktop/ina226.png
+python3 build_desktop_shots.py max31865
+node desktop_smoke_shot.js shots/desktop_max31865.html ../../PAGES/desktop/max31865.png
 ```
 
 ## 5. Adding an image (checklist)
