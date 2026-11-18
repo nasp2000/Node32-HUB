@@ -242,6 +242,33 @@ MODBUS_RTU_SEED = r"""
 </script>
 """
 
+MODBUS_LIVE_SEED = r"""
+<script>
+(function () {
+  // GET /api/modbus/live returns an ARRAY of devices (mbRenderLive maps it directly).
+  // Keys are exactly what handleModbusLiveGet() emits: name, enabled, pollCount,
+  // errorCount, regs[{label,unit,val,ok}] — it does NOT send slaveId/isTcp.
+  window.__MOCK_API__ = {
+    '/api/modbus/live': [
+      { name: 'Inversor', enabled: true,
+        pollCount: 482, errorCount: 0, regs: [
+          { label: 'Tensao',    val: 229.7000, unit: 'V',  ok: true },
+          { label: 'Corrente',  val: 4.3100,   unit: 'A',  ok: true },
+          { label: 'Frequencia', val: 50.0200, unit: 'Hz', ok: true }
+        ] },
+      { name: 'Contador', enabled: true,
+        pollCount: 120, errorCount: 2, regs: [
+          { label: 'Energia', val: 12345.6000, unit: 'kWh', ok: true },
+          { label: 'Estado',  val: null,        unit: '—',   ok: false }
+        ] }
+    ],
+    '/api/modbus/poll-now': { success: true },
+    '/api/modbus/write': { success: true }
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -274,6 +301,7 @@ PAGES = {
     'lpt_db25': ('page_lpt_db25_asset.cpp', LPT_DB25_SEED, 'fragment'),
     'grbl_controller': ('page_grbl_controller_asset.cpp', GRBL_SEED, 'built'),
     'modbus_rtu': ('page_modbus_asset.cpp', MODBUS_RTU_SEED, 'fragment'),
+    'modbus_live': ('page_modbus_asset.cpp', MODBUS_LIVE_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -283,11 +311,15 @@ FOOTER = {
     'modbus_rtu': "<script>if(document.readyState==='loading')"
                   "{document.addEventListener('DOMContentLoaded',initModbusRtuPage);}"
                   "else{initModbusRtuPage();}</script>",
+    'modbus_live': "<script>if(document.readyState==='loading')"
+                   "{document.addEventListener('DOMContentLoaded',initModbusLivePage);}"
+                   "else{initModbusLivePage();}</script>",
 }
 
 # Assets that hold several pages: pick the R-string that belongs to this route.
 RSTRING = {
     'modbus_rtu': 'PAGE_MODBUS_RTU',
+    'modbus_live': 'PAGE_MODBUS_LIVE',
 }
 
 PRELUDE = {
@@ -303,6 +335,7 @@ FRAGMENT_TITLES = {
     'lpt_db25': '🖨️ LPT DB25',
     'grbl_controller': '🛠️ GcodeSender',
     'modbus_rtu': 'Modbus RTU',
+    'modbus_live': '📈 Modbus Live',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)

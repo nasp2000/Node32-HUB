@@ -13,6 +13,17 @@
 > screen keeps its HTML defaults — 0/4 devices, 1200 baud, nothing checked. That is
 > **`BACKLOG.md` MODBUS-7 (High)**. Index and proof in `desktop/README.md` §3.12.
 
+> Screenshot (`/modbus-live`): `desktop/modbus_live.png` (1440 × 1031, **smoke capture**). The route
+> hides itself — `web_routes_modbus.cpp:254-262` answers **302 → `/`** unless `modbus.enabled` with
+> `rtu_enabled` or `tcp_enabled` — so the image is the page **as it renders in the only state where
+> it exists**. `PAGE_MODBUS_LIVE` + the renderer's `initModbusLivePage()` footer, with
+> `/api/modbus/live` seeded in the exact shape `handleModbusLiveGet()` emits: **Inversor**
+> (`482 leituras ✗ 0 erros`: Tensao 229.7000 V, Corrente 4.3100 A, Frequencia 50.0200 Hz) and
+> **Contador** (`120 leituras ✗ 2 erros`: Energia 12345.6000 kWh, Estado `N/A` ✗), plus the
+> **Manual Write** card. Finding **MODBUS-8**: the write dropdown prints `d.slaveId`/`d.isTcp`,
+> keys the live payload does not carry. All texts are PT-only (MODBUS-3 family). Index and proof in
+> `desktop/README.md` §3.12.
+
 > Screenshot: `desktop/modbus_tcp.png` (1440 × 1041, live **Cam-P4** board `.18` — the only
 > live board with `ENABLE_MODBUS_TCP 1`: Live / RTU tabs, Global Configuration, the
 > register-columns legend, TCP Devices with `+ Add TCP Device`, TCP Scan (subnet / start /
