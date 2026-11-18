@@ -39,9 +39,16 @@ MOCK_JS = r"""
     }
     if (typeof mock === 'function') mock = mock(u);
     if (mock === undefined) mock = {};
-    return Promise.resolve({ ok: true, status: 200,
-      json: function () { return Promise.resolve(mock); },
-      text: function () { return Promise.resolve(JSON.stringify(mock)); } });
+    // A seed may pin the HTTP status when the page branches on it (e.g. the /ecra
+    // mirror treats 304 as "frame unchanged"): { __http: 304 } (optionally __body).
+    var status = 200, body = mock;
+    if (body && typeof body === 'object' && body.__http) {
+      status = body.__http;
+      body = body.__body === undefined ? {} : body.__body;
+    }
+    return Promise.resolve({ ok: status >= 200 && status < 300, status: status,
+      json: function () { return Promise.resolve(body); },
+      text: function () { return Promise.resolve(JSON.stringify(body)); } });
   };
   window.customAlert = function (m) { (window.__alerts = window.__alerts || []).push(String(m)); };
   window.customConfirm = function (m, cb) { if (cb) cb(true); };
@@ -775,6 +782,56 @@ FALAS_SEED = r"""
 </script>
 """
 
+ECRA_SEED = r"""
+<script>
+(function () {
+  // Payloads as the Touch7 handlers emit them.
+  // GET /api/touch7-config -> Touch7ConfigManager::toJson() (touch7_config.cpp:44-70);
+  // ecraLoadGeo() only reads wx_place/wx_lat/wx_lon.
+  // GET /api/touch7-forecast -> handleTouch7ForecastGet() (touch7_handler.cpp:152-186):
+  // "today" is L(touch7TodayForecast) filled in (touch7_weather.cpp:158-161) and each
+  // "days" entry is "<Day>  min/maxC  <condition>" (touch7_weather.cpp:163-169) for
+  // five days after today (2026-11-18 -> Thu..Mon).
+  // GET /api/touch7-frame returns a 768 000-byte RGB565 framebuffer plus X-Frame-Hash;
+  // the harness cannot carry that, so it answers 304 - the "frame unchanged" branch
+  // ecraPoll() takes on a board with a static LCD. The canvas therefore stays black and
+  // the badge reads "LIVE · unchanged"; the LCD content itself is device state and is
+  // NOT fabricated here.
+  window.__MOCK_API__ = {
+    '/api/touch7-config': {
+      sensor_enabled: false, read_interval_sec: 60,
+      theme: 1, clock_style: 0, volume: 70,
+      t_max: 30, t_min: 5, h_max: 80,
+      pir_dim_sec: 120, screensaver_sec: 300,
+      backlight_auto: true, backlight_pct: 80,
+      owm_key_set: false,
+      wx_lat: 38.7167, wx_lon: -9.1333, wx_place: 'Lisboa',
+      peers: [
+        { name: 'CAM-P4', host: '192.168.1.18', user: 'admin', enabled: true, pass_set: true },
+        { name: 'CAM-M1', host: '192.168.1.9', user: 'admin', enabled: true, pass_set: true },
+        { name: '', host: '', user: '', enabled: false, pass_set: false },
+        { name: '', host: '', user: '', enabled: false, pass_set: false }
+      ]
+    },
+    '/api/touch7-forecast': {
+      has: true, code: 2, isDay: true,
+      today: 'Today 11/17C  Partly cloudy  Sunset 17:22',
+      days: [
+        'Thu  10/16C  Partly cloudy',
+        'Fri  12/18C  Sunny',
+        'Sat  11/15C  Cloudy',
+        'Sun  9/14C  Light rain',
+        'Mon  8/13C  Rain'
+      ],
+      refreshing: false, stale: false, age_sec: 42, last_error: ''
+    },
+    '/api/touch7-frame': { __http: 304 },
+    '/api/touch7-weather-refresh': { success: true, refreshing: true }
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -819,6 +876,7 @@ PAGES = {
     'ipg_laser': ('page_ipg_laser_asset.cpp', IPG_LASER_SEED, 'fragment'),
     'google_script': ('page_google_script_asset.cpp', GOOGLE_SCRIPT_SEED, 'fragment'),
     'falas': ('page_falas_asset.h', FALAS_SEED, 'fragment'),
+    'ecra': ('page_ecra_asset.h', ECRA_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -889,6 +947,8 @@ FRAGMENT_TITLES = {
     # Note the page's own H1 is a different string ("🔊 Falas locais", data-i18n
     # 'touch7Falas' -> EN "Local phrases"), so <title> and H1 disagree by design.
     'falas': '📊 Local Voice Prompts',
+    # L(activeLang->pageTitleEcra): EN "🖥️ Screen Mirror" (PT "🖥️ Espelho do ecrã").
+    'ecra': '🖥️ Screen Mirror',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)

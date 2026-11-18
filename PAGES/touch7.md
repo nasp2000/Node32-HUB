@@ -15,6 +15,15 @@
 > measured in the render. The same capture produced **T7-39** (the inline `/files` link is
 > unreadable: browser-default blue on the dark background). Index and proof in
 > `desktop/README.md` §3.12.
+>
+> Screenshot: `desktop/ecra.png` (1440 × 1270, **smoke capture** of `/ecra`, same pack and the same
+> reason). Rendered with `--expand` (the weather/location tools sit in a `<details>`) and seeded
+> with `/api/touch7-config`, `/api/touch7-forecast` (handler shape, `Updated · 42 s ago`, today +
+> five day lines) and `/api/touch7-frame` **304**: the real endpoint returns a 768 000-byte RGB565
+> framebuffer that the harness cannot carry, so the page takes its genuine "frame unchanged" branch
+> — black canvas, `LIVE · unchanged`. The LCD picture is device state and was **not** fabricated.
+> The capture produced **T7-40** (mirror bar wraps into three rows) and **T7-41** (page text not
+> translatable) — see §11.
 
 ---
 
@@ -88,7 +97,8 @@ div.wrap#ecraWrap
  ├ h1 + short help
  ├ section#ecraMirrorCard
  │  ├ .ecra-mirror-wrap > canvas#ecraCanvas (800×480 actual LCD pixels)
- │  └ [Pause][refresh rate][live status]
+ │  └ [Pause][refresh rate][live status] — at every width this bar wraps into three
+ │     rows (T7-40): the rate <select> is 100% wide, so it takes a line of its own
  └ details#ecraGeoTools (weather location/status/refresh; outside the LCD image)
 ```
 
@@ -230,6 +240,14 @@ JSON-body POST accumulators (`Touch7BodyAccum`). JSON responses stay under 4 KB;
 `touch7Falas/touch7Peers/touch7Theme/touch7ThemeLight/touch7ThemeMedium/touch7ThemeDark/touch7Clock/touch7Brightness/touch7Forecast/touch7Now/touch7Stale/touch7Lux/touch7Power/touch7NoPeers/touch7Test/touch7Saved`.
 EN + PT kept in sync (`lang_en_ui.h` / `lang_pt_ui.h`, 2310 keys each).
 
+`/falas` covers its headings and buttons with `data-i18n` (`touch7Falas`, `touch7Peers`,
+`touch7Test`, `btnHome`) and leaves the free text PT (its other problems are T7-38/T7-39).
+`/ecra` is the opposite extreme: the only hooks are **four** `data-i18n-title` tooltips
+(`ecraTipMirrorPlay`, `ecraTipGeoGo`, `ecraTipGeoAuto`, `ecraTipWeather`); the h1, the help
+paragraphs, `Pause`/`Resume`, `Refresh`, the four `fps` options, the `<details>` summary, the
+`LIVE …` / `Updated …` / `Mirror unavailable` statuses and every `customAlert` string are
+hardcoded English, so a PT device shows an English page — **T7-41**.
+
 ---
 
 ## 11. Review findings table
@@ -274,6 +292,8 @@ EN + PT kept in sync (`lang_en_ui.h` / `lang_pt_ui.h`, 2310 keys each).
 | T7-37 | **TF slot mount failure (confirmed source audit):** board wiring is SPI GPIO11/12/13 + active-low CH422G EXIO4, while `SDCARD_USE_SPI_MODE` defaults to 0 so boot calls SDMMC with SPI signals. SPI mode defaults are also wrong (GPIO5 CS collides LCD; MISO19 collides USB), and SD init starts before the Board-created expander exists. Planned fix: LittleFS first; mount TF at `POST_EXPANDER_BEGIN` reusing `board->getIO_Expander()->getBase()`, with an external-CS-capable SPI backend; no second CH422G instance. | open (implementation + HW verify) |
 | T7-38 | **The `/falas` page never wires up: nothing defines `$`.** The runtime block is `if (typeof $ !== 'undefined' && $('bFalasRef')) { … }` (`page_falas_asset.h`), but `$` is a per-page helper (`var $=function(i){…}` in `page_radio_ui_asset.cpp:363`, `function $(i){…}` in `page_camera_asset.cpp:792`) and `FALAS_PAGE` never defines it; the shell (`streamPageShellStart`), `/config-manager.js` and `/auto.js` contain no such helper, and both scripts are printed **after** the asset, so the guard has already been evaluated when they load. Result on a Touch7 board: Refresh list, Ouvir, Delete, Load config, Save and Testar agora have **no handlers** and the first `falasLoad()` never runs — the list stays empty, the peers textarea empty and `#falasStatus` stuck on `A carregar...`. Measured on the smoke render (`PAGES/desktop/falas.png`, 2026-11-18, CDP): `typeof $ === 'undefined'`, `#bFalasRef.onclick === null`, 0 rows. Fix: define the helper at the top of the asset (`var $=function(i){return document.getElementById(i);};`) or replace `$(id)` with `document.getElementById(id)` and drop the guard. A jsdom smoke that parses the **shipped** fragment would catch it. | open |
 | T7-39 | **The inline `/files` link is unreadable.** `page_falas_asset.h` has `… use a pagina <a href="/files">Files</a>.`; `core.css` themes `a.btn` but not a bare inline link, so it keeps the browser default `rgb(0, 0, 238)` on the page background `rgb(11, 48, 105)` — contrast **1.36:1** (WCAG AA needs 4.5:1), effectively invisible (measured in the smoke render, `PAGES/desktop/falas.png`). Fix: give the paragraph links the theme colour (`.wrap p a { color:#60a5fa }`) or make it a `.btn`. | open |
+| T7-40 | **The `/ecra` mirror bar never fits on one row.** `.ecra-mirror-bar` is a flex row (`display:flex;gap:10px;justify-content:center;flex-wrap:wrap`, `page_ecra_asset.h`) meant to hold `[Pause] [Refresh] [rate select] [live status]`, but `core.css` sets `input,select,textarea{width:100%}` without an exclusion, so the select becomes an 800 px flex item and forces a wrap: measured at 1440 px (smoke render `PAGES/desktop/ecra.png`) the bar is 800 × 124: row 1 = the Pause button (x 477..897) with the `Refresh` label pushed to the far right (x 1063, a 166 px gap, no longer adjacent to its control), row 2 = the 800 px select, row 3 = `LIVE · unchanged`. The `@media(max-width:600px)` block only changes `justify-content`, so this is the layout at every width. Fix: `#ecMirrorRate{width:auto;min-width:120px;flex:0 0 auto}` (or a `.ecra-mirror-bar select` rule). | open |
+| T7-41 | **`/ecra` has no translatable UI.** The page carries only four `data-i18n-title` tooltips (`ecraTipMirrorPlay`, `ecraTipGeoGo`, `ecraTipGeoAuto`, `ecraTipWeather`); every visible string is hardcoded English — h1 `TouchMeteo-7 screen mirror`, both help paragraphs, `Pause`/`Resume`, `Refresh`, `Search`, `Detect location`, `Refresh weather`, the four `fps` options, the `<details>` summary `Weather location settings`, and the JS statuses (`Connecting…`, `LIVE · …`, `Updated …`, `No forecast data yet.`, `Mirror unavailable`, `Searching…`, `No results.`, …) plus every `customAlert`. On a PT device (the pack's LCD UI is PT) the mirror page is therefore entirely in English, and `lang_*_ui.h` has no keys for any of it. Fix: add `data-i18n` hooks + `ecra*` keys (as `/falas` already does for `touch7Falas`/`touch7Peers`). | open |
 
 ---
 
