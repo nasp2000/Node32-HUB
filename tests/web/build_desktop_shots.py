@@ -269,6 +269,54 @@ MODBUS_LIVE_SEED = r"""
 </script>
 """
 
+RAMBOX_SEED = r"""
+<script>
+(function () {
+  // Payloads copied from the real handlers (unikon_handler.cpp): status carries the
+  // clock/club/race block, arrivals feed the 8-column table, pombal the 3-column one,
+  // contests the race list. Default device in the page is 'unikon' (rmDev).
+  function arr(ring, chip, time, date, kind, race) {
+    return { ring: ring, chip: chip, time: time, date: date, kind: kind, race: race };
+  }
+  window.__MOCK_API__ = {
+    '/api/unikon-status': {
+      connected: true, lastPollAgoSec: 12,
+      totalKnown: 1842, raceKnownCount: 1720, trainingKnownCount: 122,
+      lastNewCount: 3, registeredCount: 240, contestCount: 4,
+      moduleId: 'UK-4200', clubName: 'Clube Columbofilo de Aveiro', soltaName: 'Guarda',
+      clubCode: 'PT-0421', fancierName: 'J. Silva',
+      raceDate: '2026-11-18', raceName: 'Guarda 2026',
+      enabled: true, intervalSec: 60, activeModule: 'rambox',
+      manualSerial: false, polling: true, passiveListen: false,
+      officialFormat: true, emailDest: 'pombos@example.org'
+    },
+    '/api/unikon-arrivals': { count: 5, arrivals: [
+      arr('PT-0421-24-1187', '1A2B3C4D', '08:41:22', '18/11', 'race',     'Guarda 2026'),
+      arr('PT-0421-24-0892', '5E6F7A8B', '08:41:47', '18/11', 'race',     'Guarda 2026'),
+      arr('PT-0421-23-0451', '9C0D1E2F', '08:42:03', '18/11', 'race',     'Guarda 2026'),
+      arr('PT-0421-24-1503', '3A4B5C6D', '08:42:31', '18/11', 'race',     'Guarda 2026'),
+      arr('PT-0421-25-0032', '7E8F9A0B', '08:43:10', '18/11', 'training', 'Treino 18/11')
+    ] },
+    '/api/unikon-pombal': { count: 6, registrations: [
+      { ring: 'PT-0421-24-1187', chip: '1A2B3C4D' },
+      { ring: 'PT-0421-24-0892', chip: '5E6F7A8B' },
+      { ring: 'PT-0421-23-0451', chip: '9C0D1E2F' },
+      { ring: 'PT-0421-24-1503', chip: '3A4B5C6D' },
+      { ring: 'PT-0421-25-0032', chip: '7E8F9A0B' },
+      { ring: 'PT-0421-24-0726', chip: '0F1E2D3C' }
+    ] },
+    '/api/unikon-contests': { count: 4, contests: [
+      { code: 'GDA26', date: '18/11', name: 'Guarda 2026',        pigeonCount: 240 },
+      { code: 'GDN26', date: '15/11', name: 'Guarda Norte 2026',  pigeonCount: 198 },
+      { code: 'VRS26', date: '08/11', name: 'Viseu 2026',         pigeonCount: 312 },
+      { code: 'TRN26', date: '01/11', name: 'Treino 2026',        pigeonCount: 96 }
+    ] },
+    '/api/unikon-config': { enabled: true, interval: 60, manual: false, official_format: true }
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -302,6 +350,7 @@ PAGES = {
     'grbl_controller': ('page_grbl_controller_asset.cpp', GRBL_SEED, 'built'),
     'modbus_rtu': ('page_modbus_asset.cpp', MODBUS_RTU_SEED, 'fragment'),
     'modbus_live': ('page_modbus_asset.cpp', MODBUS_LIVE_SEED, 'fragment'),
+    'rambox': ('page_rambox_asset.h', RAMBOX_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -336,6 +385,7 @@ FRAGMENT_TITLES = {
     'grbl_controller': '🛠️ GcodeSender',
     'modbus_rtu': 'Modbus RTU',
     'modbus_live': '📈 Modbus Live',
+    'rambox': 'RAMBOX 🐦',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)

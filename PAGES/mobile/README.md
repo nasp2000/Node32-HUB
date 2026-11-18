@@ -10,8 +10,8 @@ all 50 desktop pages raised; `home.png`, `status.png`, `files.png`, `sdcard.png`
 `commands_datetime.png`, `printer.png`, `do.png`, `sensor_config.png`, `mq135_config.png`,
 `rs232.png`, `modbus_tcp.png`, `sensor_charts.png`, `dualfile.png`, `api_reference.png`,
 `networks.png`, `structures.png`, `buzzer.png`, `lpt_db25.png`, `grbl_controller.png` and
-`modbus_rtu.png` and `modbus_live.png` (the last nine are smoke renders) captured and verified,
-rest pending).
+`modbus_rtu.png`, `modbus_live.png` and `rambox.png` (the last ten are smoke renders) captured and
+verified, rest pending).
 
 ---
 

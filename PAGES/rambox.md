@@ -5,6 +5,15 @@
 > interval. `/unikon` and `/bricon` now **redirect** here (`?dev=unikon` /
 > `?dev=bricon`). Written for both humans and AI agents.
 
+
+> Screenshot (`?desk=1`): `desktop/rambox.png` (1440 × 940, **smoke capture** — the route is
+> compiled only with `ENABLE_UNIKON`/`ENABLE_BRICON` and the Rambox board is offline). Rendered
+> from the shipped fragment with the Unikon payloads the page requests on load, copied from
+> `unikon_handler.cpp` (`/api/unikon-status`, `-arrivals` 5, `-pombal` 6, `-contests` 4).
+> Shows `Aparelho: Unikon`, the status badge, the five tabs (Config active) and the Config panel.
+> Text is PT because these are the asset's fallbacks and `auto.js` (what would translate them)
+> is not part of the harness. Index and proof in `desktop/README.md` §3.12.
+
 ---
 
 ## 1. Objective
@@ -208,6 +217,7 @@ All page text uses `rmb*` keys in `lang_en_ui.h` / `lang_pt_ui.h` (`rmbTitle`,
 | RMB-2 | Auto-refresh only runs on arrivals/status (5 s); the config tab never re-reads → a change made elsewhere needs a reload. | Low | Poll status on the config tab too, or refresh on tab focus. |
 | RMB-3 | Status table renders every key raw (no labels, no ordering). | Info | Curate the fields with i18n labels. |
 | RMB-4 | Templates delete / poll actions re-render the whole page block on every response (no diffing); fine at this size. | Info | — |
+| RMB-5 | **The status badge says `ligado` twice and leaks the raw module name.** `rmStatus()` builds `rmd().label + ' — ' + (enabled ? T('rmbOnline','ligado') : …) + (connected ? ' · ' + T('rmbOnline','ligado') : '') + (activeModule && activeModule !== rmDev ? ' · ' + activeModule : '')` (`page_rambox_asset.h`, `rmStatus`), so an enabled *and* connected Unikon renders `Unikon RAMBOX — ligado · ligado · rambox` (see `PAGES/desktop/rambox.png`). Two causes: the same i18n key is reused for two different states, and `activeModule` lives in the firmware namespace (`"rambox"`/`"bricon"`) while `rmDev` is the page's (`"unikon"`/`"bricon"`) — the comparison is always true for Unikon, so the raw id is appended. Fix: give the connection state its own key (e.g. `rmbConnected`) and normalise `activeModule` (`rambox → unikon`) before comparing. | Low | `page_rambox_asset.h` (`rmStatus`, `rmAdoptActive`), `PAGES/rambox.md` | open |
 
 ---
 
