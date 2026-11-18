@@ -4,6 +4,19 @@
 > every button/input, client logic, API endpoints, persistence and the firmware-side
 > Google-email engine. Written for both humans and AI agents.
 
+
+> Screenshot: `desktop/google_script.png` (1440 × 1346, **smoke capture** —
+> `ENABLE_PAGE_GOOGLE_SCRIPT` is never defined, so `/google-script` is 404 on every board).
+> Rendered from the shipped fragment + the page shell, with `/api/config?section=email` seeded in
+> the exact shape `handleConfigGet()` emits for that section (`config_handler.cpp:143-215`,
+> including the `google_email` block the GS-1 fix added), set to the state this page configures
+> (`method:"google"`, a deployed-Web-App URL, placeholder destination — no operator address). The
+> image is the proof that **GS-1 holds** (both fields pre-fill) and shows **GS-5** (mixed PT/EN
+> fallbacks: `Email Destino`, `📧 SMTP Direto`, `Teste de Email` next to `Sending Method`,
+> `Download Code`, `Save`). It also produced **GS-7**: the renderer loads `/config-manager.js`,
+> which is inert here because `hasConfigTargets()` looks for `email_destination` while the page's
+> field is `email_dest`. Index and proof in `desktop/README.md` §3.12.
+
 ---
 
 ## 1. Objective
@@ -58,10 +71,10 @@ div.page.google-script > div.wrap
  │   │   └ .section > H3 (emailGasCodeTitle)
  │   │       ├ a.btn[href='/GoogleAppsScript_EmailHandler.js'][download] (emailGoogleCodeDownload)
  │   │       └ info box (emailGoogleInstructions, data-i18n-html)
- │   └ div (centered) > button[type=submit][form=gas-config-form].btn (btnSave "💾 Guardar")
+ │   └ div (centered) > button[type=submit][form=gas-config-form].btn (btnSave — markup "💾 Save", PT pack "💾 Guardar")
  └ div (purple card, test)
      ├ H2 (emailTestTitle) + desc (emailTestDesc)
-     └ button#btn-test-email-gas[type=button].btn (emailTestBtn "✉️ Enviar Email de Teste")
+     └ button#btn-test-email-gas[type=button].btn (emailTestBtn — markup "✉️ Send Test Email", PT pack "✉️ Enviar Email de Teste")
 ```
 
 Element IDs: `gas-config-form`, `email_method`, `email_dest`, `google_script_url`, `btn-test-email-gas` (`chatgpt/src/webpages/assets/page_google_script_asset.cpp:9-56`).
@@ -190,8 +203,9 @@ JS `gasText()` keys: `emailTestStarted`, `emailTestStartError`, `emailConnection
 | GS-2 | **URL cannot be cleared.** POST applies `google_script_url` only `if (v.length())` (`config_handler.cpp:316-317`); sending an empty field keeps the old URL. Same pattern for `email_method` (`:319-320`). | Medium | Accept present-but-empty as clear (or add an explicit "clear URL" affordance). |
 | GS-3 | **No server-side URL validation.** Any non-empty string is stored; only `googleEmailIsAvailable()` checks the `http(s)://` prefix (`google_email.cpp:93-96`), so a typo saves silently and fails later at test/send time. | Low | Reject non-`http(s)` URLs (or warn) in `handleConfigPost` before persisting. |
 | GS-4 | **Page missing from self-test manifest; JS default contradicts firmware default.** `test_manifest_handler.cpp:254-293` lists `/email` but no `/google-script` entry (route exists at `route_registry_api.cpp:231`); JS defaults `email.method` to `'google'` (`page_google_script_asset.cpp:95`) while firmware default is `'smtp'` (`ConfigManager.cpp:276`, `ConfigManager.h:740-741`). | Low | Add `PAGE("/google-script", ENABLE_PAGE_GOOGLE_SCRIPT)` and default the select to the server value (or `smtp`). |
-| GS-5 | **PT fallback text in markup.** Hardcoded fallbacks are Portuguese ("Início", "Configurações Gerais", "Método de Envio", "Baixar Código", "Guardar", "Enviar Email de Teste" — `page_google_script_asset.cpp:6-53`) while the project rule is English HTML fallback text. | Low | Replace fallbacks with the English `lang_en_ui.h` strings (keys already exist). |
+| GS-5 | **The markup's fallbacks are a PT/EN mixture.** Portuguese fallbacks: the `smtp` option `📧 SMTP Direto` (`:17`), `Email Destino` (`:22`), the whole `emailGoogleAdvInfo` box (`Vantagens:` / `Como usar:` / `Cole o script abaixo…`, `:30`), `🌐 URL do seu Google Apps Script Web App` (`:33`) and `🧪 Teste de Email` (`:51`). The rest of the markup is English (`🌐 Google App Script`, `General Settings`, `Sending Method`, `Download Code`, `💾 Save`, `✉️ Send Test Email`), so an English build shows a mixed page until the pack lands and the project rule (English fallbacks) is broken either way — visible in `PAGES/desktop/google_script.png`. **Correction:** this row used to list `Início` / `Configurações Gerais` / `Método de Envio` / `Baixar Código` / `Guardar` / `Enviar Email de Teste` as markup fallbacks — those are the **PT pack** values quoted in §5, not what the asset ships. | Low | Pick one language for the fallbacks (English, per the project rule) and let the packs translate. |
 | GS-6 | **Web test does not cover load/save mapping.** `tests/web/test_google_script.js:1-34` only exercises `gasText` and `testEmailFromGas` success/failure; nothing asserts the `GET /api/config?section=email` → field mapping, so GS-1 is not caught. Fixture `tests/web/pages/google_script.html:40,231` is also a stale copy (missing `title`/`data-i18n-title` attrs, same wrong `d.google_email` key). | Info | Add load-mapping + submit-body assertions; regenerate the fixture from the PROGMEM asset. |
+| GS-7 | **The renderer loads a helper that this page cannot use.** `google_script_page_renderer.cpp:13` appends `<script src='/config-manager.js'></script>` (9 737 B of PROGMEM, `config_manager_js_asset.cpp`) after the body, but `hasConfigTargets()` (`config_manager_js_asset.cpp:203-215`) keys on `email_destination`, `smtp_server`, `wifi_ssid`, `rs232_*` and `printer-form` — this page's fields are `email_dest`, `email_method` and `google_script_url`, so the guard is false: `loadConfig()` never runs and the 5-minute config poll never starts. The page still works (its own inline JS fetches `/api/config?section=email` and saves with `fetch`), so the cost is one ~9.7 KB request per visit on a RAM-frugal device plus a second, divergent config-loading mechanism a future refactor would silently miss. Measured on the smoke render (`PAGES/desktop/google_script.png` — the fields pre-fill from the page's own fetch, not from the helper). | Info | Drop the trailing script from the renderer (the page does not need it), or add `email_dest`/`google_script_url` to `hasConfigTargets()` and delete the page's duplicate inline loader. |
 
 ---
 

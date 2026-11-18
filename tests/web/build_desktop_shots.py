@@ -683,6 +683,43 @@ IPG_LASER_SEED = r"""
 </script>
 """
 
+GOOGLE_SCRIPT_SEED = r"""
+<script>
+(function () {
+  // GET /api/config?section=email == handleConfigGet() (config_handler.cpp:143-215):
+  // the smtp + email slices of getFullConfig(true) plus the nested google_email block
+  // added by the GS-1 fix (that is where the page reads its saved URL from). Passwords
+  // arrive masked. The values here are the device's own, never an operator's: the
+  // method is the one this page configures ("google"), the URL has the shape of a
+  // deployed Web App, and the destination is a placeholder address.
+  // POST /api/config (section=email) -> {"success":true,"message":"Config saved"}
+  // (config_handler.cpp:452-486); POST /api/email-test -> email_handler.cpp:18-57.
+  window.__MOCK_API__ = {
+    '/api/config?section=email': {
+      smtp: {
+        server: 'smtp.gmail.com', port: 465,
+        username: 'hub@exemplo.pt', password: '********',
+        tls_insecure: true,
+        google_script_url: 'https://script.google.com/macros/s/AKfycbxQ2m9dK0n4V1sT7pR3wY8eL6hC5uJ2bN0aF4dE/exec'
+      },
+      email: {
+        destination: 'operador@exemplo.pt',
+        auto_send: true, max_lines: 66, min_content_length: 3,
+        subject: 'Node32-HUB',
+        dont_copy_sender: false, attach_txt: true, include_timestamp: true,
+        method: 'google'
+      },
+      google_email: {
+        google_script_url: 'https://script.google.com/macros/s/AKfycbxQ2m9dK0n4V1sT7pR3wY8eL6hC5uJ2bN0aF4dE/exec'
+      }
+    },
+    '/api/config': { success: true, message: 'Config saved' },
+    '/api/email-test': { success: true, message: '⚡ Teste iniciado com sucesso! O resultado aparece no monitor em ~30 segundos.' }
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -725,6 +762,7 @@ PAGES = {
     'uda1334a': ('page_audio_dac_uda1334a_asset.cpp', UDA1334A_SEED, 'fragment'),
     'radio_ui': ('page_radio_ui_asset.cpp', RADIO_UI_SEED, 'fragment'),
     'ipg_laser': ('page_ipg_laser_asset.cpp', IPG_LASER_SEED, 'fragment'),
+    'google_script': ('page_google_script_asset.cpp', GOOGLE_SCRIPT_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -787,6 +825,10 @@ FRAGMENT_TITLES = {
     # Hardcoded in ipg_laser_page_renderer.cpp:8 ("\xF0\x9F\x94\xA5 IPG Laser RS232");
     # there is no pageTitleIpgLaser key (IPG-1 covers the whole page's missing i18n).
     'ipg_laser': '🔥 IPG Laser RS232',
+    # Google's shell title is not a UTF-8 literal: google_script_page_renderer.cpp:8 passes
+    # "&#127760; Google App Script", so <title> holds the entity and the parser turns it into
+    # "🌐 Google App Script" (title is RCDATA) — kept byte-identical here, entity included.
+    'google_script': '&#127760; Google App Script',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)

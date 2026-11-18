@@ -64,7 +64,7 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/ethernet` | Ethernet + DHCP config | static | 6 s + 8 s | B | no | `ENABLE_ETHERNET` |
 | `/networks` | Other Networks — **Telnet only** (enable/disable + password; not an overview of Wi-Fi/Ethernet) | static | manual | B | **A** (*) | — (**page compiled only with `ENABLE_TELNET==1`, and that is 0 in `user_config.h:291` and in every pack → 404 on all live boards; the desktop image is a harness render, `PAGES/desktop/README.md` §3.12**) |
 | `/wifi` | WiFi AP/STA + scan | static | scan 5 s | B | no | — |
-| `/google-script` | Google Apps Script setup | static | manual | B | no | `ENABLE_PAGE_GOOGLE_SCRIPT` |
+| `/google-script` | Google Apps Script setup | static | manual | B | no | `ENABLE_PAGE_GOOGLE_SCRIPT` (**never defined** — commented out in `user_config.h`, no pack enables it → 404 on every board; desktop image is a harness render, `PAGES/BACKLOG.md` GS-7) |
 | `/access` | Sessions/users/access control + live session list (`/api/session-history`, terminate-all) | static + on demand | one GET on load; session list reloaded by the Refresh button and after a kick | B | **A** (*) | `ENABLE_PAGE_ACCESS` |
 | `/alerts-config` | Inactivity/OEE alert rules + live state per slot (sent/cap today, sent-this-period) | static + live state | `/api/status` 30 s (skipped while the tab is hidden) | B | no | `ENABLE_PAGE_ALERTS` + `ENABLE_PROXIMITY` |
 | `/email` | SMTP config + test | static | manual | B | no | `ENABLE_SMTP` |
