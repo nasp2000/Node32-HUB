@@ -4,6 +4,14 @@
 > every button/input, client logic, API endpoints, persistence and the
 > firmware-side sampling engine. Written for both humans and AI agents.
 
+
+> Screenshot: `desktop/sound.png` (1440 × 1057, **smoke capture** — `ENABLE_SOUND_SENSOR` is 0 in every
+> reachable build). Rendered from the shipped fragment with `/api/sound-config` seeded exactly as
+> `SoundConfigManager::toJson()` emits it (peak-to-peak 1832 ADC, 147.9 mV, −36.4 dBFS, 50 ms window,
+> 4096 samples, interval 60 s). The `&#128197;` before `Last reading` is the asset's `t()` fallback;
+> the pack carries 📅 and `auto.js`/`/api/lang` (outside the harness) replaces the entity. This pass
+> also verified that **SND-5 is fixed** (see §11). Index and proof in `desktop/README.md` §3.12.
+
 ---
 
 ## 1. Objective
@@ -187,7 +195,7 @@ plus borrowed `ina226LiveTitle`, `hx711MainTitle`, `hx711NoReading`,
 | SND-2 | **`updateFromJson` has no range validation.** Any ints are accepted and persisted (`sensor_sound_config.cpp:100`): negative `sample_window_ms`, `sample_count` 0, negative `read_interval_sec`, arbitrary `adc_pin`. UI min/max (`page_sound_asset.h:113`) is client-side only. | Low | Clamp to UI ranges (window 10–500, count 10–1000, interval ≥1) and validate `adc_pin` is ADC-capable before `saveToFile()`. |
 | SND-3 | **`alert_dbfs` is dead.** Stored/loaded (`sensor_sound_config.cpp:90,111`, struct `sensor_sound_config.h:30,46`) but no UI input sets it and `performReading()` never compares against it. | Low | Either add a threshold input + alert action, or remove the field from struct/JSON. |
 | SND-4 | **Measure reports success with stale data when disabled.** `handleSoundMeasurePost` always returns 200 (`sensor_handler.cpp:549`); `performReading()` returns false when disabled/uninitialised (`sensor_sound_config.cpp:38`), so the response carries the old reading while `measureNow()` shows "Reading complete!" (`page_sound_asset.h:252`). | Low | Return non-200 or an `ok:false` flag when `performReading()` fails, and surface it in `measureNow()`. |
-| SND-5 | **EN/PT mix in user-facing strings.** Shell title hardcoded PT `"🔊 Sensor de Som"` (`sound_page_renderer.cpp:9`); home button PT `"Sensor de Nível de Som"` (`home_page_renderer.h:198`); POST error `"Erro ao guardar…"` (`sensor_handler.cpp:545`); `measureNow` fallback `'❌ Erro: '` (`page_sound_asset.h:254`) vs `'❌ Error: '` in `saveConfig` (`:237`). | Low | Use i18n keys / English fallbacks consistently. |
+| SND-5 | **EN/PT mix in user-facing strings — fixed.** Was: shell title hardcoded PT `"🔊 Sensor de Som"`, home button PT `"Sensor de Nível de Som"`, POST error `"Erro ao guardar…"` and mixed `'❌ Erro: '` / `'❌ Error: '` fallbacks. Now: `sound_page_renderer.cpp:10` passes `L(activeLang->pageTitleSound)`, the home button carries `data-i18n='homeSound'` with an EN fallback (`home_page_renderer.h:204`), the POST error uses `L(activeLang->apiErrSaveSound)` (`sensor_handler.cpp:608`) and all three asset fallbacks read `Error: `. Verified while capturing `PAGES/desktop/sound.png` (2026-11-18). | Low | **fixed** |
 | SND-6 | **Interval default mismatch + `d.ok` vs `d.success`.** Struct default `read_interval_sec` is 2 s (`sensor_sound_config.h:43`) but the UI pre-selects 30 s (`page_sound_asset.h:99`), so first save silently changes the interval; client checks `d.ok` (`:233`) while the project convention (cf. access page) is `d.success`. | Info | Align the default (2 s vs 30 s) and consider standardising on `d.success`. |
 
 ---

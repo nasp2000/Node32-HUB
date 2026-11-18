@@ -395,6 +395,28 @@ MAX31865_SEED = r"""
 </script>
 """
 
+SOUND_SEED = r"""
+<script>
+(function () {
+  // GET /api/sound-config == SoundConfigManager::toJson()
+  // (sensor_sound_config.cpp:81-98); measure returns the same document.
+  var cfg = {
+    sensor_enabled: true,
+    adc_pin: 34, sample_window_ms: 50, sample_count: 4096,
+    read_interval_sec: 60,
+    inject_to_buffer: true, output_csv: true,
+    alert_dbfs: -20.0000,
+    last_peak_to_peak: 1832, last_peak_mv: 147.9000, last_dbfs: -36.4000,
+    last_reading_time: Math.floor(Date.now() / 1000) - 20
+  };
+  window.__MOCK_API__ = {
+    '/api/sound-config':  cfg,
+    '/api/sound-measure': cfg
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -432,6 +454,7 @@ PAGES = {
     'hx711': ('page_hx711_asset.h', HX711_SEED, 'fragment'),
     'ina226': ('page_ina226_asset.h', INA226_SEED, 'fragment'),
     'max31865': ('page_max31865_asset.h', MAX31865_SEED, 'fragment'),
+    'sound': ('page_sound_asset.h', SOUND_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -475,6 +498,8 @@ FRAGMENT_TITLES = {
     # "\xF0\x9F\x8C\xA1\xEF\xB8\x8F Sensor RTD MAX31865" instead of
     # L(activeLang->pageTitleMax31865) — finding MAX-8. This is what ships in <title>.
     'max31865': '🌡️ Sensor RTD MAX31865',
+    # L(activeLang->pageTitleSound): EN "🔊 Sound Sensor" (PT "🔊 Sensor de Som")
+    'sound': '🔊 Sound Sensor',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)
