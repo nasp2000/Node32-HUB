@@ -5,6 +5,17 @@
 > endpoints, persistence and the PIR/speaker engine. Written for both humans
 > and AI agents.
 
+
+> Screenshot: `desktop/falas.png` (1440 × 900, **smoke capture** — `/falas` only exists in the
+> `PACK_S3_TOUCH7` build and that board is offline). Rendered from the shipped `FALAS_PAGE`
+> fragment + the page shell, with `/api/falas` (`falasListJson()` shape) and `/api/touch7-config`
+> (`Touch7ConfigManager::toJson()`) seeded from the handlers. **The image is the page as it really
+> ships**: its runtime block is guarded by `typeof $ !== 'undefined'` and nothing defines `$`, so no
+> control is bound, `falasLoad()` never runs and the list/peers stay empty — **T7-38** (High),
+> measured in the render. The same capture produced **T7-39** (the inline `/files` link is
+> unreadable: browser-default blue on the dark background). Index and proof in
+> `desktop/README.md` §3.12.
+
 ---
 
 ## 1. Objective
@@ -52,8 +63,11 @@ Renderer assembles: shell (`page_render_common.h` `streamPageShellStart`) → bo
 ```
 div.wrap (column)
  ├ a.btn home (FIRST child of .wrap) + h1 "🔊 Falas locais"
- ├ div.card: [Atualizar lista] + #falasStatus + table#falasTable (Ficheiro|Tamanho|Ouvir|Apagar)
- └ div.card: peers JSON (textarea#peersJson + [Ler config][Guardar][Testar agora])
+ ├ div.card: [Refresh list] + #falasStatus + table#falasTable
+ │            head = File | Tamanho | (empty) | (empty); the last two cells are filled per row
+ │            with the Ouvir / Delete buttons (PT labels in the asset)
+ └ div.card: peers JSON (textarea#peersJson + [Load config][Save][Testar agora] — the first two
+              are EN fallbacks in the asset, the third is PT)
 ```
 
 Physical TouchMeteo-7 LCD (800×480):
@@ -125,8 +139,14 @@ no-home exception. PROGMEM JS has no arrow functions; feedback uses
   filenames); play/delete use `encodeURIComponent(name)`.
 - `__test__` hooks (`falasRow`, `falasSafe`) mirror the server-side guards so
   `tests/web/test_touch7.js` covers them (6 cases).
-- Runtime wiring (`$` bindings + initial `falasLoad()`) runs only when `$`
-  exists, so the page also loads under JSDOM/extract without the shell JS.
+- Runtime wiring (`$` bindings + initial `falasLoad()`) runs **only** when `$`
+  exists — and on a real board it never does: `$` is a per-page helper that each
+  page defines for itself (`page_radio_ui_asset.cpp:363`, `page_camera_asset.cpp:792`)
+  and `FALAS_PAGE` does not. The shell (`streamPageShellStart`), `/config-manager.js`
+  and `/auto.js` define no `$` either, and both files are streamed **after** the
+  asset, so the guard would already have run. Consequence: no `onclick` is bound
+  and `falasLoad()` is never called — **T7-38**. The guard only makes the page
+  harmless under JSDOM (the `__test__` hooks still load).
 - `/ecra` renders no display content independently: it validates the exact
   frame size, expands RGB565 to RGBA, and paints the sole canvas. It sends the
   last 64-bit frame hash back; unchanged frames return 304 instead of another
@@ -252,6 +272,8 @@ EN + PT kept in sync (`lang_en_ui.h` / `lang_pt_ui.h`, 2310 keys each).
 | T7-36 | **Weather/brightness/mirror optimization:** Open-Meteo TLS/JSON runs in a background task, results are applied on the LVGL loop, and status exposes stale/age/error + manual refresh. `backlight_pct` persists manual brightness with default/clamp for old config files. `/ecra` returns 304 for unchanged 64-bit RGB565 hashes. | fixed (code; firmware/OTA/device verification pending) |
 | T7-37 | **TF mount fix (code only):** `board_pins.h` selects SPI with Touch7 pins and external CS; `touch7SdAssertCs()` holds EXIO4 LOW via the Board's expander (re-asserted after panel rebuilds); boot mounts LittleFS first, then `sdcardBeginAsync()` after the panel; `sdcardBegin()` defers while the expander is down; SPI auto-mount re-enabled. Pending owner build/flash + HW verify (mount/read/write/remove, `/files`, LittleFS intact). | in-progress (code; firmware/device verify pending) |
 | T7-37 | **TF slot mount failure (confirmed source audit):** board wiring is SPI GPIO11/12/13 + active-low CH422G EXIO4, while `SDCARD_USE_SPI_MODE` defaults to 0 so boot calls SDMMC with SPI signals. SPI mode defaults are also wrong (GPIO5 CS collides LCD; MISO19 collides USB), and SD init starts before the Board-created expander exists. Planned fix: LittleFS first; mount TF at `POST_EXPANDER_BEGIN` reusing `board->getIO_Expander()->getBase()`, with an external-CS-capable SPI backend; no second CH422G instance. | open (implementation + HW verify) |
+| T7-38 | **The `/falas` page never wires up: nothing defines `$`.** The runtime block is `if (typeof $ !== 'undefined' && $('bFalasRef')) { … }` (`page_falas_asset.h`), but `$` is a per-page helper (`var $=function(i){…}` in `page_radio_ui_asset.cpp:363`, `function $(i){…}` in `page_camera_asset.cpp:792`) and `FALAS_PAGE` never defines it; the shell (`streamPageShellStart`), `/config-manager.js` and `/auto.js` contain no such helper, and both scripts are printed **after** the asset, so the guard has already been evaluated when they load. Result on a Touch7 board: Refresh list, Ouvir, Delete, Load config, Save and Testar agora have **no handlers** and the first `falasLoad()` never runs — the list stays empty, the peers textarea empty and `#falasStatus` stuck on `A carregar...`. Measured on the smoke render (`PAGES/desktop/falas.png`, 2026-11-18, CDP): `typeof $ === 'undefined'`, `#bFalasRef.onclick === null`, 0 rows. Fix: define the helper at the top of the asset (`var $=function(i){return document.getElementById(i);};`) or replace `$(id)` with `document.getElementById(id)` and drop the guard. A jsdom smoke that parses the **shipped** fragment would catch it. | open |
+| T7-39 | **The inline `/files` link is unreadable.** `page_falas_asset.h` has `… use a pagina <a href="/files">Files</a>.`; `core.css` themes `a.btn` but not a bare inline link, so it keeps the browser default `rgb(0, 0, 238)` on the page background `rgb(11, 48, 105)` — contrast **1.36:1** (WCAG AA needs 4.5:1), effectively invisible (measured in the smoke render, `PAGES/desktop/falas.png`). Fix: give the paragraph links the theme colour (`.wrap p a { color:#60a5fa }`) or make it a `.btn`. | open |
 
 ---
 

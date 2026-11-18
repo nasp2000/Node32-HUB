@@ -58,7 +58,7 @@ never time-kicks); single-client kicks idle/abs unless the option is ON.
 | `/unikon` | Unikon device page — **302** to `/rambox?dev=unikon` | local | 5 s | B | **A** | `ENABLE_UNIKON` |
 | `/bricon` | Bricon module page — **302** to `/rambox?dev=bricon` (wire driver implemented from REA; exclusive with Unikon — the choice sets the RS232 profile: Bricon 9600 8N2, Unikon 9600 8N1) | local | 5 s | B | **A** | `ENABLE_BRICON` |
 | `/ecra` | Touch7 exact LCD framebuffer mirror + weather/location/status | hybrid | conditional RGB565 frame 0.25–2 fps; weather status on load and 1 s while updating | B | **A** | `PACK_S3_TOUCH7` |
-| `/falas` | Voice/audio page | static | manual | B | no | `PACK_S3_TOUCH7` |
+| `/falas` | Local WAV phrases (list/play/delete) + peers JSON — desktop image is a harness render (`PACK_S3_TOUCH7` only, board offline) and the page is inert as shipped: nothing defines `$`, so no button is bound and the list never loads — `PAGES/BACKLOG.md` T7-38 | static | manual | B | no | `PACK_S3_TOUCH7` |
 | `/dualfile` | Copy/write LittleFS↔SD | static | 30 s poll | B | **A** (*) | `ENABLE_DUALFILE` (**1 only in the P4 USB-server pack** → 404 on all live boards; desktop image is a harness render of the shipped asset, `PAGES/desktop/README.md` §3.12) |
 | `/usb-server` | USB/IP status + clients | local | 6 s | B | **A** | `ENABLE_USBIP_SERVER` |
 | `/ethernet` | Ethernet + DHCP config | static | 6 s + 8 s | B | no | `ENABLE_ETHERNET` |

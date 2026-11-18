@@ -720,6 +720,61 @@ GOOGLE_SCRIPT_SEED = r"""
 </script>
 """
 
+FALAS_SEED = r"""
+<script>
+(function () {
+  // Payloads exactly as the Touch7 handlers emit them.
+  // GET /api/falas -> falasListJson() (handlers_unified/touch7_handler.cpp:287-305):
+  // {"files":[{"name","size"}]} from the real /falas folder, .wav/.WAV only.
+  // GET /api/touch7-config -> Touch7ConfigManager::toJson() (touch7_config.cpp:44-70),
+  // full document incl. the 4 peer slots with pass_set (passwords are never returned).
+  // POST /api/falas-play?file= / -delete?file= -> {"success":true} (404 missing, 503 busy);
+  // POST /api/touch7-config -> {"success":true}; POST /api/touch7-peer-refresh -> same.
+  //
+  // NOTE: as shipped the page never calls any of this. Its runtime block is guarded by
+  // `typeof $ !== 'undefined'` and NO script in the page shell defines `$`
+  // (streamPageShellStart, /config-manager.js and /auto.js have no such helper; and both
+  // of those files are streamed AFTER the asset, so they could not help anyway) - finding
+  // T7-38. The capture therefore shows the real inert state; the payloads here are the
+  // correct ones and become visible the moment T7-38 is fixed.
+  window.__MOCK_API__ = {
+    '/api/falas': {
+      files: [
+        { name: 'inicio_turno.wav', size: 132094 },
+        { name: 'fim_turno.wav', size: 118742 },
+        { name: 'pausa.wav', size: 76028 },
+        { name: 'retomar.wav', size: 71056 },
+        { name: 'manutencao.wav', size: 154318 },
+        { name: 'producao_ok.wav', size: 98640 }
+      ]
+    },
+    '/api/touch7-config': {
+      sensor_enabled: false, read_interval_sec: 60,
+      theme: 1, clock_style: 0, volume: 70,
+      t_max: 30, t_min: 5, h_max: 80,
+      pir_dim_sec: 120, screensaver_sec: 300,
+      backlight_auto: true, backlight_pct: 80,
+      owm_key_set: false,
+      wx_lat: 38.7167, wx_lon: -9.1333, wx_place: 'Lisboa',
+      peers: [
+        { name: 'CAM-P4', host: '192.168.1.18', user: 'admin', enabled: true,  pass_set: true },
+        { name: 'CAM-M1', host: '192.168.1.9',  user: 'admin', enabled: true,  pass_set: true },
+        { name: '',       host: '',             user: '',      enabled: false, pass_set: false },
+        { name: '',       host: '',             user: '',      enabled: false, pass_set: false }
+      ]
+    },
+    '/api/falas-play': { success: true },
+    '/api/falas-delete': { success: true },
+    '/api/touch7-peer-refresh': { success: true }
+    // No entry for POST /api/touch7-config: the harness mock is method-blind, so it would
+    // answer with the GET document above and peersSave() would report a failure. Harmless
+    // while T7-38 keeps every control unbound; revisit the mock if a method-aware seed is
+    // ever needed.
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -763,6 +818,7 @@ PAGES = {
     'radio_ui': ('page_radio_ui_asset.cpp', RADIO_UI_SEED, 'fragment'),
     'ipg_laser': ('page_ipg_laser_asset.cpp', IPG_LASER_SEED, 'fragment'),
     'google_script': ('page_google_script_asset.cpp', GOOGLE_SCRIPT_SEED, 'fragment'),
+    'falas': ('page_falas_asset.h', FALAS_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -829,6 +885,10 @@ FRAGMENT_TITLES = {
     # "&#127760; Google App Script", so <title> holds the entity and the parser turns it into
     # "🌐 Google App Script" (title is RCDATA) — kept byte-identical here, entity included.
     'google_script': '&#127760; Google App Script',
+    # L(activeLang->pageTitleFalas): EN "📊 Local Voice Prompts" (PT "📊 Falas locais").
+    # Note the page's own H1 is a different string ("🔊 Falas locais", data-i18n
+    # 'touch7Falas' -> EN "Local phrases"), so <title> and H1 disagree by design.
+    'falas': '📊 Local Voice Prompts',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)
