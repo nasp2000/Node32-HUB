@@ -417,6 +417,43 @@ SOUND_SEED = r"""
 </script>
 """
 
+CAN_SEED = r"""
+<script>
+(function () {
+  // Payloads copied from can_handler.cpp: /api/can/status (state/mode/bitrate +
+  // counters, state strings are RUNNING/BUS_OFF/RECOVERING/ERROR/STOPPED),
+  // /api/can/frames (ts/id/dlc/ext/rtr/data[]) and /api/can/config (nested "config").
+  function frame(ts, id, dlc, ext, rtr, data) {
+    return { ts: ts, id: id, dlc: dlc, ext: ext, rtr: rtr, data: data };
+  }
+  window.__MOCK_API__ = {
+    '/api/can/status': {
+      success: true, state: 'RUNNING', mode: 0, bitrate_kbps: 500,
+      tec: 0, rec: 0, total_rx: 1842, total_tx: 311,
+      rx_errors: 2, tx_errors: 0, bus_off_count: 0,
+      buffer_drops: 0, buffer_frames: 128, msgs_to_rx: 0
+    },
+    '/api/can/frames': { success: true, count: 6, frames: [
+      frame(1284123, 0x18F, 8, false, false, [0x01, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
+      frame(1284011, 0x1A2, 8, false, false, [0x22, 0x04, 0x00, 0x64, 0x00, 0x00, 0x00, 0x00]),
+      frame(1283897, 0x0C1, 4, false, false, [0xFF, 0x00, 0x0A, 0x00]),
+      frame(1283755, 0x18FF50E5, 8, true,  false, [0x00, 0x00, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00]),
+      frame(1283644, 0x2B0, 2, false, false, [0x03, 0x00]),
+      frame(1283512, 0x7DF, 8, false, false, [0x02, 0x01, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00])
+    ] },
+    '/api/can/config': { success: true, config: {
+      enabled: true, bitrate_kbps: 500, mode: 0,
+      tx_pin: 5, rx_pin: 4,
+      filter_id: 0, filter_mask: 0, filter_ext: false, log_to_sd: true
+    } },
+    '/api/can/restart': { success: true },
+    '/api/can/clear':   { success: true },
+    '/api/can/send':    { success: true }
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -455,6 +492,7 @@ PAGES = {
     'ina226': ('page_ina226_asset.h', INA226_SEED, 'fragment'),
     'max31865': ('page_max31865_asset.h', MAX31865_SEED, 'fragment'),
     'sound': ('page_sound_asset.h', SOUND_SEED, 'fragment'),
+    'can': ('page_can_asset.h', CAN_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -477,6 +515,9 @@ RSTRING = {
 
 PRELUDE = {
     'structures': ('chatgpt/src/webpages/renderers/structures_page_renderer.cpp', 'JSTABS'),
+    # printed before the body by streamCanPageToPrint() — and it is broken on purpose:
+    # the string contains C++ (L(activeLang->tabLabelState)) so the browser throws (CAN-7).
+    'can': ('chatgpt/src/webpages/renderers/can_page_renderer.cpp', 'JSTABS'),
 }
 
 FRAGMENT_TITLES = {
@@ -500,6 +541,9 @@ FRAGMENT_TITLES = {
     'max31865': '🌡️ Sensor RTD MAX31865',
     # L(activeLang->pageTitleSound): EN "🔊 Sound Sensor" (PT "🔊 Sensor de Som")
     'sound': '🔊 Sound Sensor',
+    # Hardcoded EN in can_page_renderer.cpp:22 ("\xF0\x9F\x94\x8C CAN Bus (TWAI)");
+    # there is no pageTitleCan key yet (CAN-7 notes it).
+    'can': '🔌 CAN Bus (TWAI)',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)

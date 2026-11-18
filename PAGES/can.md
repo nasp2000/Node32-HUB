@@ -2,6 +2,15 @@
 
 > One-stop reference for the **CAN bus (TWAI) monitor page**: live bus status, frame monitor, frame transmitter, and driver configuration. Written for both humans and AI agents.
 
+
+> Screenshot: `desktop/can.png` (1440 × 940, **smoke capture** — `ENABLE_CAN` is 0 in every reachable
+> build). Rendered from the shipped fragment **plus** the renderer's `CAN_TABS_SCRIPT`, with
+> `/api/can/status` / `-frames` / `-config` seeded from `can_handler.cpp` (RUNNING, 500 Kbps, TX 311,
+> RX 1842, buffer 128, 2 errors, 6 frames including an extended `0x18FF50E5`). Captured on the default
+> **Status** tab; the other three panels are `display:none` until the asset's own tab bar is clicked.
+> The capture also produced **CAN-7** (the injected tab script throws) and **CAN-8** (hardcoded EN tab
+> title). Index and proof in `desktop/README.md` §3.12.
+
 ---
 
 ## 1. Objective
@@ -163,12 +172,15 @@ All confirmed present in `lang_en_ui.h` (EN) and `lang_pt_ui.h` (PT): `btnHome` 
 
 | # | Finding | Severity | Suggested fix |
 |---|---|---|---|
-| CAN-1 | **Two competing tab bars.** The asset ships its own `.can-tab-bar` (`page_can_asset.h:45-50`) and the renderer injects a second `CAN_TABS_SCRIPT` bar with PT labels (`Estado/Monitor/Enviar/Config`, `can_page_renderer.cpp:9-16`) that targets any `div[style*='border:2px solid #3b82f6']` — the page renders two tab rows driving the same panels. | Medium | Delete one system: keep the asset tabs and drop `CAN_TABS_SCRIPT`, or vice versa. |
+| CAN-1 | **Two competing tab bars — half wrong, see CAN-7.** The asset ships its own working `.can-tab` row (`page_can_asset.h:44-48`, click handlers at the end of the asset script) and the renderer also emits `CAN_TABS_SCRIPT` (`can_page_renderer.cpp:9-16`). That second bar **never appears**: its JS string embeds C++ (`L(activeLang->tabLabelState)`) and throws a `SyntaxError` before building anything, so the page shows **one** tab row, not two (measured on the smoke render: `.can-tab` 4, `.can-tab-btn` 0). | Medium | Delete `CAN_TABS_SCRIPT` — the asset's row already switches the panels — or print the labels from C++. |
+
 | CAN-2 | **Hardcoded PT fallback strings.** `Início` (`page_can_asset.h:43`), `Dados` (`:86`), `Modo` (`:153`), `Filtro ID (hex)` (`:171`), `Filtro para IDs extended` (`:179`) have no `data-i18n` binding, so EN users see PT until/unless `auto.js` replaces `btnHome`. | Medium | Add `data-i18n` spans for every label or switch fallbacks to English. |
 | CAN-3 | **Server messages are PT-only / unaccented.** `"Buffer limpo"` (`can_handler.cpp:154`), `"Driver CAN reiniciado"` (`:161`), `"JSON invalido"`, `"Bitrate invalido"`, `"Frame enviado"`, `"Config guardada e driver reiniciado"` (`can_handlers.cpp:27,63,84,49,90`), `"CAN nao compilado"` (`:99`) mix with an otherwise EN page. | Low | Return EN messages (or i18n keys) consistent with page fallbacks. |
 | CAN-4 | **Dead `#sendMsg` element.** `<div id='sendMsg' class='msg-ok'>` (`page_can_asset.h:125`) is never written — `sendFrame()` reports only via `customAlert`. | Low | Remove the div or render the result into it. |
 | CAN-5 | **Empty GPIO fields silently become GPIO 0.** `canSaveConfig()` sends `parseInt('')` = `NaN` → `null` (`page_can_asset.h:297-298`); server `.as<int>()` coerces to `0` (`can_handlers.cpp:72-73`), reprogramming TX/RX to GPIO 0 without warning. Same for garbage hex in `txId`/`cfgFiltId` (→ 0). | Medium | Validate pins client + server side (0–48, non-empty) and reject with 400 instead of coercing. |
 | CAN-6 | **Weak web test.** `tests/web/test_can.js:21-22` looks for `#log`/`#canLog`, which do not exist in the asset, and passes vacuously; no test covers `sendFrame` payload shape or `canSaveConfig` NaN handling. | Low | Assert the real IDs (`frameTbody`, `txId`, `cfgBitrate`) and add ≥2 payload-validation cases. |
+| CAN-7 | **The renderer's tab script cannot parse: it is C++ inside a PROGMEM JS string.** `CAN_TABS_SCRIPT` (`can_page_renderer.cpp:9-16`) contains `var labels=[L(activeLang->tabLabelState),L(activeLang->tabLabelMonitor),…]` — source code, not a value, because the whole block is a single `R"JSTABS(…)"` literal. The browser throws `SyntaxError: Unexpected token '>'` while parsing it (measured on `PAGES/desktop/can.png`'s page: exception captured over CDP, `.can-tab-btn` = 0), so the intended tab bar and its i18n labels never exist; only the asset's own bar works. Fix: drop `CAN_TABS_SCRIPT`, or build the label array in C++ (`out.print(F("<script>var canTabLabels=[…]</script>"))`) and reference `canTabLabels` in the JS. | Medium | `chatgpt/src/webpages/renderers/can_page_renderer.cpp`, `PAGES/can.md` | open |
+| CAN-8 | **The shell title is hardcoded English.** `streamPageShellStart(out, "\xF0\x9F\x94\x8C CAN Bus (TWAI)")` (`can_page_renderer.cpp:22`) — and there is **no** `pageTitleCan` key in either language pack (the file also forgets the `#include "../../languages/lang_active.h"` that the other renderers use), so a PT board keeps an EN tab title. Same class as MAX-8/INA-7. Fix: add `pageTitleCan` (EN "🔌 CAN Bus (TWAI)" / PT "🔌 Barramento CAN (TWAI)") to `lang_types.h` + `lang_active.cpp` and pass `L(activeLang->pageTitleCan)`. | Low | `chatgpt/src/webpages/renderers/can_page_renderer.cpp`, `lang_active.cpp`, `lang_types.h` | open |
 
 ---
 

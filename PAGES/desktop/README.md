@@ -3,14 +3,14 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); forty-two images captured** —
+> Status: **inventory raised (50 desktop pages); forty-three images captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`, `rs232`), the Waveshare pack
 > (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`, `modbus_tcp`) and
 > the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus `dualfile`
 >, `api_reference`, `networks`, `structures` and `buzzer` rendered from the shipped asset
-> (§3.12). The remaining 8 rows are blocked by the build/config on every live board (§3.11) and
+> (§3.12). The remaining 7 rows are blocked by the build/config on every live board (§3.11) and
 > are being covered by smoke captures.
 
 Two provenances, marked in the Status column:
@@ -143,6 +143,8 @@ python3 build_desktop_shots.py max31865
 node desktop_smoke_shot.js shots/desktop_max31865.html ../../PAGES/desktop/max31865.png
 python3 build_desktop_shots.py sound
 node desktop_smoke_shot.js shots/desktop_sound.html ../../PAGES/desktop/sound.png
+python3 build_desktop_shots.py can
+node desktop_smoke_shot.js shots/desktop_can.html ../../PAGES/desktop/can.png
 ```
 
 `build_desktop_shots.py` takes the R-string exactly as compiled, keeps its own `<style>` (it
@@ -187,6 +189,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | `ina226.png` | **harness render** (no live board serves `/ina226`; `ENABLE_INA226` is 0 in every pack we can reach) | asset unchanged since `c7ea5cf`, tree at `4d19743`; no firmware/ETag | 1440 × 1424 · 111 828 B | **smoke capture** (§3.12): `build_desktop_shots.py ina226` + `desktop_smoke_shot.js` → title **`🌡️ MAX31865 RTD Sensor`** (not an INA226 title — that is what `ina226_page_renderer.cpp:10` passes, finding **INA-7**), 830 chars, 3 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows Real-Time Readings **BUS 24.013 V / CURRENT 2.3410 A / POWER 56.220 W / SHUNT 23.400 mV**, Measure Now, Main Control (enable + 1 minute), Hardware Configuration (I2C `0x40`, shunt 0.1 Ω, max current 10 A, averaging 4, unit A), Active Measurements (all four) and Output Options + Save. The `&#128197;` before `Last reading` is the asset's fallback (same note as `hx711.png`)
 | `max31865.png` | **harness render** (no live board serves `/max31865`; `ENABLE_MAX31865` is 0 in every pack we can reach) | asset unchanged since `c7ea5cf`, tree at `5a471e8`; no firmware/ETag | 1440 × 1179 · 88 821 B | **smoke capture** (§3.12): `build_desktop_shots.py max31865` + `desktop_smoke_shot.js` → title **`🌡️ Sensor RTD MAX31865`** (PT string hardcoded in the renderer, **MAX-8**), 613 chars, 3 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows Current Reading **87.42 °C** with the fault badge, Measure Now, Main Control (enable + 1 minute), RTD Configuration (PT100, 3-wire, Celsius, offset −0.35) and Output Options + Save. Two entity literals are visible (`&#10003; OK`, `&#128197; Last reading`) because those strings are `t()` fallbacks and `auto.js`/`/api/lang` is not part of the harness — both keys exist in the packs
 | `sound.png` | **harness render** (no live board serves `/sound`; `ENABLE_SOUND_SENSOR` is 0 in every pack we can reach) | asset unchanged since `c7ea5cf`, tree at `4e6ece0`; no firmware/ETag | 1440 × 1057 · 87 182 B | **smoke capture** (§3.12): `build_desktop_shots.py sound` + `desktop_smoke_shot.js` → title `🔊 Sound Sensor` (the `pageTitleSound` key, EN), 518 chars, 3 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows Current Reading (PEAK-TO-PEAK 1832 ADC, AMPLITUDE 147.9 mV, DBFS LEVEL −36.4 dBFS in orange), the level bar, Measure Now, Main Control (enable + 1 minute), Sampling Parameters (50 ms window, 4096 samples) and Output Options + Save. `&#128197;` before `Last reading` is the asset's `t()` fallback (the pack key carries 📅; `auto.js` is out of the harness). Same pass also confirmed **SND-5 is fixed** — title, home button and POST error now go through i18n keys and the asset fallbacks are all English
+| `can.png` | **harness render** (no live board serves `/can`; `ENABLE_CAN` is 0 in every pack we can reach) | asset unchanged since `c7ea5cf`, tree at `d7d5d75`; no firmware/ETag | 1440 × 940 · 47 902 B | **smoke capture** (§3.12): `build_desktop_shots.py can` + `desktop_smoke_shot.js` → title `🔌 CAN Bus (TWAI)` (hardcoded EN, **CAN-8**), 200 chars, 10 controls, 1 table / 7 rows, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Shows the asset's tab row (Status active, Frames / Send / Config) and the Bus Status card: **RUNNING** badge, `Mode: Normal 500Kbps`, TX 311 / RX 1842 / Buffer 128 / TEC 0 / REC 0 / Errors 2, Clear buffer and Pause monitor. **New findings** (`PAGES/can.md`): **CAN-7** — the renderer's `CAN_TABS_SCRIPT` cannot parse (`SyntaxError: Unexpected token '>'`; it embeds `L(activeLang->tabLabelState)` in the PROGMEM JS), so the intended i18n bar never appears and only the asset's own bar exists (CAN-1 said two rows — corrected); **CAN-8** — the shell title is hardcoded EN and there is no `pageTitleCan` key
 
 > **History — the page was unusable for a while (`PAGES/BACKLOG.md` SC-9, still open)** (HomeE32
 > `.24`): `GET /sensor-charts` was 200 but the page needs one of **two chart sessions**; with
@@ -313,7 +316,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 > redirects when `modbus.enabled` is false or neither `rtu_enabled`/`tcp_enabled` is set — on that
 > board Modbus is not active, so the page hides itself). 404 on `.29`, `.24`, `.9`. Re-capture on
 > a board whose Modbus config is active, reviving this page is a config write (out of scope here).
-| CAN bus | `/can` | `can.png` | pending |
+| CAN bus | `/can` | `can.png` | **done** (smoke — §3.12) |
 
 ### 3.7 Sensors (HomeE32)
 
@@ -353,7 +356,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 
 ### 3.11 Blocked routes — smoke matrix
 
-The 8 rows still **pending** have no live page to capture (fourteen of the original 22 are
+The 7 rows still **pending** have no live page to capture (fifteen of the original 22 are
 now delivered as smoke captures, §3.12). Each was probed **once** on all
 four live boards (`.29` Waveshare, `.24` HomeE32, `.18` Cam-P4, `.9` Cam-M1) with
 
@@ -381,7 +384,7 @@ turned on for a capture — which is a firmware change and out of scope for this
 | `/lpt-db25` | `lpt_db25.png` | 404 ×4 | `ENABLE_DB25 0` (`user_config.h:423`) — **captured by smoke, §3.12** |
 | `/modbus-rtu` | `modbus_rtu.png` | 404 ×4 | `ENABLE_MODBUS_RTU 0` everywhere (e.g. `pack_cam_p4.h:115-116`) — **captured by smoke, §3.12** |
 | `/modbus-live` | `modbus_live.png` | **302 → `/`** on `.18`, 404 ×3 | page guard: Modbus not active in config (`web_routes_modbus.cpp:254-262`) — **captured by smoke, §3.12** |
-| `/can` | `can.png` | 404 ×4 | `ENABLE_CAN 0` in every pack |
+| `/can` | `can.png` | 404 ×4 | `ENABLE_CAN 0` in every pack — **captured by smoke, §3.12** |
 | `/hx711` | `hx711.png` | 404 ×4 | `ENABLE_HX711 0` in every pack — **captured by smoke, §3.12** |
 | `/ina226` | `ina226.png` | 404 ×4 | `ENABLE_INA226 0` in every pack — **captured by smoke, §3.12** |
 | `/sound` | `sound.png` | 404 ×4 | `ENABLE_SOUND_SENSOR 0` in every pack — **captured by smoke, §3.12** |
@@ -417,6 +420,7 @@ captured with `--expand` (all sections open); the row says so when it applies.
 
 | Route | Image | Rendered from | Notes |
 |---|---|---|---|
+| `/can` | `can.png` | `chatgpt/src/webpages/assets/page_can_asset.h` (fragment) + `CAN_TABS_SCRIPT` from the renderer + the page shell | 1440 × 940. Seed from `can_handler.cpp`: `/api/can/status` (`RUNNING`, 500 Kbps, TX 311 / RX 1842, buffer 128, TEC/REC 0, 2 errors), `/api/can/frames` (6 frames incl. one extended `0x18FF50E5`), `/api/can/config`. Captured on the default **Status** tab — the other three are `display:none` panels driven by the asset's own working tab bar. **CAN-7**: the renderer's injected tab script is C++ inside a JS string and throws |
 | `/sound` | `sound.png` | `chatgpt/src/webpages/assets/page_sound_asset.h` (fragment) + the page shell | 1440 × 1057. Seed `/api/sound-config` exactly as `SoundConfigManager::toJson()` emits it (`adc_pin:34`, `sample_window_ms:50`, `sample_count:4096`, `alert_dbfs:-20`, `last_peak_to_peak:1832`, `last_peak_mv:147.9`, `last_dbfs:-36.4`). Doc accuracy: **SND-5** (PT title, PT home button, PT POST error, mixed `Erro:`/`Error:` fallbacks) is now fixed in the tree |
 | `/max31865` | `max31865.png` | `chatgpt/src/webpages/assets/page_max31865_asset.h` (fragment) + the page shell | 1440 × 1179. Seed `/api/max31865-config` exactly as `MAX31865ConfigManager::toJson()` emits it (`cs/mosi/miso/clk` 15/11/13/12, `rtd_type:0` PT100, `wiring:1` 3-wire, `temp_unit:0` °C, `calibration_offset:-0.35`, `alert_low/high` −20/200, `last_temp:87.42`, `last_unit:"°C"`, `last_fault:0`). Tab title is the hardcoded PT string **MAX-8**; `alert_low/high` are **MAX-7** |
 | `/ina226` | `ina226.png` | `chatgpt/src/webpages/assets/page_ina226_asset.h` (fragment) + the page shell | 1440 × 1424. Seed `/api/ina226-config` exactly as `INA226ConfigManager::toJson()` emits it (`i2c_addr:64`, `shunt_ohm:0.1`, `max_current_a:10`, `averaging:4`, `current_unit:0`, the four `show_*` flags, `alert_current_max:8`, `alert_power_max:100`, `last_bus_v:24.013`, `last_current_a:2.341`, `last_power_w:56.22`, `last_shunt_v:0.0234`). Shows **INA-7** in the tab title (`MAX31865 RTD Sensor`) and the `&#128197;` fallback the harness cannot translate |
@@ -513,6 +517,8 @@ python3 build_desktop_shots.py max31865
 node desktop_smoke_shot.js shots/desktop_max31865.html ../../PAGES/desktop/max31865.png
 python3 build_desktop_shots.py sound
 node desktop_smoke_shot.js shots/desktop_sound.html ../../PAGES/desktop/sound.png
+python3 build_desktop_shots.py can
+node desktop_smoke_shot.js shots/desktop_can.html ../../PAGES/desktop/can.png
 ```
 
 ## 5. Adding an image (checklist)
