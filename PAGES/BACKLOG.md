@@ -425,6 +425,14 @@ history and is still the place to look before changing shared wiring.
 
 ---
 
+## USB Server (`usb_server.md` → `/usb-server`)
+
+| ID | Pri | Issue | Files | Status |
+|---|---|---|---|---|
+| USB-7 | Low | **All three section cards are force-centred, so the form labels do not line up with their inputs.** `core.css` carries an inline-style sniffing rule — `div[style*='border:2px solid'][style*='border-radius:8px'][style*='background:#0f172a']{padding:20px!important;margin-top:20px!important;text-align:center}` — and this page's Status / USB Devices / Configuration boxes use exactly that inline style, so all three inherit `text-align:center`. Measured on the smoke render `PAGES/desktop/usb_server.png` (2026-11-18): 3/3 cards computed `center`; `TCP Port:`, `Timeout RX (ms):` and `Timeout IN (ms):` sit centred above left-aligned values and the four `usbServerInfoDesc` rows are centred too. Cosmetic, but the rule keys on inline CSS (any page wanting this look must add its own `text-align:left`). Fix: scope the rule to a class (`.card`) or add `#usb_server_form{text-align:left}`. | `chatgpt/src/webpages/core_css.h`, `chatgpt/src/webpages/assets/page_usb_server_asset.cpp` | open |
+
+---
+
 ## Native test harness (build list)
 
 | ID | Pri | Issue | Files | Status |

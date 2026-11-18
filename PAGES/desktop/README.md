@@ -3,17 +3,17 @@
 Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 **exactly one image per page, always the most recent**, stored here and versioned.
 
-> Status: **inventory raised (50 desktop pages); forty-nine images captured** —
+> Status: **inventory complete — 50 of 50 desktop pages captured** —
 > the common block (`home`, `status`, `files`, `sdcard`, `monitor`, `serial_monitor`,
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`, `rs232`), the Waveshare pack
 > (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`, `modbus_tcp`) and
-> the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus **twenty-one
+> the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus **twenty-two
 > smoke renders** of pages no live board serves (`dualfile`, `api_reference`, `networks`,
 > `structures`, `buzzer`, `lpt_db25`, `grbl_controller`, `modbus_rtu`, `modbus_live`, `rambox`,
 > `hx711`, `ina226`, `max31865`, `sound`, `can`, `uda1334a`, `radio_ui`, `ipg_laser`,
-> `google_script`, `falas`, `ecra` — §3.12). The single remaining row is blocked by the
-> build/config on every live board (§3.11).
+> `google_script`, `falas`, `ecra`, `usb_server` — §3.12). No row is pending any more: every
+> route that no live board serves was rendered from its shipped asset (§3.11/§3.12).
 
 Two provenances, marked in the Status column:
 
@@ -160,6 +160,8 @@ node desktop_smoke_shot.js shots/desktop_falas.html ../../PAGES/desktop/falas.pn
 python3 build_desktop_shots.py ecra
 # the weather/location tools live inside <details>, so this one is captured expanded:
 node desktop_smoke_shot.js shots/desktop_ecra.html ../../PAGES/desktop/ecra.png --expand
+python3 build_desktop_shots.py usb_server
+node desktop_smoke_shot.js shots/desktop_usb_server.html ../../PAGES/desktop/usb_server.png
 ```
 
 `build_desktop_shots.py` takes the R-string exactly as compiled, keeps its own `<style>` (it
@@ -211,6 +213,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | `google_script.png` | **harness render** (no live board serves `/google-script`; `ENABLE_PAGE_GOOGLE_SCRIPT` is never defined — commented out in `user_config.h` and no pack enables it, so `GET /google-script` is 404 ×4) | asset unchanged since `c7ea5cf`, tree at `65c39b2`; no firmware/ETag | 1440 × 1346 · 113 541 B | **smoke capture** (§3.12): `build_desktop_shots.py google_script` + `desktop_smoke_shot.js` → title `🌐 Google App Script` (the renderer passes the HTML entity `&#127760; …`, which `<title>` decodes), 691 chars, 4 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Seed `/api/config?section=email` exactly as `handleConfigGet()` emits it (`config_handler.cpp:143-215`, including the `google_email` block the GS-1 fix added); `method:"google"` + a deployed-Web-App URL + a placeholder destination. The image shows the three cards (General Settings blue, Google Apps Script amber, Teste de Email violet), `Google Apps Script` selected in the method dropdown, both fields **pre-filled** (GS-1 verified) and the mixed PT/EN fallbacks of GS-5. **New finding GS-7** (`PAGES/google_script.md`, `PAGES/BACKLOG.md`): the renderer's `/config-manager.js` is dead weight on this page — `hasConfigTargets()` looks for `email_destination`, the page's field is `email_dest`, so the helper never loads or polls the section. Re-rendering reproduces the same page, text and metrics (7/7 again); bytes are not always bit-identical because headless Chromium sometimes picks a different colour-emoji strike, which widens emoji-bearing inline buttons by a few px (measured: this file matched one re-run byte-for-byte, another differed only in that) |
 | `falas.png` | **harness render** (no live board serves `/falas`; the route lives only under `SELECTED_PACK == PACK_S3_TOUCH7` in `web_routes_touch7.cpp` and that board is offline) | asset unchanged since `c7ea5cf`, tree at `36d1e0d`; no firmware/ETag | 1440 × 900 · 41 804 B | **smoke capture** (§3.12): `build_desktop_shots.py falas` + `desktop_smoke_shot.js` → title `📊 Local Voice Prompts` (`L(activeLang->pageTitleFalas)` EN value), 293 chars, 5 controls, 1 table, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Seed: `/api/falas` (six `.wav` names + sizes, `falasListJson()` shape) and `/api/touch7-config` (`toJson()`, two enabled peers). **New finding T7-38 (High)**: the page is inert as shipped — its runtime block needs `$`, which nothing defines (and `/config-manager.js` + `/auto.js` are streamed after the asset), so `onclick` bindings stay `null`, `falasLoad()` never runs and the status sits on `A carregar...` with an empty table and peers box; verified with CDP (`typeof $ === 'undefined'`). **T7-39 (Low)**: the inline `/files` link inherits the browser default colour (`rgb(0,0,238)` on `rgb(11,48,105)`, 1.36:1) and is unreadable. A re-render reproduces the same page and metrics; the bytes shift by a few because the colour-emoji strike varies run to run (same caveat as `google_script.png`) |
 | `ecra.png` | **harness render** (no live board serves `/ecra`; the route lives only under `SELECTED_PACK == PACK_S3_TOUCH7` in `web_routes_touch7.cpp` and that board is offline) | asset unchanged since `c7ea5cf`, tree at `e2424c8`; no firmware/ETag | 1440 × 1270 · 80 896 B | **smoke capture** (§3.12): `build_desktop_shots.py ecra` + `desktop_smoke_shot.js --expand` → title `🖥️ Screen Mirror` (`L(activeLang->pageTitleEcra)` EN value), 829 chars, 4 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Expanded `<details>` = 1 (the weather/location tools). Seeded `/api/touch7-config` (current location `Lisboa (38.72, -9.13)`), `/api/touch7-forecast` (`Updated · 42 s ago`, today + five day lines) and `/api/touch7-frame` **304** — the endpoint's 768 000-byte RGB565 frame cannot be carried by the harness, so the page takes its real "unchanged" branch: black canvas, `LIVE · unchanged`. The LCD image is device state and was not fabricated. **New findings: T7-40** (mirror bar wraps into three rows because `core.css` sets `select{width:100%}` — measured bar 800 × 124, the select alone on an 800 px line, `Refresh` orphaned far right) and **T7-41** (the page has only four `data-i18n-title` tooltips; every visible string is hardcoded English on a PT-first pack) |
+| `usb_server.png` | **harness render** (no live board serves `/usb-server`; the route and its four APIs are compiled only with `ENABLE_USBIP_SERVER==1`, which only `pack_p4_usb_server.h:30` sets, and that board is offline) | asset unchanged since `c7ea5cf`, tree at `855a045`; no firmware/ETag | 1440 × 1084 · 85 760 B | **smoke capture** (§3.12): `build_desktop_shots.py usb_server` + `desktop_smoke_shot.js` → title `🧩 USB Server` (hardcoded in `usb_server_page_renderer.cpp:8`), 591 chars, 2 controls, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Seeded `/api/usb-server-config`, `-status` and `-devices` exactly as `sharedWebBuildUsbServer*Json()` emit them (`web_shared_logic.cpp:266-370`): server active on TCP 3240 with 1/3 clients and RX 184 320 B / TX 96 404 B, one exported CH340 (`1A86:7523`, High speed, IN `0x81`/OUT `0x02`). **New finding USB-7**: `core.css`'s inline-style sniffing rule forces `text-align:center` on the three `border:2px solid … background:#0f172a` cards, so the form labels and the four info rows are centred over left-aligned inputs (measured 3/3 cards) |
 
 > **History — the page was unusable for a while (`PAGES/BACKLOG.md` SC-9, still open)** (HomeE32
 > `.24`): `GET /sensor-charts` was 200 but the page needs one of **two chart sessions**; with
@@ -365,7 +368,7 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 | Page | Route | Image | Status |
 |---|---|---|---|
 | IPG laser RS232 | `/ipg-laser` | `ipg_laser.png` | **done** (smoke — §3.12; the page script is dead as shipped, `BACKLOG.md` IPG-7) |
-| USB/IP server | `/usb-server` | `usb_server.png` | pending |
+| USB/IP server | `/usb-server` | `usb_server.png` | **done** (smoke — §3.12) |
 
 ### 3.10 Deliberately **not** in this folder
 
@@ -416,7 +419,7 @@ turned on for a capture — which is a firmware change and out of scope for this
 | `/falas` | `falas.png` | 404 ×4 | Touch7 pack (`web_routes_touch7.cpp`) — that board is offline — **captured by smoke, §3.12** |
 | `/ecra` | `ecra.png` | 404 ×4 | same Touch7 pack — **captured by smoke, §3.12** |
 | `/ipg-laser` | `ipg_laser.png` | 404 ×4 | `ENABLE_IPG_LASER 0` in every pack — **captured by smoke, §3.12** |
-| `/usb-server` | `usb_server.png` | 404 ×4 | `ENABLE_USBIP_SERVER` — only `pack_p4_usb_server.h:30` sets 1 |
+| `/usb-server` | `usb_server.png` | 404 ×4 | `ENABLE_USBIP_SERVER` — only `pack_p4_usb_server.h:30` sets 1 — **captured by smoke, §3.12** |
 
 ### 3.12 Smoke captures — routes only the firmware has
 
@@ -442,6 +445,7 @@ captured with `--expand` (all sections open); the row says so when it applies.
 
 | Route | Image | Rendered from | Notes |
 |---|---|---|---|
+| `/usb-server` | `usb_server.png` | `chatgpt/src/webpages/assets/page_usb_server_asset.cpp` (fragment) + the page shell | 1440 × 1084. Seed from `sharedWebBuildUsbServer*Json()` (`web_shared_logic.cpp:266-370`): config (`enabled`, `port` 3240, `recv_timeout_ms` 1200, `in_wait_timeout_ms` 220), status (`compiled`/`running` true, 1 active client of 3 accepted, RX 184 320 B / TX 96 404 B, 512/268 B/s, `devices_dirty:false`) and one exported USB-CDC device (slot 0, High speed, `1A86:7523` CH340, BCD `0x0100`, IN `0x81`/OUT `0x02`). Renders the whole page: status line, device line (with `description`, USB-3 fixed) and the Configuration card. **New finding USB-7**: all three section cards are force-centred by `core.css`'s inline-style sniffing rule `div[style*='border:2px solid'][style*='border-radius:8px'][style*='background:#0f172a']{text-align:center}`, so `TCP Port:` / `Timeout RX (ms):` / `Timeout IN (ms):` and the four info rows sit centred over their left-aligned inputs (measured `text-align:center` on 3/3 cards) |
 | `/ecra` | `ecra.png` | `chatgpt/src/webpages/assets/page_ecra_asset.h` (`ECRA_PAGE`, fragment) + the page shell | 1440 × 1270, **captured with `--expand`** (the weather/location tools are inside a `<details>`). Seed: `/api/touch7-config` (`Touch7ConfigManager::toJson()`), `/api/touch7-forecast` in the shape `handleTouch7ForecastGet()` emits (`touch7_handler.cpp:152-186`; `today` = `L(touch7TodayForecast)` filled in, `days` = five `<Day>  min/maxC  <condition>` lines) and `/api/touch7-frame` answered **304** — the endpoint returns a 768 000-byte RGB565 framebuffer, which the harness cannot carry, so the page takes the real "frame unchanged" branch a static LCD produces. The canvas therefore stays black and the badge reads `LIVE · unchanged`; the LCD content itself is device state and was **not** fabricated. Two new findings: **T7-40** (the mirror bar wraps into three rows — core.css forces `select{width:100%}`, measured bar 800 × 124 with the select alone on its own 800 px line and the `Refresh` label orphaned at the right edge) and **T7-41** (only four `data-i18n-title` tooltips; every visible string — h1, help text, buttons, `Pause`/`Resume`, the `LIVE …`/`Updated …` statuses and every JS alert — is hardcoded English) |
 | `/falas` | `falas.png` | `chatgpt/src/webpages/assets/page_falas_asset.h` (`FALAS_PAGE`, fragment) + the page shell | 1440 × 900. Seed from the Touch7 handlers: `/api/falas` in the shape `falasListJson()` emits (`handlers_unified/touch7_handler.cpp:287-305`, six real-looking `.wav` names with byte sizes) and `/api/touch7-config` exactly as `Touch7ConfigManager::toJson()` emits it (`touch7_config.cpp:44-70`, two enabled peers with `pass_set`, four slots). **The image is the page as it really ships**: the runtime block is guarded by `typeof $ !== 'undefined'` and no script defines `$` — the shell injects none, `/config-manager.js` and `/auto.js` have no such helper, and both are streamed **after** the asset anyway — so nothing binds and `falasLoad()` never runs. Measured in the render: `typeof $ === 'undefined'`, `#bFalasRef.onclick === null`, status stuck on `A carregar...`, 0 rows, empty peers textarea — **new finding T7-38** (High). The capture also shows **T7-39** (Low): the inline `/files` link keeps the browser default `rgb(0,0,238)` on the `rgb(11,48,105)` background (1.36:1, effectively invisible). PT strings are the asset's own fallbacks (no `/api/lang` in the harness) |
 | `/google-script` | `google_script.png` | `chatgpt/src/webpages/assets/page_google_script_asset.cpp` (fragment) + the page shell | 1440 × 1346. Seed `/api/config?section=email` in the exact shape `handleConfigGet()` returns for that section (`config_handler.cpp:143-215`: `smtp` + `email` slices of `getFullConfig(true)`, password masked, plus the nested `google_email.google_script_url` added by the GS-1 fix — that is where the page reads its saved URL). Seeded as the state this page configures: `method:"google"`, a deployed-Web-App URL and a placeholder destination (no operator address). The image proves GS-1 works — both fields pre-fill — and shows GS-5: the markup still carries mixed fallbacks (`Email Destino`, `📧 SMTP Direto`, `Teste de Email` in PT next to `Sending Method` / `Download Code` / `Save` in EN) because the harness has no `/api/lang`. The renderer's trailing `<script src='/config-manager.js'></script>` is not part of the harness (board runtime, like `auto.js`) and would be inert here anyway — **new finding GS-7**: `hasConfigTargets()` (`config_manager_js_asset.cpp:203-215`) checks `email_destination`, while this page's field is `email_dest`, so the helper's `loadConfig()`/5-min poll never run |
@@ -560,6 +564,8 @@ node desktop_smoke_shot.js shots/desktop_falas.html ../../PAGES/desktop/falas.pn
 python3 build_desktop_shots.py ecra
 # the weather/location tools live inside <details>, so this one is captured expanded:
 node desktop_smoke_shot.js shots/desktop_ecra.html ../../PAGES/desktop/ecra.png --expand
+python3 build_desktop_shots.py usb_server
+node desktop_smoke_shot.js shots/desktop_usb_server.html ../../PAGES/desktop/usb_server.png
 ```
 
 ## 5. Adding an image (checklist)

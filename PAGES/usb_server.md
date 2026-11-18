@@ -2,6 +2,17 @@
 
 > One-stop reference for the **USB Server (USB/IP) page**: purpose, layout, every button/input, client logic, API endpoints, persistence and the firmware-side USB/IP engine. Written for both humans and AI agents.
 
+
+> Screenshot: `desktop/usb_server.png` (1440 × 1084, **smoke capture** — the page and its four APIs are
+> compiled only with `ENABLE_USBIP_SERVER==1`, which just `pack_p4_usb_server.h` sets, and that board is
+> offline). Rendered from the shipped `PAGE_USB_SERVER` fragment + the page shell, with
+> `/api/usb-server-config`, `-status` and `-devices` seeded exactly as `sharedWebBuildUsbServer*Json()`
+> emit them (`web_shared_logic.cpp:266-370`): server active on TCP 3240, 1 of 3 accepted clients,
+> RX 184 320 B / TX 96 404 B, one exported CH340 (`1A86:7523`, High speed). The capture produced
+> **USB-7**: `core.css`'s inline-style sniffing rule force-centres all three section cards, so the form
+> labels and the four info rows do not line up with their inputs. Index and proof in
+> `desktop/README.md` §3.12.
+
 ---
 
 ## 1. Objective
@@ -45,8 +56,9 @@ div.page.usb-server > div.wrap
      │   ├ input #usb_server_port (number 1–65535, 3240)
      │   ├ input #usb_server_recv_timeout (number 100–60000, 1200)
      │   ├ input #usb_server_in_wait (number 20–5000, 220)
-     │   └ #usb_server_msg.desc (save feedback line)
-     └ [💾 Save] (#usb_server_save, OUTSIDE the form)
+     │   ├ #usb_server_msg.desc (save feedback line)
+     │   └ [💾 Save] (#usb_server_save — inside the form since USB-5)
+     └ (nothing after the form)
 ```
 
 Asset: `page_usb_server_asset.cpp:4-51`.
@@ -176,6 +188,7 @@ Page-specific (all confirmed in `lang_en_ui.h:824-854` + `:1841-1846`): `usbServ
 | USB-4 | **FIXED** — `.catch` added to initial `loadConfig().then(...)` chain; on failure shows error in status and devices divs. | Low | Fixed. |
 | USB-5 | **FIXED** — Save button moved inside `<form id='usb_server_form'>`. | Info | Fixed. |
 | USB-6 | **FIXED** — Added `usbServerRxLbl`/`usbServerTxLbl` i18n keys and `usbServerThroughput` for B/s display. Status line now uses `t('usbServerRxLbl','RX')` and `t('usbServerTxLbl','TX')`. | Info | Fixed. |
+| USB-7 | **All three section cards are force-centred, so form labels do not line up with their inputs.** `core.css` carries an inline-style sniffing rule — `div[style*='border:2px solid'][style*='border-radius:8px'][style*='background:#0f172a']{padding:20px!important;margin-top:20px!important;text-align:center}` — and this page's Status / USB Devices / Configuration boxes use exactly that inline style, so all three inherit `text-align:center`. Measured on the smoke render (`PAGES/desktop/usb_server.png`, 2026-11-18): 3/3 cards computed `center`; `TCP Port:`, `Timeout RX (ms):` and `Timeout IN (ms):` sit centred above left-aligned values, and the four `usbServerInfoDesc` rows are centred too. Cosmetic, but it is a global rule keyed on inline CSS (a page that keeps this look would have to add its own `text-align:left`). Fix: scope the rule (e.g. `.card` class) or add `#usb_server_form{text-align:left}`. | Low | open |
 
 ---
 

@@ -12,8 +12,8 @@ all 50 desktop pages raised; `home.png`, `status.png`, `files.png`, `sdcard.png`
 `networks.png`, `structures.png`, `buzzer.png`, `lpt_db25.png`, `grbl_controller.png` and
 `modbus_rtu.png`, `modbus_live.png`, `rambox.png`, `hx711.png`, `ina226.png`, `max31865.png`,
 `sound.png`, `can.png`, `uda1334a.png`, `radio_ui.png`, `ipg_laser.png`,
-`google_script.png`, `falas.png` and `ecra.png` (the last twenty-one are smoke renders) captured and
-verified, rest pending).
+`google_script.png`, `falas.png`, `ecra.png` and `usb_server.png` (the last twenty-two are smoke
+renders) captured and verified — **the desktop inventory is complete, 50 of 50**).
 
 ---
 

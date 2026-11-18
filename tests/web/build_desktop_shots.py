@@ -832,6 +832,50 @@ ECRA_SEED = r"""
 </script>
 """
 
+USB_SERVER_SEED = r"""
+<script>
+(function () {
+  // Payloads exactly as sharedWebBuildUsbServer*Json() emit them (web_shared_logic.cpp):
+  // config  :306-322  {"success","enabled","port","recv_timeout_ms","in_wait_timeout_ms"}
+  // status  :266-305  {"success","compiled","running","enabled","port","recv_timeout_ms",
+  //                    "in_wait_timeout_ms","active_clients","accepted_clients",
+  //                    "rx_bytes","tx_bytes","rx_bytes_per_sec","tx_bytes_per_sec",
+  //                    "devices_dirty"}
+  // devices :323-...  {"success","devices":[{slot,dev_addr,description,speed,vid,pid,
+  //                    bcd_device,iface_class,iface_subclass,iface_protocol,in_ep_addr,
+  //                    out_ep_addr,rx_bytes,tx_bytes}]} for every connected USB-CDC slot.
+  // State = the P4 USB-server pack with one CH340 serial adapter exported and one client
+  // attached (the bench GRBL sender's adapter: 1a86:7523, High speed).
+  window.__MOCK_API__ = {
+    '/api/usb-server-config': {
+      success: true, enabled: true, port: 3240,
+      recv_timeout_ms: 1200, in_wait_timeout_ms: 220
+    },
+    '/api/usb-server-status': {
+      success: true, compiled: true, running: true, enabled: true,
+      port: 3240, recv_timeout_ms: 1200, in_wait_timeout_ms: 220,
+      active_clients: 1, accepted_clients: 3,
+      rx_bytes: 184320, tx_bytes: 96404,
+      rx_bytes_per_sec: 512, tx_bytes_per_sec: 268,
+      devices_dirty: false
+    },
+    '/api/usb-server-devices': {
+      success: true,
+      devices: [
+        {
+          slot: 0, dev_addr: 1, description: 'USB Serial CH340', speed: 3,
+          vid: 6790, pid: 29987, bcd_device: 256,
+          iface_class: 255, iface_subclass: 0, iface_protocol: 0,
+          in_ep_addr: 129, out_ep_addr: 2,
+          rx_bytes: 184320, tx_bytes: 96404
+        }
+      ]
+    }
+  };
+})();
+</script>
+"""
+
 API_REFERENCE_FLAGS = (
     # The flag object `streamApiReferencePage()` emits, with the Waveshare 8DI8DO
     # values (pack_waveshare.h) — the pack used as the reference board everywhere in
@@ -877,6 +921,7 @@ PAGES = {
     'google_script': ('page_google_script_asset.cpp', GOOGLE_SCRIPT_SEED, 'fragment'),
     'falas': ('page_falas_asset.h', FALAS_SEED, 'fragment'),
     'ecra': ('page_ecra_asset.h', ECRA_SEED, 'fragment'),
+    'usb_server': ('page_usb_server_asset.cpp', USB_SERVER_SEED, 'fragment'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -949,6 +994,8 @@ FRAGMENT_TITLES = {
     'falas': '📊 Local Voice Prompts',
     # L(activeLang->pageTitleEcra): EN "🖥️ Screen Mirror" (PT "🖥️ Espelho do ecrã").
     'ecra': '🖥️ Screen Mirror',
+    # Hardcoded in usb_server_page_renderer.cpp:8 ("\xF0\x9F\xA7\xA9 USB Server").
+    'usb_server': '🧩 USB Server',
 }
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)
