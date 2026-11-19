@@ -22,6 +22,7 @@ const W = parseInt(arg('w', '1440'), 10);
 const H = parseInt(arg('h', '900'), 10);
 const WAIT = parseInt(arg('wait', '5000'), 10);
 const EXPAND = process.argv.includes('--expand');  // open every <details> (collapsed = first-visit state)
+const CLICK = arg('click', null);  // CSS selector clicked once before the capture (client-side only)
 
 const fail = (msg) => { console.error(msg); process.exit(1); };
 if (!SRC || !OUT) fail('usage: node desktop_smoke_shot.js <file.html> <out.png> [--w 1440] [--h 900] [--wait 5000] [--expand]');
@@ -71,6 +72,16 @@ if (!SRC || !OUT) fail('usage: node desktop_smoke_shot.js <file.html> <out.png> 
       const exv = ex.result && ex.result.result ? ex.result.result.value : null;
       report.expanded = exv ? JSON.parse(exv) : 0;
       await new Promise((r) => setTimeout(r, 600));
+    }
+
+    if (CLICK) {
+      const cl = await send('Runtime.evaluate', {
+        expression: 'JSON.stringify((function(){var el=document.querySelector(' + JSON.stringify(CLICK) + ');if(!el)return {found:false};el.click();return {found:true};})())',
+        returnByValue: true,
+      });
+      report.click = JSON.parse((cl.result && cl.result.result && cl.result.result.value) || '{}');
+      check('click target found', report.click.found, CLICK);
+      await new Promise((r) => setTimeout(r, 800));
     }
 
     const probe = await send('Runtime.evaluate', {

@@ -4,12 +4,13 @@
 > every input/button, client logic, API endpoints, persistence and the firmware-side
 > recipient-matching engine. Written for both humans and AI agents.
 
-> Screenshot: `desktop/recipients.png` (1440 × 2210, live **HomeE32** board `.24` — the
-> Waveshare pack compiles this page out, `GET /recipients` → 404, so the reference comes from
-> the pack that has it enabled). Captured on the **Rules** tab (How-to + Operators card and
-> the 10-row Recipients List; the default Sender tab is nearly empty) with the harness
-> `--click`, and `--anon` masked the DOM values (`recipients:null` on this board, so the rows
-> are empty). Index and proof in `desktop/README.md`).
+> Screenshot: `desktop/recipients.png` (1440 × 1890). The current image is a **smoke render**
+> of the shipped asset (`tests/web/build_desktop_shots.py recipients`) because T26 changed the
+> page and the board was not reflashed; the previous live capture (HomeE32 `.24`, 1440 × 2210)
+> is described in `desktop/README.md`. Captured on the **Rules** tab (How-to + Operators card
+> and the 10-row Recipients List; the default Sender tab is nearly empty) with `--click`. The
+> Waveshare pack compiles this page out (`GET /recipients` → 404), so HomeE32 is the reference
+> pack. Index and proof in `desktop/README.md`).
 
 ---
 
@@ -60,6 +61,13 @@ The renderer assembles the page from 7 PROGMEM fragments with server-side value 
 
 - The table uses `table-layout:fixed`, `min-width:700px` → 950 px; horizontal scroll on
   small screens via `.table-wrapper`.
+- **Row actions (T26)** — the action cell (`td:last-child`) has no padding and both buttons
+  are sized by ONE rule (`#rec_body td:last-child button`): 32×32, radius 16, padding 0,
+  `margin:0 auto`, so 💾 and 🗑️ are identical and share the same axis — the same look as the
+  commands page. Inline styles on the two buttons carry colour/border/cursor only.
+- **Help text (T26)** — the three description blocks (keyword formats, operators, day-command
+  note) carry `.recip-desc` and force `text-align:left`; `core.css` centres every
+  `border:2px solid … background:#0f172a` card, which had centred the help lists too.
 - Tab bar is inserted **between the home button and the H1** by the inline JS.
 
 ---
@@ -82,7 +90,8 @@ The renderer assembles the page from 7 PROGMEM fragments with server-side value 
 | Emails | `r_emails_<i>` | text, `maxlength=256` | `emails` | empty |
 | Frequency | `r_freq_<i>` | select, 13 options | `freq` | `0` (3m default; see note) |
 | Active | `r_active_<i>` | select `1`/`0` (Yes/No) | `active` | `1` |
-| Save | `button[data-save='<i>']` | 💾 | — | — |
+| Save | `button[data-save='<i>']` | 💾 32×32 (CSS, not inline) | — | — |
+| Remove | `button[data-del='<i>']` | 🗑️ 32×32 (same CSS rule) | — | — |
 
 Operators (`r_op_<i>` options): `I` equal, `D` different, `+` greater, `-` less, `G` greater-or-equal, `L` less-or-equal, `R` range (inside), `DR` out-of-range, `V` variation, `C` count, `P` presence (watchdog), `Cw` count-in-window, `Hy` hysteresis.
 
@@ -251,6 +260,7 @@ Known inconsistency: the **Day Command Sends card uses hardcoded PT text** (`Ema
 | 6 | `/api/recipients` omitted `active` (only `/api/recipient-slots` had it), so a consumer could not tell a disabled rule from an enabled one. **Fixed (RECIP-6):** both routes (WiFi + Ethernet) fill each slot through the shared `recipientSlotFillJson()`/`recipientSlotFillJsonFromStored()` (`recipient_slot_json.h`), which always emits `{name, op, emails, freq, active}` with the same defaults (`op I`, `freq 0`, `enabled true`). Tests: `test_recipient_slot_json` (5 cases / 28 assertions) + `test_recipients.js` (a disabled and an enabled slot render Active No/Yes). | Low | **fixed** |
 | 7 | `saveSlot` fallbacks used `freq:'0'` when the select was missing, and `0` was not in the option list. | Low | **fixed by RECIP-5** (294f70e), verified with no code change: `slotForm()`/`removeRow()` fall back to `0`, which is now the first/default option (`3m (default)`) and the server default; no `'600'` fallback remains (RECIP-7). |
 | 8 | `handleRecipientSlotPost` truncated emails to 800 and `updateRecipientSlotWithFreq` then to 256 — the 800 cap was dead code. **Fixed (RECIP-8):** the handler cap is gone; the single effective limit is `ConfigManager`'s 256. Tests: `test_recipient_email_cap` (drives the real ConfigManager: a 900-char list is stored as 256; source check that `remove(800)` is not reintroduced). | Info | **fixed** |
+| 9 | Row actions were not the same size and did not share an axis: `#rec_body button[data-save]` was a 36×28 pill (`width:auto`, `padding:0 8px`) while 🗑️ had no page rule at all, so `core.css`'s global `button` won it (66×48, `border-radius:9999px`, `padding:12px 32px`) and its inline `margin-left:4px` pushed it off-centre. The help cards were centred because `core.css` forces `text-align:center` on every `border:2px solid … background:#0f172a` card. **Fixed (T26, CSS/HTML only — no logic, no endpoint):** one rule sizes both buttons (32×32, radius 16, padding 0, `margin:0 auto` — identical to the commands page) and the three description blocks carry `.recip-desc` → `text-align:left`. Measured on the harness at 1440: both buttons 32×32 at the same x (before: 36×28 vs 66×48, 6 px apart), help text `left` (before `center`), row height 109 → 65 px. Tests: `test_recipients_layout.js` (18 assertions) + the existing `test_recipients.js` suite still green. | Medium | **fixed** |
 
 ---
 
@@ -276,3 +286,16 @@ Known inconsistency: the **Day Command Sends card uses hardcoded PT text** (`Ema
   etiquetas eram construídas antes de `/api/lang` chegar. As abas passam a guardar
   `data-i18n-key`/`data-i18n-fb` e a ser re-etiquetadas quando o dicionário carrega
   (`MutationObserver` em `data-i18n-ready` + retry a 2,5 s). Verificado em .24: `✉️ Sender | 📋 Rules | 📨 Commands`.
+
+## 14. Changes 2026-11-19 (T26 — table alignment)
+
+- **Per-row buttons identical**: one rule (`#rec_body td:last-child button`) pins 💾 and 🗑️
+  to 32×32, radius 16, `padding:0`, `margin:0 auto` — the same size and axis as the commands
+  page. `core.css`'s global `button{min-height:44px;padding:…;border-radius:9999px}` was
+  beating the inline style on the delete button only, because no page rule targeted it.
+- **Descriptions left-aligned**: the three help blocks (keyword formats, operators, day-command
+  note) carry `class='recip-desc'` → `text-align:left`. `core.css` centres every
+  `border:2px solid … background:#0f172a` card, which had centred these lists too.
+- CSS/HTML in the asset only: no function, endpoint, i18n key or config field changed.
+  Measured on the 1440 harness: both buttons 32×32 on the same x, help text `left`, row
+  height 109 → 65 px.

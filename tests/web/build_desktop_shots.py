@@ -213,6 +213,38 @@ GRBL_SEED = r"""
 </script>
 """
 
+RECIPIENTS_SEED = r"""
+<script>
+(function () {
+  // /recipients loads every slot in ONE call (preload()); three stored rules keep the
+  // table readable — empty rows would not show the row UI this page is reviewed for.
+  // Addresses are the page's own examples, never personal data.
+  function slot(name, op, emails, freq, active) {
+    return { name: name, op: op, emails: emails, freq: freq, active: active };
+  }
+  window.__MOCK_API__ = {
+    '/api/recipient-slots': { status: 'ok', slots: [
+      slot('temp_aht20, 25.5', '+', 'supervisor@company.com', 180, true),
+      slot('rpm, 800..3500', 'R', 'log@company.com, line2@company.com', 600, true),
+      slot('FAULT', 'I', 'maintenance@company.com', 0, false),
+      slot('', 'I', '', 0, true),
+      slot('', 'I', '', 0, true),
+      slot('', 'I', '', 0, true),
+      slot('', 'I', '', 0, true),
+      slot('', 'I', '', 0, true),
+      slot('', 'I', '', 0, true),
+      slot('', 'I', '', 0, true)
+    ] },
+    '/api/recipient-slot': { status: 'ok' },
+    '/api/config': { success: true },
+    '/api/emailday-extra-emails': { status: 'ok' },
+    '/api/logday-extra-emails': { status: 'ok' },
+    '/api/sensorday-extra-emails': { status: 'ok' }
+  };
+})();
+</script>
+"""
+
 MODBUS_RTU_SEED = r"""
 <script>
 (function () {
@@ -922,6 +954,9 @@ PAGES = {
     'falas': ('page_falas_asset.h', FALAS_SEED, 'fragment'),
     'ecra': ('page_ecra_asset.h', ECRA_SEED, 'fragment'),
     'usb_server': ('page_usb_server_asset.cpp', USB_SERVER_SEED, 'fragment'),
+    # /recipients is 7 fragments assembled by recipients_page_renderer.cpp (the day-command
+    # emails are injected between them, empty on a fresh board = the same output here).
+    'recipients': ('page_recipients_asset.cpp', RECIPIENTS_SEED, 'recipients'),
 }
 
 # Some fragments rely on a PROGMEM block that lives in the renderer, printed before the
@@ -1000,6 +1035,34 @@ FRAGMENT_TITLES = {
 
 RAW = re.compile(r'R"([A-Za-z0-9]+)\((.*)\)\1"', re.S)
 
+# Order in which streamRecipientsPageToPrint() prints the assets (recipients_page_renderer.cpp):
+# the day-command values and the "checked" attribute are injected between fragments, and are
+# empty on a fresh board — exactly what the concatenation below produces.
+RECIPIENTS_PARTS = (
+    'PAGE_RECIPIENTS_HEAD',
+    'PAGE_RECIPIENTS_AFTER_DONT_COPY',
+    'PAGE_RECIPIENTS_DAY_CMDS_A',
+    'PAGE_RECIPIENTS_DAY_CMDS_B',
+    'PAGE_RECIPIENTS_DAY_CMDS_C',
+    'PAGE_RECIPIENTS_DAY_CMDS_D',
+)
+
+
+def rstring(src, name):
+    m = re.search(r'const char ' + name + r'\[\] PROGMEM = R"([A-Za-z0-9]+)\((.*?)\)\1";', src, re.S)
+    if not m:
+        raise SystemExit('R-string ' + name + ' not found')
+    return m.group(2)
+
+
+def assemble_recipients(src):
+    """Rebuild the full /recipients document the renderer streams to the browser."""
+    body = ''.join(rstring(src, n) for n in RECIPIENTS_PARTS)
+    # The renderer opens <script> itself, then prints the bare IIFE; PAGE_RECIPIENTS_FOOTER
+    # starts with the closing </script>.
+    return body + '<script>' + rstring(src, 'PAGE_RECIPIENTS_JS') + rstring(src, 'PAGE_RECIPIENTS_FOOTER')
+
+
 
 
 def assemble_parts(cpp_path):
@@ -1032,6 +1095,20 @@ def core_css():
 def build(name):
     asset_name, seed, kind = PAGES[name]
     src = (ASSETS / asset_name).read_text(encoding='utf-8', errors='replace')
+    if kind == 'recipients':
+        html = assemble_recipients(src)
+        css = core_css()
+        if css:
+            # Inline core.css WHERE THE <link> IS (before the page's own <style>), so the
+            # cascade matches the board: the page overrides core.css, never the reverse.
+            html = html.replace("<link rel='stylesheet' href='/core.css'>",
+                                '<style>\n/* core.css inlined for the harness */\n' + css + '\n</style>', 1)
+        html = re.sub(r'(<head[^>]*>)', lambda mm: mm.group(1) + MOCK_JS + seed, html, count=1)
+        SHOTS.mkdir(exist_ok=True)
+        out = SHOTS / ('desktop_' + name + '.html')
+        out.write_text(html, encoding='utf-8')
+        print('built', out.relative_to(WEB), '|', len(html), 'bytes')
+        return out
     if name in RSTRING:
         mm = re.search(r'const char ' + RSTRING[name] + r'\[\] PROGMEM = R"([A-Za-z0-9]+)\((.*?)\)\1";', src, re.S)
         if not mm:
