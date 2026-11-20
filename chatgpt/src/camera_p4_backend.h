@@ -82,6 +82,19 @@ static inline uint8_t cameraP4OtherSource(uint8_t source) {
 //   "ok"          streaming
 const char* cameraP4UsbDiag();
 
+// CAM-83: MJPEG modes the attached camera announced in its own descriptors
+// ("WxH,WxH,...", largest first, landscape only). Empty when none/failed.
+// Works before Start: the size list comes from the bus scan, not the stream.
+String cameraP4UsbResList();
+
+// CAM-83: best (largest landscape, <=1920x1080) advertised mode, for the
+// default open. False when the camera announced nothing usable.
+bool cameraP4UsbBestMode(uint16_t* w, uint16_t* h);
+
+// CAM-83: true when WxH is a mode this camera advertises (landscape, <=1920x1080).
+// With no descriptor list (walk failed) it falls back to the bounds check.
+bool cameraP4UsbModeUsable(uint16_t w, uint16_t h);
+
 // Initialise the selected pipeline at the given resolution.
 // w/h: capture size (e.g. 1280x720). quality: JPEG 4..63 (mapped internally).
 // Returns true when the first JPEG frame was captured successfully.

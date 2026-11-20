@@ -48,7 +48,9 @@ static String camPhotoTimestamp() {
 void handleCameraStatusGet(HttpRequest& req, HttpResponse& res) {
     (void)req;
     // Fase 5: 1536 B PSRAM (was 1024) — the P4 vision block adds ~11 keys.
-    SpiRamJsonDocument doc(1536);
+    // CAM-83: 2048 — the USB `resList` now carries every advertised mode
+    // (e.g. "1920x1080,1280x960,1280x720,1024x768,800x600,640x480,...").
+    SpiRamJsonDocument doc(2048);
     doc["ready"] = cameraIsReady();
     doc["initInProgress"] = cameraInitInProgress();
     doc["model"] = cameraGetDetectedModel();
@@ -76,12 +78,15 @@ void handleCameraStatusGet(HttpRequest& req, HttpResponse& res) {
         doc["usbId"] = "";
     }
     if (cameraP4IsUsb()) {
-        uint16_t aw = 0, ah = 0;
-        cameraP4ActualDims(aw, ah);
-        if (aw > 0 && ah > 0) {
-            doc["resList"] = String(aw) + "x" + String(ah);
+        // CAM-83: the modes the camera itself announced (largest first), so
+        // the page offers 1080p instead of only the current size.
+        String usbList = cameraP4UsbResList();
+        if (usbList.length()) {
+            doc["resList"] = usbList;
         } else {
-            doc["resList"] = "";
+            uint16_t aw = 0, ah = 0;
+            cameraP4ActualDims(aw, ah);
+            doc["resList"] = (aw > 0 && ah > 0) ? String(aw) + "x" + String(ah) : String("");
         }
     } else {
         String list = cameraP4CsiResList();
@@ -444,9 +449,14 @@ void handleCameraConfigPost(HttpRequest& req, HttpResponse& res) {
         uint16_t rw = 0, rh = 0;
         bool ok = cameraParseResolution(rv.c_str(), &rw, &rh) == 1;
 #if defined(TARGET_BOARD_P4) && TARGET_BOARD_P4 == 1
-        if (ok && cameraP4ValidCsiMode(rw, rh)) {
+        // CAM-83: the USB source picks from ITS OWN advertised modes (the CSI
+        // table does not apply); the size takes effect on the next Start.
+        const bool usbSrc = (cfg.source == CAM_P4_SRC_USB);
+        if (ok && usbSrc && cameraP4UsbModeUsable(rw, rh)) {
             cfg.p4_res_w = rw; cfg.p4_res_h = rh; changed = true;
-        } else if (ok && cameraValidResolution(rw, rh)) {
+        } else if (ok && !usbSrc && cameraP4ValidCsiMode(rw, rh)) {
+            cfg.p4_res_w = rw; cfg.p4_res_h = rh; changed = true;
+        } else if (ok && !usbSrc && cameraValidResolution(rw, rh)) {
             // CAM-78: a real sensor mode the pipeline cannot run (720p stalls,
             // 1080p fails init). Say so instead of silently "No changes".
             char buf[176];

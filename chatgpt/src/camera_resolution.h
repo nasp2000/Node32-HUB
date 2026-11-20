@@ -50,9 +50,19 @@ static inline int cameraP4ModeBroken(uint16_t w, uint16_t h) {
     return (w == 1280 && h == 720) || (w == 1920 && h == 1080);
 }
 
+// Portrait modes are a host hazard: capture stacks and players handle
+// 800x1280 badly (non-standard portrait, rotated preview, some browsers drop
+// the stream). The sensor mode stays in the table, but it is never advertised
+// and never selected — the pump's UI is landscape.
+static inline int cameraP4ModePortrait(uint16_t w, uint16_t h) {
+    (void)h;
+    return w == 800 && h == 1280 ? 1 : 0;
+}
+
 // 1 when the mode may be listed in resList / selected through the API.
 static inline int cameraP4ModeUsable(uint16_t w, uint16_t h) {
-    return cameraValidResolution(w, h) && !cameraP4ModeBroken(w, h);
+    return cameraValidResolution(w, h) && !cameraP4ModeBroken(w, h) &&
+           !cameraP4ModePortrait(w, h);
 }
 
 // MJPEG fps ceiling by LIVE pixel count (CAM-79). The small RAW8 binning modes

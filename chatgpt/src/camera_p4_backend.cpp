@@ -35,6 +35,7 @@
 #include "camera_p4_h264.h"  // Fase 4: H.264 fps ceiling (pure header)
 #include "camera_resolution.h"  // CAM-78 usable modes + CAM-79 fps cap (pure)
 #include "camera_p4_usb_isoc.h"  // CAM-82 isoc verdict (pure, native-tested)
+#include "camera_p4_uvc.h"       // UVC probe sizes + USB mode selection (pure)
 #include "camera_motion_uyvy.h"  // motion luma tap (pure header, no deps)
 #include "psram_helpers.h"  // ps_malloc() for the USB frame slot
 #include "log.h"            // LogLevel (INFO/WARN/ERROR)
@@ -75,6 +76,10 @@ const char* cameraP4UsbDiag() { return s_usbDiag; }
 // isochronous transfers, so that wiring can never stream).
 static bool s_usbFsBehindHub = false;
 static uint16_t s_usbHubVid = 0, s_usbHubPid = 0;
+// CAM-83: the scan saw an isochronous VideoStreaming endpoint. UVC over bulk
+// is refused: this pump consumes isoc frames, and a BULK-only UVC device is a
+// known host hazard (macOS AVFoundation throws). Recorded by p4UsbScanBus().
+static bool s_usbIsocFound = false;
 // Shared SCCB/I2C0 arbitration (CAM_P4 only): the OV5647 SCCB bus (SDA7/SCL8)
 // is touched by TWO IDF/Arduino users on different tasks — the idle-time
 // presence probe (Arduino Wire, from the /api/camera/status handler) and the
@@ -265,7 +270,8 @@ static void p4UvcDriverEventCb(const uvc_host_driver_event_data_t* event, void* 
 #define P4_USB_OPEN_RETRIES 3
 #define P4_USB_OPEN_RETRY_MS 1200
 #define P4_USB_CAND_WAIT_MS 4000
-#define P4_USB_MAX_CANDS 6
+#define P4_USB_MAX_CANDS 6   // modes we are willing to TRY on open (time budget)
+#define P4_USB_MAX_MODES 12  // modes we REMEMBER/report per stream (resList)
 #define P4_USB_LIST_MAX 32
 #define P4_USB_MAX_STREAMS 3
 // Raw isocronous probe (claim + hand-made UVC probe/commit + own transfers).
@@ -287,7 +293,12 @@ static const char* p4UvcFmtName(enum uvc_host_stream_format f) {
 
 // MJPEG sizes harvested per stream index (read BEFORE the stream opens: once
 // the UVC component claims the device its frame-list query fails).
-static uint16_t s_uvcMjpeg[P4_USB_MAX_STREAMS][P4_USB_MAX_CANDS][2];
+// CAM-83: MJPEG modes announced by the camera's own VS frame descriptors.
+// Parsed during the bus scan, so the page can offer them BEFORE any Start (the
+// UVC driver's frame-list query only works while the device is unclaimed).
+static uint16_t s_usbModes[P4_USB_MAX_MODES][2];
+static uint8_t  s_usbModeCount = 0;
+static uint16_t s_uvcMjpeg[P4_USB_MAX_STREAMS][P4_USB_MAX_MODES][2];
 static uint8_t s_uvcMjpegN[P4_USB_MAX_STREAMS];
 static int p4UsbLogFrameList(uint8_t addr, uint8_t idx, uint16_t out[][2], int cap);
 
@@ -412,16 +423,17 @@ static void p4UsbRawIsocProbe(usb_host_client_handle_t ch, usb_device_handle_t d
         usb_host_interface_release(ch, dh, iface);
         return;
     }
-    // UVC 1.1 uses one-byte selectors, 1.5+ uses 0x0200/0x0201 and a 34-byte
-    // probe structure. Ask for both lengths and keep what the device returns.
-    const bool uv15 = (bcdUVC >= 0x0150);
-    const uint16_t wProbe = uv15 ? 0x0200 : 0x0101;
-    const uint16_t wCommit = uv15 ? 0x0201 : 0x0102;
-    // Request EXACTLY the structure the camera's UVC revision defines. Asking
-    // a UVC 1.1/1.4 device for the 34-byte 1.5 probe leaves EP0 short and the
-    // host transfer never completes (observed: control transfer timeouts).
-    const uint16_t probeLen = uv15 ? 34 : 26;
-    uint8_t buf[40] = {};
+    // Probe/commit are REVISION-SIZED (camera_p4_uvc.h):
+    //   UVC 1.0 = 26 B, UVC 1.1 = 34 B, UVC 1.5 = 48 B.
+    // The old code used 34 for 1.5 and 26 for 1.1 — a short read followed by a
+    // commit the device could reject silently (zero frames). Ask for exactly
+    // the revision's size and parse the 26-byte common prefix either way.
+    const uint16_t probeLen = cameraUvcProbeLen(bcdUVC);
+    const uint16_t wProbe = cameraUvcProbeSelector(bcdUVC);
+    const uint16_t wCommit = cameraUvcCommitSelector(bcdUVC);
+    p4CamLog(String("[CAM-P4/USB] raw isoc: bcdUVC=0x") + String(bcdUVC, HEX) +
+             " probeLen=" + String(probeLen) + "B");
+    uint8_t buf[CAM_UVC_PROBE_LEN_1_5] = {};
     esp_err_t e = p4UsbCtrl(ch, dh, ctrl, 0xA1, 0x81, wProbe, iface, buf, probeLen, 2000);
     const int got = ctrl->actual_num_bytes >= (int)sizeof(usb_setup_packet_t)
                         ? ctrl->actual_num_bytes - (int)sizeof(usb_setup_packet_t) : 0;
@@ -447,10 +459,14 @@ static void p4UsbRawIsocProbe(usb_host_client_handle_t ch, usb_device_handle_t d
         p4CamLog(String("[CAM-P4/USB] raw isoc: probe state fmt=") + String(buf[2]) +
                  " frm=" + String(buf[3]) + " maxFrame=" + String(maxFrame) +
                  " devPayload=" + String(payload) + "B (alt gives " + String(bwPerUs) + "B/us)");
-        esp_err_t pe = p4UsbCtrl(ch, dh, ctrl, 0x21, 0x01, wProbe, iface, buf, (uint16_t)got, 2000);
-        esp_err_t ce = p4UsbCtrl(ch, dh, ctrl, 0x21, 0x01, wCommit, iface, buf, (uint16_t)got, 2000);
+        // Commit exactly what the device returned, capped at its revision's
+        // structure size (a short read must not become a long write).
+        const uint16_t commitLen = cameraUvcCommitLen(bcdUVC, got);
+        esp_err_t pe = p4UsbCtrl(ch, dh, ctrl, 0x21, 0x01, wProbe, iface, buf, commitLen, 2000);
+        esp_err_t ce = p4UsbCtrl(ch, dh, ctrl, 0x21, 0x01, wCommit, iface, buf, commitLen, 2000);
         p4CamLog(String("[CAM-P4/USB] raw isoc: probe=") + (pe == ESP_OK ? String("ok") : String(esp_err_to_name(pe))) +
-                 " commit=" + (ce == ESP_OK ? String("ok") : String(esp_err_to_name(ce))));
+                 " commit=" + (ce == ESP_OK ? String("ok") : String(esp_err_to_name(ce))) +
+                 " (" + String(commitLen) + "B used of " + String(probeLen) + "B, dev sent " + String(got) + "B)");
     }
     // Read the endpoint: urb of 4 packets, resubmitted until we time out.
     const uint16_t perUs = bwPerUs;   // bytes per microframe on this alt
@@ -704,6 +720,9 @@ static void p4UsbDumpConfig(uint8_t addr, P4UsbBestAlt *best) {
         // alternate setting the camera actually needs for its formats.
         uint16_t bcdUVC = 0;
         uint8_t curIface = 0, curAlt = 0, curClass = 0, curSub = 0;
+        uint8_t curVsFormat = 0;            // 0 none, 6 = MJPEG, 7 = uncompressed
+        uint16_t localModes[P4_USB_MAX_MODES][2];
+        int nLocalModes = 0;
         uint32_t bestBw = 0;
         uint8_t bestIface = 0, bestAlt = 0, bestEp = 0;
         uint16_t bestPerUs = 0;
@@ -722,6 +741,25 @@ static void p4UsbDumpConfig(uint8_t addr, P4UsbBestAlt *best) {
                          " protocol=" + String(p[7], HEX) + " eps=" + String(p[4]));
             } else if (type == 0x24 && len >= 5 && p[2] == 0x01) {
                 bcdUVC = (uint16_t)(p[3] | ((uint16_t)p[4] << 8));   // VC header bcdUVC
+            } else if (type == 0x24 && len >= 3 && curClass == 0x0E && curSub == 0x02 && curAlt == 0) {
+                // Class-specific VS descriptors (alt 0): 0x06 = MJPEG format,
+                // 0x07 = uncompressed, 0x05 = a frame size for the last format.
+                const uint8_t sub = p[2];
+                if (sub == 0x06) curVsFormat = 6;
+                else if (sub == 0x07) curVsFormat = 7;
+                else if (sub == 0x05 && len >= 9 && curVsFormat == 6) {
+                    const uint16_t fw = (uint16_t)(p[5] | ((uint16_t)p[6] << 8));
+                    const uint16_t fh = (uint16_t)(p[7] | ((uint16_t)p[8] << 8));
+                    bool dup = false;
+                    for (int k = 0; k < nLocalModes; k++) {
+                        if (localModes[k][0] == fw && localModes[k][1] == fh) { dup = true; break; }
+                    }
+                    if (!dup && nLocalModes < P4_USB_MAX_MODES && fw && fh) {
+                        localModes[nLocalModes][0] = fw;
+                        localModes[nLocalModes][1] = fh;
+                        nLocalModes++;
+                    }
+                }
             } else if (type == 0x05 && len >= 7) {
                 // Endpoint descriptor: p[2]=address, p[3]=bmAttributes,
                 // p[4..5]=wMaxPacketSize, p[6]=bInterval. On high speed the
@@ -769,6 +807,12 @@ static void p4UsbDumpConfig(uint8_t addr, P4UsbBestAlt *best) {
                 s_usbFsBehindHub = fsBehindHub;
                 s_usbHubVid = hubVid;
                 s_usbHubPid = hubPid;
+                // CAM-83: advertise exactly the modes this camera announced.
+                s_usbModeCount = (uint8_t)(nLocalModes > P4_USB_MAX_MODES ? P4_USB_MAX_MODES : nLocalModes);
+                for (int k = 0; k < (int)s_usbModeCount; k++) {
+                    s_usbModes[k][0] = localModes[k][0];
+                    s_usbModes[k][1] = localModes[k][1];
+                }
             }
         } else {
             p4CamLog("[CAM-P4/USB] no isochronous VideoStreaming endpoint found", WARN);
@@ -816,6 +860,7 @@ static void p4UsbRunRawProbe(const P4UsbBestAlt *best) {
 static void p4UsbScanBus() {
     uint8_t addrs[8] = {};
     int n = 0;
+    s_usbIsocFound = false;
     if (usb_host_device_addr_list_fill(8, addrs, &n) != ESP_OK) {
         p4CamLog("[CAM-P4/USB] cannot list USB addresses", WARN);
         return;
@@ -827,7 +872,11 @@ static void p4UsbScanBus() {
         p4UsbDumpConfig(addrs[i], &best);
     }
     if (best.bw) {
+        s_usbIsocFound = true;   // isochronous VideoStreaming endpoint present
         p4UsbRunRawProbe(&best);
+    } else {
+        p4CamLog("[CAM-P4/USB] no isochronous VideoStreaming endpoint on this bus "
+                 "(bulk-only UVC or descriptor walk failed)", WARN);
     }
 }
 
@@ -849,7 +898,7 @@ static void p4UsbHarvestFrames() {
                          " stream_index=" + String(idx) + " frames=" + String((unsigned)cnt));
                 s_uvcStreamMask |= (uint8_t)(1u << idx);
                 if (!s_uvcDevAddr) { s_uvcDevAddr = addrs[i]; s_uvcStreamIdx = idx; }
-                s_uvcMjpegN[idx] = (uint8_t)p4UsbLogFrameList(addrs[i], idx, s_uvcMjpeg[idx], P4_USB_MAX_CANDS);
+                s_uvcMjpegN[idx] = (uint8_t)p4UsbLogFrameList(addrs[i], idx, s_uvcMjpeg[idx], P4_USB_MAX_MODES);
             }
         }
     }
@@ -1031,6 +1080,48 @@ bool cameraP4UsbPresent() {
 #endif
 }
 
+// CAM-83: MJPEG modes the attached camera announced (largest first, landscape
+// only, capped by the pump's limits). Empty when no camera/walk failed.
+String cameraP4UsbResList() {
+#if !P4_HAVE_ESP_VIDEO
+    return String();
+#else
+    if (!s_usbModeCount) return String();
+    int order[P4_USB_MAX_MODES];
+    int n = cameraUsbOrderModes(s_usbModes, s_usbModeCount, order, P4_USB_MAX_MODES);
+    String out;
+    for (int i = 0; i < n; i++) {
+        if (out.length()) out += ',';
+        out += String(s_usbModes[order[i]][0]) + "x" + String(s_usbModes[order[i]][1]);
+    }
+    return out;
+#endif
+}
+
+// CAM-83: is this WxH a mode the camera actually advertises (and one we can
+// run)? With no descriptor list (walk failed / no camera) the bounds-only
+// answer is returned, so a manual pick can still be attempted.
+bool cameraP4UsbModeUsable(uint16_t w, uint16_t h) {
+    if (!cameraUsbModeKeep(w, h)) return false;
+    if (!s_usbModeCount) return true;
+    for (uint8_t i = 0; i < s_usbModeCount; i++) {
+        if (s_usbModes[i][0] == w && s_usbModes[i][1] == h) return true;
+    }
+    return false;
+}
+
+// CAM-83: the mode to open with when the user has not chosen one — the largest
+// landscape size the camera itself advertises (instead of a legacy-derived
+// 640x480 that wasted a 1080p webcam).
+bool cameraP4UsbBestMode(uint16_t* w, uint16_t* h) {
+#if !P4_HAVE_ESP_VIDEO
+    (void)w; (void)h;
+    return false;
+#else
+    return cameraUsbPickBest(s_usbModes, s_usbModeCount, w, h) != 0;
+#endif
+}
+
 uint16_t cameraP4UsbVid() {
 #if !P4_HAVE_ESP_VIDEO
     return 0;
@@ -1068,6 +1159,14 @@ static bool p4UsbBegin(uint16_t w, uint16_t h) {
     // so the temporary probe client has the whole USB heap to itself.
     s_usbCancel = false;  // fresh begin clears a previous stop's cancel
     p4UsbScanBus();
+    // CAM-83: isochronous only, never bulk. Refuse before installing the UVC
+    // driver so a bulk-only webcam cannot leave a half-open stream behind.
+    if (!s_usbIsocFound) {
+        p4UsbSetDiag("bulk-only");
+        p4CamLog("[CAM-P4/USB] UVC without an isochronous VideoStreaming endpoint: "
+                 "refused (bulk UVC is not supported by this pump)", ERROR);
+        return false;
+    }
 
     uvc_host_driver_config_t drv = {};
     drv.driver_task_stack_size = 4096;
@@ -1694,6 +1793,11 @@ static bool p4OpenCaptureAt(uint16_t w, uint16_t h) {
         s_capOpen = false;
     }
     if (!p4TrySizeAck(w, h)) return false;
+    // Ping-pong by construction (the double-buffer every bring-up ends up
+    // needing): TWO V4L2 buffers, and a dequeued buffer cannot be refilled
+    // until the consumer releases it, so the ISP can never overwrite the frame
+    // being encoded. A third buffer would cost another full UYVY frame in
+    // PSRAM (4.1 MB at 1080p) for no tearing benefit — the pool alternates.
     if (!s_cap.begin(ESP_VIDEO_MIPI_CSI_DEVICE_NAME, 2)) {
         p4CamLog("[CAM-P4/CSI] capture device open failed", ERROR);
         return false;

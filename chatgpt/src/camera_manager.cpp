@@ -240,9 +240,17 @@ static bool applyConfigToSensor(const CameraConfig& cfg, framesize_t* appliedFra
     // Picture knobs without an ESPVideo equivalent are persisted no-ops.
     framesize_t appliedFs = clampFrameSize(cfg.framesize);
     uint16_t w = 640, h = 480;
-    if (cfg.source == 0 && cfg.p4_res_w > 0 && cfg.p4_res_h > 0) {
-        // Explicit HD override from the resolution selector (persisted).
+    const bool hasRes = (cfg.p4_res_w > 0 && cfg.p4_res_h > 0);
+    if (hasRes && (cfg.source == CAM_P4_SRC_MIPI || cfg.source == CAM_P4_SRC_USB)) {
+        // Explicit pick from the resolution selector (persisted). CAM-83: the
+        // USB source has its own advertised modes, so its pick is honoured too.
         w = cfg.p4_res_w; h = cfg.p4_res_h;
+    } else if (cfg.source == CAM_P4_SRC_USB) {
+        // No pick: keep the negotiated size. Deriving it from the legacy
+        // framesize enum reopened the webcam at 640x480 on every quality/fps
+        // change (and threw away the best mode CAM-83 had selected).
+        cameraP4ActualDims(w, h);
+        if (!w || !h) { w = 640; h = 480; }
     } else {
         cameraSensorFrameSizeDims((uint8_t)appliedFs, w, h);
     }
@@ -281,6 +289,11 @@ static bool applyConfigToSensor(const CameraConfig& cfg, framesize_t* appliedFra
 }
 
 #if defined(TARGET_BOARD_P4) && TARGET_BOARD_P4 == 1
+// NOTE on the ISP: colour demosaic belongs to esp_video's ISP init, which this
+// Arduino wrapper does not expose (no esp_isp_* handle reaches us). It is
+// running — MJPEG frames carry real detail (17 KB at 800x640 q35, 128 KB at
+// 1280x960), which flat/striped data would not. If stripes ever appear, the
+// fix is in the video component's ISP config, not here.
 // P4 init: ESPVideo MIPI-CSI pipeline (OV5647) + shared pump plumbing.
 // Mirrors the S3 post-init tail (mutex/sema, motion begin, auto-mode arm)
 // without any esp_camera calls.
@@ -293,6 +306,19 @@ static bool cameraBeginP4() {
 
     uint16_t w = 640, h = 480;
     cameraSensorFrameSizeDims((uint8_t)requestedFs, w, h);
+    // CAM-83: a USB webcam is opened at the size it advertises, not at the
+    // legacy framesize guess. A persisted pick wins; otherwise the largest
+    // landscape mode the camera itself announced (a 1080p webcam used to be
+    // opened at 640x480 here and every bigger mode was wasted).
+    if (s_config.source == CAM_P4_SRC_USB) {
+        uint16_t bw = 0, bh = 0;
+        if (s_config.p4_res_w && s_config.p4_res_h &&
+            cameraP4UsbModeUsable(s_config.p4_res_w, s_config.p4_res_h)) {
+            w = s_config.p4_res_w; h = s_config.p4_res_h;
+        } else if (cameraP4UsbBestMode(&bw, &bh)) {
+            w = bw; h = bh;
+        }
+    }
     uint8_t quality = computeJpegQuality(requestedFs, s_config.quality);
     // Source fallback: a USB webcam that fails to start (unplugged mid-boot,
     // descriptor quirk, heap) must not leave the board with NO camera when the

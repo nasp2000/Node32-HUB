@@ -104,7 +104,11 @@ TEST_CASE("CAM-78: broken modes are never usable, usable modes are") {
 
     CHECK(cameraP4ModeUsable(800, 640) == 1);
     CHECK(cameraP4ModeUsable(800, 800) == 1);
-    CHECK(cameraP4ModeUsable(800, 1280) == 1);
+    // CAM-83: portrait 800x1280 is a host hazard (players/capture stacks) and
+    // is no longer offered, even though the sensor mode exists.
+    CHECK(cameraP4ModeUsable(800, 1280) == 0);
+    CHECK(cameraP4ModePortrait(800, 1280) == 1);
+    CHECK(cameraP4ModePortrait(1280, 800) == 0);
     CHECK(cameraP4ModeUsable(1280, 960) == 1);
     CHECK(cameraP4ModeUsable(2592, 1944) == 1);   // stills-only, still offered
     CHECK(cameraP4ModeUsable(1280, 720) == 0);    // hidden + refused
