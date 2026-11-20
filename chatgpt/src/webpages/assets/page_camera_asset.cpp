@@ -882,6 +882,29 @@ var P4_USB_PRESETS={
 function resolutionPostField(value){
   return value.indexOf('x')>=0?'resolution='+encodeURIComponent(value)+'&':'framesize='+value+'&';
 }
+// CAM-85: a USB preset now picks a size from the list the camera advertised
+// (largest first, as the backend sorts it). hd = largest, eco = smallest,
+// vga/fast = 640x480 when offered (else the middle), night/safe keep the
+// current size (shrinking is the last thing a low-light preset should do).
+function usbPresetRes(name,opts){
+  if(!opts||!opts.length)return '';
+  if(name==='hd')return opts[0];
+  if(name==='eco')return opts[opts.length-1];
+  if(name==='vga'||name==='fast'){
+    for(var i=0;i<opts.length;i++)if(opts[i]==='640x480')return opts[i];
+    return opts[Math.floor(opts.length/2)];
+  }
+  return '';
+}
+function resOptionsFromSelect(sel){
+  var out=[];
+  if(!sel)return out;
+  for(var i=0;i<sel.options.length;i++){
+    var v=String(sel.options[i].value||'');
+    if(/^[0-9]+x[0-9]+$/.test(v))out.push(v);
+  }
+  return out;
+}
 function selectResOption(sel,value){
   if(!sel||!value)return false;
   for(var i=0;i<sel.options.length;i++){
@@ -1224,27 +1247,29 @@ function applyPresetTitles(){
   if(!CurIsP4)return;
   var usb=(CurModel==='USB-UVC');
   var t={
-    bPrHd:usb?'HD preset (max quality — resolution fixed by the USB camera)':'HD preset (1280x960)',
-    bPrVga:usb?'VGA preset (balanced — resolution fixed by the USB camera)':'VGA preset (800x640)',
-    bPrFast:usb?'Fast preset (low latency — resolution fixed by the USB camera)':'Fast preset (800x640, low latency)',
-    bPrNight:usb?'Night preset (enhanced — resolution fixed by the USB camera)':'Night preset (800x800, enhanced)',
-    bPrSafe:usb?'Safe preset (quality/fps only — resolution fixed by the USB camera)':'Safe preset (800x800 verified stable)',
-    bPrEco:usb?'Economy preset (low CPU/bandwidth — resolution fixed by the USB camera)':'Economy preset (800x640, lowest CPU/bandwidth)'
+    bPrHd:usb?'HD preset (largest USB mode + max quality)':'HD preset (1280x960)',
+    bPrVga:usb?'VGA preset (640x480 when the camera offers it)':'VGA preset (800x640)',
+    bPrFast:usb?'Fast preset (640x480 when offered, low latency)':'Fast preset (800x640, low latency)',
+    bPrNight:usb?'Night preset (enhanced — keeps the current size)':'Night preset (800x800, enhanced)',
+    bPrSafe:usb?'Safe preset (quality/fps only — keeps the current size)':'Safe preset (800x800 verified stable)',
+    bPrEco:usb?'Economy preset (smallest USB mode, lowest CPU/bandwidth)':'Economy preset (800x640, lowest CPU/bandwidth)'
   };
   for(var id in t){var b=$(id);if(b)b.title=t[id]}
 }
 function preset(n,el){
   // P4 path (CAM-68): push per-sensor values. OV5647 (RPi v1.3) posts an
-  // explicit resolution=WxH from the sensor mode table; USB posts quality +
-  // fps only (geometry is negotiated with the webcam). fps is clamped to the
-  // status fpsMax. Unknown/pre-start models fall through to legacy.
+  // explicit resolution=WxH from the sensor mode table; USB picks one from the
+  // modes the camera advertised (CAM-85: hd largest, eco smallest, vga/fast
+  // 640x480 when offered, night/safe keep the current size). fps is clamped to
+  // the status fpsMax. Unknown/pre-start models fall through to legacy.
   if(CurIsP4&&(CurModel==='OV5647'||CurModel==='USB-UVC')){
     var usb=(CurModel==='USB-UVC');
     var tab=usb?P4_USB_PRESETS:P4_OV5647_PRESETS;
     var pc=tab[n]||tab.vga;
     var ceiling=CurFpsMax||30;
     var fs=pc.fs>ceiling?ceiling:pc.fs;
-    if(!usb&&$('selFr'))selectResOption($('selFr'),pc.res);
+    var res = usb ? usbPresetRes(n,resOptionsFromSelect($('selFr'))) : pc.res;
+    if(res&&$('selFr'))selectResOption($('selFr'),res);
     if($('slQ'))$('slQ').value=pc.q;if($('selFps'))$('selFps').value=fs;
     if($('slBr'))$('slBr').value=pc.br;if($('slCt'))$('slCt').value=pc.ct;if($('slSa'))$('slSa').value=pc.sa;
     if($('vQ'))$('vQ').textContent=pc.q;if($('vBr'))$('vBr').textContent=pc.br;if($('vCt'))$('vCt').textContent=pc.ct;if($('vSa'))$('vSa').textContent=pc.sa;if($('vFps'))$('vFps').textContent=fs;
@@ -1252,7 +1277,7 @@ function preset(n,el){
     if($('chkAWB'))$('chkAWB').checked=pc.awb;if($('chkAEC'))$('chkAEC').checked=pc.aec;if($('chkAGC'))$('chkAGC').checked=pc.agc;
     document.querySelectorAll('.btns .bp').forEach(function(e){e.classList.remove('on')});
     if(el)el.classList.add('on');
-    pCfg((usb?'':'resolution='+encodeURIComponent(pc.res)+'&')+'quality='+pc.q+'&fps='+fs+'&brightness='+pc.br+'&contrast='+pc.ct+'&saturation='+pc.sa+'&awb='+pc.awb+'&aec='+pc.aec+'&agc='+pc.agc+'&gainceiling='+pc.gc);
+    pCfg((res?'resolution='+encodeURIComponent(res)+'&':'')+'quality='+pc.q+'&fps='+fs+'&brightness='+pc.br+'&contrast='+pc.ct+'&saturation='+pc.sa+'&awb='+pc.awb+'&aec='+pc.aec+'&agc='+pc.agc+'&gainceiling='+pc.gc);
     return;
   }
   var p={hd:{fr:13,q:10,fs:10,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},vga:{fr:10,q:20,fs:12,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},fast:{fr:6,q:35,fs:25,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},night:{fr:6,q:15,fs:5,br:1,ct:-1,sa:-1,awb:0,aec:1,agc:1,gc:0},safe:{fr:13,q:12,fs:10,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},eco:{fr:6,q:24,fs:8,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0}};

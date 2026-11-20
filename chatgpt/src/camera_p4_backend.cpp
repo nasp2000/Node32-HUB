@@ -1835,7 +1835,6 @@ static bool p4OpenCaptureAt(uint16_t w, uint16_t h) {
             ::close(fd);
         }
     }
-    }
     if (!s_cap.setFormat(ESP_VIDEO_FORMAT_YUV422_UYVY)) {
         p4CamLog("[CAM-P4/CSI] setFormat(UYVY) failed", ERROR);
         s_cap.end();
@@ -2406,6 +2405,20 @@ bool cameraP4SetResolution(uint16_t w, uint16_t h) {
 #else
     if (!s_ready) return false;
     if (w == s_w && h == s_h) return true;
+#if P4_HAVE_UVC
+    const bool usbSrc = (s_source == CAM_P4_SRC_USB);
+#else
+    const bool usbSrc = false;
+#endif
+    // CAM-78/83 defence in depth: the legacy `framesize` enum path (and any
+    // other caller) must not be able to select a mode the pipeline cannot run
+    // (720p stall, 1080p init failure) or a portrait size. The API validator
+    // already refuses them, but the enum path bypasses it.
+    if (!usbSrc && !cameraP4ModeUsable(w, h)) {
+        p4CamLog(String("[CAM-P4/CSI] refusing unusable mode ") + String(w) + "x" + String(h) +
+                 " (broken or portrait)", WARN);
+        return false;
+    }
     if (s_resSwitching) {
         p4CamLog("[CAM-P4/CSI] switch busy, retry", WARN);
         return false;

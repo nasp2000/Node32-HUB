@@ -72,8 +72,21 @@ function getP4Preset(n, model, fpsMax) {
     br: t.br, ct: t.ct, sa: t.sa, awb: t.awb, aec: t.aec, agc: t.agc, gc: t.gc, usb: usb };
 }
 
+// CAM-85 mirror of the page's usbPresetRes(): a USB preset picks a size from
+// the advertised list (largest first) instead of leaving the mode alone.
+function usbPresetRes(name, opts) {
+  if (!opts || !opts.length) return '';
+  if (name === 'hd') return opts[0];
+  if (name === 'eco') return opts[opts.length - 1];
+  if (name === 'vga' || name === 'fast') {
+    for (var i = 0; i < opts.length; i++) if (opts[i] === '640x480') return opts[i];
+    return opts[Math.floor(opts.length / 2)];
+  }
+  return '';
+}
+
 function buildP4PresetBody(p) {
-  return (p.usb || !p.res ? '' : 'resolution=' + encodeURIComponent(p.res) + '&') +
+  return (!p.res ? '' : 'resolution=' + encodeURIComponent(p.res) + '&') +
     'quality=' + p.q + '&fps=' + p.fs +
     '&brightness=' + p.br + '&contrast=' + p.ct + '&saturation=' + p.sa +
     '&awb=' + p.awb + '&aec=' + p.aec + '&agc=' + p.agc + '&gainceiling=' + p.gc;
@@ -85,9 +98,12 @@ function presetTitles(model, isP4) {
   if (!isP4) return null;
   var usb = (model === 'USB-UVC');
   return {
-    hd: usb ? 'HD preset (max quality — resolution fixed by the USB camera)' : 'HD preset (1920x1080)',
-    safe: usb ? 'Safe preset (quality/fps only — resolution fixed by the USB camera)' : 'Safe preset (800x800 verified stable)',
-    eco: usb ? 'Economy preset (low CPU/bandwidth — resolution fixed by the USB camera)' : 'Economy preset (800x640, lowest CPU/bandwidth)'
+    hd: usb ? 'HD preset (largest USB mode + max quality)' : 'HD preset (1280x960)',
+    vga: usb ? 'VGA preset (640x480 when the camera offers it)' : 'VGA preset (800x640)',
+    fast: usb ? 'Fast preset (640x480 when offered, low latency)' : 'Fast preset (800x640, low latency)',
+    night: usb ? 'Night preset (enhanced — keeps the current size)' : 'Night preset (800x800, enhanced)',
+    safe: usb ? 'Safe preset (quality/fps only — keeps the current size)' : 'Safe preset (800x800 verified stable)',
+    eco: usb ? 'Economy preset (smallest USB mode, lowest CPU/bandwidth)' : 'Economy preset (800x640, lowest CPU/bandwidth)'
   };
 }
 
@@ -437,13 +453,30 @@ function run() {
       ok(u.fs <= 30, 'USB ' + names[i] + ' within ceiling');
     }
   });
-  test('OV5647 preset body posts resolution, USB one does not', function() {
+  test('preset body posts an explicit resolution for both sources', function() {
     var o = buildP4PresetBody(getP4Preset('hd', 'OV5647', 6));
     ok(o.indexOf('resolution=1280x960') >= 0, 'OV5647 posts explicit resolution (largest working mode)');
     var u = buildP4PresetBody(getP4Preset('hd', 'USB-UVC', 30));
-    ok(u.indexOf('resolution=') < 0, 'USB posts quality/fps only');
+    ok(u.indexOf('resolution=') < 0, 'USB preset body itself carries no size (the page adds the picked one)');
     ok(u.indexOf('quality=10') >= 0, 'USB still pushes quality');
     ok(u.indexOf('fps=6') >= 0, 'USB still pushes fps');
+  });
+  test('CAM-85: USB presets pick from the advertised list', function() {
+    var adv = ['1920x1080', '1280x720', '800x600', '640x480', '320x240'];
+    is(usbPresetRes('hd', adv), '1920x1080');     // largest
+    is(usbPresetRes('eco', adv), '320x240');      // smallest
+    is(usbPresetRes('vga', adv), '640x480');      // preferred VGA when offered
+    is(usbPresetRes('fast', adv), '640x480');
+    var noVga = ['1920x1080', '1280x720', '800x600'];
+    is(usbPresetRes('vga', noVga), '1280x720');   // middle of three
+    is(usbPresetRes('night', adv), '');           // low-light presets keep the size
+    is(usbPresetRes('safe', adv), '');
+    is(usbPresetRes('hd', []), '');
+    is(usbPresetRes('hd', null), '');
+    // The USB body built with that pick is a real resolution POST.
+    var b = buildP4PresetBody({ res: usbPresetRes('hd', adv), q: 10, fs: 6, br: 0, ct: 0, sa: 0,
+                                awb: 1, aec: 1, agc: 1, gc: 0 });
+    ok(b.indexOf('resolution=1920x1080') >= 0, 'USB hd posts the largest advertised mode');
   });
 
   console.log('  --- photo RAM state (mirrors page upd photoInfo) ---');
@@ -562,15 +595,18 @@ function run() {
     is(presetTitles('', false), null);
     is(presetTitles('OV3660', false), null);
   });
-  test('OV5647 titles name the real modes', function() {
+  test('OV5647 titles name the real modes (CAM-78: HD is 1280x960)', function() {
     var t = presetTitles('OV5647', true);
-    ok(t.hd.indexOf('1920x1080') >= 0, 'hd names FHD');
+    ok(t.hd.indexOf('1280x960') >= 0, 'hd names the largest working mode');
+    ok(t.hd.indexOf('1920x1080') < 0, 'hd never advertises 1080p (init fails)');
     ok(t.safe.indexOf('800x800') >= 0, 'safe names the verified mode');
   });
-  test('USB titles state resolution is fixed by the camera', function() {
+  test('USB titles describe what each preset does with the size', function() {
     var t = presetTitles('USB-UVC', true);
-    ok(t.hd.indexOf('fixed by the USB camera') >= 0, 'hd honest on USB');
-    ok(t.safe.indexOf('fixed by the USB camera') >= 0, 'safe honest on USB');
+    ok(t.hd.indexOf('largest USB mode') >= 0, 'hd takes the largest advertised mode');
+    ok(t.eco.indexOf('smallest') >= 0, 'eco takes the smallest');
+    ok(t.safe.indexOf('keeps the current size') >= 0, 'safe leaves the size alone');
+    ok(t.hd.indexOf('fixed by the USB camera') < 0, 'stale "fixed" wording is gone');
   });
 
   console.log('  --- resolution selector (mirrors page_camera_asset.cpp selFr) ---');
