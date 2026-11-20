@@ -80,6 +80,11 @@ static uint16_t s_usbHubVid = 0, s_usbHubPid = 0;
 // is refused: this pump consumes isoc frames, and a BULK-only UVC device is a
 // known host hazard (macOS AVFoundation throws). Recorded by p4UsbScanBus().
 static bool s_usbIsocFound = false;
+// CAM-84: the format descriptor the sensor DRIVER reports for the live
+// pipeline (VIDIOC_G_SENSOR_FMT). Our 1080p/720p entries are hand-built; this
+// is the reference a working descriptor has to match.
+static char s_sensorFmt[96] = "";
+const char* cameraP4SensorFmt() { return s_sensorFmt; }
 // Shared SCCB/I2C0 arbitration (CAM_P4 only): the OV5647 SCCB bus (SDA7/SCL8)
 // is touched by TWO IDF/Arduino users on different tasks — the idle-time
 // presence probe (Arduino Wire, from the /api/camera/status handler) and the
@@ -1801,6 +1806,35 @@ static bool p4OpenCaptureAt(uint16_t w, uint16_t h) {
     if (!s_cap.begin(ESP_VIDEO_MIPI_CSI_DEVICE_NAME, 2)) {
         p4CamLog("[CAM-P4/CSI] capture device open failed", ERROR);
         return false;
+    }
+    // CAM-84: ask the driver what IT thinks the current mode is. Logged (and
+    // served as `sensorFmt`) so a hand-built descriptor can be compared with a
+    // real one instead of guessed at.
+    {
+        int fd = ::open(ESP_VIDEO_MIPI_CSI_DEVICE_NAME, O_RDWR);
+        if (fd >= 0) {
+            esp_cam_sensor_format_t dfmt = {};
+            if (ioctl(fd, VIDIOC_G_SENSOR_FMT, &dfmt) == 0) {
+                int pclk = 0, hts = 0, vts = 0;
+                if (dfmt.isp_info) {
+                    pclk = dfmt.isp_info->isp_v1_info.pclk;
+                    hts = dfmt.isp_info->isp_v1_info.hts;
+                    vts = dfmt.isp_info->isp_v1_info.vts;
+                }
+                snprintf(s_sensorFmt, sizeof(s_sensorFmt), "%s %ux%u@%ufps %s hts=%d vts=%d pclk=%d",
+                         dfmt.name ? dfmt.name : "?", (unsigned)dfmt.width, (unsigned)dfmt.height,
+                         (unsigned)dfmt.fps,
+                         dfmt.format == ESP_CAM_SENSOR_PIXFORMAT_RAW10 ? "RAW10" :
+                         dfmt.format == ESP_CAM_SENSOR_PIXFORMAT_RAW8 ? "RAW8" : "other",
+                         hts, vts, pclk);
+                p4CamLog(String("[CAM-P4/CSI] driver sensor fmt: ") + s_sensorFmt +
+                         " xclk=" + String(dfmt.xclk) + " regs=" + String(dfmt.regs_size), INFO);
+            } else {
+                p4CamLog(String("[CAM-P4/CSI] VIDIOC_G_SENSOR_FMT failed errno=") + String(errno), WARN);
+            }
+            ::close(fd);
+        }
+    }
     }
     if (!s_cap.setFormat(ESP_VIDEO_FORMAT_YUV422_UYVY)) {
         p4CamLog("[CAM-P4/CSI] setFormat(UYVY) failed", ERROR);

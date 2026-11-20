@@ -82,6 +82,22 @@ static inline uint8_t cameraP4OtherSource(uint8_t source) {
 //   "ok"          streaming
 const char* cameraP4UsbDiag();
 
+// CAM-84: ISP colour pipeline (camera_p4_isp.cpp). Applies CCM + WB + gamma +
+// sharpen + Bayer denoise + explicit demosaic on the ISP video device.
+// profileIdx: 0..CAM_ISP_PROFILE_COUNT-1, or -1 for "colour correction off".
+// Returns false when the ISP device is absent (USB source, or a core without
+// the ISP video device) — callers treat that as "no colour tuning".
+bool cameraP4IspApply(int profileIdx);
+void cameraP4IspReset();       // controls may be dropped by a pipeline restart
+void cameraP4IspEnd();         // close the ISP fd (camera stop)
+bool cameraP4IspAvailable();
+const char* cameraP4IspDiag(); // "ok" / "off" / "no-dev" / "ccm" / "wb" / "tune"
+
+// CAM-84: the sensor format the DRIVER reports for the live pipeline
+// (VIDIOC_G_SENSOR_FMT), logged at begin and served as `sensorFmt` in status.
+// This is what the hand-built 1080p descriptor is compared against.
+const char* cameraP4SensorFmt();
+
 // CAM-83: MJPEG modes the attached camera announced in its own descriptors
 // ("WxH,WxH,...", largest first, landscape only). Empty when none/failed.
 // Works before Start: the size list comes from the bus scan, not the stream.

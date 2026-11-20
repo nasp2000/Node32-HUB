@@ -15,6 +15,7 @@
 #include "camera_capture_guard.h"  // stall/photo-fallback pure logic (CAM-62/64)
 #include "camera_stream_fps.h"  // rolling-FPS window (pure, rounded)
 #include "camera_stream_policy.h"  // viewer cap + pump/feed decisions (pure)
+#include "camera_p4_isp.h"         // CAM-84 ISP colour profiles (pure data + mapping)
 #include "camera_stream_slots.h"   // MJPEG slot ring selection (pure)
 #include "direct_log.h"
 #include "feature_flags.h"
@@ -258,6 +259,11 @@ static bool applyConfigToSensor(const CameraConfig& cfg, framesize_t* appliedFra
     if (appliedFrameSize) *appliedFrameSize = appliedFs;
     cameraP4SetQuality(computeJpegQuality(appliedFs, cfg.quality));
     cameraP4SetFlip(cfg.hmirror, cfg.vflip);
+    // CAM-84: wb_mode picks the ISP colour profile (the page already has the
+    // selector); applying it here makes the change visible without a restart.
+    if (cfg.source == CAM_P4_SRC_MIPI) {
+        cameraP4IspApply(cameraIspProfileForWbMode(cfg.wb_mode));
+    }
     return true;
 #else
     sensor_t* s = esp_camera_sensor_get();
@@ -357,6 +363,13 @@ static bool cameraBeginP4() {
     s_streamCacheValid = false;
 
     s_ready = true;
+#if defined(TARGET_BOARD_P4) && TARGET_BOARD_P4 == 1
+    // CAM-84: colour pipeline for the MIPI source. The ISP device is not part
+    // of the USB path, so only apply it when the sensor pipeline came up.
+    if (s_config.source == CAM_P4_SRC_MIPI) {
+        cameraP4IspApply(cameraIspProfileForWbMode(s_config.wb_mode));
+    }
+#endif
     // Stored HD override (Camera panel resolution selector): apply after the
     // probe so only ACKed modes switch; anything else stays at boot geometry.
     if (s_config.source == 0 && s_config.p4_res_w > 0 && s_config.p4_res_h > 0) {
@@ -1042,6 +1055,9 @@ void cameraStreamStop() {
 
 void cameraStop() {
     cameraStreamStop();
+#if defined(TARGET_BOARD_P4) && TARGET_BOARD_P4 == 1
+    cameraP4IspReset();   // controls are re-applied on the next begin (CAM-84)
+#endif
 #if ENABLE_SDCARD==1
     if (cameraRecordActive()) cameraRecordFinish();
 #endif

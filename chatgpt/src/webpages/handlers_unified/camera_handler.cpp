@@ -110,6 +110,11 @@ void handleCameraStatusGet(HttpRequest& req, HttpResponse& res) {
     doc["h264EncErr"] = p4H264LastEncodeErr();
     // CAM-81: why the USB source is not streaming (empty = never tried).
     doc["usbDiag"] = cameraP4UsbDiag();
+    // CAM-84: ISP colour pipeline + the sensor format the DRIVER reports
+    // (the reference for comparing our hand-built mode descriptors).
+    doc["ispDiag"] = cameraP4IspDiag();
+    const char* sfmt = cameraP4SensorFmt();
+    if (sfmt && *sfmt) doc["sensorFmt"] = sfmt;
     // Capture-pipeline stall flag (CAM-62): 1 while no frame arrived for
     // P4_CAP_STALL_MS. Lets a snapshot 503 be diagnosed remotely instead of
     // guessing whether the sensor, the encoder or the HTTP path failed.
