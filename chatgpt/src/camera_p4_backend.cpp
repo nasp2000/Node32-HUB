@@ -153,6 +153,7 @@ static volatile uint32_t s_lastCapTryMs = 0;     // last capture attempt
 static volatile uint32_t s_lastCapRestartMs = 0; // last session re-sync
 static volatile uint8_t s_capStallFails = 0;     // consecutive bounded failures
 static bool s_dqbufTimeoutOn = false;            // driver-level bound active?
+static volatile uint32_t s_lastIdleDrainMs = 0;  // CAM-89: last idle discard
 
 // ---- USB-UVC source state (CAM_P4 pack only: needs the ESP_Video-era
 // uvc_host headers and ENABLE_USB_HOST=1; other P4 packs have no camera) ----
@@ -2188,6 +2189,7 @@ void cameraP4End() {
     s_lastDequeueOkMs = 0;
     s_lastCapTryMs = 0;
     s_lastCapRestartMs = 0;
+    s_lastIdleDrainMs = 0;
     s_capStallFails = 0;
     s_dqbufTimeoutOn = false;
     s_ready = false;
@@ -2406,6 +2408,62 @@ bool cameraP4CaptureStalledNow() {
 #else
     if (!s_ready || s_source != CAM_P4_SRC_MIPI) return false;
     return cameraCaptureStalled(s_lastDequeueOkMs, millis(), P4_CAP_STALL_MS) ? true : false;
+#endif
+}
+
+// ---- Idle drain (CAM-89) ---------------------------------------------------
+// Every capture path in this firmware is pull-driven: the loop pump (viewer /
+// H.264 / MJPEG recording), the recorder's own tick (timelapse, dashcam), the
+// motion sampler and the request-driven snapshot/photo path. A camera left
+// "ready" with NONE of those attached therefore dequeues nothing at all, and
+// the driver's V4L2 queue stays full for as long as the session lives.
+//
+// Measured on the .18 (v1.120, 2026-11-21): a viewer-less 1920x1080 session
+// panicked after 68 s, 438 s and 900 s (reset_reason=PANIC each time) with
+// streamClients=0, streamFrames=0, recording=False and a 10-minute silent
+// monitor log — i.e. not one dequeue. 1-2 viewers on the same build never
+// panicked, and the same idle state at 800x800 survives for hours.
+//
+// One discarded dequeue per P4_IDLE_DRAIN_MS is enough to keep the queue
+// cycling: no JPEG encode, no copy, no writer — just DQBUF + QBUF (the buffer
+// is reclaimed on scope exit). It also refreshes the CAM-62 heartbeat, so a
+// genuinely dead pipeline is still caught by the stall guard instead of being
+// masked by "nobody ever asked".
+#if P4_HAVE_ESP_VIDEO
+static size_t p4IdleDrain(uint32_t timeoutMs) {
+    uint32_t start = millis();
+    while ((millis() - start) < timeoutMs) {
+        ESPVideoBufferClass buf = s_cap.captureBuffer();
+        if (buf.valid() && buf.size() > 0) {
+            s_lastDequeueOkMs = millis();
+            s_capStallFails = 0;
+            return buf.size();  // discarded: RAW buffer reclaimed on scope exit
+        }
+        delay(2);
+    }
+    return 0;
+}
+#endif // P4_HAVE_ESP_VIDEO (p4IdleDrain touches the ESP_Video capture object)
+
+void cameraP4IdleDrainTick(uint32_t nowMs) {
+#if !P4_HAVE_ESP_VIDEO
+    (void)nowMs;
+#else
+    if (!s_ready || s_source != CAM_P4_SRC_MIPI) return;
+    if (!s_capOpen || !s_cap.isCaptureStarted()) return;
+    // A mode switch (HTTP task) tears the session down and reopens it; never
+    // dequeue into that window.
+    if (s_resSwitching) return;
+    if (!cameraIdleDrainDue(s_lastIdleDrainMs, nowMs, P4_IDLE_DRAIN_MS)) return;
+    // Same bounded-retry policy as the consumer paths: while the pipeline is
+    // known-stalled, probe once per retry window instead of every 250 ms.
+    if (cameraCaptureFastFail(s_lastDequeueOkMs, s_lastCapTryMs, nowMs,
+                              P4_CAP_STALL_MS, P4_CAP_RETRY_MS)) {
+        return;
+    }
+    s_lastIdleDrainMs = nowMs;
+    s_lastCapTryMs = nowMs;
+    p4IdleDrain(P4_IDLE_DRAIN_TMO_MS);
 #endif
 }
 

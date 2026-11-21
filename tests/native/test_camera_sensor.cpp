@@ -185,6 +185,32 @@ TEST_CASE("capture restart: due only when stalled and throttle expired") {
     CHECK(cameraCaptureRestartDue(stale, 0, stale, P4_CAP_STALL_MS, P4_CAP_RESTART_MS) == 0);
 }
 
+TEST_CASE("idle drain: first tick drains, then one per window (CAM-89)") {
+    // Never drained (fresh session) -> drain immediately: the whole point is
+    // that a viewer-less session must not sit with a full V4L2 queue.
+    CHECK(cameraIdleDrainDue(0, 5000, P4_IDLE_DRAIN_MS) == 1);
+    CHECK(cameraIdleDrainDue(0, 999999, P4_IDLE_DRAIN_MS) == 1);
+    // Inside the window: quiet, so a discard never becomes a busy loop.
+    CHECK(cameraIdleDrainDue(5000, 5000 + P4_IDLE_DRAIN_MS - 1, P4_IDLE_DRAIN_MS) == 0);
+    CHECK(cameraIdleDrainDue(5000, 5000, P4_IDLE_DRAIN_MS) == 0);
+    // Window elapsed exactly -> one drain.
+    CHECK(cameraIdleDrainDue(5000, 5000 + P4_IDLE_DRAIN_MS, P4_IDLE_DRAIN_MS) == 1);
+    CHECK(cameraIdleDrainDue(5000, 5000 + P4_IDLE_DRAIN_MS + 1, P4_IDLE_DRAIN_MS) == 1);
+}
+
+TEST_CASE("idle drain: millis wrap-around still schedules one drain per window") {
+    // Last drain just before the 32-bit wrap, now just after it.
+    const uint32_t lastDrain = 0xFFFFF000u;
+    const uint32_t now = 0x00000100u;  // 4352 ms later
+    CHECK(cameraIdleDrainDue(lastDrain, now, P4_IDLE_DRAIN_MS) == 1);
+    // And the window still holds straight after the wrap.
+    CHECK(cameraIdleDrainDue(now, (uint32_t)(now + P4_IDLE_DRAIN_MS - 1), P4_IDLE_DRAIN_MS) == 0);
+    CHECK(cameraIdleDrainDue(now, (uint32_t)(now + P4_IDLE_DRAIN_MS), P4_IDLE_DRAIN_MS) == 1);
+    // A drain timestamp of 0 would mean "never drained" — never confuse it
+    // with the wrap value (the session resets it to 0 on stop).
+    CHECK(cameraIdleDrainDue(0, 0xFFFFFFFFu, P4_IDLE_DRAIN_MS) == 1);
+}
+
 TEST_CASE("cached photo fallback: young cache serves, old/never fails") {
     // Published 1 s ago -> serve it (snapshot while streaming on slow link).
     CHECK(cameraCachedPhotoOk(10000, 11000, PHOTO_CACHE_MAX_AGE_MS) == 1);

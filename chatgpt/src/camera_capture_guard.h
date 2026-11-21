@@ -23,6 +23,15 @@
 #define P4_CAP_RETRY_MS (3000UL)
 #define P4_CAP_RESTART_MS (10000UL)
 
+// Idle drain (CAM-89): a started session with NO consumer dequeues nothing —
+// every capture path is pull-driven (viewer pump, recorder, motion sampling,
+// snapshots). Left like that, a 1080p session panicked the board three times
+// (68 s / 438 s / 900 s of uptime) while the same build survives for hours at
+// 800x800. Draining one frame every P4_IDLE_DRAIN_MS keeps the driver's buffer
+// queue cycling without encoding or copying anything.
+#define P4_IDLE_DRAIN_MS (250UL)
+#define P4_IDLE_DRAIN_TMO_MS (200UL)
+
 // True = skip the driver dequeue and fail fast: the pipeline delivered no
 // frame for stallMs and the last attempt was less than retryMs ago. Returns
 // false (attempt the dequeue) when frames are flowing, when nothing was ever
@@ -51,6 +60,15 @@ static inline int cameraCaptureRestartDue(uint32_t lastOkMs, uint32_t lastRestar
     if (!cameraCaptureStalled(lastOkMs, nowMs, stallMs)) return 0;
     if (lastRestartMs != 0 && (uint32_t)(nowMs - lastRestartMs) < restartMs) return 0;
     return 1;
+}
+
+// True = an idle drain is due (CAM-89): the first call always drains, then at
+// most one discard per gapMs. Unsigned subtraction keeps this correct across
+// millis() wrap-around.
+static inline int cameraIdleDrainDue(uint32_t lastDrainMs, uint32_t nowMs,
+                                     uint32_t gapMs) {
+    if (lastDrainMs == 0) return 1;
+    return ((uint32_t)(nowMs - lastDrainMs) >= gapMs) ? 1 : 0;
 }
 
 // Maximum age of a cached JPEG that may still be served as a photo/video

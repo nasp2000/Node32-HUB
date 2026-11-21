@@ -161,6 +161,15 @@ size_t cameraP4CaptureRaw(CameraP4ChunkWriter rawWrite, void* rawCtx,
 // No-op unless ready + MIPI + stalled.
 void cameraP4StallTick(uint32_t nowMs);
 
+// Loop-task idle drain (CAM-89): a started session with no consumer (no
+// viewer, no recording, no motion sampling) dequeues nothing, so the driver's
+// V4L2 queue stays full and a long viewer-less 1080p session panicked the
+// board. Drains ONE frame (no encode, no copy) at most every
+// P4_IDLE_DRAIN_MS so the queue keeps cycling and the stall heartbeat stays
+// fresh. Must only be called from the loop task, and only when nothing else
+// consumes frames. No-op unless ready + MIPI + capture started.
+void cameraP4IdleDrainTick(uint32_t nowMs);
+
 // True while the MIPI pipeline is known-stalled (no good frame for
 // P4_CAP_STALL_MS). Exposed for the status page (capStall).
 bool cameraP4CaptureStalledNow();
