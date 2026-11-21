@@ -23,14 +23,15 @@
 #define P4_CAP_RETRY_MS (3000UL)
 #define P4_CAP_RESTART_MS (10000UL)
 
-// Idle drain (CAM-89): a started session with NO consumer dequeues nothing —
+// Idle park (CAM-90): a started session with NO consumer dequeues nothing —
 // every capture path is pull-driven (viewer pump, recorder, motion sampling,
-// snapshots). Left like that, a 1080p session panicked the board three times
-// (68 s / 438 s / 900 s of uptime) while the same build survives for hours at
-// 800x800. Draining one frame every P4_IDLE_DRAIN_MS keeps the driver's buffer
-// queue cycling without encoding or copying anything.
-#define P4_IDLE_DRAIN_MS (250UL)
-#define P4_IDLE_DRAIN_TMO_MS (200UL)
+// snapshots). CAM-89 fed that state with one discarded frame every 250 ms: it
+// took the board from "panics at 68 s / 438 s / 900 s" to runs of 32 and 21
+// minutes, but a third run still panicked at ~10 min with min_free_heap at
+// 9 128 B. Keeping the ISP/DMA running for nobody is the expensive part, so the
+// session is now PARKED (stopCapture) after P4_IDLE_PARK_MS without a
+// consumer and resumed on demand by the next capture call.
+#define P4_IDLE_PARK_MS (2000UL)
 
 // True = skip the driver dequeue and fail fast: the pipeline delivered no
 // frame for stallMs and the last attempt was less than retryMs ago. Returns
@@ -62,13 +63,16 @@ static inline int cameraCaptureRestartDue(uint32_t lastOkMs, uint32_t lastRestar
     return 1;
 }
 
-// True = an idle drain is due (CAM-89): the first call always drains, then at
-// most one discard per gapMs. Unsigned subtraction keeps this correct across
-// millis() wrap-around.
-static inline int cameraIdleDrainDue(uint32_t lastDrainMs, uint32_t nowMs,
-                                     uint32_t gapMs) {
-    if (lastDrainMs == 0) return 1;
-    return ((uint32_t)(nowMs - lastDrainMs) >= gapMs) ? 1 : 0;
+// True = the session has been idle long enough to park it (CAM-90): nothing
+// consumed a frame for parkMs and the decision was not taken that recently.
+// lastOkMs == 0 means "never captured" — never park a session that has not
+// proved it can deliver a frame. Unsigned subtraction wraps correctly.
+static inline int cameraIdleParkDue(uint32_t lastOkMs, uint32_t lastParkMs,
+                                    uint32_t nowMs, uint32_t parkMs) {
+    if (lastOkMs == 0) return 0;
+    if ((uint32_t)(nowMs - lastOkMs) < parkMs) return 0;
+    if (lastParkMs != 0 && (uint32_t)(nowMs - lastParkMs) < parkMs) return 0;
+    return 1;
 }
 
 // Maximum age of a cached JPEG that may still be served as a photo/video

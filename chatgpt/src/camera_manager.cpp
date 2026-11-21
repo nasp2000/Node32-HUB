@@ -934,13 +934,12 @@ void cameraLoop() {
     s_lastCameraLoopMs = nowMs;
 
 #if defined(TARGET_BOARD_P4) && TARGET_BOARD_P4 == 1
-    // CAM-89: a session with no consumer must still turn the capture queue.
-    // Every other dequeue is pull-driven (viewer pump, H.264 pump, recorder,
-    // motion sampling, snapshots), so "ready with nothing attached" left the
-    // driver's V4L2 queue full for minutes and panicked the board at 1080p
-    // (measured 68-900 s of uptime, no viewer). One discarded frame per
-    // P4_IDLE_DRAIN_MS keeps it cycling at no encode/copy cost.
-    if (!pumpForRec) cameraP4IdleDrainTick(nowMs);
+    // CAM-90: with no consumer there is nothing to keep running. CAM-89 kept
+    // the pipeline alive by draining a frame every 250 ms, which still left
+    // min_free_heap at ~9 KB and panicked one run at ~10 min; parking the
+    // session (stopCapture) is what actually removes the cost. Every capture
+    // path resumes it on demand, so viewers/snapshots/recording are unaffected.
+    if (!pumpForRec) cameraP4IdleParkTick(nowMs);
     // MIPI stall re-sync (CAM-62): loop task only, self-throttled to one
     // session restart per 10 s. Recovers a sensor that stops delivering
     // (e.g. marginal mode) instead of wedging every later capture in DQBUF.

@@ -153,7 +153,9 @@ static volatile uint32_t s_lastCapTryMs = 0;     // last capture attempt
 static volatile uint32_t s_lastCapRestartMs = 0; // last session re-sync
 static volatile uint8_t s_capStallFails = 0;     // consecutive bounded failures
 static bool s_dqbufTimeoutOn = false;            // driver-level bound active?
-static volatile uint32_t s_lastIdleDrainMs = 0;  // CAM-89: last idle discard
+static volatile uint32_t s_lastIdleParkMs = 0;   // CAM-90: last park/resume decision
+static volatile bool s_capParked = false;        // CAM-90: capture parked (idle)
+static volatile uint8_t s_capBusy = 0;           // CAM-90: capture call in flight
 
 // ---- USB-UVC source state (CAM_P4 pack only: needs the ESP_Video-era
 // uvc_host headers and ENABLE_USB_HOST=1; other P4 packs have no camera) ----
@@ -1921,6 +1923,7 @@ static bool p4OpenCaptureAt(uint16_t w, uint16_t h) {
         s_cap.end();
         return false;
     }
+    s_capParked = false;  // CAM-90: a fresh open is running, not parked
     s_w = s_cap.getWidth();
     s_h = s_cap.getHeight();
     if (s_w != w || s_h != h) {
@@ -2189,7 +2192,9 @@ void cameraP4End() {
     s_lastDequeueOkMs = 0;
     s_lastCapTryMs = 0;
     s_lastCapRestartMs = 0;
-    s_lastIdleDrainMs = 0;
+    s_lastIdleParkMs = 0;
+    s_capParked = false;
+    s_capBusy = 0;
     s_capStallFails = 0;
     s_dqbufTimeoutOn = false;
     s_ready = false;
@@ -2253,6 +2258,17 @@ static size_t p4EncodeJpeg(const uint8_t *raw, size_t rawLen) {
 }
 #endif // P4_HAVE_ESP_VIDEO (p4EncodeJpeg uses the 3.3.12 JPEG API + s_jpgEnc/s_jpgSlot)
 
+#if P4_HAVE_ESP_VIDEO
+static void p4ResumeCapture();  // CAM-90: defined with the park/resume block
+#endif
+
+// CAM-90: marks a capture call in flight so the loop task never parks the
+// session underneath a dequeue that is already waiting for a frame.
+struct P4CapBusyGuard {
+    P4CapBusyGuard() { s_capBusy++; }
+    ~P4CapBusyGuard() { if (s_capBusy) s_capBusy--; }
+};
+
 size_t cameraP4CaptureWithRaw(CameraP4ChunkWriter write, void* ctx,
                                CameraP4ChunkWriter rawWrite, void* rawCtx,
                                uint32_t timeoutMs) {
@@ -2261,6 +2277,7 @@ size_t cameraP4CaptureWithRaw(CameraP4ChunkWriter write, void* ctx,
     return 0;
 #else
     if (!s_ready) return 0;
+    P4CapBusyGuard busy;
 #if P4_HAVE_UVC
     // USB source: wait for a new pushed frame, then emit from the slot.
     if (s_source == CAM_P4_SRC_USB) {
@@ -2287,7 +2304,11 @@ size_t cameraP4CaptureWithRaw(CameraP4ChunkWriter write, void* ctx,
         return len;
     }
 #endif
-    if (!s_capOpen || !s_cap.isCaptureStarted()) return 0;
+    if (!s_capOpen) return 0;
+    // CAM-90: a parked session has no capture running by design — spin it up
+    // before asking for a frame (viewer pump, snapshot, recorder, H.264).
+    p4ResumeCapture();
+    if (!s_cap.isCaptureStarted()) return 0;
     // Fast-fail while the pipeline is known-stalled (CAM-62): the dequeue
     // below (VIDIOC_DQBUF) blocks inside the driver when no frame arrives,
     // which wedged the HTTP task on a stalled 720p snapshot. A retry is
@@ -2341,10 +2362,13 @@ size_t cameraP4CaptureRaw(CameraP4ChunkWriter rawWrite, void* rawCtx,
     return 0;
 #else
     if (!s_ready || !rawWrite) return 0;
+    P4CapBusyGuard busy;
 #if P4_HAVE_UVC
     if (s_source == CAM_P4_SRC_USB) return 0;  // no UYVY on USB
 #endif
-    if (!s_capOpen || !s_cap.isCaptureStarted()) return 0;
+    if (!s_capOpen) return 0;
+    p4ResumeCapture();  // CAM-90: parked session resumes on demand
+    if (!s_cap.isCaptureStarted()) return 0;
     uint32_t nowMs = millis();
     if (cameraCaptureFastFail(s_lastDequeueOkMs, s_lastCapTryMs, nowMs,
                               P4_CAP_STALL_MS, P4_CAP_RETRY_MS)) {
@@ -2374,10 +2398,13 @@ bool cameraP4CaptureGrayThumb(uint8_t* dst, uint16_t dstW, uint16_t dstH,
     return false;
 #else
     if (!s_ready || !dst || !dstW || !dstH) return false;
+    P4CapBusyGuard busy;
 #if P4_HAVE_UVC
     if (s_source == CAM_P4_SRC_USB) return false;  // no UYVY on USB
 #endif
-    if (!s_capOpen || !s_cap.isCaptureStarted()) return false;
+    if (!s_capOpen) return false;
+    p4ResumeCapture();  // CAM-90: parked session resumes on demand
+    if (!s_cap.isCaptureStarted()) return false;
     uint32_t nowMs = millis();
     if (cameraCaptureFastFail(s_lastDequeueOkMs, s_lastCapTryMs, nowMs,
                               P4_CAP_STALL_MS, P4_CAP_RETRY_MS)) {
@@ -2407,66 +2434,80 @@ bool cameraP4CaptureStalledNow() {
     return false;
 #else
     if (!s_ready || s_source != CAM_P4_SRC_MIPI) return false;
+    // CAM-90: a parked session delivers nothing by design, not because the
+    // pipeline died — the status page must not show [NO FRAMES] for it.
+    if (s_capParked) return false;
     return cameraCaptureStalled(s_lastDequeueOkMs, millis(), P4_CAP_STALL_MS) ? true : false;
 #endif
 }
 
-// ---- Idle drain (CAM-89) ---------------------------------------------------
+// ---- Idle park (CAM-90) ----------------------------------------------------
 // Every capture path in this firmware is pull-driven: the loop pump (viewer /
 // H.264 / MJPEG recording), the recorder's own tick (timelapse, dashcam), the
 // motion sampler and the request-driven snapshot/photo path. A camera left
-// "ready" with NONE of those attached therefore dequeues nothing at all, and
-// the driver's V4L2 queue stays full for as long as the session lives.
+// "ready" with NONE of those attached therefore dequeues nothing at all.
 //
-// Measured on the .18 (v1.120, 2026-11-21): a viewer-less 1920x1080 session
-// panicked after 68 s, 438 s and 900 s (reset_reason=PANIC each time) with
-// streamClients=0, streamFrames=0, recording=False and a 10-minute silent
-// monitor log — i.e. not one dequeue. 1-2 viewers on the same build never
-// panicked, and the same idle state at 800x800 survives for hours.
+// CAM-89 kept that state alive by draining one frame every 250 ms, which took
+// the board from "panics at 68 s / 438 s / 900 s" to two runs of 32 and 21
+// minutes — but a third run still panicked at ~10 min, and the same boot
+// showed min_free_heap = 9 128 B with 1080p live (73 KB / maxAlloc 21 KB with
+// two viewers). Keeping the ISP/DMA running for nobody is the expensive part:
+// the fix is to PARK the session instead of feeding it.
 //
-// One discarded dequeue per P4_IDLE_DRAIN_MS is enough to keep the queue
-// cycling: no JPEG encode, no copy, no writer — just DQBUF + QBUF (the buffer
-// is reclaimed on scope exit). It also refreshes the CAM-62 heartbeat, so a
-// genuinely dead pipeline is still caught by the stall guard instead of being
-// masked by "nobody ever asked".
+// Park = stopCapture() once nothing has consumed a frame for P4_IDLE_PARK_MS.
+// The sensor/ISP/DMA stop touching frames, so the buffer queue, the heap and
+// the 30 fps stream stop existing while nobody is watching. Every capture
+// entry point resumes the session before dequeuing (one startCapture, ~tens of
+// ms), so a viewer, a snapshot, a recording or motion sampling gets its frame
+// as before — just after the pipeline spins up again.
 #if P4_HAVE_ESP_VIDEO
-static size_t p4IdleDrain(uint32_t timeoutMs) {
-    uint32_t start = millis();
-    while ((millis() - start) < timeoutMs) {
-        ESPVideoBufferClass buf = s_cap.captureBuffer();
-        if (buf.valid() && buf.size() > 0) {
-            s_lastDequeueOkMs = millis();
-            s_capStallFails = 0;
-            return buf.size();  // discarded: RAW buffer reclaimed on scope exit
-        }
-        delay(2);
+// Resume a parked session. Callers hold no lock: stop/start only ever happen in
+// the loop task (park tick) or in this task when it is the one asking for a
+// frame, and a parked session has no consumer by definition.
+static void p4ResumeCapture() {
+    if (!s_capParked || !s_capOpen) return;
+    if (!s_cap.startCapture()) {
+        p4CamLog("[CAM-P4/CSI] idle resume FAILED", ERROR);
+        return;
     }
-    return 0;
+    s_capParked = false;
+    // Fresh heartbeat: a parked session produced no frames by definition and
+    // must not be reported as stalled the moment it resumes.
+    s_lastDequeueOkMs = millis();
+    s_capStallFails = 0;
+    p4CamLog("[CAM-P4/CSI] idle: capture resumed on demand", INFO);
 }
-#endif // P4_HAVE_ESP_VIDEO (p4IdleDrain touches the ESP_Video capture object)
 
-void cameraP4IdleDrainTick(uint32_t nowMs) {
+static void p4ParkCapture(uint32_t nowMs) {
+    if (s_capParked || !s_capOpen || !s_cap.isCaptureStarted()) return;
+    if (!s_cap.stopCapture()) {
+        // Driver refused to stop: leave the session running and let the stall
+        // guard deal with it, but do not spin retrying every tick.
+        s_lastIdleParkMs = nowMs;
+        return;
+    }
+    s_capParked = true;
+    p4CamLog(String("[CAM-P4/CSI] idle (") + (uint32_t)P4_IDLE_PARK_MS
+             + " ms without a consumer): capture stopped, parked", INFO);
+}
+#endif // P4_HAVE_ESP_VIDEO
+
+void cameraP4IdleParkTick(uint32_t nowMs) {
 #if !P4_HAVE_ESP_VIDEO
     (void)nowMs;
 #else
     if (!s_ready || s_source != CAM_P4_SRC_MIPI) return;
     if (!s_capOpen || !s_cap.isCaptureStarted()) return;
     // A mode switch (HTTP task) tears the session down and reopens it; never
-    // dequeue into that window.
-    if (s_resSwitching) return;
-    if (!cameraIdleDrainDue(s_lastIdleDrainMs, nowMs, P4_IDLE_DRAIN_MS)) return;
-    // Same bounded-retry policy as the consumer paths: while the pipeline is
-    // known-stalled, probe once per retry window instead of every 250 ms.
-    if (cameraCaptureFastFail(s_lastDequeueOkMs, s_lastCapTryMs, nowMs,
-                              P4_CAP_STALL_MS, P4_CAP_RETRY_MS)) {
-        return;
-    }
-    s_lastIdleDrainMs = nowMs;
-    s_lastCapTryMs = nowMs;
-    p4IdleDrain(P4_IDLE_DRAIN_TMO_MS);
+    // park into that window. Nor while a capture call is in flight.
+    if (s_resSwitching || s_capBusy) return;
+    if (!cameraIdleParkDue(s_lastDequeueOkMs, s_lastIdleParkMs, nowMs, P4_IDLE_PARK_MS)) return;
+    s_lastIdleParkMs = nowMs;
+    p4ParkCapture(nowMs);
 #endif
 }
 
+void cameraP4StallTick(uint32_t nowMs) {
 void cameraP4StallTick(uint32_t nowMs) {
 #if !P4_HAVE_ESP_VIDEO
     (void)nowMs;
@@ -2474,6 +2515,7 @@ void cameraP4StallTick(uint32_t nowMs) {
     // Loop task only: session teardown races concurrent dequeues, so HTTP /
     // stream tasks never re-sync — they fast-fail instead (see capture()).
     if (!s_ready || s_source != CAM_P4_SRC_MIPI) return;
+    if (s_capParked) return;  // CAM-90: idle-parked, nothing to re-sync
     if (!s_capOpen || !s_cap.isCaptureStarted()) return;
     if (!cameraCaptureRestartDue(s_lastDequeueOkMs, s_lastCapRestartMs, nowMs,
                                  P4_CAP_STALL_MS, P4_CAP_RESTART_MS)) {
