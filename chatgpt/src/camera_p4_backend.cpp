@@ -570,7 +570,7 @@ static int p4UsbRawIsocProbe(usb_host_client_handle_t ch, usb_device_handle_t dh
                             usb_host_transfer_free(isoc);
                             usb_host_transfer_free(ctrl);
                             usb_host_interface_release(ch, dh, iface);
-                            return;
+                            return 0;
                         }
                         altSet = true;
                     }
