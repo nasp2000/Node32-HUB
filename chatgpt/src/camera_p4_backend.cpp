@@ -2262,7 +2262,8 @@ static size_t p4EncodeJpeg(const uint8_t *raw, size_t rawLen) {
 #endif // P4_HAVE_ESP_VIDEO (p4EncodeJpeg uses the 3.3.12 JPEG API + s_jpgEnc/s_jpgSlot)
 
 #if P4_HAVE_ESP_VIDEO
-static bool p4ResumeCapture();  // CAM-90: defined with the park/resume block
+static bool p4ResumeCapture();              // CAM-90: see the park/resume block
+static void p4DropFirstFrameAfterResume(bool resumed);  // CAM-90
 #endif
 
 // CAM-90: marks a capture call in flight so the loop task never parks the
