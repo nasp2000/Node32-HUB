@@ -2429,6 +2429,17 @@ bool cameraP4CaptureGrayThumb(uint8_t* dst, uint16_t dstW, uint16_t dstH,
 #endif
 }
 
+bool cameraP4CaptureParkedNow(uint32_t* ageMs) {
+    if (ageMs) {
+        *ageMs = s_lastDequeueOkMs ? (uint32_t)(millis() - s_lastDequeueOkMs) : 0;
+    }
+#if !P4_HAVE_ESP_VIDEO
+    return false;
+#else
+    return s_capParked;
+#endif
+}
+
 bool cameraP4CaptureStalledNow() {
 #if !P4_HAVE_ESP_VIDEO
     return false;
@@ -2482,7 +2493,9 @@ static void p4ParkCapture(uint32_t nowMs) {
     if (s_capParked || !s_capOpen || !s_cap.isCaptureStarted()) return;
     if (!s_cap.stopCapture()) {
         // Driver refused to stop: leave the session running and let the stall
-        // guard deal with it, but do not spin retrying every tick.
+        // guard deal with it, but do not spin retrying every tick. Say it out
+        // loud — a silent refusal is indistinguishable from "never engaged".
+        p4CamLog("[CAM-P4/CSI] idle park refused by the driver (stopCapture failed)", WARN);
         s_lastIdleParkMs = nowMs;
         return;
     }

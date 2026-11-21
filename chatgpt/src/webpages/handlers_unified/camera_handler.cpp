@@ -119,6 +119,15 @@ void handleCameraStatusGet(HttpRequest& req, HttpResponse& res) {
     // P4_CAP_STALL_MS. Lets a snapshot 503 be diagnosed remotely instead of
     // guessing whether the sensor, the encoder or the HTTP path failed.
     doc["capStall"] = cameraP4CaptureStalledNow() ? 1 : 0;
+    // CAM-90: idle park state. `camPark`=1 means the capture session is
+    // stopped because nothing consumed a frame; `camIdleMs` is how long ago
+    // the last frame was consumed (0 = never). Lets a remote run tell
+    // "parking never engaged" from "parked / resumed" without a console.
+    {
+        uint32_t idleAge = 0;
+        doc["camPark"] = cameraP4CaptureParkedNow(&idleAge) ? 1 : 0;
+        doc["camIdleMs"] = idleAge;
+    }
 #endif
     doc["maxFrameSize"] = cameraDetectedMaxFrameSize();
     doc["streamFps"] = cameraStreamFps();

@@ -174,6 +174,13 @@ void cameraP4IdleParkTick(uint32_t nowMs);
 // P4_CAP_STALL_MS). Exposed for the status page (capStall).
 bool cameraP4CaptureStalledNow();
 
+// CAM-90 diagnostics (status page): 1 while the capture session is parked
+// because nothing consumes frames, 0 while it runs. `ageMs` receives how long
+// the session has gone without a consumed frame (0 when never captured), which
+// is what the park decision looks at. Lets a remote run tell "parking never
+// engaged" from "parked and resumed" without a serial console.
+bool  cameraP4CaptureParkedNow(uint32_t* ageMs);
+
 // Live controls (subset of the sensor API; unsupported ones are no-ops).
 // Returns false when not ready or unsupported.
 bool cameraP4SetQuality(uint8_t quality);   // JPEG 4..63
