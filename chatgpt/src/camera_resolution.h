@@ -65,18 +65,18 @@ static inline int cameraP4ModeUsable(uint16_t w, uint16_t h) {
            !cameraP4ModePortrait(w, h);
 }
 
-// --- 1920x1080 timing (CAM-86) ---------------------------------------------
+// --- 1920x1080 timing (CAM-86, unified by CAM-88) ---------------------------
 // Numbers from the sensor REGISTER table: 0x380c/d = 2271, 0x380e/f = 1199 ->
 // 81.6667 MHz / (2271*1199) = 30.0 fps. The old 2416 x 1104 pair matched no
 // register value; it was fitted to 30 fps.
 //
-// Measured on the .18 (2026-11-21, build 20261121_0535): the mode STARTS and
-// STREAMS at 1920x1080 (8.2 fps, ~256 KB/frame, clean stop, 90 s idle stable),
-// yet `sensorFmt` still reports hts=2416 vts=1104 — because these constants are
-// documentation/metadata only. The timing the ISP actually applies lives in
-// kP4CustomIspInfo[] (camera_p4_backend.cpp); P4SensorFmtDef::pclk/hts/vts are
-// read by nobody. Keep the two in step when editing either, and remember that
-// changing isp_info is a behavioural change that needs a hardware run.
+// These macros are the single source: the 1920x1080 row of kP4SensorFmts[]
+// (camera_p4_backend.cpp) builds its isp_info from them, and that descriptor is
+// what the sensor driver retains and the CSI/ISP pipeline is built with — so
+// `sensorFmt` now reports hts=2271 vts=1199. Before CAM-88 the applied timing
+// lived in a second table (kP4CustomIspInfo[]) that still carried 2416/1104,
+// which is why a measured run streamed ~8.2 fps while the metadata said 30.
+// Changing these is a behavioural change that needs a hardware run.
 #define CAM_P4_1080P_HTS   2271
 #define CAM_P4_1080P_VTS   1199
 #define CAM_P4_1080P_PCLK  81666700u

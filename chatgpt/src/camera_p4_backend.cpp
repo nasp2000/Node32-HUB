@@ -1668,7 +1668,12 @@ struct P4SensorFmtDef {
     const ov5647_reginfo_t *regs;
     int regs_size;
     uint8_t fps;
-    int pclk, hts, vts;
+    // CAM-88: the timing the ISP actually applies lives HERE, once. The sensor
+    // driver retains this pointer after set_format(), ESP_Video builds the
+    // CSI/ISP pipeline from it and VIDIOC_G_SENSOR_FMT reports it back as
+    // `sensorFmt` — so there is no second table to keep in step: edit the row
+    // and the hardware follows.
+    esp_cam_sensor_isp_info_t isp;
     uint32_t mipi_clk;
     const char *name;
 };
@@ -1684,43 +1689,56 @@ static const P4SensorFmtDef kP4SensorFmts[] = {
     // paths stay <=1920 wide (H.264 HW ceiling + 2 MB stream cache).
     {2592, 1944, ESP_CAM_SENSOR_PIXFORMAT_RAW10,
      nullptr, 0,
-     15, 87500000, 2844, 1968, 218750000,
+     15,
+     {{SENSOR_ISP_INFO_VERSION_DEFAULT, 87500000, 2844, 1968, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},
+     218750000,
      "MIPI_2lane_24Minput_RAW10_2592x1944_derived"},
     {1920, 1080, ESP_CAM_SENSOR_PIXFORMAT_RAW10,
      ov5647_mipi_2lane_24Minput_1920x1080_raw10_30fps,
      (int)(sizeof(ov5647_mipi_2lane_24Minput_1920x1080_raw10_30fps) / sizeof(ov5647_reginfo_t)) - 1,
-     // CAM-86: register-table numbers (HTS 2271 / VTS 1199, 30.0 fps), in the
-     // (VTS, HTS) order the working rows use. METADATA ONLY:
-     // p4PersistentSensorFmtFor() copies fps and the ISP pointer, never these
-     // three fields — the timing the ISP applies is kP4CustomIspInfo[] below.
-     // Kept because they document the mode and feed cameraP4ModeFps()'s test.
-     CAM_P4_1080P_FPS, CAM_P4_1080P_PCLK, CAM_P4_1080P_VTS, CAM_P4_1080P_HTS,
+     CAM_P4_1080P_FPS,
+     // CAM-88: register-table timing (0x380c/d = HTS 2271, 0x380e/f = VTS 1199
+     // -> 81.6667 MHz / (2271*1199) = 30.0 fps). This IS what the ISP applies
+     // now; before CAM-88 the applied row carried the fitted 2416x1104 pair
+     // while these numbers sat in a field nobody read.
+     {{SENSOR_ISP_INFO_VERSION_DEFAULT, CAM_P4_1080P_PCLK, CAM_P4_1080P_HTS, CAM_P4_1080P_VTS,
+       0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},
      (uint32_t)OV5647_MIPI_CSI_LINE_RATE_1920x1080_30FPS,
      "MIPI_2lane_24Minput_RAW10_1920x1080_30fps"},
     {1280, 960, ESP_CAM_SENSOR_PIXFORMAT_RAW10,
      ov5647_mipi_2lane_24Minput_1280x960_raw10_45fps,
      (int)(sizeof(ov5647_mipi_2lane_24Minput_1280x960_raw10_45fps) / sizeof(ov5647_reginfo_t)) - 1,
-     45, 88333333, 1093, 1796, (uint32_t)OV5647_MIPI_CSI_LINE_RATE_1280x960_45FPS,
+     45,
+     {{SENSOR_ISP_INFO_VERSION_DEFAULT, 88333333, 1093, 1796, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},
+     (uint32_t)OV5647_MIPI_CSI_LINE_RATE_1280x960_45FPS,
      "MIPI_2lane_24Minput_RAW10_1280x960_binning_45fps"},
     {1280, 720, ESP_CAM_SENSOR_PIXFORMAT_RAW10,
      ov5647_mipi_2lane_24Minput_1280x720_raw10_30fps,
      (int)(sizeof(ov5647_mipi_2lane_24Minput_1280x720_raw10_30fps) / sizeof(ov5647_reginfo_t)) - 1,
-     30, 88333333, 1796, 1640, (uint32_t)OV5647_MIPI_CSI_LINE_RATE_1280x720_30FPS,
+     30,
+     {{SENSOR_ISP_INFO_VERSION_DEFAULT, 88333333, 1796, 1640, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},
+     (uint32_t)OV5647_MIPI_CSI_LINE_RATE_1280x720_30FPS,
       "MIPI_2lane_24Minput_RAW10_1280x720_30fps"},
     {800, 1280, ESP_CAM_SENSOR_PIXFORMAT_RAW8,
      ov5647_mipi_2lane_24Minput_800x1280_raw8_50fps,
      (int)(sizeof(ov5647_mipi_2lane_24Minput_800x1280_raw8_50fps) / sizeof(ov5647_reginfo_t)) - 1,
-     50, 81666700, 984, 1896, (uint32_t)OV5647_MIPI_CSI_LINE_RATE_800x1280_50FPS,
+     50,
+     {{SENSOR_ISP_INFO_VERSION_DEFAULT, 81666700, 984, 1896, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},
+     (uint32_t)OV5647_MIPI_CSI_LINE_RATE_800x1280_50FPS,
      "MIPI_2lane_24Minput_RAW8_800x1280_50fps"},
     {800, 800, ESP_CAM_SENSOR_PIXFORMAT_RAW8,
      ov5647_mipi_2lane_24Minput_800x800_raw8_50fps,
      (int)(sizeof(ov5647_mipi_2lane_24Minput_800x800_raw8_50fps) / sizeof(ov5647_reginfo_t)) - 1,
-     50, 81666700, 984, 1896, (uint32_t)OV5647_MIPI_CSI_LINE_RATE_800x800_50FPS,
+     50,
+     {{SENSOR_ISP_INFO_VERSION_DEFAULT, 81666700, 984, 1896, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},
+     (uint32_t)OV5647_MIPI_CSI_LINE_RATE_800x800_50FPS,
      "MIPI_2lane_24Minput_RAW8_800x800_50fps"},
     {800, 640, ESP_CAM_SENSOR_PIXFORMAT_RAW8,
      ov5647_mipi_2lane_24Minput_800x640_raw8_50fps,
      (int)(sizeof(ov5647_mipi_2lane_24Minput_800x640_raw8_50fps) / sizeof(ov5647_reginfo_t)) - 1,
-     50, 81666700, 984, 1896, (uint32_t)OV5647_MIPI_CSI_LINE_RATE_800x640_50FPS,
+     50,
+     {{SENSOR_ISP_INFO_VERSION_DEFAULT, 81666700, 984, 1896, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},
+     (uint32_t)OV5647_MIPI_CSI_LINE_RATE_800x640_50FPS,
      "MIPI_2lane_24Minput_RAW8_800x640_50fps"},
 };
 static const P4SensorFmtDef* p4SensorFmtFor(uint16_t w, uint16_t h) {
@@ -1729,28 +1747,12 @@ static const P4SensorFmtDef* p4SensorFmtFor(uint16_t w, uint16_t h) {
     }
     return nullptr;
 }
-static const esp_cam_sensor_isp_info_t kP4CustomIspInfo[] = {
-    // THE APPLIED TIMING. One entry per kP4SensorFmts row (same order, enforced
-    // by the static_assert below); this is what VIDIOC_G_SENSOR_FMT reports as
-    // `sensorFmt` and what the CSI/ISP pipeline is built with. Editing a row's
-    // pclk/hts/vts in kP4SensorFmts does NOT reach the hardware — change the
-    // matching entry here, and treat it as a behavioural change that needs a
-    // hardware run (the 1080p row below still carries the 2416x1104 pair that
-    // was measured streaming at ~8.2 fps, while its metadata row has 2271/1199).
-    {{SENSOR_ISP_INFO_VERSION_DEFAULT, 87500000, 2844, 1968, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},  // Fase 3 5MP derived (inert until regs land)
-    {{SENSOR_ISP_INFO_VERSION_DEFAULT, 81666700, 2416, 1104, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},
-    {{SENSOR_ISP_INFO_VERSION_DEFAULT, 88333333, 1093, 1796, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},
-    {{SENSOR_ISP_INFO_VERSION_DEFAULT, 88333333, 1796, 1640, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},
-    {{SENSOR_ISP_INFO_VERSION_DEFAULT, 81666700, 984, 1896, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},
-    {{SENSOR_ISP_INFO_VERSION_DEFAULT, 81666700, 984, 1896, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},
-    {{SENSOR_ISP_INFO_VERSION_DEFAULT, 81666700, 984, 1896, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},
-};
-// All per-mode tables must stay in lockstep: the lazy init below indexes the
-// static format/ISP arrays by kP4SensorFmts position.
+// CAM-88: kP4SensorFmts is the ONLY per-mode table. Each row carries its own
+// isp_info (the timing the ISP applies) instead of a parallel array indexed by
+// position, so the "metadata says 2271/1199, hardware runs 2416/1104" split
+// CAM-86 measured cannot come back.
 static_assert(sizeof(kP4SensorFmts) / sizeof(kP4SensorFmts[0]) == P4_CSI_MODE_COUNT,
               "kP4SensorFmts must have one entry per P4 CSI mode");
-static_assert(sizeof(kP4CustomIspInfo) / sizeof(kP4CustomIspInfo[0]) == P4_CSI_MODE_COUNT,
-              "kP4CustomIspInfo must have one entry per P4 CSI mode");
 static esp_cam_sensor_format_t kP4CustomSensorFormats[P4_CSI_MODE_COUNT] = {};
 static bool s_p4CustomSensorFormatsInitialized = false;
 
@@ -1769,7 +1771,7 @@ static esp_cam_sensor_format_t* p4PersistentSensorFmtFor(const P4SensorFmtDef* d
             fmt.regs = def.regs;
             fmt.regs_size = def.regs_size;
             fmt.fps = def.fps;
-            fmt.isp_info = &kP4CustomIspInfo[i];
+            fmt.isp_info = &def.isp;
             fmt.mipi_info.mipi_clk = def.mipi_clk;
             fmt.mipi_info.hs_settle = 0;
             fmt.mipi_info.lane_num = 2;
