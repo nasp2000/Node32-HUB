@@ -66,12 +66,17 @@ static inline int cameraP4ModeUsable(uint16_t w, uint16_t h) {
 }
 
 // --- 1920x1080 timing (CAM-86) ---------------------------------------------
-// The row's ISP timing comes from the sensor REGISTER table (0x380c/d = 2271
-// HTS, 0x380e/f = 1199 VTS -> 81.6667 MHz / (2271*1199) = 30.0 fps), not from a
-// pair fitted to 30 fps as before (2416 x 1104 matched nothing in the table).
-// The descriptor fields follow the (VTS, HTS) convention of the modes that
-// measured working: 800x640/800x800 -> (984, 1896), 1280x960 -> (1093, 1796).
-// So the table row passes CAM_P4_1080P_VTS first, then CAM_P4_1080P_HTS.
+// Numbers from the sensor REGISTER table: 0x380c/d = 2271, 0x380e/f = 1199 ->
+// 81.6667 MHz / (2271*1199) = 30.0 fps. The old 2416 x 1104 pair matched no
+// register value; it was fitted to 30 fps.
+//
+// Measured on the .18 (2026-11-21, build 20261121_0535): the mode STARTS and
+// STREAMS at 1920x1080 (8.2 fps, ~256 KB/frame, clean stop, 90 s idle stable),
+// yet `sensorFmt` still reports hts=2416 vts=1104 — because these constants are
+// documentation/metadata only. The timing the ISP actually applies lives in
+// kP4CustomIspInfo[] (camera_p4_backend.cpp); P4SensorFmtDef::pclk/hts/vts are
+// read by nobody. Keep the two in step when editing either, and remember that
+// changing isp_info is a behavioural change that needs a hardware run.
 #define CAM_P4_1080P_HTS   2271
 #define CAM_P4_1080P_VTS   1199
 #define CAM_P4_1080P_PCLK  81666700u
@@ -85,11 +90,12 @@ static inline uint32_t cameraP4ModeFps(uint32_t pclk, uint16_t hts, uint16_t vts
     return (uint32_t)((tenths + 5ull) / 10ull);                        // rounded
 }
 
-// 1920x1080 is a real mode whose descriptor was wrong for a long time. Its
-// timing is now taken from the register table, but it is NOT measured working
-// yet: it stays out of resList and may only be selected EXPLICITLY (API), which
-// is how the next hardware run measures it. Broken (720p stall) and portrait
-// sizes remain refused outright.
+// 1920x1080 may be selected EXPLICITLY through the API but is never
+// advertised (it stays out of resList). Measured on the .18: it starts and
+// streams (~8.2 fps), but one attempt panicked the board and a stored override
+// made the boot path hit "capture device open failed" and self-heal. It is
+// therefore a controlled diagnostic mode, not something the UI offers. Broken
+// (720p stall) and portrait sizes remain refused outright.
 static inline int cameraP4ModeExperimental(uint16_t w, uint16_t h) {
     return (w == 1920 && h == 1080) ? 1 : 0;
 }
@@ -120,7 +126,12 @@ static inline int cameraResolveP4OutputDims(uint16_t override_w, uint16_t overri
                                             uint16_t enum_w, uint16_t enum_h,
                                             uint16_t* out_w, uint16_t* out_h) {
     if (!out_w || !out_h) return 0;
-    if (override_w && override_h && cameraP4ModeSelectable(override_w, override_h)) {
+    // CAM-87: only ADVERTISED modes may be restored from a persisted override.
+    // The experimental 1920x1080 stays selectable through an explicit API call,
+    // but a stored one must not be replayed at boot: measured on the .18 it
+    // made the boot path hit "capture device open failed" and burn the camera
+    // until the self-heal cleared the override.
+    if (override_w && override_h && cameraP4ModeUsable(override_w, override_h)) {
         *out_w = override_w;
         *out_h = override_h;
         return 1;

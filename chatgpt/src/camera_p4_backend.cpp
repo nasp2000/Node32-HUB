@@ -1689,9 +1689,11 @@ static const P4SensorFmtDef kP4SensorFmts[] = {
     {1920, 1080, ESP_CAM_SENSOR_PIXFORMAT_RAW10,
      ov5647_mipi_2lane_24Minput_1920x1080_raw10_30fps,
      (int)(sizeof(ov5647_mipi_2lane_24Minput_1920x1080_raw10_30fps) / sizeof(ov5647_reginfo_t)) - 1,
-     // CAM-86: timing from the register table (HTS 2271 / VTS 1199), in the
-     // (VTS, HTS) order the working modes use — not the old 2416x1104 pair,
-     // which matched no register value and made the pipeline fail at init.
+     // CAM-86: register-table numbers (HTS 2271 / VTS 1199, 30.0 fps), in the
+     // (VTS, HTS) order the working rows use. METADATA ONLY:
+     // p4PersistentSensorFmtFor() copies fps and the ISP pointer, never these
+     // three fields — the timing the ISP applies is kP4CustomIspInfo[] below.
+     // Kept because they document the mode and feed cameraP4ModeFps()'s test.
      CAM_P4_1080P_FPS, CAM_P4_1080P_PCLK, CAM_P4_1080P_VTS, CAM_P4_1080P_HTS,
      (uint32_t)OV5647_MIPI_CSI_LINE_RATE_1920x1080_30FPS,
      "MIPI_2lane_24Minput_RAW10_1920x1080_30fps"},
@@ -1728,6 +1730,13 @@ static const P4SensorFmtDef* p4SensorFmtFor(uint16_t w, uint16_t h) {
     return nullptr;
 }
 static const esp_cam_sensor_isp_info_t kP4CustomIspInfo[] = {
+    // THE APPLIED TIMING. One entry per kP4SensorFmts row (same order, enforced
+    // by the static_assert below); this is what VIDIOC_G_SENSOR_FMT reports as
+    // `sensorFmt` and what the CSI/ISP pipeline is built with. Editing a row's
+    // pclk/hts/vts in kP4SensorFmts does NOT reach the hardware — change the
+    // matching entry here, and treat it as a behavioural change that needs a
+    // hardware run (the 1080p row below still carries the 2416x1104 pair that
+    // was measured streaming at ~8.2 fps, while its metadata row has 2271/1199).
     {{SENSOR_ISP_INFO_VERSION_DEFAULT, 87500000, 2844, 1968, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},  // Fase 3 5MP derived (inert until regs land)
     {{SENSOR_ISP_INFO_VERSION_DEFAULT, 81666700, 2416, 1104, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},
     {{SENSOR_ISP_INFO_VERSION_DEFAULT, 88333333, 1093, 1796, 0, 0, 0, ESP_CAM_SENSOR_BAYER_GBRG}},

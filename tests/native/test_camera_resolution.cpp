@@ -62,10 +62,11 @@ TEST_CASE("Fase 3 stills-only: 5MP class is photo-only, video sizes are not") {
 
 TEST_CASE("effective P4 output dims: explicit supported sensor mode wins") {
     uint16_t w = 0, h = 0;
-    // CAM-86: 1920x1080 is selectable again (timing fixed), so its stored
-    // override wins; CAM-78 auto-revert still applies to 1280x720 (stalls).
+    // CAM-87: 1920x1080 is API-selectable but never restored from a stored
+    // override (it failed on the boot path); 1280x720 still stalls, so both
+    // fall back to the enum geometry.
     CHECK(cameraResolveP4OutputDims(1920, 1080, 800, 800, &w, &h) == 1);
-    CHECK(w == 1920); CHECK(h == 1080);
+    CHECK(w == 800); CHECK(h == 800);
     CHECK(cameraResolveP4OutputDims(1280, 720, 800, 800, &w, &h) == 1);
     CHECK(w == 800); CHECK(h == 800);
     // A working override still wins over the legacy enum.
@@ -154,10 +155,13 @@ TEST_CASE("CAM-86: 1080p is selectable but never advertised") {
 
 TEST_CASE("P4 preset targets resolve to exact output dims") {
     uint16_t w = 0, h = 0;
-    // CAM-86: a stored 1080p override is honoured again (the timing was fixed);
-    // if the pipeline still refuses it, the boot path clears the override.
+    // CAM-87: a stored 1920x1080 override is NOT replayed at boot (measured:
+    // it made "capture device open failed" and burned the camera until the
+    // self-heal cleared it). It stays selectable by an explicit API call, so
+    // the advertised enum geometry wins here.
     CHECK(cameraResolveP4OutputDims(1920, 1080, 800, 800, &w, &h) == 1);
-    CHECK(w == 1920); CHECK(h == 1080);
+    CHECK(w == 800); CHECK(h == 800);
+    CHECK(cameraP4ModeSelectable(1920, 1080) == 1);   // API can still try it
     // CAM-78 auto-revert still holds for sizes that cannot run at all.
     CHECK(cameraResolveP4OutputDims(1280, 720, 800, 800, &w, &h) == 1);
     CHECK(w == 800); CHECK(h == 800);
