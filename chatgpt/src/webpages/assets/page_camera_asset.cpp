@@ -871,13 +871,21 @@ var P4_OV5647_PRESETS={
   safe:{res:'800x800',q:12,fs:5,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
   eco:{res:'800x640',q:24,fs:4,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0}
 };
+// CAM-93: USB presets now carry their own fps, not the MIPI ones. A UVC webcam
+// encodes JPEG on-device, so there is no host encode in the path: the pump can
+// publish at the rate the webcam negotiated (status fpsMax, typically 30). The
+// old 6/6/6/4/5/4 values pinned a webcam to a MIPI budget it never needed.
+// Sizes still come from the mode the camera advertised (usbPresetRes); quality
+// stays in the body for the shared UI but a UVC device ignores it. These are
+// webcam-typical values, clamped to fpsMax: the .18's Sunplus 1b3f:1167 cannot
+// stream (host isoc endpoints all refused) so they could not be measured there.
 var P4_USB_PRESETS={
-  hd:{q:10,fs:6,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
-  vga:{q:20,fs:6,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
-  fast:{q:35,fs:6,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
-  night:{q:15,fs:4,br:1,ct:-1,sa:-1,awb:0,aec:1,agc:1,gc:0},
-  safe:{q:12,fs:5,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
-  eco:{q:24,fs:4,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0}
+  hd:{q:10,fs:10,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
+  vga:{q:20,fs:15,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
+  fast:{q:35,fs:25,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
+  night:{q:15,fs:10,br:1,ct:-1,sa:-1,awb:0,aec:1,agc:1,gc:0},
+  safe:{q:12,fs:15,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
+  eco:{q:24,fs:12,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0}
 };
 function resolutionPostField(value){
   return value.indexOf('x')>=0?'resolution='+encodeURIComponent(value)+'&':'framesize='+value+'&';

@@ -54,12 +54,12 @@ var P4_OV5647_PRESETS = {
   eco:   {res:'800x640',q:24,fs:4,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0}
 };
 var P4_USB_PRESETS = {
-  hd:    {q:10,fs:6,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
-  vga:   {q:20,fs:6,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
-  fast:  {q:35,fs:6,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
-  night: {q:15,fs:4,br:1,ct:-1,sa:-1,awb:0,aec:1,agc:1,gc:0},
-  safe:  {q:12,fs:5,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
-  eco:   {q:24,fs:4,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0}
+  hd:    {q:10,fs:10,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
+  vga:   {q:20,fs:15,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
+  fast:  {q:35,fs:25,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
+  night: {q:15,fs:10,br:1,ct:-1,sa:-1,awb:0,aec:1,agc:1,gc:0},
+  safe:  {q:12,fs:15,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0},
+  eco:   {q:24,fs:12,br:0,ct:0,sa:0,awb:1,aec:1,agc:1,gc:0}
 };
 var CAM_RES_MODES = ['1920x1080','1280x960','1280x720','800x1280','800x800','800x640'];
 
@@ -459,7 +459,20 @@ function run() {
     var u = buildP4PresetBody(getP4Preset('hd', 'USB-UVC', 30));
     ok(u.indexOf('resolution=') < 0, 'USB preset body itself carries no size (the page adds the picked one)');
     ok(u.indexOf('quality=10') >= 0, 'USB still pushes quality');
-    ok(u.indexOf('fps=6') >= 0, 'USB still pushes fps');
+    ok(u.indexOf('fps=' + P4_USB_PRESETS.hd.fs) >= 0, 'USB still pushes fps');
+  });
+  test('CAM-93: USB presets carry UVC fps, not the MIPI budget', function() {
+    // A UVC webcam encodes on-device: no host JPEG in the path, so the presets
+    // ask for the rates a webcam actually offers (still clamped to fpsMax).
+    var names = ['hd', 'vga', 'fast', 'night', 'safe', 'eco'];
+    for (var i = 0; i < names.length; i++) {
+      ok(P4_USB_PRESETS[names[i]].fs > P4_OV5647_PRESETS[names[i]].fs,
+         names[i] + ': USB fps above the MIPI budget');
+      ok(getP4Preset(names[i], 'USB-UVC', 30).fs === P4_USB_PRESETS[names[i]].fs,
+         names[i] + ': USB fps passes through under a 30 fps ceiling');
+    }
+    is(P4_USB_PRESETS.fast.fs, 25);   // the "fast" preset is actually fast now
+    is(getP4Preset('fast', 'USB-UVC', 15).fs, 15);  // and still clamped by fpsMax
   });
   test('CAM-85: USB presets pick from the advertised list', function() {
     var adv = ['1920x1080', '1280x720', '800x600', '640x480', '320x240'];
@@ -571,8 +584,9 @@ function run() {
     ok(buildP4PresetBody(p).indexOf('quality=10') >= 0, 'quality posted');
   });
   test('P4 USB safe posts quality/fps only', function() {
-    var b = buildP4PresetBody(getP4Preset('safe', 'USB-UVC', 15));
-    is(b, 'quality=12&fps=5&brightness=0&contrast=0&saturation=0&awb=1&aec=1&agc=1&gainceiling=0');
+    var b = buildP4PresetBody(getP4Preset('safe', 'USB-UVC', 30));
+    is(b, 'quality=12&fps=' + P4_USB_PRESETS.safe.fs +
+         '&brightness=0&contrast=0&saturation=0&awb=1&aec=1&agc=1&gainceiling=0');
   });
   test('P4 OV5647 safe posts explicit resolution first', function() {
     var b = buildP4PresetBody(getP4Preset('safe', 'OV5647', 6));
@@ -581,7 +595,7 @@ function run() {
   });
   test('P4 fps clamps to the status fpsMax ceiling', function() {
     is(getP4Preset('hd', 'OV5647', 4).fs, 4);
-    is(getP4Preset('fast', 'USB-UVC', 15).fs, 6);
+    is(getP4Preset('fast', 'USB-UVC', 15).fs, 15);   // CAM-93: USB asks 25, fpsMax 15 wins
     is(getP4Preset('hd', 'OV5647', undefined).fs, 6);
   });
   test('P4 night keeps exposure tweaks on both sensors', function() {
