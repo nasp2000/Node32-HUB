@@ -2262,7 +2262,7 @@ static size_t p4EncodeJpeg(const uint8_t *raw, size_t rawLen) {
 #endif // P4_HAVE_ESP_VIDEO (p4EncodeJpeg uses the 3.3.12 JPEG API + s_jpgEnc/s_jpgSlot)
 
 #if P4_HAVE_ESP_VIDEO
-static void p4ResumeCapture();  // CAM-90: defined with the park/resume block
+static bool p4ResumeCapture();  // CAM-90: defined with the park/resume block
 #endif
 
 // CAM-90: marks a capture call in flight so the loop task never parks the
@@ -2310,7 +2310,7 @@ size_t cameraP4CaptureWithRaw(CameraP4ChunkWriter write, void* ctx,
     if (!s_capOpen) return 0;
     // CAM-90: a parked session has no capture running by design — spin it up
     // before asking for a frame (viewer pump, snapshot, recorder, H.264).
-    p4ResumeCapture();
+    p4DropFirstFrameAfterResume(p4ResumeCapture());
     if (!s_cap.isCaptureStarted()) return 0;
     // Fast-fail while the pipeline is known-stalled (CAM-62): the dequeue
     // below (VIDIOC_DQBUF) blocks inside the driver when no frame arrives,
@@ -2370,7 +2370,7 @@ size_t cameraP4CaptureRaw(CameraP4ChunkWriter rawWrite, void* rawCtx,
     if (s_source == CAM_P4_SRC_USB) return 0;  // no UYVY on USB
 #endif
     if (!s_capOpen) return 0;
-    p4ResumeCapture();  // CAM-90: parked session resumes on demand
+    p4DropFirstFrameAfterResume(p4ResumeCapture());  // CAM-90: resume on demand
     if (!s_cap.isCaptureStarted()) return 0;
     uint32_t nowMs = millis();
     if (cameraCaptureFastFail(s_lastDequeueOkMs, s_lastCapTryMs, nowMs,
@@ -2406,7 +2406,7 @@ bool cameraP4CaptureGrayThumb(uint8_t* dst, uint16_t dstW, uint16_t dstH,
     if (s_source == CAM_P4_SRC_USB) return false;  // no UYVY on USB
 #endif
     if (!s_capOpen) return false;
-    p4ResumeCapture();  // CAM-90: parked session resumes on demand
+    p4DropFirstFrameAfterResume(p4ResumeCapture());  // CAM-90: resume on demand
     if (!s_cap.isCaptureStarted()) return false;
     uint32_t nowMs = millis();
     if (cameraCaptureFastFail(s_lastDequeueOkMs, s_lastCapTryMs, nowMs,
@@ -2478,11 +2478,11 @@ bool cameraP4CaptureStalledNow() {
 // Resume a parked session. Callers hold no lock: stop/start only ever happen in
 // the loop task (park tick) or in this task when it is the one asking for a
 // frame, and a parked session has no consumer by definition.
-static void p4ResumeCapture() {
-    if (!s_capParked || !s_capOpen) return;
+static bool p4ResumeCapture() {
+    if (!s_capParked || !s_capOpen) return false;
     if (!s_cap.startCapture()) {
         p4CamLog("[CAM-P4/CSI] idle resume FAILED", ERROR);
-        return;
+        return false;
     }
     s_capParked = false;
     // Fresh heartbeat: a parked session produced no frames by definition and
@@ -2490,6 +2490,17 @@ static void p4ResumeCapture() {
     s_lastDequeueOkMs = millis();
     s_capStallFails = 0;
     p4CamLog("[CAM-P4/CSI] idle: capture resumed on demand", INFO);
+    return true;
+}
+
+// CAM-90: the first buffer handed out right after STREAMON is not a complete
+// frame — measured on the .18 at 1080p q35, the first snapshot after a park
+// came back at ~70 KB against ~480-520 KB for a settled one. Throw it away so
+// no consumer (snapshot, viewer, vision) ever sees a half-filled image.
+static void p4DropFirstFrameAfterResume(bool resumed) {
+    if (!resumed || !s_capOpen || !s_cap.isCaptureStarted()) return;
+    ESPVideoBufferClass stale = s_cap.captureBuffer();  // re-queued on scope exit
+    (void)stale;
 }
 
 static void p4ParkCapture(uint32_t nowMs) {
