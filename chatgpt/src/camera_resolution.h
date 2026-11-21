@@ -65,6 +65,40 @@ static inline int cameraP4ModeUsable(uint16_t w, uint16_t h) {
            !cameraP4ModePortrait(w, h);
 }
 
+// --- 1920x1080 timing (CAM-86) ---------------------------------------------
+// The row's ISP timing comes from the sensor REGISTER table (0x380c/d = 2271
+// HTS, 0x380e/f = 1199 VTS -> 81.6667 MHz / (2271*1199) = 30.0 fps), not from a
+// pair fitted to 30 fps as before (2416 x 1104 matched nothing in the table).
+// The descriptor fields follow the (VTS, HTS) convention of the modes that
+// measured working: 800x640/800x800 -> (984, 1896), 1280x960 -> (1093, 1796).
+// So the table row passes CAM_P4_1080P_VTS first, then CAM_P4_1080P_HTS.
+#define CAM_P4_1080P_HTS   2271
+#define CAM_P4_1080P_VTS   1199
+#define CAM_P4_1080P_PCLK  81666700u
+#define CAM_P4_1080P_FPS   30
+
+// Frame rate implied by a timing triple, rounded to the nearest integer.
+static inline uint32_t cameraP4ModeFps(uint32_t pclk, uint16_t hts, uint16_t vts) {
+    if (!pclk || !hts || !vts) return 0;
+    const uint64_t den = (uint64_t)hts * (uint64_t)vts;
+    const uint64_t tenths = ((uint64_t)pclk * 10ull + den / 2) / den;  // fps * 10
+    return (uint32_t)((tenths + 5ull) / 10ull);                        // rounded
+}
+
+// 1920x1080 is a real mode whose descriptor was wrong for a long time. Its
+// timing is now taken from the register table, but it is NOT measured working
+// yet: it stays out of resList and may only be selected EXPLICITLY (API), which
+// is how the next hardware run measures it. Broken (720p stall) and portrait
+// sizes remain refused outright.
+static inline int cameraP4ModeExperimental(uint16_t w, uint16_t h) {
+    return (w == 1920 && h == 1080) ? 1 : 0;
+}
+
+// 1 when a mode may be selected at all (advertised or experimental).
+static inline int cameraP4ModeSelectable(uint16_t w, uint16_t h) {
+    return cameraP4ModeUsable(w, h) || cameraP4ModeExperimental(w, h);
+}
+
 // MJPEG fps ceiling by LIVE pixel count (CAM-79). The small RAW8 binning modes
 // are rated 50 fps and measured 11-12 fps at the old fixed ceiling of 15 — the
 // ceiling was ours, not the sensor's. 800x640 (0.51 MP) and 800x800 (0.64 MP)
@@ -86,7 +120,7 @@ static inline int cameraResolveP4OutputDims(uint16_t override_w, uint16_t overri
                                             uint16_t enum_w, uint16_t enum_h,
                                             uint16_t* out_w, uint16_t* out_h) {
     if (!out_w || !out_h) return 0;
-    if (override_w && override_h && cameraP4ModeUsable(override_w, override_h)) {
+    if (override_w && override_h && cameraP4ModeSelectable(override_w, override_h)) {
         *out_w = override_w;
         *out_h = override_h;
         return 1;

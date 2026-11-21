@@ -29,6 +29,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
 
 // --- Control-transfer structure sizes --------------------------------------
 #define CAM_UVC_PROBE_LEN_1_0 26u
@@ -88,6 +90,43 @@ static inline int cameraUsbPickBest(const uint16_t (*modes)[2], int n,
     if (outW) *outW = modes[best][0];
     if (outH) *outH = modes[best][1];
     return 1;
+}
+
+// --- Isochronous alternate settings (CAM-86) --------------------------------
+// The widest alt of a 1080p webcam is 3 x 1024 B per microframe = 24 Mbit/s of
+// periodic bandwidth. A host scheduler can refuse that outright (every URB
+// comes back ESP_ERR_NOT_FOUND), which is exactly what the measured device
+// does, while a narrower alt of the same interface would fit. So the probe
+// walks the ladder from the NARROWEST payload upward and stops at the first
+// alt that delivers data.
+//
+// `perUs[i]` is bytes per microframe of alt i. Returns how many indices were
+// written (<= cap), ascending by payload; zero-payload entries are skipped.
+static inline int cameraUsbAltAscending(const uint16_t* perUs, int n,
+                                        int* outIdx, int cap) {
+    if (!perUs || n <= 0 || !outIdx || cap <= 0) return 0;
+    int count = 0;
+    for (int i = 0; i < n; i++) {
+        if (perUs[i] == 0) continue;
+        int pos = count;
+        while (pos > 0 && perUs[outIdx[pos - 1]] > perUs[i]) pos--;
+        if (pos >= cap) continue;                 // wider than the kept set
+        int last = (count < cap) ? count : cap - 1;
+        for (int k = last; k > pos; k--) outIdx[k] = outIdx[k - 1];
+        outIdx[pos] = i;
+        if (count < cap) count++;
+    }
+    return count;
+}
+
+// `usbDiag` token for a refused stream open: "open:<err>". Before this the
+// specific error was replaced by the generic "nodata" fallback, so the first
+// USB diagnosis could not tell "no candidate delivered" from "the open itself
+// was refused".
+static inline const char* cameraUsbOpenDiag(char* out, size_t cap, const char* errName) {
+    if (!out || cap == 0) return "open";
+    snprintf(out, cap, "open:%s", (errName && *errName) ? errName : "?");
+    return out;
 }
 
 // Indices of the usable modes, largest area first (ties keep table order).

@@ -62,10 +62,10 @@ TEST_CASE("Fase 3 stills-only: 5MP class is photo-only, video sizes are not") {
 
 TEST_CASE("effective P4 output dims: explicit supported sensor mode wins") {
     uint16_t w = 0, h = 0;
-    // CAM-78: 1920x1080 and 1280x720 are real modes the pipeline cannot run,
-    // so a stored override on them is auto-reverted to the enum geometry.
+    // CAM-86: 1920x1080 is selectable again (timing fixed), so its stored
+    // override wins; CAM-78 auto-revert still applies to 1280x720 (stalls).
     CHECK(cameraResolveP4OutputDims(1920, 1080, 800, 800, &w, &h) == 1);
-    CHECK(w == 800); CHECK(h == 800);
+    CHECK(w == 1920); CHECK(h == 1080);
     CHECK(cameraResolveP4OutputDims(1280, 720, 800, 800, &w, &h) == 1);
     CHECK(w == 800); CHECK(h == 800);
     // A working override still wins over the legacy enum.
@@ -126,11 +126,40 @@ TEST_CASE("CAM-79: MJPEG fps ceiling follows the live pixel count") {
     CHECK(cameraP4MjpegFpsCap(0) == 15);              // unknown geometry: safe
 }
 
+TEST_CASE("CAM-86: 1080p timing comes from the register table (30.0 fps)") {
+    // The row used to carry a 2416x1104 pair fitted to 30 fps that matched no
+    // register value; the sensor is actually programmed with HTS 2271 / VTS
+    // 1199. Assert the constants reproduce 30.0 fps and that the two working
+    // modes keep theirs (so the convention is pinned by numbers, not comments).
+    CHECK(cameraP4ModeFps(CAM_P4_1080P_PCLK, CAM_P4_1080P_HTS, CAM_P4_1080P_VTS) == 30);
+    CHECK(cameraP4ModeFps(88333333u, 1796, 1093) == 45);   // 1280x960 RAW10
+    CHECK(cameraP4ModeFps(88333333u, 1796, 1640) == 30);   // 1280x720 RAW10 table
+    CHECK(cameraP4ModeFps(0, 100, 100) == 0);
+    CHECK(cameraP4ModeFps(1000, 0, 100) == 0);
+    // Sanity on the values themselves: HTS must cover the width, VTS the height.
+    CHECK(CAM_P4_1080P_HTS >= 1920);
+    CHECK(CAM_P4_1080P_VTS >= 1080);
+    CHECK(CAM_P4_1080P_VTS < CAM_P4_1080P_HTS);   // blanking stays modest
+}
+
+TEST_CASE("CAM-86: 1080p is selectable but never advertised") {
+    CHECK(cameraP4ModeExperimental(1920, 1080) == 1);
+    CHECK(cameraP4ModeUsable(1920, 1080) == 0);      // never in resList
+    CHECK(cameraP4ModeSelectable(1920, 1080) == 1);  // API may try it
+    CHECK(cameraP4ModeSelectable(800, 640) == 1);    // advertised modes unchanged
+    CHECK(cameraP4ModeSelectable(1280, 720) == 0);   // still refused (stall)
+    CHECK(cameraP4ModeSelectable(800, 1280) == 0);   // still refused (portrait)
+    CHECK(cameraP4ModeSelectable(640, 480) == 0);    // not a sensor mode
+}
+
 TEST_CASE("P4 preset targets resolve to exact output dims") {
     uint16_t w = 0, h = 0;
-    // CAM-78 auto-revert: a stored override on a broken mode no longer wins —
-    // the (working) enum geometry is used instead of leaving the camera dead.
+    // CAM-86: a stored 1080p override is honoured again (the timing was fixed);
+    // if the pipeline still refuses it, the boot path clears the override.
     CHECK(cameraResolveP4OutputDims(1920, 1080, 800, 800, &w, &h) == 1);
+    CHECK(w == 1920); CHECK(h == 1080);
+    // CAM-78 auto-revert still holds for sizes that cannot run at all.
+    CHECK(cameraResolveP4OutputDims(1280, 720, 800, 800, &w, &h) == 1);
     CHECK(w == 800); CHECK(h == 800);
     CHECK(cameraResolveP4OutputDims(1280, 960, 800, 640, &w, &h) == 1);
     CHECK(w == 1280); CHECK(h == 960);    // hd (largest working mode)

@@ -414,8 +414,9 @@ static esp_err_t p4UsbCtrl(usb_host_client_handle_t ch, usb_device_handle_t dh, 
 // Claim the streaming interface, negotiate UVC by hand and read the isoch
 // endpoint directly. Pure diagnostic: it proves whether the camera transmits
 // and whether this host can receive isoch data at all.
-static void p4UsbRawIsocProbe(usb_host_client_handle_t ch, usb_device_handle_t dh, uint8_t iface,
-                               uint8_t alt, uint8_t epAddr, uint16_t bwPerUs, uint16_t bcdUVC) {
+static int p4UsbRawIsocProbe(usb_host_client_handle_t ch, usb_device_handle_t dh, uint8_t iface,
+                              uint8_t alt, uint8_t epAddr, uint16_t bwPerUs, uint16_t bcdUVC,
+                              uint32_t windowMs) {
     // Linux order: negotiate on alt 0, commit, THEN select the streaming
     // alternate. Claiming the streaming alt first (old behavior) leaves some
     // non-compliant cameras (Sunplus 1b3f:22xx) permanently silent.
@@ -426,7 +427,7 @@ static void p4UsbRawIsocProbe(usb_host_client_handle_t ch, usb_device_handle_t d
     if (usb_host_transfer_alloc(64, 0, &ctrl) != ESP_OK) {
         p4CamLog("[CAM-P4/USB] raw isoc: no ctrl transfer", WARN);
         usb_host_interface_release(ch, dh, iface);
-        return;
+        return 0;
     }
     // Probe/commit are REVISION-SIZED (camera_p4_uvc.h):
     //   UVC 1.0 = 26 B, UVC 1.1 = 34 B, UVC 1.5 = 48 B.
@@ -481,7 +482,7 @@ static void p4UsbRawIsocProbe(usb_host_client_handle_t ch, usb_device_handle_t d
         p4CamLog("[CAM-P4/USB] raw isoc: no isoc transfer", WARN);
         usb_host_transfer_free(ctrl);
         usb_host_interface_release(ch, dh, iface);
-        return;
+        return 0;
     }
     static P4IsocProbe st;
     memset(&st, 0, sizeof(st));
@@ -493,7 +494,7 @@ static void p4UsbRawIsocProbe(usb_host_client_handle_t ch, usb_device_handle_t d
     isoc->num_bytes = (size_t)perUs * numPkt;
     for (int i = 0; i < numPkt; i++) isoc->isoc_packet_desc[i].num_bytes = perUs;
     p4CamLog(String("[CAM-P4/USB] raw isoc: reading ep 0x") + String(epAddr, HEX) +
-             " alt=" + String(alt) + " mps/us=" + String(perUs) + " for 800ms");
+             " alt=" + String(alt) + " mps/us=" + String(perUs) + " for " + String(windowMs) + "ms");
     // CAM-81 validation: an isoch endpoint on HS carries at most 3 transactions
     // of 1024 B per microframe (high-bandwidth). A descriptor claiming more —
     // or nothing — means the walk picked the wrong alt set, and every URB will
@@ -509,17 +510,17 @@ static void p4UsbRawIsocProbe(usb_host_client_handle_t ch, usb_device_handle_t d
                  camUsbIsocAdvice(CAM_USB_ISOC_BAD_PS, s_usbFsBehindHub), ERROR);
         usb_host_transfer_free(ctrl);
         usb_host_interface_release(ch, dh, iface);
-        return;
+        return 0;
     }
     uint32_t t0 = millis();
     esp_err_t subErr = ESP_OK;
     int loops = 0;
-    while ((millis() - t0) < 800) {
+    while ((millis() - t0) < windowMs) {
         st.done = 0;
         loops++;
         subErr = usb_host_transfer_submit(isoc);
         if (subErr != ESP_OK) { delay(10); continue; }
-        while (!st.done && (millis() - t0) < 800) {
+        while (!st.done && (millis() - t0) < windowMs) {
             usb_host_client_handle_events(ch, pdMS_TO_TICKS(1));   // dispatch completion
         }
         if (!st.done) break;   // transfer never completed: endpoint idle
@@ -639,6 +640,7 @@ static void p4UsbRawIsocProbe(usb_host_client_handle_t ch, usb_device_handle_t d
     esp_err_t rle = usb_host_interface_release(ch, dh, iface);
     p4CamLog(String("[CAM-P4/USB] raw isoc: release iface ") + String(iface) +
              " -> " + String(esp_err_to_name(rle)), WARN);
+    return st.nonEmpty;
 }
 
 #endif  // P4_USB_RAW_ISOC_PROBE
@@ -650,10 +652,21 @@ static void p4UsbRawIsocProbe(usb_host_client_handle_t ch, usb_device_handle_t d
 // Runs BEFORE uvc_host_install: the USB host heap is freshest then.
 // Best VS-isoch alt accumulates in *best (caller sweeps ALL addresses: with a
 // hub in the chain, addrs[0] is the hub itself, not the camera).
+// CAM-86: every isochronous alternate setting of the VS interface, so the
+// probe can walk them from the narrowest payload upward (the widest is often
+// not schedulable).
+#define P4_USB_MAX_ALTS 6
+struct P4UsbAltEntry {
+    uint16_t perUs = 0;
+    uint8_t  alt = 0;
+    uint8_t  ep = 0;
+};
 struct P4UsbBestAlt {
     uint32_t bw = 0;
     uint8_t addr = 0, iface = 0, alt = 0, ep = 0;
     uint16_t perUs = 0, bcd = 0;
+    P4UsbAltEntry alts[P4_USB_MAX_ALTS];
+    uint8_t nAlts = 0;
 };
 static void p4UsbDumpConfig(uint8_t addr, P4UsbBestAlt *best) {
     usb_host_client_config_t cc = {};
@@ -728,6 +741,8 @@ static void p4UsbDumpConfig(uint8_t addr, P4UsbBestAlt *best) {
         uint8_t curVsFormat = 0;            // 0 none, 6 = MJPEG, 7 = uncompressed
         uint16_t localModes[P4_USB_MAX_MODES][2];
         int nLocalModes = 0;
+        P4UsbAltEntry localAlts[P4_USB_MAX_ALTS];
+        int nLocalAlts = 0;
         uint32_t bestBw = 0;
         uint8_t bestIface = 0, bestAlt = 0, bestEp = 0;
         uint16_t bestPerUs = 0;
@@ -783,6 +798,13 @@ static void p4UsbDumpConfig(uint8_t addr, P4UsbBestAlt *best) {
                          " raw=" + String(wmps, HEX) + "/" + String(p[3], HEX));
                 if ((attr & 3) == 1 && (addrEp & 0x80) && curClass == 0x0E && curSub == 0x02) {
                     const uint32_t bw = (uint32_t)packets * perUs;
+                    // CAM-86: keep the whole ladder (one entry per alt).
+                    if (nLocalAlts < P4_USB_MAX_ALTS && bw) {
+                        localAlts[nLocalAlts].perUs = (uint16_t)bw;
+                        localAlts[nLocalAlts].alt = curAlt;
+                        localAlts[nLocalAlts].ep = addrEp;
+                        nLocalAlts++;
+                    }
                     if (bw > bestBw) {
                         bestBw = bw; bestIface = curIface; bestAlt = curAlt;
                         bestEp = addrEp; bestPerUs = (uint16_t)bw;
@@ -813,6 +835,9 @@ static void p4UsbDumpConfig(uint8_t addr, P4UsbBestAlt *best) {
                 s_usbHubVid = hubVid;
                 s_usbHubPid = hubPid;
                 // CAM-83: advertise exactly the modes this camera announced.
+                // CAM-86: the alt ladder travels with the winning address.
+                best->nAlts = (uint8_t)(nLocalAlts > P4_USB_MAX_ALTS ? P4_USB_MAX_ALTS : nLocalAlts);
+                for (int k = 0; k < (int)best->nAlts; k++) best->alts[k] = localAlts[k];
                 s_usbModeCount = (uint8_t)(nLocalModes > P4_USB_MAX_MODES ? P4_USB_MAX_MODES : nLocalModes);
                 for (int k = 0; k < (int)s_usbModeCount; k++) {
                     s_usbModes[k][0] = localModes[k][0];
@@ -852,8 +877,34 @@ static void p4UsbRunRawProbe(const P4UsbBestAlt *best) {
         return;
     }
     p4CamLog(String("[CAM-P4/USB] raw probe on addr=") + String(best->addr) +
-             " iface=" + String(best->iface) + " alt=" + String(best->alt));
-    p4UsbRawIsocProbe(ch, dh, best->iface, best->alt, best->ep, best->perUs, best->bcd);
+             " iface=" + String(best->iface) + " ladder=" + String(best->nAlts));
+    // CAM-86: try the alternate settings from the NARROWEST payload upward.
+    // The widest alt (3x1024 B/µframe = 24 Mbit/s) is routinely refused by the
+    // host scheduler — every URB ESP_ERR_NOT_FOUND — while a narrower alt of
+    // the same interface still fits. Stop at the first one that delivers.
+    if (best->nAlts) {
+        uint16_t perUs[P4_USB_MAX_ALTS];
+        for (int i = 0; i < (int)best->nAlts; i++) perUs[i] = best->alts[i].perUs;
+        int order[P4_USB_MAX_ALTS];
+        int n = cameraUsbAltAscending(perUs, best->nAlts, order, P4_USB_MAX_ALTS);
+        if (!n) {   // ladder unusable: fall back to the widest alt
+            order[0] = (int)best->nAlts - 1;
+            n = 1;
+        }
+        for (int k = 0; k < n; k++) {
+            const P4UsbAltEntry& a = best->alts[order[k]];
+            p4CamLog(String("[CAM-P4/USB] alt attempt ") + String(k + 1) + "/" + String(n) +
+                     ": alt " + String(a.alt) + " " + String(a.perUs) + "B/us", INFO);
+            if (p4UsbRawIsocProbe(ch, dh, best->iface, a.alt, a.ep, a.perUs, best->bcd, 600) > 0) {
+                p4CamLog(String("[CAM-P4/USB] alt ") + String(a.alt) + " delivered data ("
+                         + String(a.perUs) + "B/us)", INFO);
+                break;
+            }
+            if (s_usbCancel) break;
+        }
+    } else {
+        p4UsbRawIsocProbe(ch, dh, best->iface, best->alt, best->ep, best->perUs, best->bcd, 800);
+    }
     usb_host_device_close(ch, dh);
     usb_host_client_deregister(ch);
 #endif
@@ -1239,7 +1290,14 @@ static bool p4UsbBegin(uint16_t w, uint16_t h) {
             p4CamLog(String("[CAM-P4/USB] stream_open (idx ") + String(idx) + ") try " +
                      String(attempt + 1) + " failed err=" + String(esp_err_to_name(se)), WARN);
         }
-        if (se != ESP_OK) continue;  // next index
+        if (se != ESP_OK) {
+            // CAM-86: keep WHY the open failed. Before this the generic
+            // "nodata" fallback replaced it and the diagnosis lost the error.
+            char db[CAM_USB_ISOC_DIAG_CAP];
+            cameraUsbOpenDiag(db, sizeof(db), esp_err_to_name(se));
+            p4UsbSetDiag(db);
+            continue;  // next index
+        }
         // Candidate sizes: requested first, then the device's own MJPEG
         // entries (harvested during discovery, before the claim), then VGA
         // as a universal last resort.
@@ -1548,7 +1606,9 @@ bool cameraP4ValidCsiMode(uint16_t w, uint16_t h) {
     // 1080p init failure) must not be accepted — selecting it used to leave
     // the camera dead until a restart.
     if (p4CsiModeIndex(w, h) < 0) return false;
-    return cameraP4ModeUsable(w, h) != 0;
+    // CAM-86: 1920x1080 is selectable again (API only, never advertised) so the
+    // next hardware run can measure the corrected timing.
+    return cameraP4ModeSelectable(w, h) != 0;
 }
 
 // Exported: "WxH,WxH,..." of the known CSI sensor modes for resList, ordered
@@ -1629,7 +1689,11 @@ static const P4SensorFmtDef kP4SensorFmts[] = {
     {1920, 1080, ESP_CAM_SENSOR_PIXFORMAT_RAW10,
      ov5647_mipi_2lane_24Minput_1920x1080_raw10_30fps,
      (int)(sizeof(ov5647_mipi_2lane_24Minput_1920x1080_raw10_30fps) / sizeof(ov5647_reginfo_t)) - 1,
-     30, 81666700, 2416, 1104, (uint32_t)OV5647_MIPI_CSI_LINE_RATE_1920x1080_30FPS,
+     // CAM-86: timing from the register table (HTS 2271 / VTS 1199), in the
+     // (VTS, HTS) order the working modes use — not the old 2416x1104 pair,
+     // which matched no register value and made the pipeline fail at init.
+     CAM_P4_1080P_FPS, CAM_P4_1080P_PCLK, CAM_P4_1080P_VTS, CAM_P4_1080P_HTS,
+     (uint32_t)OV5647_MIPI_CSI_LINE_RATE_1920x1080_30FPS,
      "MIPI_2lane_24Minput_RAW10_1920x1080_30fps"},
     {1280, 960, ESP_CAM_SENSOR_PIXFORMAT_RAW10,
      ov5647_mipi_2lane_24Minput_1280x960_raw10_45fps,
@@ -2414,7 +2478,7 @@ bool cameraP4SetResolution(uint16_t w, uint16_t h) {
     // other caller) must not be able to select a mode the pipeline cannot run
     // (720p stall, 1080p init failure) or a portrait size. The API validator
     // already refuses them, but the enum path bypasses it.
-    if (!usbSrc && !cameraP4ModeUsable(w, h)) {
+    if (!usbSrc && !cameraP4ModeSelectable(w, h)) {
         p4CamLog(String("[CAM-P4/CSI] refusing unusable mode ") + String(w) + "x" + String(h) +
                  " (broken or portrait)", WARN);
         return false;
