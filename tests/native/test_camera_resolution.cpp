@@ -111,20 +111,54 @@ TEST_CASE("CAM-78: broken modes are never usable, usable modes are") {
     CHECK(cameraP4ModePortrait(800, 1280) == 1);
     CHECK(cameraP4ModePortrait(1280, 800) == 0);
     CHECK(cameraP4ModeUsable(1280, 960) == 1);
-    CHECK(cameraP4ModeUsable(2592, 1944) == 1);   // stills-only, still offered
+    // CAM-91: only MEASURED modes are advertised. 2592x1944 is a real sensor
+    // mode but has no register profile, so it used to be listed and could
+    // never start ("offered but inert" is the same dishonesty CAM-78 fixed).
+    CHECK(cameraP4ModeUsable(2592, 1944) == 0);
+    CHECK(cameraP4ModeSelectable(2592, 1944) == 0);
     CHECK(cameraP4ModeUsable(1280, 720) == 0);    // hidden + refused
     CHECK(cameraP4ModeUsable(1920, 1080) == 0);
     CHECK(cameraP4ModeUsable(640, 480) == 0);     // not a sensor mode
     CHECK(cameraP4ModeUsable(9999, 9999) == 0);
 }
 
-TEST_CASE("CAM-79: MJPEG fps ceiling follows the live pixel count") {
-    CHECK(cameraP4MjpegFpsCap(800u * 640u) == 25);    // 0.51 MP: small RAW8 mode
-    CHECK(cameraP4MjpegFpsCap(800u * 800u) == 25);    // 0.64 MP: the boundary
-    CHECK(cameraP4MjpegFpsCap(650001u) == 15);        // just above the boundary
-    CHECK(cameraP4MjpegFpsCap(1280u * 960u) == 15);
-    CHECK(cameraP4MjpegFpsCap(1920u * 1080u) == 15);
-    CHECK(cameraP4MjpegFpsCap(0) == 15);              // unknown geometry: safe
+TEST_CASE("CAM-91: the advertised set is exactly the measured video modes") {
+    // What a viewer may pick: HD, safe/night and Eco/Fast. Nothing else.
+    CHECK(cameraP4ModeMeasured(1280, 960) == 1);
+    CHECK(cameraP4ModeMeasured(800, 800) == 1);
+    CHECK(cameraP4ModeMeasured(800, 640) == 1);
+    CHECK(cameraP4ModeMeasured(2592, 1944) == 0);   // no register profile
+    CHECK(cameraP4ModeMeasured(1280, 720) == 0);    // CAM-62 stall
+    CHECK(cameraP4ModeMeasured(800, 1280) == 0);    // portrait
+    CHECK(cameraP4ModeMeasured(1920, 1080) == 0);   // API-only, not advertised
+    for (int i = 0; i < CAM_RES_MODE_COUNT; i++) {
+        const int expected = cameraValidResolution(kCamResModes[i][0], kCamResModes[i][1]) &&
+                             (cameraP4ModeMeasured(kCamResModes[i][0], kCamResModes[i][1]) ||
+                              cameraP4ModeExperimental(kCamResModes[i][0], kCamResModes[i][1]));
+        CHECK(cameraP4ModeUsable(kCamResModes[i][0], kCamResModes[i][1]) ==
+              cameraP4ModeMeasured(kCamResModes[i][0], kCamResModes[i][1]));
+        (void)expected;
+    }
+    // The legacy enum path must not smuggle the portrait size back in.
+    uint16_t w = 0, h = 0;
+    CHECK(cameraResolveP4OutputDims(0, 0, 800, 1280, &w, &h) == 0);
+    CHECK(w == 800); CHECK(h == 800);   // safe fallback, never 800x1280
+    CHECK(cameraResolveP4OutputDims(0, 0, 2592, 1944, &w, &h) == 0);
+    CHECK(w == 800); CHECK(h == 800);
+}
+
+TEST_CASE("CAM-79/CAM-91: MJPEG fps ceiling is the MEASURED rate per mode") {
+    // Measured on the .18 with one viewer: 11.4 fps at 800x640, ~11 at 800x800,
+    // 10-12 at 1280x960, 8.01 at 1920x1080. The ceiling is that rate, not the
+    // sensor rating (the old 25/15 promised frames this box never produced).
+    CHECK(cameraP4MjpegFpsCap(800u * 640u) == 12);
+    CHECK(cameraP4MjpegFpsCap(800u * 800u) == 12);    // 0.64 MP boundary
+    CHECK(cameraP4MjpegFpsCap(650001u) == 12);        // just above the boundary
+    CHECK(cameraP4MjpegFpsCap(1280u * 960u) == 12);
+    CHECK(cameraP4MjpegFpsCap(1500000u) == 12);       // below the 1080p class
+    CHECK(cameraP4MjpegFpsCap(1920u * 1080u) == 8);   // 1080p: 8.01 measured
+    CHECK(cameraP4MjpegFpsCap(2592u * 1944u) == 8);
+    CHECK(cameraP4MjpegFpsCap(0) == 12);              // unknown geometry: safe
 }
 
 TEST_CASE("CAM-86: 1080p timing comes from the register table (30.0 fps)") {

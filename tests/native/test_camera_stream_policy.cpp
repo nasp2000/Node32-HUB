@@ -8,12 +8,12 @@
 #include "../../chatgpt/src/camera_stream_policy.h"
 #include "../../chatgpt/src/camera_stream_slots.h"  // ring size vs cap
 
-TEST_CASE("viewer admission: two viewers with the 3-slot ring, third gets 503") {
-    CHECK(CAM_MAX_MJPEG_CLIENTS == 2);
+TEST_CASE("viewer admission: strict single viewer, the 2nd gets 503 (CAM-91)") {
+    CHECK(CAM_MAX_MJPEG_CLIENTS == 1);
     CHECK(CAM_MAX_MJPEG_CLIENTS < CAM_STREAM_SLOTS);  // writer always keeps a slot
-    CHECK(cameraStreamAdmit(0));   // first viewer admitted
-    CHECK(cameraStreamAdmit(1));   // second one too (ring, CAM-76)
-    CHECK_FALSE(cameraStreamAdmit(2));  // third gets 503 "Stream busy"
+    CHECK(cameraStreamAdmit(0));        // the one viewer is admitted
+    CHECK_FALSE(cameraStreamAdmit(1));  // a concurrent 2nd gets 503 "Stream busy"
+    CHECK_FALSE(cameraStreamAdmit(2));
     CHECK_FALSE(cameraStreamAdmit(9));  // zombie leftovers never over-admit
 }
 

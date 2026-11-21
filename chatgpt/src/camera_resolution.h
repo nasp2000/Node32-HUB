@@ -59,10 +59,23 @@ static inline int cameraP4ModePortrait(uint16_t w, uint16_t h) {
     return w == 800 && h == 1280 ? 1 : 0;
 }
 
-// 1 when the mode may be listed in resList / selected through the API.
+// Modes actually MEASURED on the .18 (2026-11-21, v1.120 + CAM-90): the only
+// three a viewer may pick today.
+//   1280x960 — HD, the largest video mode that runs (10-12 fps measured)
+//   800x800  — safe/night default (11 fps measured, also the boot fallback)
+//   800x640  — Eco/Fast (11.4 fps measured, the best per-byte rate)
+// 1920x1080 works too (8.01 fps with the idle park) but stays API-only, and
+// 2592x1944 (no register profile yet), 1280x720 (CAM-62 stall) and 800x1280
+// (portrait, host hazard) are not offered at all.
+static inline int cameraP4ModeMeasured(uint16_t w, uint16_t h) {
+    return (w == 1280 && h == 960) || (w == 800 && h == 800) || (w == 800 && h == 640);
+}
+
+// 1 when the mode may be listed in resList / restored from a stored override.
+// CAM-91: measured modes only — a size the table can describe but nobody has
+// seen run (2592x1944 today) must not be advertised or replayed at boot.
 static inline int cameraP4ModeUsable(uint16_t w, uint16_t h) {
-    return cameraValidResolution(w, h) && !cameraP4ModeBroken(w, h) &&
-           !cameraP4ModePortrait(w, h);
+    return cameraP4ModeMeasured(w, h);
 }
 
 // --- 1920x1080 timing (CAM-86, unified by CAM-88) ---------------------------
@@ -105,16 +118,21 @@ static inline int cameraP4ModeSelectable(uint16_t w, uint16_t h) {
     return cameraP4ModeUsable(w, h) || cameraP4ModeExperimental(w, h);
 }
 
-// MJPEG fps ceiling by LIVE pixel count (CAM-79). The small RAW8 binning modes
-// are rated 50 fps and measured 11-12 fps at the old fixed ceiling of 15 — the
-// ceiling was ours, not the sensor's. 800x640 (0.51 MP) and 800x800 (0.64 MP)
-// get 25; every larger mode keeps 15 (measured 10-12).
-#define CAM_P4_FPS_CAP_SMALL        25
-#define CAM_P4_FPS_CAP_LARGE        15
-#define CAM_P4_SMALL_MODE_PIXELS    650000UL
+// MJPEG fps ceiling by LIVE pixel count (CAM-79, retuned by CAM-91).
+// These are measured numbers, not ratings: on the .18 with one viewer the
+// OV5647 modes deliver 11.4 fps at 800x640, ~11 at 800x800, 10-12 at 1280x960
+// and 8.0 at 1920x1080 (single pump, q35). The old ceilings (25 for the small
+// modes, 15 above) let the UI ask for rates this box never reached, which made
+// the fps pill look broken; the cap is now the measured sustained rate.
+#define CAM_P4_FPS_CAP_SMALL        12    // 800x640 / 800x800 (11-11.4 measured)
+#define CAM_P4_FPS_CAP_LARGE        12    // 1280x960 (10-12 measured)
+#define CAM_P4_FPS_CAP_1080P        8     // 1920x1080 (8.01 measured)
+#define CAM_P4_SMALL_MODE_PIXELS    650000UL    // 800x800 = 640 000 px
+#define CAM_P4_LARGE_MODE_PIXELS    1500000UL   // above this = 1080p class
 
 static inline uint8_t cameraP4MjpegFpsCap(uint32_t pixels) {
     if (pixels == 0) return CAM_P4_FPS_CAP_LARGE;   // unknown geometry: stay conservative
+    if (pixels > CAM_P4_LARGE_MODE_PIXELS) return CAM_P4_FPS_CAP_1080P;
     return (pixels <= CAM_P4_SMALL_MODE_PIXELS) ? CAM_P4_FPS_CAP_SMALL : CAM_P4_FPS_CAP_LARGE;
 }
 
@@ -136,7 +154,10 @@ static inline int cameraResolveP4OutputDims(uint16_t override_w, uint16_t overri
         *out_h = override_h;
         return 1;
     }
-    if (cameraValidResolution(enum_w, enum_h)) {
+    // CAM-91: the legacy framesize enum may not smuggle in a mode that is no
+    // longer offered (800x1280 portrait used to pass through here, and
+    // 2592x1944 has no register profile).
+    if (cameraP4ModeUsable(enum_w, enum_h)) {
         *out_w = enum_w;
         *out_h = enum_h;
         return 1;

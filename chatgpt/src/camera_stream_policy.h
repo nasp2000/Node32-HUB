@@ -26,11 +26,17 @@
 
 #include <stdint.h>
 
-// Maximum simultaneous MJPEG viewers. Two is back on the table because the
-// 3-slot ring (CAM-76) removed the single-publish-slot stall that made the
-// second viewer fatal in v1.120; 3 slots cover writer + 2 pinned viewers + 1
-// slack. Verified on the .18 with the ring in place (see HISTORIC/CAM).
-#define CAM_MAX_MJPEG_CLIENTS 2
+// Maximum simultaneous MJPEG viewers: ONE (CAM-91, decision of 2026-11-21).
+// The 3-slot ring (CAM-76) made a second viewer survivable, and it was measured
+// working on the .18 (1.16 + 2.32 fps at 1080p, 5.57 + 5.40 at 800x640), but a
+// two-viewer 1080p window still drops min_free_heap to ~35 KB and this pack
+// stays on Arduino with one consumer by decision, so the strict single-viewer
+// lock is the honest setting: the 2nd concurrent request gets an immediate
+// 503 "Stream busy" from the route instead of competing for heap.
+//
+// Rollback is the whole change: raising this constant back to 2 re-admits the
+// second viewer (the ring already supports writer + 2 pinned + 1 slack).
+#define CAM_MAX_MJPEG_CLIENTS 1
 
 // Admission test for a new /cam/stream viewer. `current` is the number of
 // viewers already attached (zombie eviction is handled by the caller).
