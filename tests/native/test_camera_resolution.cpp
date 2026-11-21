@@ -62,11 +62,10 @@ TEST_CASE("Fase 3 stills-only: 5MP class is photo-only, video sizes are not") {
 
 TEST_CASE("effective P4 output dims: explicit supported sensor mode wins") {
     uint16_t w = 0, h = 0;
-    // CAM-87: 1920x1080 is API-selectable but never restored from a stored
-    // override (it failed on the boot path); 1280x720 still stalls, so both
-    // fall back to the enum geometry.
+    // CAM-92: a stored 1920x1080 is honoured now (the boot path opens it on the
+    // first attempt); 1280x720 still stalls, so it falls back to the enum.
     CHECK(cameraResolveP4OutputDims(1920, 1080, 800, 800, &w, &h) == 1);
-    CHECK(w == 800); CHECK(h == 800);
+    CHECK(w == 1920); CHECK(h == 1080);
     CHECK(cameraResolveP4OutputDims(1280, 720, 800, 800, &w, &h) == 1);
     CHECK(w == 800); CHECK(h == 800);
     // A working override still wins over the legacy enum.
@@ -96,10 +95,11 @@ TEST_CASE("P4 preset targets are known sensor modes") {
     CHECK(cameraValidResolution(1280, 720) == 1);  // valid mode, but presets avoid it (CAM-62 stall)
 }
 
-TEST_CASE("CAM-78: broken modes are never usable, usable modes are") {
-    // Real sensor modes the P4 pipeline cannot run (measured on .18 v1.120).
+TEST_CASE("CAM-78/CAM-92: only 720p is broken now") {
+    // 1280x720 stalls the pipeline (CAM-62). 1920x1080 was in this list until
+    // CAM-88/90 made it run (7.3-8.0 fps, parked-stable); CAM-92 promoted it.
     CHECK(cameraP4ModeBroken(1280, 720) == 1);    // capture stalls (CAM-62)
-    CHECK(cameraP4ModeBroken(1920, 1080) == 1);   // init fails: "Not detected"
+    CHECK(cameraP4ModeBroken(1920, 1080) == 0);   // runs since CAM-88/90
     CHECK(cameraP4ModeBroken(1280, 960) == 0);
     CHECK(cameraP4ModeBroken(800, 640) == 0);
 
@@ -117,7 +117,7 @@ TEST_CASE("CAM-78: broken modes are never usable, usable modes are") {
     CHECK(cameraP4ModeUsable(2592, 1944) == 0);
     CHECK(cameraP4ModeSelectable(2592, 1944) == 0);
     CHECK(cameraP4ModeUsable(1280, 720) == 0);    // hidden + refused
-    CHECK(cameraP4ModeUsable(1920, 1080) == 0);
+    CHECK(cameraP4ModeUsable(1920, 1080) == 1);   // CAM-92: measured, one viewer
     CHECK(cameraP4ModeUsable(640, 480) == 0);     // not a sensor mode
     CHECK(cameraP4ModeUsable(9999, 9999) == 0);
 }
@@ -130,7 +130,7 @@ TEST_CASE("CAM-91: the advertised set is exactly the measured video modes") {
     CHECK(cameraP4ModeMeasured(2592, 1944) == 0);   // no register profile
     CHECK(cameraP4ModeMeasured(1280, 720) == 0);    // CAM-62 stall
     CHECK(cameraP4ModeMeasured(800, 1280) == 0);    // portrait
-    CHECK(cameraP4ModeMeasured(1920, 1080) == 0);   // API-only, not advertised
+    CHECK(cameraP4ModeMeasured(1920, 1080) == 1);   // CAM-92: advertised (fps 8)
     for (int i = 0; i < CAM_RES_MODE_COUNT; i++) {
         const int expected = cameraValidResolution(kCamResModes[i][0], kCamResModes[i][1]) &&
                              (cameraP4ModeMeasured(kCamResModes[i][0], kCamResModes[i][1]) ||
@@ -177,25 +177,26 @@ TEST_CASE("CAM-86: 1080p timing comes from the register table (30.0 fps)") {
     CHECK(CAM_P4_1080P_VTS < CAM_P4_1080P_HTS);   // blanking stays modest
 }
 
-TEST_CASE("CAM-86: 1080p is selectable but never advertised") {
-    CHECK(cameraP4ModeExperimental(1920, 1080) == 1);
-    CHECK(cameraP4ModeUsable(1920, 1080) == 0);      // never in resList
-    CHECK(cameraP4ModeSelectable(1920, 1080) == 1);  // API may try it
-    CHECK(cameraP4ModeSelectable(800, 640) == 1);    // advertised modes unchanged
+TEST_CASE("CAM-92: 1080p is a normal advertised mode with a 8 fps ceiling") {
+    CHECK(cameraP4ModeExperimental(1920, 1080) == 1);  // legacy marker kept
+    CHECK(cameraP4ModeUsable(1920, 1080) == 1);        // now in resList
+    CHECK(cameraP4ModeSelectable(1920, 1080) == 1);
+    CHECK(cameraP4ModeSelectable(800, 640) == 1);
     CHECK(cameraP4ModeSelectable(1280, 720) == 0);   // still refused (stall)
     CHECK(cameraP4ModeSelectable(800, 1280) == 0);   // still refused (portrait)
     CHECK(cameraP4ModeSelectable(640, 480) == 0);    // not a sensor mode
+    // Its ceiling is the measured rate, which is what keeps it "one viewer".
+    CHECK(cameraP4MjpegFpsCap(1920u * 1080u) == 8);
 }
 
 TEST_CASE("P4 preset targets resolve to exact output dims") {
     uint16_t w = 0, h = 0;
-    // CAM-87: a stored 1920x1080 override is NOT replayed at boot (measured:
-    // it made "capture device open failed" and burned the camera until the
-    // self-heal cleared it). It stays selectable by an explicit API call, so
-    // the advertised enum geometry wins here.
+    // CAM-92: a stored 1920x1080 IS replayed now — the boot path opens the
+    // stored size on the first attempt instead of opening 800x800 and
+    // switching (that switch is what used to fail and clear the override).
     CHECK(cameraResolveP4OutputDims(1920, 1080, 800, 800, &w, &h) == 1);
-    CHECK(w == 800); CHECK(h == 800);
-    CHECK(cameraP4ModeSelectable(1920, 1080) == 1);   // API can still try it
+    CHECK(w == 1920); CHECK(h == 1080);
+    CHECK(cameraP4ModeSelectable(1920, 1080) == 1);
     // CAM-78 auto-revert still holds for sizes that cannot run at all.
     CHECK(cameraResolveP4OutputDims(1280, 720, 800, 800, &w, &h) == 1);
     CHECK(w == 800); CHECK(h == 800);

@@ -312,6 +312,16 @@ static bool cameraBeginP4() {
 
     uint16_t w = 640, h = 480;
     cameraSensorFrameSizeDims((uint8_t)requestedFs, w, h);
+    // CAM-92: a stored MIPI pick wins over the legacy framesize guess, so the
+    // sensor is opened at that size on the FIRST attempt (p4OpenCapture tries
+    // the driver path, then the sensor-format switch). Opening 800x800 and
+    // switching afterwards is what made a stored 1920x1080 hit "stored P4
+    // resolution unreachable" at boot and fall back to 800x800.
+    if (s_config.source == CAM_P4_SRC_MIPI && s_config.p4_res_w && s_config.p4_res_h &&
+        cameraP4ModeSelectable(s_config.p4_res_w, s_config.p4_res_h)) {
+        w = s_config.p4_res_w;
+        h = s_config.p4_res_h;
+    }
     // CAM-83: a USB webcam is opened at the size it advertises, not at the
     // legacy framesize guess. A persisted pick wins; otherwise the largest
     // landscape mode the camera itself announced (a 1080p webcam used to be

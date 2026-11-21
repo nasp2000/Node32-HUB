@@ -39,15 +39,16 @@ static inline int cameraP4StillsOnly(uint16_t w, uint16_t h) {
 }
 
 // Modes the table can describe but the P4 pipeline cannot actually run on this
-// OV5647 bring-up (CAM-78, measured on the .18 with v1.120):
-//   1280x720  — RAW10 30 fps profile: capture stalls (CAM-62); every command
-//               times out until the sensor is restarted.
-//   1920x1080 — RAW10 30 fps profile: the pipeline fails to init ("Not
-//               detected") and the camera stays dead until a restart.
-// Both stay in kCamResModes (real sensor modes, register tables kept for a
-// future fix) but must never be offered or accepted at runtime.
+// OV5647 bring-up:
+//   1280x720 — RAW10 30 fps profile: capture stalls (CAM-62); every command
+//              times out until the sensor is restarted.
+// 1920x1080 used to be here too (CAM-78: init failed, "Not detected"). That is
+// no longer true: with the register-table timing (CAM-88) and the idle park
+// (CAM-90) it runs at 7.3-8.0 fps for one viewer and survives 24.6 min parked,
+// so CAM-92 promoted it to a normal measured mode (fps cap 8). The size stays
+// in kCamResModes regardless; only 1280x720 must never be offered.
 static inline int cameraP4ModeBroken(uint16_t w, uint16_t h) {
-    return (w == 1280 && h == 720) || (w == 1920 && h == 1080);
+    return (w == 1280 && h == 720);
 }
 
 // Portrait modes are a host hazard: capture stacks and players handle
@@ -59,16 +60,19 @@ static inline int cameraP4ModePortrait(uint16_t w, uint16_t h) {
     return w == 800 && h == 1280 ? 1 : 0;
 }
 
-// Modes actually MEASURED on the .18 (2026-11-21, v1.120 + CAM-90): the only
-// three a viewer may pick today.
-//   1280x960 — HD, the largest video mode that runs (10-12 fps measured)
-//   800x800  — safe/night default (11 fps measured, also the boot fallback)
-//   800x640  — Eco/Fast (11.4 fps measured, the best per-byte rate)
-// 1920x1080 works too (8.01 fps with the idle park) but stays API-only, and
+// Modes actually MEASURED on the .18 (2026-11-21, v1.120 + CAM-90): what a
+// viewer may pick today.
+//   1920x1080 — Full HD, ONE viewer only (7.3-8.0 fps measured, ~500 KB/frame,
+//               22 Mbps; parked-stable for 24.6 min). Promoted from API-only
+//               by CAM-92 at the owner's request.
+//   1280x960  — HD, 10-12 fps measured
+//   800x800   — safe/night default (11 fps measured, also the boot fallback)
+//   800x640   — Eco/Fast (11.4 fps measured, the best per-byte rate)
 // 2592x1944 (no register profile yet), 1280x720 (CAM-62 stall) and 800x1280
 // (portrait, host hazard) are not offered at all.
 static inline int cameraP4ModeMeasured(uint16_t w, uint16_t h) {
-    return (w == 1280 && h == 960) || (w == 800 && h == 800) || (w == 800 && h == 640);
+    return (w == 1920 && h == 1080) || (w == 1280 && h == 960) ||
+           (w == 800 && h == 800) || (w == 800 && h == 640);
 }
 
 // 1 when the mode may be listed in resList / restored from a stored override.
@@ -103,12 +107,11 @@ static inline uint32_t cameraP4ModeFps(uint32_t pclk, uint16_t hts, uint16_t vts
     return (uint32_t)((tenths + 5ull) / 10ull);                        // rounded
 }
 
-// 1920x1080 may be selected EXPLICITLY through the API but is never
-// advertised (it stays out of resList). Measured on the .18: it starts and
-// streams (~8.2 fps), but one attempt panicked the board and a stored override
-// made the boot path hit "capture device open failed" and self-heal. It is
-// therefore a controlled diagnostic mode, not something the UI offers. Broken
-// (720p stall) and portrait sizes remain refused outright.
+// Historical marker kept for API/test compatibility: CAM-86 opened 1920x1080
+// as an API-only diagnostic. CAM-92 promoted it to a measured mode (it is in
+// cameraP4ModeMeasured() and therefore in resList); this predicate still
+// answers 1 for it so old callers keep working. Broken (720p stall) and
+// portrait sizes remain refused outright.
 static inline int cameraP4ModeExperimental(uint16_t w, uint16_t h) {
     return (w == 1920 && h == 1080) ? 1 : 0;
 }
