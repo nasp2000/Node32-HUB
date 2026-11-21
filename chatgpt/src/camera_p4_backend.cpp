@@ -2508,7 +2508,6 @@ void cameraP4IdleParkTick(uint32_t nowMs) {
 }
 
 void cameraP4StallTick(uint32_t nowMs) {
-void cameraP4StallTick(uint32_t nowMs) {
 #if !P4_HAVE_ESP_VIDEO
     (void)nowMs;
 #else
