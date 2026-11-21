@@ -247,6 +247,15 @@ static void p4VisionTask(void*) {
             }
             continue;
         }
+        // CAM-90: an idle capture session is PARKED on purpose (nothing consumes
+        // it). This 1 Hz preprocess probe is a diagnostic hook, not a consumer —
+        // dequeuing here would spin the ISP/DMA back up every second and keep a
+        // viewer-less 1080p session awake, which is exactly the state that
+        // panicked the board. Yield while parked; the pill drops to 0.
+        if (cameraP4CaptureParkedNow(nullptr)) {
+            s_inferX10 = 0;
+            continue;
+        }
         uint16_t aw = 0, ah = 0;
         cameraP4ActualDims(aw, ah);
         if (aw == 0 || aw > 1920) continue;  // video-class only (5MP is stills-only)

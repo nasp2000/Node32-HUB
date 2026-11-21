@@ -168,7 +168,10 @@ void cameraP4StallTick(uint32_t nowMs);
 // entry point resumes it on demand (startCapture) before dequeuing, so a
 // viewer/snapshot/recording gets its frame as before. Must only be called from
 // the loop task. No-op unless ready + MIPI + capture started.
-void cameraP4IdleParkTick(uint32_t nowMs);
+// `hasConsumer` is the caller's knowledge (viewer pump / H.264 / recording);
+// the dequeue heartbeat is deliberately NOT used, because the vision hook
+// dequeues ~1 fps with nobody watching and a snapshot is a one-shot.
+void cameraP4IdleParkTick(uint32_t nowMs, bool hasConsumer);
 
 // True while the MIPI pipeline is known-stalled (no good frame for
 // P4_CAP_STALL_MS). Exposed for the status page (capStall).

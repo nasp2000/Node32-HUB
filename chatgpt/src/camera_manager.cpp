@@ -939,7 +939,9 @@ void cameraLoop() {
     // min_free_heap at ~9 KB and panicked one run at ~10 min; parking the
     // session (stopCapture) is what actually removes the cost. Every capture
     // path resumes it on demand, so viewers/snapshots/recording are unaffected.
-    if (!pumpForRec) cameraP4IdleParkTick(nowMs);
+    // CAM-90: only a real consumer keeps the pipeline awake; the idle park
+    // gate is the caller's knowledge, not the dequeue heartbeat.
+    cameraP4IdleParkTick(nowMs, s_streamActive || pumpForH264 || pumpForRec);
     // MIPI stall re-sync (CAM-62): loop task only, self-throttled to one
     // session restart per 10 s. Recovers a sensor that stops delivering
     // (e.g. marginal mode) instead of wedging every later capture in DQBUF.

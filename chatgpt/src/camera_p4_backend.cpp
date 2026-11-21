@@ -154,6 +154,7 @@ static volatile uint32_t s_lastCapRestartMs = 0; // last session re-sync
 static volatile uint8_t s_capStallFails = 0;     // consecutive bounded failures
 static bool s_dqbufTimeoutOn = false;            // driver-level bound active?
 static volatile uint32_t s_lastIdleParkMs = 0;   // CAM-90: last park/resume decision
+static volatile uint32_t s_lastConsumerMs = 0;   // CAM-90: last time a consumer existed
 static volatile bool s_capParked = false;        // CAM-90: capture parked (idle)
 static volatile uint8_t s_capBusy = 0;           // CAM-90: capture call in flight
 
@@ -1923,7 +1924,8 @@ static bool p4OpenCaptureAt(uint16_t w, uint16_t h) {
         s_cap.end();
         return false;
     }
-    s_capParked = false;  // CAM-90: a fresh open is running, not parked
+    s_capParked = false;          // CAM-90: a fresh open is running, not parked
+    s_lastConsumerMs = millis();  // ...and counts as consumed for one window
     s_w = s_cap.getWidth();
     s_h = s_cap.getHeight();
     if (s_w != w || s_h != h) {
@@ -2193,6 +2195,7 @@ void cameraP4End() {
     s_lastCapTryMs = 0;
     s_lastCapRestartMs = 0;
     s_lastIdleParkMs = 0;
+    s_lastConsumerMs = 0;
     s_capParked = false;
     s_capBusy = 0;
     s_capStallFails = 0;
@@ -2505,16 +2508,26 @@ static void p4ParkCapture(uint32_t nowMs) {
 }
 #endif // P4_HAVE_ESP_VIDEO
 
-void cameraP4IdleParkTick(uint32_t nowMs) {
+void cameraP4IdleParkTick(uint32_t nowMs, bool hasConsumer) {
 #if !P4_HAVE_ESP_VIDEO
     (void)nowMs;
+    (void)hasConsumer;
 #else
     if (!s_ready || s_source != CAM_P4_SRC_MIPI) return;
     if (!s_capOpen || !s_cap.isCaptureStarted()) return;
     // A mode switch (HTTP task) tears the session down and reopens it; never
     // park into that window. Nor while a capture call is in flight.
     if (s_resSwitching || s_capBusy) return;
-    if (!cameraIdleParkDue(s_lastDequeueOkMs, s_lastIdleParkMs, nowMs, P4_IDLE_PARK_MS)) return;
+    // "Consumer" is what the CALLER knows (viewer pump, H.264 pump, MJPEG
+    // recording). The dequeue heartbeat is NOT the criterion: the vision hook
+    // dequeues one frame per second even with nobody watching (that is what
+    // kept this session awake and unparked in the first measurement), and a
+    // snapshot is a one-shot, not a reason to keep the ISP running.
+    if (hasConsumer) {
+        s_lastConsumerMs = nowMs;
+        return;
+    }
+    if (!cameraIdleParkDue(s_lastConsumerMs, s_lastIdleParkMs, nowMs, P4_IDLE_PARK_MS)) return;
     s_lastIdleParkMs = nowMs;
     p4ParkCapture(nowMs);
 #endif
