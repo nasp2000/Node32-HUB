@@ -1170,6 +1170,18 @@ bool cameraRecordFinish() {
     } else {
     // moviContentSize = 4("movi" tag) + all frame chunk bytes
     uint32_t moviContent = 4UL + s_frameChunkBytes;
+    // CAM-94: declare the rate this clip was really captured at. Computed
+    // before the header rewrite (the old code used the configured fps and the
+    // duration was only known after it).
+    uint32_t durSecs = (millis() - s_startMs) / 1000UL;
+    uint32_t declaredFps = cameraAviDeclaredFps(s_frameCount, durSecs, s_fps);
+    if (declaredFps != s_fps) {
+        char m[96];
+        snprintf(m, sizeof(m), "[CAM] AVI rate %lu fps (configured %lu) over %lus, %lu frames",
+                 (unsigned long)declaredFps, (unsigned long)s_fps,
+                 (unsigned long)durSecs, (unsigned long)s_frameCount);
+        directLogPrintln(m);
+    }
 
     // Seek to start and overwrite header with correct values. H.264-in-AVI
     // (Fase 2) rewrites the 480-byte header with the SPS/PPS stashed from
@@ -1179,17 +1191,17 @@ bool cameraRecordFinish() {
     if (s_h264) {
         uint8_t hdr[CAM_H264_AVI_HDR_BYTES];
 #if defined(TARGET_BOARD_P4) && TARGET_BOARD_P4 == 1
-        buildAviHeaderH264(hdr, s_fps, s_frameCount, s_width, s_height,
+        buildAviHeaderH264(hdr, declaredFps, s_frameCount, s_width, s_height,
                            moviContent, s_h264ExtLen ? s_h264Ext : nullptr,
                            s_h264ExtLen);
 #else
-        buildAviHeaderH264(hdr, s_fps, s_frameCount, s_width, s_height,
+        buildAviHeaderH264(hdr, declaredFps, s_frameCount, s_width, s_height,
                            moviContent, nullptr, 0);
 #endif
         s_file.write(hdr, CAM_H264_AVI_HDR_BYTES);
     } else {
         uint8_t hdr[HEADER_TOTAL];
-        buildAviHeader(hdr, s_fps, s_frameCount, s_width, s_height, moviContent);
+        buildAviHeader(hdr, declaredFps, s_frameCount, s_width, s_height, moviContent);
         s_file.write(hdr, HEADER_TOTAL);
     }
     s_file.flush();
@@ -1201,7 +1213,6 @@ bool cameraRecordFinish() {
     // Final rename: append duration + origin tag
     // (YYYYMMDD_HHMMSS_RES_FPS_<DUR>s_<TAG>.avi). Keeps the folder readable
     // without opening files; playback parses fps from the same position.
-    uint32_t durSecs = (millis() - s_startMs) / 1000UL;
     if (s_path.endsWith(".avi")) {
         String base = s_path.substring(0, s_path.length() - 4);
         String finalPath = base + "_" + String(durSecs) + "s";

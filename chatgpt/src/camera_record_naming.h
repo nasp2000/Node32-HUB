@@ -30,6 +30,27 @@
 // Staging folder name (SD path).  Keep in sync with camera_record.cpp.
 #define CAM_REC_STAGE_FOLDER  "/CAM/PENDING"
 
+// --- AVI declared frame rate (CAM-94) --------------------------------------
+// The AVI header used to carry the CONFIGURED fps. Measured on the .18
+// (2026-11-22): 1280x960 q20 configured 6 really captured ~1.3 fps (a 12 s clip
+// played in 2.7 s), while 800x640 q35 stayed at 5.8 of 6. The rate the pipeline
+// can sustain depends on resolution/quality, so the file must declare what it
+// actually got — otherwise playback speed is wrong in both directions.
+//
+// Returns the fps to write in dwMicroSecPerFrame / strh.dwRate:
+//   - fewer than 2 frames or no elapsed time: keep the configured rate (a
+//     one-frame clip has no measurable rate and callers still show the intent);
+//   - otherwise the rounded average, clamped to 1..30 (the device's domain:
+//     MJPEG modes up to 12, H.264 up to 30).
+static inline uint32_t cameraAviDeclaredFps(uint32_t frames, uint32_t elapsedSecs,
+                                            uint32_t configuredFps) {
+    if (frames < 2 || elapsedSecs == 0) return configuredFps ? configuredFps : 1;
+    uint32_t fps = (frames + elapsedSecs / 2) / elapsedSecs;  // rounded
+    if (fps < 1) fps = 1;
+    if (fps > 30) fps = 30;
+    return fps;
+}
+
 // --- Clock readiness -------------------------------------------------------
 
 static inline bool cameraClockReady(time_t now) {

@@ -101,3 +101,23 @@ TEST_CASE("migrated prefix: dated 'YYYY-MM-DD_HHMMSS_' once synced (used for sta
     cameraRecordMigratedPrefix(0, out);
     CHECK(std::string(out) == "__");
 }
+TEST_CASE("CAM-94: the AVI declares the rate the clip was really captured at") {
+    // Measured on the .18 (2026-11-22): configured 6 fps at 1280x960 q20 really
+    // delivered ~1.3 fps (12 s -> 16 frames), while 800x640 q35 kept ~5.8.
+    // The header must follow the measurement, or playback speed is wrong.
+    CHECK(cameraAviDeclaredFps(16, 12, 6) == 1);    // heavy mode: 1.33 -> 1
+    CHECK(cameraAviDeclaredFps(62, 10, 12) == 6);   // 6.2 -> 6
+    CHECK(cameraAviDeclaredFps(35, 6, 6) == 6);     // honest pacing: unchanged
+    CHECK(cameraAviDeclaredFps(229, 13, 6) == 18);  // burst: 17.6 -> 18
+    CHECK(cameraAviDeclaredFps(140, 10, 6) == 14);  // matches the camera, not cfg
+}
+
+TEST_CASE("CAM-94: degenerate clips keep the configured rate") {
+    // One frame (or none) has no measurable rate; a 0-second clip has none.
+    CHECK(cameraAviDeclaredFps(0, 12, 6) == 6);
+    CHECK(cameraAviDeclaredFps(1, 12, 6) == 6);
+    CHECK(cameraAviDeclaredFps(50, 0, 12) == 12);
+    CHECK(cameraAviDeclaredFps(0, 0, 0) == 1);      // never divides by zero
+    // Clamped to the device domain (MJPEG <=12, H.264 <=30).
+    CHECK(cameraAviDeclaredFps(600, 10, 12) == 30);
+}
