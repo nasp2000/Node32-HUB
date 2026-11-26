@@ -661,14 +661,22 @@ void ScreenManager::updateScrolling() {
 static String tdkScreenLine() {
     TdkStatus st = tdkLambdaGetStatus();
     TdkValues v  = tdkLambdaGetValues();
-    if (st.listen)      return String(F("TDK listen"));
-    if (st.alertActive) return String(F("TDK ALERT"));
+    // The 0.96" layout shows a 10-character window per line (longer text
+    // scrolls), so the compact form is used there and the full one on 2.42".
+#if SCREEN_TYPE == 2
+    const bool wide = true;
+#else
+    const bool wide = false;
+#endif
+    if (st.listen)      return String(wide ? F("TDK listen")   : F("listen"));
+    if (st.alertActive) return String(wide ? F("TDK ALERT")    : F("ALERT"));
     if (st.lastError[0] && st.lastErrorAgeMs < 120000UL) {
-        return String(F("TDK err ")) + st.lastError;
+        return wide ? (String(F("TDK err ")) + st.lastError) : String(st.lastError);
     }
-    if (!v.valid)       return String(F("TDK waiting"));
+    if (!v.valid)       return String(wide ? F("TDK waiting")  : F("wait"));
     char b[28];
-    snprintf(b, sizeof(b), "TDK %.0fV %.2fA %s", v.vMeas, v.iMeas, v.mode);
+    if (wide) snprintf(b, sizeof(b), "TDK %.0fV %.2fA %s", v.vMeas, v.iMeas, v.mode);
+    else      snprintf(b, sizeof(b), "%.0fV %.2fA", v.vMeas, v.iMeas);   // <=10 chars
     return String(b);
 }
 #endif
