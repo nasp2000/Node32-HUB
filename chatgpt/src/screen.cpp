@@ -740,7 +740,8 @@ void ScreenManager::showStatusScreen() {
         }
     }
 
-    line1 = "IP: " + ipStr + " | SSID: " + ssidStr + " | Sinal de Rede: " + sinalStr;
+    line1 = "IP: " + ipStr + " | SSID: " + ssidStr +
+            " | " + String(screenCardLabels().signal) + " " + sinalStr;
 
     // Line 2: Uptime and System Status with Storage Info
     // Storage information: show MicroSD or PSRAM mode with free space
@@ -753,16 +754,17 @@ void ScreenManager::showStatusScreen() {
         uint32_t freeMB = (uint32_t)(freeBytes / (1024ULL * 1024ULL));
         // Display rule: show MB up to 99; if >=100MB switch to GB with 2-character style
         if (freeMB <= 99U) {
-            storage_info = "SD: " + String(freeMB) + "MB livre";
+            storage_info = "SD: " + String(freeMB) + "MB " + String(screenCardLabels().free);
         } else {
             double freeGB = (double)freeBytes / (1024.0 * 1024.0 * 1024.0);
             char buf[32];
             if (freeGB < 10.0) {
                 // e.g. 1.2GB (one decimal to keep two significant chars)
-                snprintf(buf, sizeof(buf), "SD: %.1fGB livre", freeGB);
+                snprintf(buf, sizeof(buf), "SD: %.1fGB %s", freeGB, screenCardLabels().free);
             } else {
                 // e.g. 12GB (integer, two digits)
-                snprintf(buf, sizeof(buf), "SD: %dGB livre", (int)round(freeGB));
+                snprintf(buf, sizeof(buf), "SD: %dGB %s", (int)round(freeGB),
+                         screenCardLabels().free);
             }
             storage_info = String(buf);
         }
@@ -772,7 +774,7 @@ void ScreenManager::showStatusScreen() {
         uint64_t totalBytesFS = littlefsTotalBytes();
         if (totalBytesFS > 0) {
             uint32_t freeKB = (uint32_t)(freeBytes / 1024ULL);
-            storage_info = "FS: " + String(freeKB) + "KB livre";
+            storage_info = "FS: " + String(freeKB) + "KB " + String(screenCardLabels().free);
         } else {
             storage_info = "Storage: N/A";
         }

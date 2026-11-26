@@ -34,6 +34,9 @@
 #if ENABLE_TDK_LAMBDA==1
 #include "tdk_lambda.h"      // TdkStatus / TdkValues / tdkLambdaGet*
 #endif
+#if ENABLE_GRBL==1
+#include "grbl_sender.h"     // grblIsAlarmActive / grblGetAlarmMessage
+#endif
 #if ENABLE_AHT20_BMP280==1
 #include "sensors/sensor_config.h"
 #endif
@@ -154,8 +157,19 @@ inline void screenBuildPackCards(ScreenCardList& cards) {
 #endif
 
     if (!unikonOnly) {
+#if ENABLE_GRBL==1
+        // CNC emergency first: an ALARM stops the machine and nothing else on
+        // the panel matters until somebody presses RESET.
+        if (grblIsAlarmActive()) {
+            const char* msg = grblGetAlarmMessage();
+            char alarmBuf[SCREEN_CARD_TEXT_MAX];
+            if (msg && msg[0]) snprintf(alarmBuf, sizeof(alarmBuf), "! ALARM %s", msg);
+            else               snprintf(alarmBuf, sizeof(alarmBuf), "! ALARM");
+            cards.add(alarmBuf, 2);
+        }
+#endif
 #if ENABLE_TDK_LAMBDA==1
-        screenAddTdkCard(cards);   // first: this is the pack's main instrument
+        screenAddTdkCard(cards);   // second: this is the pack's main instrument
 #endif
 
 #if ENABLE_AHT20_BMP280==1

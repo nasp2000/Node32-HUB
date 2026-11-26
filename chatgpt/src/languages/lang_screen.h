@@ -25,14 +25,18 @@ struct ScreenCardLabels {
     const char* schedTpl;   // " tpl:"
     const char* noModules;  // "no mods" / "sem mods"  (<=10 chars)
     const char* offline;    // "! OFFLINE" / "! SEM REDE"
+    const char* signal;     // line 1: "Signal:" / "Sinal:"
+    const char* free;       // line 2: "free" / "livre"
 };
 
 inline const ScreenCardLabels& screenCardLabels() {
     static const ScreenCardLabels en = {
-        "Temp:", "Hum:", "P:", "Sched:", " dest:", " tpl:", "no mods", "! OFFLINE"
+        "Temp:", "Hum:", "P:", "Sched:", " dest:", " tpl:", "no mods", "! OFFLINE",
+        "Signal:", "free"
     };
     static const ScreenCardLabels pt = {
-        "Temp:", "Hum:", "P:", "Agend:", " dest:", " tpl:", "sem mods", "! SEM REDE"
+        "Temp:", "Hum:", "P:", "Agend:", " dest:", " tpl:", "sem mods", "! SEM REDE",
+        "Sinal:", "livre"
     };
     const char* code = activeLangCode;
     const bool isPt = (code && code[0] == 'p' && code[1] == 't');

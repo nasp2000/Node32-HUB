@@ -37,6 +37,7 @@ pio run -e esp32p4cam         # P4 CAM only (Arduino 3.3.12 dual-platform, see p
 - **Line 3 is a rotating card list** (`screen/screen_cards.h`): `ScreenCard{text, compact, weight, stale}`. Line 1 (network) and line 2 (uptime/heap/storage) are core; **every module card is composed in `screen/screen_cards_pack.h`** — a new module adds one builder there, never an `#if` in `screen.cpp`. The core rotates, gives card 0 two turns, picks `compact` when the row is narrow and prefixes `~` when the card is `stale`.
 - `activeDisplayProfile()` is the single source for panel geometry in the status path: `fitForPanel()` and the compact/full choice read `widthPx` + `textSize` from it. `textSize` is the size the **status rows** really draw at (0.96" = 2 → 10 chars, 2.42" = 1 → 21 chars), not the maximum.
 - The card builders print with `snprintf` into fixed buffers (`FPSTR(activeLang->x)` for translations) — no `String` per card, no heap churn in the 6 s rotation.
+- Card order is meaning: `! OFFLINE` (core, no Wi-Fi/Ethernet, AP excepted) → `! ALARM` (GRBL packs, `grblIsAlarmActive()`) → the pack's main instrument (TDK) → the rest → scheduler summary. Labels that both PT and EN builds render come from `languages/lang_screen.h` (own struct, not the positional `lang_active.cpp` tables).
 
 ## Web architecture
 - 4 layers: `assets/` (PROGMEM) → `renderers/` → `handlers_unified/` (shared WiFi+Ethernet via `HttpRequest`/`HttpResponse`) → `routes/`.
