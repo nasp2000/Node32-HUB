@@ -84,7 +84,7 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
     <h3 class='section-title'>3) Trend</h3>
     <div class='tdk-row'>
       <label class='tdk-note' title='How many samples the chart draws' data-i18n-title='tdkTipWindow'>Window
-        <select id='tdkWin' onchange='tdkLoadTrend()'>
+        <select id='tdkWin' onchange='tdkLoadTrend()' title='How many samples the chart draws' data-i18n-title='tdkTipWindow'>
           <option value='30'>30 samples</option>
           <option value='60' selected>60 samples</option>
           <option value='120'>120 samples</option>
@@ -134,7 +134,7 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
       <label class='tdk-field' title='Seconds between polls, 5 to 3600; one poll is one CSV row' data-i18n-title='tdkTipPollSec'>Interval (s) <input type='number' id='tdkPollSec' min='5' max='3600' value='60' style='width:90px' onchange='tdkSaveCfg()'></label>
       <label class='tdk-note' title='Write the polls to the daily CSV file' data-i18n-title='tdkTipCsvOn'><input type='checkbox' id='tdkCsvOn' onchange='tdkSaveCfg()'> Write CSV</label>
       <label class='tdk-field' title='table: one column per value; sensor: key,value pairs like the sensor logs' data-i18n-title='tdkTipFmt'>Format
-        <select id='tdkFmt' onchange='tdkSaveCfg()'>
+        <select id='tdkFmt' onchange='tdkSaveCfg()' title='table: one column per value; sensor: key,value pairs like the sensor logs' data-i18n-title='tdkTipFmt'>
           <option value='sensor'>sensor (key, value)</option>
           <option value='table'>table (columns)</option>
         </select>
@@ -160,7 +160,7 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
     </div>
     <div class='tdk-grid'>
       <label class='tdk-field' title='dvc: one query with several fields; split: one query per value' data-i18n-title='tdkTipMode2'>Mode
-        <select id='tdkMode2'>
+        <select id='tdkMode2' title='dvc: one query with several fields; split: one query per value' data-i18n-title='tdkTipMode2'>
           <option value='dvc'>dvc (one query, N fields)</option>
           <option value='split'>split (V and I separate)</option>
         </select>
@@ -208,7 +208,7 @@ var _tdkLastSendMs=0;    /* console rate limit (300 ms) */
 function _tdkQ(id){return document.getElementById(id);}
 function _tdkFail(d){
   var m='Failed: '+((d&&d.message)||'?');
-  if(window.customAlert){window.customAlert(m);}else{alert(m);}
+  if(window.customAlert){window.customAlert(m);}
 }
 function _tdkEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function _tdkPost(url,body){
