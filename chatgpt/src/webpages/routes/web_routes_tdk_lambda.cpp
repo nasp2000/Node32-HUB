@@ -6,6 +6,10 @@
 #include "../renderers/page_render_common.h"
 #include "route_registry_api.h"
 
+// Defined in smtp_core_impl.h (main TU); declared here so this .cpp does not
+// depend on which route headers happen to pull ethernet_bootstrap_response.h.
+extern const char* FIRMWARE_BUILD;
+
 void registerTdkLambdaRoutes(AsyncWebServer& server, const WebRouteContext& context) {
     (void)server;
     // Registered once: served by WiFi and by Ethernet (findApiRouteHandler).
