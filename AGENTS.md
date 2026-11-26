@@ -41,6 +41,34 @@ pio run -e esp32p4cam         # P4 CAM only (Arduino 3.3.12 dual-platform, see p
 - `/api/configs` is frozen. New pages: dedicated endpoints, responses <4KB.
 - UI: `customAlert`/`customConfirm` (never native), `d.success` not `d.ok`, no arrow functions (ESP32 browser compat), use `.key` not `.keyCode`. Home button = first child of `.wrap`.
 
+### Page layout is a RULE — every page, same construction
+
+`core.css` does `body{display:flex}` from 768 px up and `.page{max-width:1000px}`. A page asset
+that opens neither `.page` nor `.wrap` becomes a row of flex children of `<body>`: every block
+side by side, shrunk, headings all at the same height (`/tdk-lambda` shipped like that once).
+
+Every page asset MUST open the shared shell, as in `page_ipg_laser_asset.cpp`:
+
+```html
+<div class='page <name>'>
+  <div class='wrap'>
+    <style> .section-box{...} .section-title{...} </style>
+    <div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome'>Home</a></div>
+    <h1>Title</h1>
+    <div class='section-box'><h3 class='section-title'>1) Section</h3> … </div>
+  </div>
+</div>
+```
+
+- Sections = `.section-box` + `.section-title`; buttons = `class='btn'` (core styles); inputs
+  and selects inherit the global core.css styling.
+- Acceptable variants (declared, not assumed): self-contained `<body>` documents, kiosk
+  dashboards using `<main class='page'>`, the full-screen player (`#app`), fragments
+  (`fragments_*`) and mobile assets (`*_mobile*`, `mobile_*`).
+- **Enforced**: `chatgpt/scripts/validate_pages.py` runs as a `pio run` pre-script (warnings)
+  and as a `--strict` step in `release_check.sh` (a finding blocks a release).
+- Any page change still updates `PAGES/<page>.md` (and the cross-page table) in the same change.
+
 ## Page docs (`PAGES/`) — MANDATORY on any page change
 - One file per web page: `PAGES/<page_name>.md` (English snake_case: `inactivity_alerts.md`, `email.md`, `proximity_sensors.md`). Central fix backlog: `PAGES/BACKLOG.md`.
 - **Cross-page reference table** (`PAGES/WEB_PAGES_REFERENCE.md`): ONE table with every page — what it does, local-processing vs static (poll intervals), access rules per IP / per open page (session engine), which pages never kick by time, feature flags. **Consult it when wiring pages/access; keep it in sync on any page/route/poll/flag/access change** (same change, alongside `PAGES/<page>.md`).

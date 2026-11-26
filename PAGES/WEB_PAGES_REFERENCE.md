@@ -10,6 +10,32 @@ Never kick: `A` = **never closes by time**; `no` = static page (see rules below)
 Session engine (multi-client): every request from a tracked IP is activity — a page that only
 polls APIs keeps its slot (the 30 s stale reset needs real silence, `web_session_tracker.h`).
 
+## Page layout rule (every page, same construction)
+
+`core.css` sets `body{display:flex}` from 768 px up and `.page{max-width:1000px}`. A page asset
+that opens neither `.page` nor `.wrap` becomes a **row of flex children of `<body>`** — blocks
+side by side, shrunk, headings aligned (this is how `/tdk-lambda` shipped once). Every page asset
+must open the shared shell (`page_ipg_laser_asset.cpp` is the reference):
+
+```html
+<div class='page <name>'>
+  <div class='wrap'>
+    <style> .section-box{...} .section-title{...} </style>
+    <div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome'>Home</a></div>
+    <h1>Title</h1>
+    <div class='section-box'><h3 class='section-title'>1) Section</h3> … </div>
+  </div>
+</div>
+```
+
+Sections are `.section-box` + `.section-title`; buttons are `class='btn'`; inputs/selects use the
+global styling. Declared variants (not silent exceptions): self-contained `<body>` documents,
+kiosk dashboards (`<main class='page'>`), the full-screen player (`#app`), fragments
+(`fragments_*`) and mobile assets (`*_mobile*`, `mobile_*`).
+
+Enforced by `chatgpt/scripts/validate_pages.py` (pre-script on every build, warnings; `--strict`
+in `release_check.sh` fails a release).
+
 ## Never-kick rules (essential)
 
 **ALWAYS exempt — kick-off never exists** (local pages carry `_localPagesNeverExpire`

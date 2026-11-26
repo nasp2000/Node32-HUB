@@ -111,6 +111,7 @@ fi
 # 5. compliance
 step "5/9 Compliance third-party"
 if "$PY" chatgpt/scripts/validate_third_party.py --strict; then ok "third-party"; else bad "third-party"; fi
+if "$PY" chatgpt/scripts/validate_pages.py --strict; then ok "pages layout"; else bad "pages layout"; fi
 
 # 6. build de smoke
 step "6/9 Build de smoke"
