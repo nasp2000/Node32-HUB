@@ -26,6 +26,16 @@ inline size_t screenFitText(const char* in, char* out, size_t cols) {
     return len;
 }
 
+// Characters that fit in a panel row. Clamped so a bad profile can never make
+// the renderer write outside its buffer (2..60 chars).
+inline int screenColsForWidth(int widthPx, int charPx) {
+    if (widthPx <= 0 || charPx <= 0) return 0;
+    int cols = widthPx / charPx;
+    if (cols < 2) cols = 2;
+    if (cols > 60) cols = 60;
+    return cols;
+}
+
 // Which card is due. `weights[i]` = how many turns card i gets per cycle
 // (0 is treated as 1). Cards are expanded in push order (the caller pushes the
 // most important first), so the order is deterministic and the primary card

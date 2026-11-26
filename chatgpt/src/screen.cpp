@@ -537,10 +537,7 @@ void ScreenManager::clear() {
 }
 
 String ScreenManager::fitForPanel(const String &text) {
-    const int charW = 6 * OLED_TEXT_SIZE;
-    int cols = SSD1306_WIDTH / charW;          // 21 on a 128 px panel at size 1
-    if (cols < 2) cols = 2;
-    if (cols > 60) cols = 60;
+    const int cols = screenColsForWidth(SSD1306_WIDTH, 6 * OLED_TEXT_SIZE);
     char buf[64];
     screenFitText(stripAccents(text).c_str(), buf, (size_t)cols + 1);
     return String(buf);
@@ -811,6 +808,12 @@ void ScreenManager::showStatusScreen() {
     uint8_t cardWeight[16];
     int moduleCount = 0;
     for (int wi = 0; wi < 16; ++wi) cardWeight[wi] = 1;
+
+    // Highest-priority card: no network at all. Without it the pack cannot do
+    // its job (OTA, e-mail, pages), so it is shown first in the rotation.
+    if (!connected && !ethernetConnected && !apActive) {   // AP mode is a valid state
+        moduleLines[moduleCount++] = String(F("! OFFLINE"));
+    }
 
 #if (defined(SELECTED_PACK) && (SELECTED_PACK == PACK_RAMBOX)) || (ENABLE_UNIKON==1)
     const bool line3UnikonOnly = true;

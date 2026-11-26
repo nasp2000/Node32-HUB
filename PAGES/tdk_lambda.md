@@ -198,6 +198,8 @@ Desenhado **no browser** (canvas 2D), com os dados de `/api/tdk-lambda-samples`:
   - **0.96" (SCREEN_TYPE 1)** — as linhas passaram a usar a **largura toda (21 caracteres)**;
     textos até 2× a largura são truncados com `~`, só os muito longos fazem marquee. O cartão do
     PSU usa a forma compacta: `600V 1.30A`, ou `listen` / `ALERT` / `C04` / `wait`;
+  - **Cartão `! OFFLINE`** — quando não há Wi-Fi **nem** Ethernet (fora de modo AP) entra
+    como **primeiro** cartão da rotação: sem rede o pack não faz o seu trabalho.
   - **2.42" (SCREEN_TYPE 2)** — forma completa: `TDK 600V 1.30A CV`, idem estados. Todas as
     linhas da vista 2.42 passaram a usar `ScreenManager::fitForPanel()` (largura do painel +
     `~` na truncagem, em vez do antigo `substring(0, 21)` silencioso) e levam o mesmo

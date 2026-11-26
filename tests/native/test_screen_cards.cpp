@@ -53,3 +53,12 @@ TEST_CASE("screenRotationIndex treats a zero weight as one and copes with one ca
     CHECK(screenRotationIndex(nullptr, 3, 1) == 0);
     CHECK(screenRotationIndex(w, 0, 1) == 0);
 }
+
+TEST_CASE("screenColsForWidth derives and clamps the row width") {
+    CHECK(screenColsForWidth(128, 6) == 21);   // 0.96"/2.42" at text size 1
+    CHECK(screenColsForWidth(64, 6) == 10);
+    CHECK(screenColsForWidth(512, 6) == 60);   // clamped: renderer buffer
+    CHECK(screenColsForWidth(8, 6) == 2);      // clamped: never 0/1 columns
+    CHECK(screenColsForWidth(128, 0) == 0);    // bad profile -> caller must skip
+    CHECK(screenColsForWidth(0, 6) == 0);
+}
