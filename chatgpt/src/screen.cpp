@@ -64,6 +64,12 @@
 #include "usb_host_manager.h"
 #endif
 
+// Line-3 card model and the per-module builders. The core rotates cards; the
+// pack data (sensors, CAN, USB, radio, PSU, clock modules) stays out of this
+// file. Header-only, like the views below.
+#include "screen/screen_cards.h"
+#include "screen/screen_cards_pack.h"
+
 // Screen modularization: boot animations (anim_*.h) and pack-specific status
 // views (view_*.h, picked by view_selector.h). Header-only, no new build units.
 #include "screen/anim_rambox.h"
@@ -538,7 +544,9 @@ void ScreenManager::clear() {
 }
 
 String ScreenManager::fitForPanel(const String &text) {
-    const int cols = screenColsForWidth(SSD1306_WIDTH, 6 * OLED_TEXT_SIZE);
+    const ScreenDisplayProfile prof = activeDisplayProfile();
+    const int cols = screenColsForWidth(prof.widthPx,
+                                        6 * (prof.textSize ? prof.textSize : 1));
     char buf[64];
     screenFitText(stripAccents(text).c_str(), buf, (size_t)cols + 1);
     return String(buf);
@@ -672,32 +680,6 @@ void ScreenManager::updateScrolling() {
     }
 }
 
-#if ENABLE_TDK_LAMBDA==1
-// Third OLED line in a TDK-Lambda build: one glance shows the PSU state.
-// "TDK 600V 1.30A CV" fits the 21-char 2.42" rows and the 0.96" scroller alike.
-static String tdkScreenLine() {
-    TdkStatus st = tdkLambdaGetStatus();
-    TdkValues v  = tdkLambdaGetValues();
-    // The 0.96" layout shows a 10-character window per line (longer text
-    // scrolls), so the compact form is used there and the full one on 2.42".
-#if SCREEN_TYPE == 2
-    const bool wide = true;
-#else
-    const bool wide = false;
-#endif
-    if (st.listen)      return String(wide ? F("TDK listen")   : F("listen"));
-    if (st.alertActive) return String(wide ? F("TDK ALERT")    : F("ALERT"));
-    if (st.lastError[0] && st.lastErrorAgeMs < 120000UL) {
-        return wide ? (String(F("TDK err ")) + st.lastError) : String(st.lastError);
-    }
-    if (!v.valid)       return String(wide ? F("TDK waiting")  : F("wait"));
-    char b[28];
-    if (wide) snprintf(b, sizeof(b), "TDK %.0fV %.2fA %s", v.vMeas, v.iMeas, v.mode);
-    else      snprintf(b, sizeof(b), "%.0fV %.2fA", v.vMeas, v.iMeas);   // <=10 chars
-    return String(b);
-}
-#endif
-
 void ScreenManager::showStatusScreen() {
     String line1, line2, line3;
 
@@ -802,259 +784,54 @@ void ScreenManager::showStatusScreen() {
             " | " + storage_info +
             " | Firmware: " + String(FIRMWARE_VERSION);
 
-    // Line 3: module-specific runtime info — rotates between compiled modules.
-    // RS232/LPT raw-byte counters intentionally excluded; shown in /monitor page instead.
-    // In RAMBOX/Unikon builds, keep line 3 focused on Unikon metrics only.
-    String moduleLines[16];
-    uint8_t cardWeight[16];
-    int moduleCount = 0;
-    for (int wi = 0; wi < 16; ++wi) cardWeight[wi] = 1;
+    // Line 3: rotating status cards. screenBuildPackCards() composes one card
+    // per compiled module (see screen/screen_cards_pack.h); this file only
+    // rotates them, so the status path stays pack-agnostic.
+    const bool line3UnikonOnly = screenLine3UnikonOnly();
+    // Fixed buffers (~1.4 KB): keep the card store off the 8 KB loop stack.
+    static ScreenCardList cards;
+    cards.clear();
 
     // Highest-priority card: no network at all. Without it the pack cannot do
     // its job (OTA, e-mail, pages), so it is shown first in the rotation.
     // NOTE: the local `connected` of the line-1 block is out of scope here.
     if (WiFi.status() != WL_CONNECTED && !ethernetConnected && !apActive) {
-        moduleLines[moduleCount++] = String(screenCardLabels().offline);
+        cards.add(screenCardLabels().offline);
     }
 
-#if (defined(SELECTED_PACK) && (SELECTED_PACK == PACK_RAMBOX)) || (ENABLE_UNIKON==1)
-    const bool line3UnikonOnly = true;
-#else
-    const bool line3UnikonOnly = false;
-#endif
+    screenBuildPackCards(cards);
 
-#if ENABLE_BRICON==1
-    // Rambox: line 3 names the module that owns the RS232 port (Unikon RAMBOX or
-    // Bricon) and its arrival counters — only one module can be active at a time.
-    const bool line3BriconActive = (strcmp(briconActiveModuleName(), "bricon") == 0);
-#else
-    const bool line3BriconActive = false;
-#endif
-#if ENABLE_UNIKON==0 && ENABLE_BRICON==0
-    (void)line3BriconActive;   // no module line in this build
-#endif
-
-#if ENABLE_UNIKON==1
-    if (!line3BriconActive) {
-        UnikonStatus us = unikonGetStatus();
-        if (us.connected) {
-            moduleLines[moduleCount++] = L(activeLang->screenUnikonPlus) + String(us.lastNewCount) +
-                                         " total " + String(us.totalKnown) +
-                                         " reg " + String(us.registeredCount);
-        } else {
-            moduleLines[moduleCount++] = L(activeLang->screenUnikonOffline) + String(us.totalKnown);
-        }
-    }
-#endif
-
-#if ENABLE_BRICON==1
-    if (line3BriconActive) {
-        BriconStatus bs = briconGetStatus();
-        uint16_t briconTotal = briconGetArrivalCount();
-        if (bs.connected) {
-            moduleLines[moduleCount++] = L(activeLang->screenBriconPlus) + String(bs.lastNewCount) +
-                                         " total " + String(briconTotal) +
-                                         " reg " + String(briconGetRegistrationCount());
-        } else {
-            moduleLines[moduleCount++] = L(activeLang->screenBriconOffline) + String(briconTotal);
-        }
-    }
-#endif
-
-    if (!line3UnikonOnly) {
-#if ENABLE_TDK_LAMBDA==1
-        // PSU card first (this is the pack's main instrument), then it rotates
-        // with the other cards so nothing is lost on the small 3-line OLED.
-        moduleLines[moduleCount++] = tdkScreenLine();
-#endif
-#if ENABLE_AHT20_BMP280==1
-        {
-            const SensorConfig &cfg = sensorConfigManager.getConfig();
-            if (cfg.last_reading_time > 0) {
-                char envBuf[64];
-                const ScreenCardLabels& lbl = screenCardLabels();
-                snprintf(envBuf, sizeof(envBuf), "%s %.1fC %s %.0f%% %s %.0fhPa",
-                         lbl.envTemp, cfg.last_temp_avg, lbl.envHum,
-                         cfg.last_humidity, lbl.envPress, cfg.last_pressure_hpa);
-                // Stale marker: a sensor that stopped updating kept showing its
-                // last value as if it were live. '~' = older than 5 minutes.
-                bool envStale = false;
-                {
-                    const time_t nowT = time(nullptr);
-                    if (nowT > 100000 && cfg.last_reading_time > 0 &&
-                        (nowT - (time_t)cfg.last_reading_time) > 300) {
-                        envStale = true;
-                    }
-                }
-                moduleLines[moduleCount++] = String(envStale ? "~ " : "") + String(envBuf);
-            } else {
-                moduleLines[moduleCount++] = L(activeLang->screenTempNoReading);
-            }
-        }
-#endif
-
-#if ENABLE_MQ135==1
-        {
-            if (mq135Sensor.isInitialized()) {
-                MQ135Reading gas = mq135Sensor.getLastReading();
-                if (gas.valid) {
-                    char gasBuf[64];
-                    snprintf(gasBuf, sizeof(gasBuf), "Gas: CO2 %.0fppm AQI %.0f",
-                             gas.ppm_co2_corrected, gas.aqi);
-                    moduleLines[moduleCount++] = String(gasBuf);
-                } else {
-                    unsigned long warmupSec = mq135Sensor.getWarmupRemaining() / 1000UL;
-                    moduleLines[moduleCount++] = L(activeLang->screenGasWarmup) + String(warmupSec) + "s";
-                }
-            } else {
-                moduleLines[moduleCount++] = L(activeLang->screenGasNoInit);
-            }
-        }
-#endif
-
-#if ENABLE_PROXIMITY==1
-        {
-            uint8_t nCh = proximityChannelCount();
-            if (nCh > 0) {
-                uint32_t totalIn = 0, totalOut = 0;
-                for (uint8_t c = 0; c < nCh; c++) {
-                    ProximityChannel ch = proximityGetChannel(c);
-                    totalIn  += ch.count_in;
-                    totalOut += ch.count_out;
-                }
-                char proxBuf[64];
-                if (nCh == 1) {
-                    ProximityChannel ch0 = proximityGetChannel(0);
-                    snprintf(proxBuf, sizeof(proxBuf), "Prox %s: IN:%lu OUT:%lu %.1frpm",
-                             ch0.name, (unsigned long)ch0.count_in,
-                             (unsigned long)ch0.count_out, ch0.rate_ppm);
-                } else {
-                    snprintf(proxBuf, sizeof(proxBuf), "Prox: %u ch IN:%lu OUT:%lu",
-                             (unsigned)nCh, (unsigned long)totalIn, (unsigned long)totalOut);
-                }
-                moduleLines[moduleCount++] = String(proxBuf);
-            }
-        }
-#endif
-
-#if ENABLE_MODBUS==1
-        {
-            if (g_modbusDeviceCount > 0) {
-                uint32_t totalPolls = 0, totalErrors = 0;
-                for (uint8_t d = 0; d < g_modbusDeviceCount; d++) {
-                    totalPolls  += g_modbusDevices[d].pollCount;
-                    totalErrors += g_modbusDevices[d].errorCount;
-                }
-                char mbBuf[64];
-                snprintf(mbBuf, sizeof(mbBuf), "Modbus: %u dev poll:%lu err:%lu",
-                         (unsigned)g_modbusDeviceCount,
-                         (unsigned long)totalPolls,
-                         (unsigned long)totalErrors);
-                moduleLines[moduleCount++] = String(mbBuf);
-            }
-        }
-#endif
-
-#if ENABLE_CAN==1
-        {
-            if (canRuntimeIsRunning()) {
-                CanRuntimeStats cs = canRuntimeGetStats();
-                char canBuf[64];
-                snprintf(canBuf, sizeof(canBuf), "CAN: RX:%lu TX:%lu err:%lu",
-                         (unsigned long)cs.total_rx,
-                         (unsigned long)cs.total_tx,
-                         (unsigned long)cs.total_tx_errors);
-                moduleLines[moduleCount++] = String(canBuf);
-            }
-        }
-#endif
-
-#if ENABLE_USB_HOST==1
-        {
-            if (usbHostIsRunning()) {
-                UsbHostStats us = usbHostGetStats();
-                char usbBuf[64];
-                snprintf(usbBuf, sizeof(usbBuf), "USB:%u dev RX:%lu TX:%lu",
-                         (unsigned)us.devices_connected,
-                         (unsigned long)us.total_rx_bytes,
-                         (unsigned long)us.total_tx_bytes);
-                moduleLines[moduleCount++] = String(usbBuf);
-            }
-        }
-#endif
-
-#if ENABLE_UDA1334A==1 && defined(SELECTED_PACK) && (SELECTED_PACK == PACK_RADIO)
-        {
-            if (radioAudioIsActive()) {
-                const char* title = radioAudioGetCurrentTitle();
-                const char* artist = radioAudioGetCurrentArtist();
-                if (title && title[0]) {
-                    if (artist && artist[0] && strcmp(artist, title) != 0) {
-                        moduleLines[moduleCount++] = L(activeLang->screenRadioLabel) + artist + " - " + title;
-                    } else {
-                        moduleLines[moduleCount++] = L(activeLang->screenRadioLabel) + title;
-                    }
-                } else {
-                    moduleLines[moduleCount++] = L(activeLang->screenRadioPlaying);
-                }
-            } else {
-                moduleLines[moduleCount++] = L(activeLang->screenRadioStopped);
-            }
-        }
-#endif
-
-        // Scheduler/email summary — always added as a fallback card.
-        {
-            int intervalActiveCount = 0;
-            for (int i = 1; i <= 10; i++) {
-                String cmd, unit, days, tpl;
-                int interval = 0;
-                bool en = false;
-                if (configManager.getSchedCmdSlot(i, cmd, interval, unit, days, tpl, en)) {
-                    if (en && cmd.length()) intervalActiveCount++;
-                }
-            }
-            int datetimeActiveCount = 0;
-            for (int i = 1; i <= 16; i++) {
-                String c, d, t, tpl;
-                bool en = false;
-                if (configManager.getSchedDtSlot(i, c, d, t, tpl, en)) {
-                    if (en && c.length()) datetimeActiveCount++;
-                }
-            }
-            size_t recipientsCount = configManager.countRecipientSlotsNonEmpty();
-            size_t templatesCount = configManager.getRs232Templates().size();
-            int totalSched = intervalActiveCount + datetimeActiveCount;
-            const ScreenCardLabels& lbl = screenCardLabels();
-            moduleLines[moduleCount++] = String(lbl.sched) + String(totalSched) +
-                                         String(lbl.schedDest) + String(recipientsCount) +
-                                         String(lbl.schedTpl) + String(templatesCount);
-        }
-    }
-
-    if (moduleCount > 0) {
+    if (!cards.empty()) {
         static unsigned long lastRotateMs = 0;
         static uint32_t rotationTick = 0;
-        static int currentModuleIndex = 0;
+        static int currentIndex = 0;
         const unsigned long MODULE_ROTATE_MS = 6000UL;
 
-        // The primary card (pushed first, e.g. the PSU or the clock module)
+        // The primary card (pushed first: the PSU, the clock module, OFFLINE)
         // gets two turns per cycle so it reappears sooner; the rest get one.
-        if (moduleCount > 0) cardWeight[0] = 2;
+        cards.setWeight(0, 2);
 
-        if (currentModuleIndex < 0 || currentModuleIndex >= moduleCount) {
-            currentModuleIndex = 0;
+        if (currentIndex < 0 || currentIndex >= cards.count()) {
+            currentIndex = 0;
             lastRotateMs = millis();
         }
 
-        unsigned long nowMs = millis();
-        if (moduleCount > 1 && (nowMs - lastRotateMs) >= MODULE_ROTATE_MS) {
+        const unsigned long nowMs = millis();
+        if (cards.count() > 1 && (nowMs - lastRotateMs) >= MODULE_ROTATE_MS) {
+            uint8_t weights[SCREEN_CARD_MAX];
+            cards.weights(weights);
             rotationTick++;
-            currentModuleIndex = (int)screenRotationIndex(cardWeight, (uint8_t)moduleCount, rotationTick);
+            currentIndex = (int)screenRotationIndex(weights, (uint8_t)cards.count(), rotationTick);
             lastRotateMs = nowMs;
         }
 
-        line3 = moduleLines[currentModuleIndex];
+        // Full form on a wide panel, compact form on a narrow one (from the
+        // active display profile), with '~' when the card data is stale.
+        const ScreenDisplayProfile prof = activeDisplayProfile();
+        const int cardCols = screenColsForWidth(prof.widthPx,
+                                                6 * (prof.textSize ? prof.textSize : 1));
+        char cardBuf[SCREEN_CARD_TEXT_MAX];
+        line3 = cards.displayText(currentIndex, cardCols, cardBuf, sizeof(cardBuf));
     } else {
         line3 = String(screenCardLabels().noModules);
     }

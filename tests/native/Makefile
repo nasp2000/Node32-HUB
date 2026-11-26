@@ -737,7 +737,7 @@ test_modbus_reg_types$(BIN_EXT): test_modbus_reg_types.cpp $(SRC_DIR)/modbus_reg
 test_tdk_lambda_parser$(BIN_EXT): test_tdk_lambda_parser.cpp $(SRC_DIR)/tdk_lambda_scpi.h
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_tdk_lambda_parser.cpp
 
-test_screen_cards$(BIN_EXT): test_screen_cards.cpp $(SRC_DIR)/screen/screen_card_logic.h
+test_screen_cards$(BIN_EXT): test_screen_cards.cpp $(SRC_DIR)/screen/screen_card_logic.h $(SRC_DIR)/screen/screen_cards.h
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) -o $@ test_screen_cards.cpp
 
 # --- commands_param_interval: strict interval parsing for the commands API (CMD-6) ---

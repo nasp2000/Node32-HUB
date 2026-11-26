@@ -34,6 +34,9 @@ pio run -e esp32p4cam         # P4 CAM only (Arduino 3.3.12 dual-platform, see p
 - `screen.h` keeps the public API stable — external callers never include `screen/*` directly. All view/animation headers are header-only (`static inline`, no new build units).
 - New panel: add a profile (+ a view only if the layout differs). New pack screen: add `view_<pack>.h` guarded by its `SELECTED_PACK` (same compile exposure as the old `#if` branch had) + one branch in `view_selector.h`.
 - Never put pack `#if`s back into `screen.cpp` core; never add `.cpp` under `src/screen/` (headers only, so `build_src_filter` needs no changes).
+- **Line 3 is a rotating card list** (`screen/screen_cards.h`): `ScreenCard{text, compact, weight, stale}`. Line 1 (network) and line 2 (uptime/heap/storage) are core; **every module card is composed in `screen/screen_cards_pack.h`** — a new module adds one builder there, never an `#if` in `screen.cpp`. The core rotates, gives card 0 two turns, picks `compact` when the row is narrow and prefixes `~` when the card is `stale`.
+- `activeDisplayProfile()` is the single source for panel geometry in the status path: `fitForPanel()` and the compact/full choice read `widthPx` + `textSize` from it. `textSize` is the size the **status rows** really draw at (0.96" = 2 → 10 chars, 2.42" = 1 → 21 chars), not the maximum.
+- The card builders print with `snprintf` into fixed buffers (`FPSTR(activeLang->x)` for translations) — no `String` per card, no heap churn in the 6 s rotation.
 
 ## Web architecture
 - 4 layers: `assets/` (PROGMEM) → `renderers/` → `handlers_unified/` (shared WiFi+Ethernet via `HttpRequest`/`HttpResponse`) → `routes/`.

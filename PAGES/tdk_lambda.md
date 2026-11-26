@@ -204,19 +204,31 @@ Desenhado **no browser** (canvas 2D), com os dados de `/api/tdk-lambda-samples`:
   na config, por isso o perfil gravado (modo manual) mantém-se e volta no próximo boot.
   Se a resposta for ambígua (0 V, pares empatados) **não mexe** — fica o perfil gravado.
   Botão "Gravar o detetado" promove a detecção a perfil manual.
-- **OLED (`screen.cpp`)**: num build com `ENABLE_TDK_LAMBDA=1`, a **terceira linha** ganha o
-  cartão do PSU como **primeiro da rotação** — e o primário leva **peso 2** (aparece 2 de cada
-  N turnos), com ordem **determinística** de 6 s (era `random`). O 0.96" tem 3 linhas, por isso
-  a rotação é obrigatória para não se perder informação. Formato consoante o painel:
-  - **0.96" (SCREEN_TYPE 1)** — as linhas passaram a usar a **largura toda (21 caracteres)**;
-    textos até 2× a largura são truncados com `~`, só os muito longos fazem marquee. O cartão do
-    PSU usa a forma compacta: `600V 1.30A`, ou `listen` / `ALERT` / `C04` / `wait`;
-  - **Cartão `! OFFLINE`** — quando não há Wi-Fi **nem** Ethernet (fora de modo AP) entra
-    como **primeiro** cartão da rotação: sem rede o pack não faz o seu trabalho.
-  - **2.42" (SCREEN_TYPE 2)** — forma completa: `TDK 600V 1.30A CV`, idem estados. Todas as
-    linhas da vista 2.42 passaram a usar `ScreenManager::fitForPanel()` (largura do painel +
-    `~` na truncagem, em vez do antigo `substring(0, 21)` silencioso) e levam o mesmo
-    deslocamento anti-burn-in.
+- **OLED (cartões de linha 3)**: num build com `ENABLE_TDK_LAMBDA=1` a **terceira linha** ganha o
+  cartão do PSU como **primeiro da rotação** — o primário leva **peso 2** (aparece 2 de cada N
+  turnos), com ordem **determinística** de 6 s (era `random`). O 0.96" só tem 3 linhas, por isso a
+  rotação é obrigatória para não se perder informação.
+
+  Modelo dos cartões (`chatgpt/src/screen/screen_cards.h`): cada cartão tem **duas formas**
+  (`text` completa, `compact` curta), `weight` (turnos por ciclo) e `stale` (leitura velha → prefixo
+  `~`). Quem compõe os cartões de cada módulo é `screen/screen_cards_pack.h`; o `screen.cpp` só
+  roda a lista, sem `#if` de packs no caminho de estado.
+
+  A forma escolhida vem do **perfil do painel** (`activeDisplayProfile()`), não de `#if SCREEN_TYPE`:
+  - **0.96" (SCREEN_TYPE 1)** — as linhas desenham a **texto tamanho 2 → 10 caracteres**; textos
+    até 2× a largura são truncados com `~`, só os muito longos fazem marquee. O cartão do PSU usa a
+    forma compacta: `600V 1.30A`, ou `listen` / `ALERT` / `C04` / `wait`;
+  - **2.42" (SCREEN_TYPE 2)** — desenha a **tamanho 1 → 21 caracteres**: forma completa
+    `TDK 600V 1.30A CV`, idem estados. Todas as linhas passam por `fitForPanel()` (largura do
+    painel + `~` na truncagem, em vez do antigo `substring(0, 21)` silencioso) e levam o mesmo
+    deslocamento anti-burn-in. **Corrigido**: o perfil do 2.42" declarava `OLED_TEXT_SIZE` (2), o
+    que fazia o `fitForPanel` cortar todas as linhas a 10 caracteres; o campo passou a ser o
+    tamanho real das linhas de estado (1);
+  - **Cartão `! OFFLINE`** — quando não há Wi-Fi **nem** Ethernet (fora de modo AP) entra como
+    **primeiro** cartão da rotação: sem rede o pack não faz o seu trabalho. É composto no core
+    (estado de rede), não no pack;
+  - **`~` = dados velhos** — ambiente com leitura >5 min e TDK com resposta mais antiga que 3
+    intervalos de poll levam o prefixo; um valor parado deixa de parecer vivo.
 - `tdkLambdaUpdate()` (loop): ciclo `<cmd_v>` → `<cmd_i>` (só `split`) → `<cmd_state>` a cada intervalo configurado,
   e flush do CSV **no backend ativo** (SD ou LittleFS) na janela de `getSdcardFlushInterval()`
   (10/30/60 min) ou quando o buffer de 128 KB passa dos **96 KB**.
@@ -224,9 +236,15 @@ Desenhado **no browser** (canvas 2D), com os dados de `/api/tdk-lambda-samples`:
 
 ## 10. i18n
 
-Strings da página em pt/en inline (padrão das páginas de módulo); sem chaves novas no
-`LangStrings` nesta versão (a página é técnica e mostra o catálogo em inglês, como o
-manual). A revisão de i18n fica registada como pendência.
+Página: o texto de fallback é **inglês** (regra do repo) e todas as etiquetas/descrições usam
+`data-i18n`/`data-i18n-title`/`data-i18n-placeholder` com chaves `tdkTip*`/`tdkDesc*`/`tdkTab*`
+nos dois pacotes (`lang_en_ui.h` + `lang_pt_ui.h`, 3468 chaves, em sincronia — `validate_i18n.py`).
+O catálogo e os literais SCPI ficam em inglês, como o manual.
+
+Ecrã: os rótulos dos cartões (`Temp:`/`Hum:`/`P:`/`Sched:`/`dest:`/`tpl:`, `no mods`,
+`! OFFLINE`) vêm de `languages/lang_screen.h` — um struct próprio PT/EN, **fora** das tabelas
+posicionais de `lang_active.cpp` (onde um campo inserido no sítio errado desalinha tudo em
+silêncio).
 
 ## 11. Review findings
 
@@ -237,6 +255,9 @@ manual). A revisão de i18n fica registada como pendência.
 | 3 | `csvRows` em LittleFS conta linhas do último flush (não do ficheiro todo) | Info | ler o ficheiro ao abrir a página, se for preciso |
 | 4 | Catálogo em inglês (nomes do manual) | Info | manter: são literais SCPI |
 | 5 | Modo *listener* não distingue `DVC?` de outras linhas de 6 campos | Low | usar `STT?` como marcador quando o PLC o pedir |
+| 6 | `fitForPanel()` usava `OLED_TEXT_SIZE` para todos os painéis → a vista 2.42" cortava a 10 caracteres | **Fixed** | cols do perfil (`activeDisplayProfile().textSize`); 2.42" = 1 → 21 caracteres |
+| 7 | 15 construtores de cartões com `#if` de packs dentro do `screen.cpp` | **Fixed** | `screen_cards.h` (modelo) + `screen_cards_pack.h` (construtores); o core só roda |
+| 8 | Cartões de proximidade/Modbus/CAN/USB/rádio sem marca de dados velhos | Low | falta um `lastUpdate` por módulo; o ambiente e o TDK já a têm |
 
 ## 12. Source map
 
@@ -247,6 +268,8 @@ manual). A revisão de i18n fica registada como pendência.
 | Catálogo de comandos | `tdk_lambda.cpp` (`kCatalog`) + `docs/Fonte/COMANDOS.md` §2 |
 | Página (HTML+JS) | `chatgpt/src/webpages/assets/page_tdk_lambda_asset.{h,cpp}` |
 | Renderer | `chatgpt/src/webpages/renderers/tdk_lambda_page_renderer.{h,cpp}` |
+| Ecrã: modelo dos cartões | `chatgpt/src/screen/screen_cards.h` (+ `tests/native/test_screen_cards.cpp`) |
+| Ecrã: construtores por módulo | `chatgpt/src/screen/screen_cards_pack.h` |
 | Rotas WiFi + APIs | `chatgpt/src/webpages/routes/web_routes_tdk_lambda.{h,cpp}` |
 | Handlers (WiFi+Ethernet) | `chatgpt/src/webpages/handlers_unified/tdk_lambda_handler.{h,cpp}` |
 | Ethernet page | `ethernet_bootstrap_routes.h` (`/tdk-lambda`) + `web_shared_pages.{h,cpp}` |

@@ -96,7 +96,7 @@ struct ScreenDisplayProfile {
     uint16_t heightPx;
     int16_t resetPin;
     uint8_t vccMode;
-    uint8_t textSize;
+    uint8_t textSize;   // text size used by the status rows (not the max)
     uint8_t colorDepth; // bits per pixel (1 = mono OLED, 16 = RGB565)
     uint8_t hasTouch;   // 0 = none, 1 = capacitive touch
 };
@@ -106,9 +106,14 @@ inline ScreenDisplayProfile activeDisplayProfile() {
     return ScreenDisplayProfile{DISPLAY_S3_TOUCH7_800x480, SCREEN_LABEL, TOUCH7_WIDTH_PX,
                                 TOUCH7_HEIGHT_PX, -1, 0, 2, 16, 1};
 #elif SCREEN_TYPE == 2
+    // The 2.42" views draw their status rows at text size 1 (21 characters per
+    // row); the 0.96" one uses OLED_TEXT_SIZE (2) and scrolls a 10-character
+    // window. fitForPanel()/the card picker read this field, so it must be the
+    // size the rows really use — with OLED_TEXT_SIZE here every 2.42" row was
+    // cut to 10 characters.
     return ScreenDisplayProfile{DISPLAY_SSD1309_242, SCREEN_LABEL, SSD1306_WIDTH,
                                 SSD1306_HEIGHT, SSD1306_RESET,
-                                (uint8_t)OLED_VCC_MODE, OLED_TEXT_SIZE, 1, 0};
+                                (uint8_t)OLED_VCC_MODE, 1, 1, 0};
 #else
     return ScreenDisplayProfile{DISPLAY_SSD1306_096, SCREEN_LABEL, SSD1306_WIDTH,
                                 SSD1306_HEIGHT, SSD1306_RESET,
