@@ -11,6 +11,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <math.h>
 #include <time.h>
 
 #include "ConfigManager.h"
@@ -466,6 +467,25 @@ void handleLine(char* line) {
     s_pending = P_NONE;
 }
 
+bool tdkCsvFlushPending() {
+    if (s_csvPending.isEmpty()) return true;
+    const String path = csvPathNow();
+    if (sdcardShouldUseSD()) {
+        if (appendBlockSd(path, s_csvPending)) {
+            for (size_t i = 0; i < s_csvPending.length(); ++i) if (s_csvPending[i] == '\n') s_csvRows++;
+            s_csvPending = "";
+            return true;
+        }
+        return false;
+    }
+    if (appendRowsFlash(path, s_csvPending)) {
+        for (size_t i = 0; i < s_csvPending.length(); ++i) if (s_csvPending[i] == '\n') s_csvRows++;
+        s_csvPending = "";
+        return true;
+    }
+    return false;
+}
+
 } // namespace
 
 // ── public API ─────────────────────────────────────────────────────────────
@@ -534,25 +554,6 @@ bool tdkLambdaSend(const String& command) {
     s_lastCmd[sizeof(s_lastCmd) - 1] = '\0';
     pushLog("TX", cmd.c_str());
     return enqueueRS232Command(cmd, String(), String("TDK"), String("rs232"));
-}
-
-bool tdkCsvFlushPending() {
-    if (s_csvPending.isEmpty()) return true;
-    const String path = csvPathNow();
-    if (sdcardShouldUseSD()) {
-        if (appendBlockSd(path, s_csvPending)) {
-            for (size_t i = 0; i < s_csvPending.length(); ++i) if (s_csvPending[i] == '\n') s_csvRows++;
-            s_csvPending = "";
-            return true;
-        }
-        return false;
-    }
-    if (appendRowsFlash(path, s_csvPending)) {
-        for (size_t i = 0; i < s_csvPending.length(); ++i) if (s_csvPending[i] == '\n') s_csvRows++;
-        s_csvPending = "";
-        return true;
-    }
-    return false;
 }
 
 void tdkLambdaUpdate() {
