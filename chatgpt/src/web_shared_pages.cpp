@@ -3,6 +3,7 @@
 #include "webpages/assets/fragments_system_asset.h"
 #include "webpages/assets/page_home_asset.h"
 #include "webpages/renderers/access_page_renderer.h"
+#include "webpages/renderers/tdk_lambda_page_renderer.h"
 #include "webpages/renderers/networks_page_renderer.h"
 #include "webpages/renderers/proximity_renderer.h"
 #include "webpages/renderers/modbus_renderer.h"
@@ -253,6 +254,12 @@ size_t streamSharedUnikonPage(Print& out) {
 #if ENABLE_IPG_LASER==1
 size_t streamSharedIpgLaserPage(Print& out) {
     return streamIpgLaserPageToPrint(out);
+}
+#endif
+
+#if ENABLE_TDK_LAMBDA==1
+size_t streamSharedTdkLambdaPage(Print& out) {
+    return streamTdkLambdaPageToPrint(out);
 }
 #endif
 

@@ -66,6 +66,11 @@
   #define ENABLE_RS232_CHARTS       1
 #endif
 
+// --- TDK-Lambda / Genesys SCPI module (page /tdk-lambda, opt-in per pack) ---
+#ifndef ENABLE_TDK_LAMBDA
+  #define ENABLE_TDK_LAMBDA         0
+#endif
+
 // --- Proximity charts (SD card) ---
 #if ENABLE_PROXIMITY==1 && ENABLE_SDCARD==1
   #ifndef ENABLE_PROXIMITY_CHARTS

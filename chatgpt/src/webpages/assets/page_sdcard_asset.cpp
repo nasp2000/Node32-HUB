@@ -111,7 +111,7 @@ const char PAGE_SDCARD[] PROGMEM = R"HTML(
             <tbody>
              <tr style='border-bottom:1px solid #ddd;background:#fafafa;height:20px'></tr>
              <tr style='border-bottom:1px solid #ddd'>
-              <td style='padding:8px;text-align:center'><select id='sd_cleanup_threshold' style='width:80px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:13px' title='Cleanup trigger level' data-i18n-title='sdTipCleanupThreshold'><option value='50'>50%</option><option value='60'>60%</option><option value='70' selected>70%</option><option value='80'>80%</option><option value='85'>85%</option><option value='90'>90%</option><option value='95'>95%</option></select></td>
+              <td style='padding:8px;text-align:center'><select id='sd_cleanup_threshold' style='width:80px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:13px' title='Cleanup trigger level' data-i18n-title='sdTipCleanupThreshold'><option value='50'>50%</option><option value='60'>60%</option><option value='70'>70%</option><option value='80' selected>80%</option><option value='85'>85%</option><option value='90'>90%</option><option value='95'>95%</option></select></td>
               <td style='padding:8px;text-align:center'><select id='sd_keep_days' style='width:80px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:13px' title='Days to keep data' data-i18n-title='sdTipKeepDays'><option value='0' selected>&#8734;</option><option value='30'>30</option><option value='90'>90</option><option value='180'>180</option><option value='360'>360</option></select></td>
              </tr>
             </tbody>

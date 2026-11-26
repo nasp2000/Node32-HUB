@@ -236,6 +236,7 @@
 // --- 2G - SPECIAL DEVICES --------------------------------------------------
 //   #define ENABLE_UNIKON             1   // Unikon RAMBOX pigeon-racing terminal
 //    #define ENABLE_IPG_LASER          1   // IPG YLR/Y14 RS232 command console
+// #define ENABLE_TDK_LAMBDA         1   // TDK-Lambda/Genesys SCPI console + CSV (page /tdk-lambda)
 // #define ENABLE_USB_HOST           0   // USB Host CDC-ACM (S3, P4): USB-RS232 adapters (CP210x, CH343...)
 //                                       // Data from USB adapters is injected into the RS232 RX pipeline.
 //                                       // S3 uses the native USB port (GPIO19/20) with an OTG adapter/cable.

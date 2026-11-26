@@ -428,6 +428,13 @@ static bool ethernetBootstrapHandleClient() {
         #else
         ethernetBootstrapSendResponse(client, "404 Not Found", "text/plain", String(F("not found")));
         #endif
+    } else if (method == F("GET") && path == F("/tdk-lambda")) {
+        #if ENABLE_TDK_LAMBDA==1
+        ethernetBootstrapBeginStreamResponse(client, "200 OK", "text/html; charset=utf-8");
+        streamSharedTdkLambdaPage(chunked);
+        #else
+        ethernetBootstrapSendResponse(client, "404 Not Found", "text/plain", String(F("not found")));
+        #endif
     } else if (method == F("GET") && path == F("/ipg-laser")) {
         #if ENABLE_IPG_LASER==1
         ethernetBootstrapBeginStreamResponse(client, "200 OK", "text/html; charset=utf-8");

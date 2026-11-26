@@ -9,14 +9,13 @@
 //
 // Features ON:  WIFI, WIFI_WEB_SERVER, NTP, OTA, HTTP_BASIC_AUTH, SMTP,
 //               FILESYSTEM, LCD_SCREEN, PAGE_MONITOR, PAGE_ACCESS, PAGE_FILES,
-//               PAGE_COMMANDS, PAGE_RECIPIENTS, STRUCTURES_PAGE (Amada),
-//               RS232, SCHEDULER
-// Features OFF: ETHERNET, MDNS, GOOGLE_EMAIL, SDCARD, PAGE_SDCARD, DB25,
-//               SNIFFER, IPG_LASER, UNIKON, CAMERA, MODBUS*, CAN, TELNET,
-//               DEBUG_LOGS, API_REFERENCE_PAGE, ASYNC_WEBSOCKET, UDA1334A,
-//               all sensors
-// Home page:    Commands button, RS232 button, Monitor button, Structures button
-// Custom pages: Amada welding structures
+//               PAGE_COMMANDS, PAGE_RECIPIENTS, RS232, RS232_CHARTS, SCHEDULER,
+//               TDK_LAMBDA (SCPI console + CSV), FTP_CLIENT + PAGE_FTP
+// Features OFF: ETHERNET, GOOGLE_EMAIL, SDCARD, DB25, SNIFFER, IPG_LASER,
+//               UNIKON, CAMERA, MODBUS*, CAN, TELNET, DEBUG_LOGS,
+//               API_REFERENCE_PAGE, ASYNC_WEBSOCKET, UDA1334A, all sensors,
+//               STRUCTURES_PAGE (Amada disabled 2026-11-26 by request)
+// Home page:    Commands button, RS232 button, Monitor button, TDK-Lambda, FTP
 // ─────────────────────────────────────────────────────────────────────────────
 #define PACK_SYSTEM_NAME "Node32-RS232"
 #define PACK_EMAIL_SUBJECT "Node32-RS232"
@@ -74,8 +73,10 @@
 #undef ENABLE_PAGE_ALERTS
 #define ENABLE_PAGE_ALERTS 1
 
+// Amada welding structures: disabled by request (2026-11-26). The page, its
+// routes and the home button are all gated by this flag.
 #undef ENABLE_STRUCTURES_PAGE
-#define ENABLE_STRUCTURES_PAGE 1
+#define ENABLE_STRUCTURES_PAGE 0
 #undef ENABLE_API_REFERENCE_PAGE
 #define ENABLE_API_REFERENCE_PAGE 0
 
@@ -129,3 +130,15 @@
 #define ENABLE_DEBUG_LOGS 0
 #undef ENABLE_SCHEDULER
 #define ENABLE_SCHEDULER 1
+
+// TDK-Lambda / Genesys SCPI module (page /tdk-lambda, CSV on LittleFS here:
+// this pack has no SD slot). Shares UART2 with the RS232 page by design.
+#undef ENABLE_TDK_LAMBDA
+#define ENABLE_TDK_LAMBDA 1
+
+// FTP client + /ftp page. No SD in this build: uploads resolve through the
+// LittleFS mirror + PSRAM hot tier (ARCHITECTURE §6.1 rule 7).
+#undef ENABLE_FTP_CLIENT
+#define ENABLE_FTP_CLIENT 1
+#undef ENABLE_PAGE_FTP
+#define ENABLE_PAGE_FTP 1

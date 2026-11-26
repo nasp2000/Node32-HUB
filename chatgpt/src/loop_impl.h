@@ -76,6 +76,17 @@ void loop() {
 #if ENABLE_IPG_LASER == 1
     ipgLaserUpdate();
 #endif
+#if ENABLE_TDK_LAMBDA == 1
+    tdkLambdaUpdate();   // poll cycle, profile detection, LittleFS CSV window
+    // Sensor-style line for the monitor/chart pipeline (opt-in), injected
+    // through the same path the sensor modules use.
+    {
+        char tdkLine[220];
+        if (tdkLambdaTakeInjectLine(tdkLine, sizeof(tdkLine))) {
+            snifferInjectLine(tdkLine, strlen(tdkLine));
+        }
+    }
+#endif
     
     // ⚙️ DIAGNOSTIC: Loop heartbeat with configurable interval and detailed 5-line status
     static unsigned long lastHeartbeat = 0;
@@ -555,6 +566,13 @@ void loop() {
                     // RS232 command (serial port) - send via enviarComandoRS232
                 bool ok = enviarComandoRS232(cmdToSend);
                 rs232_sending = false;
+#if ENABLE_TDK_LAMBDA == 1
+                // TX echo: the command sent is shown in /monitor next to its reply.
+                if (ok) {
+                    String txEcho = String(F("TX> ")) + cmdToSend;
+                    snifferInjectLine(txEcho.c_str(), txEcho.length());
+                }
+#endif
 
                     // Minimum wait after RS232 port initialization to ensure physical stability
                     // CRITICAL: After reboot, applyRS232Config() initializes Serial2 but it needs settle time
@@ -773,6 +791,11 @@ void loop() {
             }
 #if ENABLE_IPG_LASER == 1
             ipgLaserOnRxByte(rs232_in);
+#endif
+#if ENABLE_TDK_LAMBDA == 1
+            // Non-destructive copy: the byte continues into the normal RS232
+            // pipeline, so /monitor keeps showing every line (COMANDOS.md §9).
+            tdkLambdaOnRxByte((char)rs232_in);
 #endif
                 if (rs232_passthrough_raw) {
                 // RAW: do not interpret as commands, only forward into the shared receive pipeline.

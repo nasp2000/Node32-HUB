@@ -64,6 +64,9 @@ size_t streamSharedUnikonPage(Print& out);
 #if ENABLE_IPG_LASER==1
 size_t streamSharedIpgLaserPage(Print& out);
 #endif
+#if ENABLE_TDK_LAMBDA==1
+size_t streamSharedTdkLambdaPage(Print& out);
+#endif
 #if ENABLE_CAMERA==1
 size_t streamSharedCameraPage(Print& out);
 #endif

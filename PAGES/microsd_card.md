@@ -80,7 +80,7 @@ All inputs are `<select>` elements (no text/number fields on this page).
 | Format | `sd_format` | `.txt` / `.csv` / `.bin` | `format` | `.csv` |
 | Email | `sd_email` | `Yes(1)` / `No(0)` | `email_send` | `Yes` |
 | Auto Cleanup | _(removed — always active)_ | — | `auto_cleanup` forced `true` | always on |
-| Clean when > | `sd_cleanup_threshold` | `50,60,70,80,85,90,95` % | `cleanup_threshold` | `70` |
+| Clean when > | `sd_cleanup_threshold` | `50,60,70,80,85,90,95` % | `cleanup_threshold` | `80` |
 | Keep (days) | `sd_keep_days` | `∞(0),30,90,180,360` | `keep_days` | `∞ (0)` |
 
 Server accepts exactly what the UI offers: `flush_interval ∈ {10m,30m,60m}`;
@@ -123,7 +123,7 @@ inline asset script, so the auto.js definition wins the global name). Logic:
     - Polled **every 10 s** (`setInterval`), paused on `visibilitychange` hidden.
 3. **`loadConfig()`** — `GET /api/sdcard-config`, maps `flush_interval` string → ms value
     for `sd_write_pause_ms`, then sets `enabled`/`format`/`email_send`/
-    `cleanup_threshold` (default `70`)/`keep_days` onto the selects. No
+    `cleanup_threshold` (default `80`)/`keep_days` onto the selects. No
     `sd_auto_cleanup` element exists anymore (cleanup is always active).
 4. **`act(a)`** — `POST /api/sd-action` (FormData `action` + `_html`), then `load()`.
 5. **`saveConfig()`** — validates required selects exist, builds FormData with
@@ -173,7 +173,7 @@ flush_interval=10m|30m|60m    (minimum 10m; legacy sub-10m coerced to 10m, unkno
 format=txt|csv|bin
 max_size_mb=1..32          (absent → 4)
 emailday_extra_emails=…    (sent by the page since the SD-1 fix)
-cleanup_threshold=50..95   (absent/invalid → 400; default 70)
+cleanup_threshold=50..95   (absent/invalid → 400; default 80)
 keep_days=∞(0)|30|90|180|360 (absent/≤0 → 0; 0 = infinity: no age limit, files stay
                               until usage crosses the threshold, then oldest goes)
 ```
@@ -208,7 +208,7 @@ Config section **`sdcard`** in the global config document, saved atomically via
     "enabled": true, "flush_interval": "30m", "format": "csv",
     "structured": true, "email_send": true, "email_from_sd": true,
     "emailday_extra_emails": "", "sensorday_extra_emails": "", "logday_extra_emails": "",
-    "auto_cleanup": true, "cleanup_threshold": 70, "keep_days": 0
+    "auto_cleanup": true, "cleanup_threshold": 80, "keep_days": 0
   }
 }
 ```

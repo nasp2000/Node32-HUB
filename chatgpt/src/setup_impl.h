@@ -379,6 +379,9 @@ void setup(){ // setup function added (missing caused undefined reference at lin
 #if ENABLE_IPG_LASER == 1
     ipgLaserBegin();
 #endif
+#if ENABLE_TDK_LAMBDA == 1
+    tdkLambdaBegin();
+#endif
 #if ENABLE_CAN == 1
     canRuntimeInit(); // Allocate PSRAM buffer, start TWAI driver and RX task
 #endif

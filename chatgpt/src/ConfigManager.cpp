@@ -196,8 +196,8 @@ config["email"]["subject"] = PACK_EMAIL_SUBJECT;
     config["sdcard"]["logday_extra_emails"] = "";
     config["sdcard"]["auto_cleanup"] = true;
     _cache_sd_auto_cleanup = true;
-    config["sdcard"]["cleanup_threshold"] = 70;
-    _cache_sd_cleanup_threshold = 70;
+    config["sdcard"]["cleanup_threshold"] = 80;
+    _cache_sd_cleanup_threshold = 80;
     config["sdcard"]["keep_days"] = 0;
     _cache_sd_keep_days = 0;
     config["ethernet"]["mode"] = "dhcp";
@@ -487,6 +487,38 @@ void ConfigManager::ensureAllFieldsExist() {
     if (!config["usb_server"].containsKey("recv_timeout_ms")) config["usb_server"]["recv_timeout_ms"] = 1200;
     if (!config["usb_server"].containsKey("in_wait_timeout_ms")) config["usb_server"]["in_wait_timeout_ms"] = 220;
 
+
+    // TDK-Lambda module defaults (page /tdk-lambda). Read-only polling on,
+    // 60 s cadence, CSV on. Getter defaults above keep older configs working.
+    if (!config.containsKey("tdklambda") || !config["tdklambda"].is<JsonObject>()) {
+        config["tdklambda"].to<JsonObject>();
+        config["tdklambda"]["poll"] = true;
+        config["tdklambda"]["poll_s"] = 60;
+        config["tdklambda"]["csv"] = true;
+        config["tdklambda"]["csv_format"] = "sensor";
+        config["tdklambda"]["mode"]      = "dvc";
+        config["tdklambda"]["cmd_v"]     = "DVC?";
+        config["tdklambda"]["cmd_i"]     = "MC?";
+        config["tdklambda"]["cmd_state"] = "MODE?";
+        config["tdklambda"]["map"]       = "0,1,2,3,4,5";
+        config["tdklambda"]["scale_v"]   = 1.0;
+        config["tdklambda"]["scale_i"]   = 1.0;
+        config["tdklambda"]["off_v"]     = 0.0;
+        config["tdklambda"]["off_i"]     = 0.0;
+        config["tdklambda"]["auto_map"]  = true;    // auto-detect the reply layout
+        config["tdklambda"]["listen"]    = false;   // true = never transmit (PLC owns the line)
+        config["tdklambda"]["allow_write"] = false; // true = accept PV/PC/OUT/OVP...
+        config["tdklambda"]["rate_v"]    = 600.0;   // unit rating (600 V model)
+        config["tdklambda"]["rate_i"]    = 1.3;    // 1.3 A
+        config["tdklambda"]["addr"]      = 0;       // 0 = point-to-point
+        config["tdklambda"]["inject"]    = false;   // sensor-style line into /monitor
+        config["tdklambda"]["limits_enabled"] = false;
+        config["tdklambda"]["limit_v_min"] = 0.0;
+        config["tdklambda"]["limit_v_max"] = 0.0;
+        config["tdklambda"]["limit_i_max"] = 0.0;
+        Serial.println(F("CFG: ensureAllFieldsExist() created tdklambda section"));
+    }
+
     if (!config.containsKey("sdcard")) {
         config["sdcard"] = JsonObject();
         Serial.println(F("CFG: ensureAllFieldsExist() created sdcard section"));
@@ -516,7 +548,18 @@ void ConfigManager::ensureAllFieldsExist() {
     if (!config["sdcard"].containsKey("sensorday_extra_emails")) config["sdcard"]["sensorday_extra_emails"] = "";
     if (!config["sdcard"].containsKey("logday_extra_emails")) config["sdcard"]["logday_extra_emails"] = "";
     if (!config["sdcard"].containsKey("auto_cleanup")) config["sdcard"]["auto_cleanup"] = true;
-    if (!config["sdcard"].containsKey("cleanup_threshold")) config["sdcard"]["cleanup_threshold"] = 70;
+    if (!config["sdcard"].containsKey("cleanup_threshold")) config["sdcard"]["cleanup_threshold"] = 80;
+    // One-time migration (2026-11-26): the old default was 70 %. Every board now
+    // starts at 80 %; a deliberate 70 is indistinguishable from the old default,
+    // so it is bumped once and the flag makes it never happen again.
+    if (!config["sdcard"].containsKey("cleanup_v2")) {
+        int thr = config["sdcard"]["cleanup_threshold"] | 80;
+        if (thr == 70) {
+            config["sdcard"]["cleanup_threshold"] = 80;
+            Serial.println(F("CFG: cleanup_threshold migrated 70 -> 80 %"));
+        }
+        config["sdcard"]["cleanup_v2"] = true;
+    }
     if (!config["sdcard"].containsKey("keep_days")) config["sdcard"]["keep_days"] = 0;
 
     // Inactivity alerts — 6 independent slots + global sensors_reset_timer.
@@ -1820,7 +1863,7 @@ bool ConfigManager::loadConfig() {
     _cache_sdcard_enabled = config["sdcard"]["enabled"] | true;
     _cache_sdcard_flush_interval = clampFlushInterval(config["sdcard"]["flush_interval"] | String("30m"));
     _cache_sd_auto_cleanup = config["sdcard"]["auto_cleanup"] | true;
-    _cache_sd_cleanup_threshold = config["sdcard"]["cleanup_threshold"] | 70;
+    _cache_sd_cleanup_threshold = config["sdcard"]["cleanup_threshold"] | 80;
     _cache_sd_keep_days = config["sdcard"]["keep_days"] | 0;
     _cache_telnet_enabled = config["telnet"]["enabled"] | false;
     _cache_wifi_disabled = config["wifi"]["runtime_disabled"] | false;
@@ -2071,7 +2114,7 @@ bool ConfigManager::save(bool force) {
         _cache_sdcard_enabled = config["sdcard"]["enabled"] | true;
         _cache_sdcard_flush_interval = clampFlushInterval(config["sdcard"]["flush_interval"] | String("30m"));
         _cache_sd_auto_cleanup = config["sdcard"]["auto_cleanup"] | true;
-        _cache_sd_cleanup_threshold = config["sdcard"]["cleanup_threshold"] | 70;
+        _cache_sd_cleanup_threshold = config["sdcard"]["cleanup_threshold"] | 80;
         _cache_sd_keep_days = config["sdcard"]["keep_days"] | 0;
         _cache_telnet_enabled = config["telnet"]["enabled"] | false;
         _cache_wifi_disabled = config["wifi"]["runtime_disabled"] | false;

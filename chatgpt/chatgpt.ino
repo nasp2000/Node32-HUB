@@ -36,6 +36,7 @@ size_t getArduinoLoopTaskStackSize() { return 16384; }
 #include "src/file_header_builder.h"
 #include "src/runtime_environment.h"
 #include "src/ipg_laser_module.h"
+#include "src/tdk_lambda.h"
 #include "src/runtime_rs232_queue.h"
 #include "src/runtime_storage.h"
 #include "src/coordinator_hooks.h"

@@ -53,6 +53,7 @@
 #endif
 #if ENABLE_IPG_LASER == 1
 #include "routes/web_routes_ipg_laser.h"
+#include "routes/web_routes_tdk_lambda.h"
 #endif
 #if ENABLE_UDA1334A == 1
 #include "routes/web_routes_audio.h"
@@ -126,6 +127,9 @@ inline void setupWebServer(AsyncWebServer& server) {
 #endif
 #if ENABLE_IPG_LASER == 1
     registerIpgLaserRoutes(server, routeContext);
+#endif
+#if ENABLE_TDK_LAMBDA == 1
+    registerTdkLambdaRoutes(server, routeContext);
 #endif
 #if ENABLE_UDA1334A == 1
     registerAudioRoutes(server, routeContext);

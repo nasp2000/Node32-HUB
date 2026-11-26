@@ -1473,6 +1473,13 @@ void safeReboot(const char* reason = "UNKNOWN") {
     extern void proximitySaveBeforeReboot();
     proximitySaveBeforeReboot();
 #endif
+#if ENABLE_TDK_LAMBDA == 1
+    // Telemetry standard (§6.1): buffered CSV must reach the backend before any
+    // reboot/OTA. Without this the LittleFS buffer (up to one flush window,
+    // 10/30/60 min) would be lost on every graceful restart.
+    extern bool tdkLambdaCsvFlushNow();
+    (void)tdkLambdaCsvFlushNow();
+#endif
 
     // 2. Flush sensor history to SD (or PSRAM if SD absent) and save sensor config to LittleFS
     #if (ENABLE_AHT20_BMP280==1 && ENABLE_SENSOR_CONFIG_PAGE==1) || ENABLE_MQ135==1

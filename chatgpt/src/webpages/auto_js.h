@@ -780,7 +780,7 @@ function initSdcardPage(){
                 if(typeof j.emailday_extra_emails==='string') sdExtra.emailday_extra_emails=j.emailday_extra_emails;
                 var cleanupThreshSel=document.getElementById('sd_cleanup_threshold');
                 var keepDaysSel=document.getElementById('sd_keep_days');
-                if(cleanupThreshSel) cleanupThreshSel.value=String(j.cleanup_threshold||70);
+                if(cleanupThreshSel) cleanupThreshSel.value=String(j.cleanup_threshold||80);
                 if(keepDaysSel) keepDaysSel.value=(j.keep_days!=null)?String(j.keep_days):'0';
             }
         }).catch(e=>{console.warn('loadConfig failed:',e);});
@@ -820,7 +820,7 @@ function initSdcardPage(){
         var ctSel=document.getElementById('sd_cleanup_threshold');
         var kdSel=document.getElementById('sd_keep_days');
         fd.append('auto_cleanup','1');
-        fd.append('cleanup_threshold',ctSel?ctSel.value:'70');
+        fd.append('cleanup_threshold',ctSel?ctSel.value:'80');
         fd.append('keep_days',kdSel?kdSel.value:'0');
         // Re-send the UI-invisible fields (BACKLOG SD-1) — preserves them across saves.
         fd.append('structured', sdExtra.structured ? '1' : '0');

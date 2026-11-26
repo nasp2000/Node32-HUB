@@ -132,7 +132,7 @@ private:
     bool _cache_sdcard_enabled = true; // Cache sdcard.enabled (default true)
     String _cache_sdcard_flush_interval = "30m"; // Cache sdcard.flush_interval (default 30m)
     bool _cache_sd_auto_cleanup = true;     // Cache sdcard.auto_cleanup (default true)
-    int _cache_sd_cleanup_threshold = 70;   // Cache sdcard.cleanup_threshold (percent, default 70)
+    int _cache_sd_cleanup_threshold = 80;   // Cache sdcard.cleanup_threshold (percent, default 80)
     int _cache_sd_keep_days = 0;            // Cache sdcard.keep_days (default 0 = infinity: keep until 70%, then oldest goes)
     bool _cache_telnet_enabled = true; // Cache telnet.enabled (default true)
     bool _cache_wifi_disabled = false; // Cache wifi.runtime_disabled — persisted WiFi off switch
@@ -1257,6 +1257,143 @@ public:
         config["telnet"]["enabled"] = value; 
         _cache_telnet_enabled = value; // ⚡ Atualiza cache
         markDirtyAndScheduleSave(); 
+    }
+
+    // ---- TDK-Lambda / Genesys SCPI module (page /tdk-lambda) --------------
+    // Read-only polling + CSV; every getter has a safe default so an upgrade
+    // without the section keeps working (no backfill required to boot).
+    bool getTdkLambdaPoll() {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey("poll")) return true;
+        return config["tdklambda"]["poll"].as<bool>();
+    }
+    int getTdkLambdaPollSec() {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey("poll_s")) return 60;
+        int v = config["tdklambda"]["poll_s"].as<int>();
+        if (v < 5) v = 5;
+        if (v > 3600) v = 3600;
+        return v;
+    }
+    bool getTdkLambdaCsv() {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey("csv")) return true;
+        return config["tdklambda"]["csv"].as<bool>();
+    }
+    bool getTdkLambdaCsvFormat() {   // true = sensor-style key/value line
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey("csv_format")) return true;
+        String f = config["tdklambda"]["csv_format"].as<String>();
+        return !(f == "table");
+    }
+    // Device profile: which queries to poll and how to read the reply
+    // (different Genesys models/firmware answer DVC? with different fields, and
+    // some supplies only offer MV?/MC?). Saved per unit, applied at boot.
+    String _tdkStr(const char* key, const char* def) {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey(key)) return String(def);
+        String v = config["tdklambda"][key].as<String>();
+        return v.isEmpty() ? String(def) : v;
+    }
+    float _tdkFloat(const char* key, float def) {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey(key)) return def;
+        return config["tdklambda"][key].as<float>();
+    }
+    // Safety: "listen" = never transmit (the PLC owns the line);
+    // "allow_write" = accept non read-only commands (PV/PC/OUT/OVP...).
+    bool getTdkLambdaListen() {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey("listen")) return false;
+        return config["tdklambda"]["listen"].as<bool>();
+    }
+    bool getTdkLambdaAllowWrite() {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey("allow_write")) return false;
+        return config["tdklambda"]["allow_write"].as<bool>();
+    }
+    bool setTdkLambdaSafety(bool listen, bool allowWrite) {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].is<JsonObject>()) config["tdklambda"].to<JsonObject>();
+        config["tdklambda"]["listen"] = listen;
+        config["tdklambda"]["allow_write"] = allowWrite;
+        markDirtyAndScheduleSave();
+        return true;
+    }
+    // Multi-drop address, monitor injection, limit alerts (P2).
+    int getTdkLambdaAddr() {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey("addr")) return 0;
+        int v = config["tdklambda"]["addr"].as<int>();
+        return (v < 0) ? 0 : (v > 30 ? 30 : v);
+    }
+    bool getTdkLambdaInject() {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey("inject")) return false;
+        return config["tdklambda"]["inject"].as<bool>();
+    }
+    bool getTdkLambdaLimitsEnabled() {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey("limits_enabled")) return false;
+        return config["tdklambda"]["limits_enabled"].as<bool>();
+    }
+    float getTdkLambdaLimitVMin() { return _tdkFloat("limit_v_min", 0.0f); }
+    float getTdkLambdaLimitVMax() { return _tdkFloat("limit_v_max", 0.0f); }
+    float getTdkLambdaLimitIMax() { return _tdkFloat("limit_i_max", 0.0f); }
+    bool setTdkLambdaExtras(int addr, bool inject, bool limitsEnabled,
+                            float vMin, float vMax, float iMax) {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].is<JsonObject>()) config["tdklambda"].to<JsonObject>();
+        if (addr < 0) addr = 0;
+        if (addr > 30) addr = 30;
+        config["tdklambda"]["addr"] = addr;
+        config["tdklambda"]["inject"] = inject;
+        config["tdklambda"]["limits_enabled"] = limitsEnabled;
+        config["tdklambda"]["limit_v_min"] = vMin;
+        config["tdklambda"]["limit_v_max"] = vMax;
+        config["tdklambda"]["limit_i_max"] = iMax;
+        markDirtyAndScheduleSave();
+        return true;
+    }
+    bool getTdkLambdaAutoMap() {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey("auto_map")) return true;
+        return config["tdklambda"]["auto_map"].as<bool>();
+    }
+    float getTdkLambdaRateV() { return _tdkFloat("rate_v", 600.0f); }
+    float getTdkLambdaRateI() { return _tdkFloat("rate_i", 1.3f); }
+    bool setTdkLambdaAutoMap(bool on) {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].is<JsonObject>()) config["tdklambda"].to<JsonObject>();
+        config["tdklambda"]["auto_map"] = on;
+        markDirtyAndScheduleSave();
+        return true;
+    }
+    String getTdkLambdaMode()     { return _tdkStr("mode", "dvc"); }
+    String getTdkLambdaCmdV()     { return _tdkStr("cmd_v", "DVC?"); }
+    String getTdkLambdaCmdI()     { return _tdkStr("cmd_i", "MC?"); }
+    String getTdkLambdaCmdState() { return _tdkStr("cmd_state", "MODE?"); }
+    String getTdkLambdaMap()      { return _tdkStr("map", "0,1,2,3,4,5"); }
+    float  getTdkLambdaScaleV()   { return _tdkFloat("scale_v", 1.0f); }
+    float  getTdkLambdaScaleI()   { return _tdkFloat("scale_i", 1.0f); }
+    float  getTdkLambdaOffV()     { return _tdkFloat("off_v", 0.0f); }
+    float  getTdkLambdaOffI()     { return _tdkFloat("off_i", 0.0f); }
+    bool setTdkLambdaProfile(const String& mode, const String& vCmd, const String& iCmd,
+                             const String& stateCmd, const String& map,
+                             float scaleV, float scaleI, float offV, float offI) {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].is<JsonObject>()) {
+            config["tdklambda"].to<JsonObject>();
+        }
+        config["tdklambda"]["mode"]      = (mode == "split") ? String("split") : String("dvc");
+        config["tdklambda"]["cmd_v"]     = vCmd;
+        config["tdklambda"]["cmd_i"]     = iCmd;
+        config["tdklambda"]["cmd_state"] = stateCmd;
+        config["tdklambda"]["map"]       = map;
+        config["tdklambda"]["scale_v"]   = scaleV;
+        config["tdklambda"]["scale_i"]   = scaleI;
+        config["tdklambda"]["off_v"]     = offV;
+        config["tdklambda"]["off_i"]     = offI;
+        markDirtyAndScheduleSave();
+        return true;
+    }
+
+    bool setTdkLambda(bool poll, int pollSec, bool csv, const String& csvFormat = String("sensor")) {
+        if (pollSec < 5) pollSec = 5;
+        if (pollSec > 3600) pollSec = 3600;
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].is<JsonObject>()) {
+            config["tdklambda"].to<JsonObject>();
+        }
+        config["tdklambda"]["poll"] = poll;
+        config["tdklambda"]["poll_s"] = pollSec;
+        config["tdklambda"]["csv"] = csv;
+        config["tdklambda"]["csv_format"] = (csvFormat == "table") ? String("table") : String("sensor");
+        markDirtyAndScheduleSave();
+        return true;
     }
 
     // WiFi runtime disable switch (persisted; survives reboot).
