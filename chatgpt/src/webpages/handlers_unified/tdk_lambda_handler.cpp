@@ -2,12 +2,14 @@
 // Registered with registerApiRoute() so WiFi and Ethernet (W5500) both serve
 // them: ethernet_bootstrap_routes.h dispatches unknown /api/ paths through
 // findApiRouteHandler().
+//
+// String building rule (Arduino WString): never start an expression with
+// F("...") — append pieces to a String instead, or the operands are ambiguous.
 #include "tdk_lambda_handler.h"
 
 #include "../../feature_flags.h"
 #include "../../ConfigManager.h"
 #include <ArduinoJson.h>
-#include "../../psram_helpers.h"
 
 extern ConfigManager configManager;
 
@@ -60,6 +62,10 @@ static String tdkFormValue(const String& body, const char* key) {
     v.replace("%20", " ");
     return v;
 }
+
+static bool tdkTruthy(const String& v) {
+    return (v == "1" || v == "true" || v == "on");
+}
 #endif
 
 void handleTdkLambdaAvailableGet(HttpRequest& req, HttpResponse& res) {
@@ -76,44 +82,50 @@ void handleTdkLambdaStatusGet(HttpRequest& req, HttpResponse& res) {
 #if ENABLE_TDK_LAMBDA == 1
     TdkStatus st = tdkLambdaGetStatus();
     TdkValues v  = tdkLambdaGetValues();
-    String j = F("{\"success\":true,\"status\":{");
-    j += String(F("\"polling\":"))       + (st.polling ? F("true") : F("false"));
-    j += String(F(",\"csvEnabled\":"))   + (st.csvEnabled ? F("true") : F("false"));
-    j += String(F(",\"pollIntervalMs\":")) + String(st.pollIntervalMs);
-    j += String(F(",\"lastRxAgeMs\":"))  + String(st.lastRxAgeMs);
-    j += String(F(",\"logCount\":"))     + String(st.logCount);
-    j += String(F(",\"csvRows\":"))      + String(st.csvRows);
-    j += String(F(",\"csvOnSd\":"))      + (st.csvOnSd ? F("true") : F("false"));
-    j += String(F(",\"csvSensorFormat\":")) + (st.csvSensorFormat ? F("true") : F("false"));
-    j += String(F(",\"autoMap\":")) + (st.autoMap ? F("true") : F("false"));
-    j += String(F(",\"listen\":")) + (st.listen ? F("true") : F("false"));
-    j += String(F(",\"allowWrite\":")) + (configManager.getTdkLambdaAllowWrite() ? F("true") : F("false"));
-    j += F(",\"autoNote\":\"") + tdkJsonEscape(st.autoNote) + F("\"");
-    j += F(",\"mapUsed\":\"") + tdkJsonEscape(st.mapUsed) + F("\"");
-    j += F(",\"idn\":\"") + tdkJsonEscape(st.idn) + F("\"");
-    j += F(",\"rev\":\"") + tdkJsonEscape(st.rev) + F("\"");
-    j += F(",\"sn\":\"") + tdkJsonEscape(st.sn) + F("\"");
-    j += F(",\"lastError\":\"") + tdkJsonEscape(st.lastError) + F("\"");
-    j += String(F(",\"lastErrorAgeMs\":")) + String(st.lastErrorAgeMs);
-    j += String(F(",\"address\":")) + String(st.address);
-    j += String(F(",\"inject\":")) + (st.inject ? F("true") : F("false"));
-    j += String(F(",\"alertActive\":")) + (st.alertActive ? F("true") : F("false"));
-    j += F(",\"alertText\":\"") + tdkJsonEscape(st.alertText) + F("\"");
-    j += String(F(",\"scaleVUsed\":")) + String(st.scaleVUsed, 4);
-    j += String(F(",\"scaleIUsed\":")) + String(st.scaleIUsed, 4);
-    j += F(",\"csvPath\":\"")  + tdkJsonEscape(st.csvPath)  + F("\"");
-    j += F(",\"lastCommand\":\"") + tdkJsonEscape(st.lastCommand) + F("\"");
-    j += F(",\"lastLine\":\"") + tdkJsonEscape(st.lastLine) + F("\"");
+
+    String j;
+    j.reserve(1200);
+    j += F("{\"success\":true,\"status\":{");
+    j += F("\"polling\":");           j += st.polling ? F("true") : F("false");
+    j += F(",\"csvEnabled\":");       j += st.csvEnabled ? F("true") : F("false");
+    j += F(",\"csvSensorFormat\":");  j += st.csvSensorFormat ? F("true") : F("false");
+    j += F(",\"autoMap\":");          j += st.autoMap ? F("true") : F("false");
+    j += F(",\"listen\":");           j += st.listen ? F("true") : F("false");
+    j += F(",\"allowWrite\":");       j += configManager.getTdkLambdaAllowWrite() ? F("true") : F("false");
+    j += F(",\"pollIntervalMs\":");   j += String(st.pollIntervalMs);
+    j += F(",\"lastRxAgeMs\":");      j += String(st.lastRxAgeMs);
+    j += F(",\"logCount\":");         j += String(st.logCount);
+    j += F(",\"csvRows\":");          j += String(st.csvRows);
+    j += F(",\"csvOnSd\":");          j += st.csvOnSd ? F("true") : F("false");
+    j += F(",\"address\":");          j += String(st.address);
+    j += F(",\"inject\":");           j += st.inject ? F("true") : F("false");
+    j += F(",\"alertActive\":");      j += st.alertActive ? F("true") : F("false");
+    j += F(",\"lastErrorAgeMs\":");   j += String(st.lastErrorAgeMs);
+    j += F(",\"scaleVUsed\":");       j += String(st.scaleVUsed, 4);
+    j += F(",\"scaleIUsed\":");       j += String(st.scaleIUsed, 4);
+
+    j += F(",\"csvPath\":\"");        j += tdkJsonEscape(st.csvPath);     j += '"';
+    j += F(",\"lastCommand\":\"");    j += tdkJsonEscape(st.lastCommand); j += '"';
+    j += F(",\"lastLine\":\"");       j += tdkJsonEscape(st.lastLine);    j += '"';
+    j += F(",\"profileMode\":\"");    j += tdkJsonEscape(st.profileMode); j += '"';
+    j += F(",\"autoNote\":\"");       j += tdkJsonEscape(st.autoNote);    j += '"';
+    j += F(",\"mapUsed\":\"");        j += tdkJsonEscape(st.mapUsed);     j += '"';
+    j += F(",\"idn\":\"");            j += tdkJsonEscape(st.idn);         j += '"';
+    j += F(",\"rev\":\"");            j += tdkJsonEscape(st.rev);         j += '"';
+    j += F(",\"sn\":\"");             j += tdkJsonEscape(st.sn);          j += '"';
+    j += F(",\"lastError\":\"");      j += tdkJsonEscape(st.lastError);   j += '"';
+    j += F(",\"alertText\":\"");      j += tdkJsonEscape(st.alertText);   j += '"';
+
     j += F("},\"values\":{");
-    j += String(F("\"valid\":")) + (v.valid ? F("true") : F("false"));
-    j += String(F(",\"vMeas\":")) + String(v.vMeas, 2);
-    j += String(F(",\"vSet\":"))  + String(v.vSet, 2);
-    j += String(F(",\"iMeas\":")) + String(v.iMeas, 3);
-    j += String(F(",\"iSet\":"))  + String(v.iSet, 3);
-    j += String(F(",\"ovp\":"))   + String(v.ovp, 1);
-    j += String(F(",\"uvl\":"))   + String(v.uvl, 1);
-    j += F(",\"mode\":\"") + tdkJsonEscape(v.mode) + F("\"");
-    j += String(F(",\"outOn\":")) + (v.outOn ? F("true") : F("false"));
+    j += F("\"valid\":");   j += v.valid ? F("true") : F("false");
+    j += F(",\"vMeas\":");  j += String(v.vMeas, 2);
+    j += F(",\"vSet\":");   j += String(v.vSet, 2);
+    j += F(",\"iMeas\":");  j += String(v.iMeas, 3);
+    j += F(",\"iSet\":");   j += String(v.iSet, 3);
+    j += F(",\"ovp\":");    j += String(v.ovp, 1);
+    j += F(",\"uvl\":");    j += String(v.uvl, 1);
+    j += F(",\"mode\":\""); j += tdkJsonEscape(v.mode); j += '"';
+    j += F(",\"outOn\":");  j += v.outOn ? F("true") : F("false");
     j += F("}}");
     res.sendJson(j);
 #else
@@ -126,12 +138,17 @@ void handleTdkLambdaCommandsGet(HttpRequest& req, HttpResponse& res) {
 #if ENABLE_TDK_LAMBDA == 1
     size_t n = 0;
     const TdkCommandInfo* cat = tdkLambdaCatalog(&n);
-    String j = F("{\"success\":true,\"commands\":[");
+    String j;
+    j.reserve(256 + n * 220);
+    j += F("{\"success\":true,\"commands\":[");
     for (size_t i = 0; i < n; ++i) {
         if (i) j += ',';
-        j += F("{\"cmd\":\"")   + tdkJsonEscape(cat[i].cmd)   + F("\",\"group\":\"") + tdkJsonEscape(cat[i].group) + F("\",\"usage\":\"")
-           + tdkJsonEscape(cat[i].usage) + F("\",\"desc\":\"") + tdkJsonEscape(cat[i].desc) + F("\",\"reply\":\"")
-           + tdkJsonEscape(cat[i].reply) + F("\",\"notes\":\"") + tdkJsonEscape(cat[i].notes) + F("\"}");
+        j += F("{\"cmd\":\"");     j += tdkJsonEscape(cat[i].cmd);   j += '"';
+        j += F(",\"group\":\"");   j += tdkJsonEscape(cat[i].group); j += '"';
+        j += F(",\"usage\":\"");   j += tdkJsonEscape(cat[i].usage); j += '"';
+        j += F(",\"desc\":\"");    j += tdkJsonEscape(cat[i].desc);  j += '"';
+        j += F(",\"reply\":\"");   j += tdkJsonEscape(cat[i].reply); j += '"';
+        j += F(",\"notes\":\"");   j += tdkJsonEscape(cat[i].notes); j += F("\"}");
     }
     j += F("]}");
     res.sendJson(j);
@@ -145,11 +162,14 @@ void handleTdkLambdaLogGet(HttpRequest& req, HttpResponse& res) {
 #if ENABLE_TDK_LAMBDA == 1
     static TdkLogEntry entries[32];
     const uint16_t n = tdkLambdaCopyLog(entries, 32);
-    String j = F("{\"success\":true,\"entries\":[");
+    String j;
+    j.reserve(128 + n * 190);
+    j += F("{\"success\":true,\"entries\":[");
     for (uint16_t i = 0; i < n; ++i) {
         if (i) j += ',';
-        j += F("{\"dir\":\"") + tdkJsonEscape(entries[i].direction) + F("\",\"ageMs\":")
-           + String(entries[i].ageMs) + F(",\"text\":\"") + tdkJsonEscape(entries[i].text) + F("\"}");
+        j += F("{\"dir\":\"");  j += tdkJsonEscape(entries[i].direction); j += '"';
+        j += F(",\"ageMs\":");  j += String(entries[i].ageMs);
+        j += F(",\"text\":\""); j += tdkJsonEscape(entries[i].text);      j += F("\"}");
     }
     j += F("]}");
     res.sendJson(j);
@@ -170,12 +190,12 @@ void handleTdkLambdaSendPost(HttpRequest& req, HttpResponse& res) {
     if (cmd.length() > 32) cmd = cmd.substring(0, 32);
     if (configManager.getTdkLambdaListen()) {
         res.code = 409;
-        res.sendJson(F("{\"success\":false,\"message\":\"modo escuta: TX desactivado (o PLC e o mestre da linha)\"}"));
+        res.sendJson(F("{\"success\":false,\"message\":\"listen mode: TX disabled (the PLC owns the line)\"}"));
         return;
     }
     if (!configManager.getTdkLambdaAllowWrite() && !tdkIsReadOnlyCommand(cmd)) {
         res.code = 403;
-        res.sendJson(F("{\"success\":false,\"message\":\"comando de escrita bloqueado (activa 'permitir escrita')\"}"));
+        res.sendJson(F("{\"success\":false,\"message\":\"write command blocked (enable 'allow write')\"}"));
         return;
     }
     const bool ok = tdkLambdaSend(cmd);
@@ -202,33 +222,33 @@ void handleTdkLambdaClearPost(HttpRequest& req, HttpResponse& res) {
 void handleTdkLambdaConfigGet(HttpRequest& req, HttpResponse& res) {
     (void)req;
 #if ENABLE_TDK_LAMBDA == 1
-    String j = F("{\"success\":true");
-    j += String(F(",\"poll\":")) + (configManager.getTdkLambdaPoll() ? F("true") : F("false"));
-    j += String(F(",\"poll_s\":")) + String(configManager.getTdkLambdaPollSec());
-    j += String(F(",\"csv\":")) + (configManager.getTdkLambdaCsv() ? F("true") : F("false"));
-    j += String(F(",\"format\":\"")) + (configManager.getTdkLambdaCsvFormat() ? F("sensor") : F("table")) + F("\"");
-    // Device profile (which queries, reply map, scales)
-    j += F(",\"mode\":\"")      + configManager.getTdkLambdaMode()     + F("\"");
-    j += F(",\"cmd_v\":\"")     + tdkJsonEscape(configManager.getTdkLambdaCmdV().c_str())     + F("\"");
-    j += F(",\"cmd_i\":\"")     + tdkJsonEscape(configManager.getTdkLambdaCmdI().c_str())     + F("\"");
-    j += F(",\"cmd_state\":\"") + tdkJsonEscape(configManager.getTdkLambdaCmdState().c_str()) + F("\"");
-    j += F(",\"map\":\"")       + tdkJsonEscape(configManager.getTdkLambdaMap().c_str())      + F("\"");
-    j += String(F(",\"scale_v\":")) + String(configManager.getTdkLambdaScaleV(), 4);
-    j += String(F(",\"scale_i\":")) + String(configManager.getTdkLambdaScaleI(), 4);
-    j += String(F(",\"off_v\":"))   + String(configManager.getTdkLambdaOffV(), 4);
-    j += String(F(",\"off_i\":"))   + String(configManager.getTdkLambdaOffI(), 4);
-    j += String(F(",\"auto_map\":")) + (configManager.getTdkLambdaAutoMap() ? F("true") : F("false"));
-    j += String(F(",\"listen\":"))     + (configManager.getTdkLambdaListen() ? F("true") : F("false"));
-    j += String(F(",\"allow_write\":")) + (configManager.getTdkLambdaAllowWrite() ? F("true") : F("false"));
-    j += String(F(",\"addr\":")) + String(configManager.getTdkLambdaAddr());
-    j += String(F(",\"inject\":")) + (configManager.getTdkLambdaInject() ? F("true") : F("false"));
+    String j;
+    j.reserve(768);
+    j += F("{\"success\":true");
+    j += F(",\"poll\":");        j += configManager.getTdkLambdaPoll() ? F("true") : F("false");
+    j += F(",\"poll_s\":");      j += String(configManager.getTdkLambdaPollSec());
+    j += F(",\"csv\":");         j += configManager.getTdkLambdaCsv() ? F("true") : F("false");
+    j += F(",\"format\":\"");    j += configManager.getTdkLambdaCsvFormat() ? F("sensor") : F("table");  j += '"';
+    j += F(",\"auto_map\":");    j += configManager.getTdkLambdaAutoMap() ? F("true") : F("false");
+    j += F(",\"listen\":");      j += configManager.getTdkLambdaListen() ? F("true") : F("false");
+    j += F(",\"allow_write\":"); j += configManager.getTdkLambdaAllowWrite() ? F("true") : F("false");
+    j += F(",\"addr\":");        j += String(configManager.getTdkLambdaAddr());
+    j += F(",\"inject\":");      j += configManager.getTdkLambdaInject() ? F("true") : F("false");
+    j += F(",\"mode\":\"");      j += configManager.getTdkLambdaMode();                    j += '"';
+    j += F(",\"cmd_v\":\"");     j += tdkJsonEscape(configManager.getTdkLambdaCmdV().c_str());     j += '"';
+    j += F(",\"cmd_i\":\"");     j += tdkJsonEscape(configManager.getTdkLambdaCmdI().c_str());     j += '"';
+    j += F(",\"cmd_state\":\""); j += tdkJsonEscape(configManager.getTdkLambdaCmdState().c_str()); j += '"';
+    j += F(",\"map\":\"");       j += tdkJsonEscape(configManager.getTdkLambdaMap().c_str());      j += '"';
+    j += F(",\"scale_v\":");     j += String(configManager.getTdkLambdaScaleV(), 4);
+    j += F(",\"scale_i\":");     j += String(configManager.getTdkLambdaScaleI(), 4);
+    j += F(",\"off_v\":");       j += String(configManager.getTdkLambdaOffV(), 4);
+    j += F(",\"off_i\":");       j += String(configManager.getTdkLambdaOffI(), 4);
     j += F(",\"limits\":{");
-    j += String(F("\"enabled\":")) + (configManager.getTdkLambdaLimitsEnabled() ? F("true") : F("false"));
-    j += String(F(",\"v_min\":")) + String(configManager.getTdkLambdaLimitVMin(), 2);
-    j += String(F(",\"v_max\":")) + String(configManager.getTdkLambdaLimitVMax(), 2);
-    j += String(F(",\"i_max\":")) + String(configManager.getTdkLambdaLimitIMax(), 3);
-    j += F("}");
-    j += F("}");
+    j += F("\"enabled\":");      j += configManager.getTdkLambdaLimitsEnabled() ? F("true") : F("false");
+    j += F(",\"v_min\":");       j += String(configManager.getTdkLambdaLimitVMin(), 2);
+    j += F(",\"v_max\":");       j += String(configManager.getTdkLambdaLimitVMax(), 2);
+    j += F(",\"i_max\":");       j += String(configManager.getTdkLambdaLimitIMax(), 3);
+    j += F("}}");
     res.sendJson(j);
 #else
     res.sendJson(F("{\"success\":false}"));
@@ -237,25 +257,15 @@ void handleTdkLambdaConfigGet(HttpRequest& req, HttpResponse& res) {
 
 void handleTdkLambdaConfigPost(HttpRequest& req, HttpResponse& res) {
 #if ENABLE_TDK_LAMBDA == 1
-    const String pollS  = tdkFormValue(req.body, "poll");
-    const String pollSec= tdkFormValue(req.body, "poll_s");
-    const String csvS   = tdkFormValue(req.body, "csv");
-    const bool poll = (pollS == "1" || pollS == "true" || pollS == "on");
-    const int  sec  = pollSec.length() ? pollSec.toInt() : 60;
-    const bool csv  = (csvS == "1" || csvS == "true" || csvS == "on");
-    // Extras (multi-drop address, monitor injection, limit alerts)
+    // --- extras: multi-drop address, monitor injection, limit alerts ---------
     const String addrS = tdkFormValue(req.body, "addr");
     const String injS  = tdkFormValue(req.body, "inject");
     const String limS  = tdkFormValue(req.body, "limits_enabled");
     if (addrS.length() || injS.length() || limS.length() ||
         req.body.indexOf("limit_v_min=") >= 0) {
         const int  addr = addrS.length() ? addrS.toInt() : configManager.getTdkLambdaAddr();
-        const bool inj  = injS.length()
-            ? (injS == "1" || injS == "true" || injS == "on")
-            : configManager.getTdkLambdaInject();
-        const bool lim  = limS.length()
-            ? (limS == "1" || limS == "true" || limS == "on")
-            : configManager.getTdkLambdaLimitsEnabled();
+        const bool inj  = injS.length() ? tdkTruthy(injS) : configManager.getTdkLambdaInject();
+        const bool lim  = limS.length() ? tdkTruthy(limS) : configManager.getTdkLambdaLimitsEnabled();
         const String vmin = tdkFormValue(req.body, "limit_v_min");
         const String vmax = tdkFormValue(req.body, "limit_v_max");
         const String imax = tdkFormValue(req.body, "limit_i_max");
@@ -268,34 +278,42 @@ void handleTdkLambdaConfigPost(HttpRequest& req, HttpResponse& res) {
         tdkLambdaSetLimits(fvmin, fvmax, fimax, lim);
     }
 
+    // --- safety: listen / allow-write --------------------------------------
     const String listenS = tdkFormValue(req.body, "listen");
     const String allowS  = tdkFormValue(req.body, "allow_write");
     if (listenS.length() || allowS.length()) {
-        const bool listenOn = listenS.length()
-            ? (listenS == "1" || listenS == "true" || listenS == "on")
-            : configManager.getTdkLambdaListen();
-        const bool allowOn = allowS.length()
-            ? (allowS == "1" || allowS == "true" || allowS == "on")
-            : configManager.getTdkLambdaAllowWrite();
+        const bool listenOn = listenS.length() ? tdkTruthy(listenS) : configManager.getTdkLambdaListen();
+        const bool allowOn  = allowS.length()  ? tdkTruthy(allowS)  : configManager.getTdkLambdaAllowWrite();
         configManager.setTdkLambdaSafety(listenOn, allowOn);
         tdkLambdaSetListen(listenOn);
     }
+
+    // --- auto-detect toggle ------------------------------------------------
     const String autoS = tdkFormValue(req.body, "auto_map");
     if (autoS.length()) {
-        const bool autoOn = (autoS == "1" || autoS == "true" || autoS == "on");
+        const bool autoOn = tdkTruthy(autoS);
         configManager.setTdkLambdaAutoMap(autoOn);
         tdkLambdaSetAutoMap(autoOn);
     }
-    const String fmtS = tdkFormValue(req.body, "format");
-    const String fmt  = (fmtS == "table") ? String("table") : String("sensor");
 
-    configManager.setTdkLambda(poll, sec, csv, fmt);
-    tdkLambdaSetPoll(poll, (uint32_t)((sec < 5 ? 5 : (sec > 3600 ? 3600 : sec))) * 1000UL);
-    tdkLambdaSetCsvFormat(fmt == "sensor");
-    tdkLambdaSetCsv(csv);
+    // --- polling / CSV -----------------------------------------------------
+    const String pollS   = tdkFormValue(req.body, "poll");
+    const String pollSec = tdkFormValue(req.body, "poll_s");
+    const String csvS    = tdkFormValue(req.body, "csv");
+    const String fmtS    = tdkFormValue(req.body, "format");
+    const bool poll = tdkTruthy(pollS);
+    const int  sec  = pollSec.length() ? pollSec.toInt() : configManager.getTdkLambdaPollSec();
+    const bool csv  = tdkTruthy(csvS);
+    const String fmt = (fmtS == "table") ? String("table") : String("sensor");
 
-    // Optional device-profile fields: applied only when present, so a page that
-    // only sends poll/csv keeps the stored profile untouched.
+    if (pollS.length() || pollSec.length() || csvS.length() || fmtS.length()) {
+        configManager.setTdkLambda(poll, sec, csv, fmt);
+        tdkLambdaSetPoll(poll, (uint32_t)((sec < 5 ? 5 : (sec > 3600 ? 3600 : sec))) * 1000UL);
+        tdkLambdaSetCsvFormat(fmt == "sensor");
+        tdkLambdaSetCsv(csv);
+    }
+
+    // --- device profile (optional fields) ----------------------------------
     const String pMode = tdkFormValue(req.body, "mode");
     const String pV    = tdkFormValue(req.body, "cmd_v");
     const String pI    = tdkFormValue(req.body, "cmd_i");
@@ -307,10 +325,10 @@ void handleTdkLambdaConfigPost(HttpRequest& req, HttpResponse& res) {
         const String cmdI = pI.length()    ? pI    : configManager.getTdkLambdaCmdI();
         const String cmdS = pSt.length()   ? pSt   : configManager.getTdkLambdaCmdState();
         const String map  = pMap.length()  ? pMap  : configManager.getTdkLambdaMap();
-        String sv = tdkFormValue(req.body, "scale_v");
-        String si = tdkFormValue(req.body, "scale_i");
-        String ov = tdkFormValue(req.body, "off_v");
-        String oi = tdkFormValue(req.body, "off_i");
+        const String sv = tdkFormValue(req.body, "scale_v");
+        const String si = tdkFormValue(req.body, "scale_i");
+        const String ov = tdkFormValue(req.body, "off_v");
+        const String oi = tdkFormValue(req.body, "off_i");
         const float fsv = sv.length() ? sv.toFloat() : configManager.getTdkLambdaScaleV();
         const float fsi = si.length() ? si.toFloat() : configManager.getTdkLambdaScaleI();
         const float fov = ov.length() ? ov.toFloat() : configManager.getTdkLambdaOffV();
@@ -320,12 +338,13 @@ void handleTdkLambdaConfigPost(HttpRequest& req, HttpResponse& res) {
                               map.c_str(), fsv, fsi, fov, foi);
     }
 
-    String j = F("{\"success\":true");
-    j += String(F(",\"poll\":"))   + (poll ? F("true") : F("false"));
-    j += String(F(",\"poll_s\":")) + String(sec);
-    j += String(F(",\"csv\":"))    + (csv ? F("true") : F("false"));
-    j += F(",\"format\":\"") + fmt + F("\"");
-    j += F("}");
+    String j;
+    j.reserve(160);
+    j += F("{\"success\":true");
+    j += F(",\"poll\":");    j += poll ? F("true") : F("false");
+    j += F(",\"poll_s\":");  j += String(sec);
+    j += F(",\"csv\":");     j += csv ? F("true") : F("false");
+    j += F(",\"format\":\""); j += fmt; j += F("\"}");
     res.sendJson(j);
 #else
     (void)req;
@@ -357,16 +376,14 @@ void handleTdkLambdaSamplesGet(HttpRequest& req, HttpResponse& res) {
     static TdkSample samples[120];
     const uint16_t n = tdkLambdaCopySamples(samples, (uint16_t)want);
     const uint32_t now = millis();
-    String j = F("{\"success\":true,\"samples\":[");
+    String j;
+    j.reserve(64 + n * 26);
+    j += F("{\"success\":true,\"samples\":[");
     for (uint16_t i = 0; i < n; ++i) {
         if (i) j += ',';
-        // [age_seconds, volts, amps] — compact, the page computes the axis.
-        j += '[';
-        j += String((now - samples[i].ts) / 1000UL);
-        j += ',';
-        j += String(samples[i].v, 2);
-        j += ',';
-        j += String(samples[i].i, 3);
+        j += '['; j += String((now - samples[i].ts) / 1000UL);
+        j += ','; j += String(samples[i].v, 2);
+        j += ','; j += String(samples[i].i, 3);
         j += ']';
     }
     j += F("]}");

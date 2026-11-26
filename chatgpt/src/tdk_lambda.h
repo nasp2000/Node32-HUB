@@ -12,6 +12,7 @@
 
 #include <Arduino.h>
 #include "feature_flags.h"
+#include "tdk_lambda_scpi.h"   // pure parsers/helpers (dependency-free)
 
 #if ENABLE_TDK_LAMBDA == 1
 
