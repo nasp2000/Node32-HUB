@@ -136,8 +136,10 @@ const char MOBILE_COMMON_CSS[] PROGMEM = R"MCCSS(
     height: 42px; border-radius: 10px; border: 1px solid #334155; background: #0f172a;
     color: #cbd5e1; font-size: 13px; font-weight: 700;
   }
-  .mp .btn:active { background: #1d2b47; }
+  .mp .btn:active { background: #1d2b47; transform: translateY(1px); }
   .mp .btn:disabled { opacity: .45; }
+  .mp .btn:focus-visible, .mp .primary:focus-visible, .mp .reboot:focus-visible { outline: 2px solid #9fd0ff; outline-offset: 2px; }
+  .mp .primary:active { transform: translateY(1px); }
   .mp .primary {
     height: 50px; border: 0; border-radius: 12px; background: #2563eb; color: #fff;
     font-size: 16px; font-weight: 700;
