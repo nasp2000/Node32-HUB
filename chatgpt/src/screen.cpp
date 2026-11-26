@@ -13,6 +13,7 @@
 #include <time.h>
 #include <Preferences.h>
 #include "languages/lang_active.h"
+#include "languages/lang_screen.h"
 #include "config_manager_runtime.h"
 #include "nvs_flash.h"
 #include <esp_partition.h>
@@ -813,7 +814,7 @@ void ScreenManager::showStatusScreen() {
     // its job (OTA, e-mail, pages), so it is shown first in the rotation.
     // NOTE: the local `connected` of the line-1 block is out of scope here.
     if (WiFi.status() != WL_CONNECTED && !ethernetConnected && !apActive) {
-        moduleLines[moduleCount++] = String(F("! OFFLINE"));
+        moduleLines[moduleCount++] = String(screenCardLabels().offline);
     }
 
 #if (defined(SELECTED_PACK) && (SELECTED_PACK == PACK_RAMBOX)) || (ENABLE_UNIKON==1)
@@ -871,8 +872,10 @@ void ScreenManager::showStatusScreen() {
             const SensorConfig &cfg = sensorConfigManager.getConfig();
             if (cfg.last_reading_time > 0) {
                 char envBuf[64];
-                snprintf(envBuf, sizeof(envBuf), "Temp: %.1fC Hum: %.0f%% P: %.0fhPa",
-                         cfg.last_temp_avg, cfg.last_humidity, cfg.last_pressure_hpa);
+                const ScreenCardLabels& lbl = screenCardLabels();
+                snprintf(envBuf, sizeof(envBuf), "%s %.1fC %s %.0f%% %s %.0fhPa",
+                         lbl.envTemp, cfg.last_temp_avg, lbl.envHum,
+                         cfg.last_humidity, lbl.envPress, cfg.last_pressure_hpa);
                 // Stale marker: a sensor that stopped updating kept showing its
                 // last value as if it were live. '~' = older than 5 minutes.
                 bool envStale = false;
@@ -1022,9 +1025,10 @@ void ScreenManager::showStatusScreen() {
             size_t recipientsCount = configManager.countRecipientSlotsNonEmpty();
             size_t templatesCount = configManager.getRs232Templates().size();
             int totalSched = intervalActiveCount + datetimeActiveCount;
-            moduleLines[moduleCount++] = L(activeLang->screenSchedLabel) + totalSched +
-                                         " dest:" + recipientsCount +
-                                         " tpl:" + templatesCount;
+            const ScreenCardLabels& lbl = screenCardLabels();
+            moduleLines[moduleCount++] = String(lbl.sched) + String(totalSched) +
+                                         String(lbl.schedDest) + String(recipientsCount) +
+                                         String(lbl.schedTpl) + String(templatesCount);
         }
     }
 
@@ -1052,7 +1056,7 @@ void ScreenManager::showStatusScreen() {
 
         line3 = moduleLines[currentModuleIndex];
     } else {
-        line3 = "Status: sem modulos ativos";
+        line3 = String(screenCardLabels().noModules);
     }
 
     // Pack-specific status layouts live in src/screen/view_*.h (one file
