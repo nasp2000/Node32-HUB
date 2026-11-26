@@ -198,7 +198,10 @@ Desenhado **no browser** (canvas 2D), com os dados de `/api/tdk-lambda-samples`:
   - **0.96" (SCREEN_TYPE 1)** — as linhas passaram a usar a **largura toda (21 caracteres)**;
     textos até 2× a largura são truncados com `~`, só os muito longos fazem marquee. O cartão do
     PSU usa a forma compacta: `600V 1.30A`, ou `listen` / `ALERT` / `C04` / `wait`;
-  - **2.42" (SCREEN_TYPE 2)** — forma completa: `TDK 600V 1.30A CV` (21 chars), idem estados.
+  - **2.42" (SCREEN_TYPE 2)** — forma completa: `TDK 600V 1.30A CV`, idem estados. Todas as
+    linhas da vista 2.42 passaram a usar `ScreenManager::fitForPanel()` (largura do painel +
+    `~` na truncagem, em vez do antigo `substring(0, 21)` silencioso) e levam o mesmo
+    deslocamento anti-burn-in.
 - `tdkLambdaUpdate()` (loop): ciclo `<cmd_v>` → `<cmd_i>` (só `split`) → `<cmd_state>` a cada intervalo configurado,
   e flush do CSV **no backend ativo** (SD ou LittleFS) na janela de `getSdcardFlushInterval()`
   (10/30/60 min) ou quando o buffer de 128 KB passa dos **96 KB**.

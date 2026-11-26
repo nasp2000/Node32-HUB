@@ -116,6 +116,10 @@ public:
     int getWiFiRSSI();
     String getWiFiSignalBars();
   String stripAccents(const String &s);
+  // Strip accents + fit the panel width, marking truncation with '~'.
+  // Views must use this instead of substring(0, N): a silent cut hides that
+  // there is more text (and N was hardcoded per view).
+  String fitForPanel(const String &s);
 
     bool isInitialized() const { return lcdInitialized; }
 };

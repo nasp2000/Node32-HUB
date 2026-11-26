@@ -536,6 +536,16 @@ void ScreenManager::clear() {
     oled.clearDisplay(); // 🧹 Clear content
 }
 
+String ScreenManager::fitForPanel(const String &text) {
+    const int charW = 6 * OLED_TEXT_SIZE;
+    int cols = SSD1306_WIDTH / charW;          // 21 on a 128 px panel at size 1
+    if (cols < 2) cols = 2;
+    if (cols > 60) cols = 60;
+    char buf[64];
+    screenFitText(stripAccents(text).c_str(), buf, (size_t)cols + 1);
+    return String(buf);
+}
+
 void ScreenManager::displayMessage(const String& line1, const String& line2, const String& line3) {
     if (!lcdInitialized) return;
 #if SCREEN_TYPE == 3
@@ -859,7 +869,17 @@ void ScreenManager::showStatusScreen() {
                 char envBuf[64];
                 snprintf(envBuf, sizeof(envBuf), "Temp: %.1fC Hum: %.0f%% P: %.0fhPa",
                          cfg.last_temp_avg, cfg.last_humidity, cfg.last_pressure_hpa);
-                moduleLines[moduleCount++] = String(envBuf);
+                // Stale marker: a sensor that stopped updating kept showing its
+                // last value as if it were live. '~' = older than 5 minutes.
+                bool envStale = false;
+                {
+                    const time_t nowT = time(nullptr);
+                    if (nowT > 100000 && cfg.last_reading_time > 0 &&
+                        (nowT - (time_t)cfg.last_reading_time) > 300) {
+                        envStale = true;
+                    }
+                }
+                moduleLines[moduleCount++] = String(envStale ? "~ " : "") + String(envBuf);
             } else {
                 moduleLines[moduleCount++] = L(activeLang->screenTempNoReading);
             }

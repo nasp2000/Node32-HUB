@@ -27,8 +27,9 @@ extern unsigned long bootTime;
 
 static inline void screenDrawPsramView(ScreenManager &mgr, Adafruit_SSD1306 &oled,
                                        const ScreenStatusContext &ctx) {
-    // Dedicated 2.42" profile for PSRAM/IPG/Amada pack.
-    const int rowWidthChars = 21;
+    // Dedicated 2.42" layout. Width comes from the panel object (no hardcoded
+    // 21) and truncation marks the cut with '~' (ScreenManager::fitForPanel).
+    const int jitter = (int)((millis() / 600000UL) % 2);   // burn-in protection
     String storageCompact = "ST:N/A";
     if (currentStorageMode == STORAGE_MODE_SD && sdcardIsMounted()) {
         uint64_t totalBytes = sdcardTotalBytes();
@@ -66,18 +67,18 @@ static inline void screenDrawPsramView(ScreenManager &mgr, Adafruit_SSD1306 &ole
         rsLine = String("RS232 off");
     }
 
-    oled.setCursor(0, 0);
-    oled.print(mgr.stripAccents(String(PACK_SYSTEM_NAME)).substring(0, rowWidthChars));
-    oled.setCursor(0, 9);
-    oled.print(mgr.stripAccents(String("IP:") + ctx.ipStr + " " + ctx.sinalStr).substring(0, rowWidthChars));
-    oled.setCursor(0, 20);
-    oled.print(mgr.stripAccents(ctx.line3).substring(0, rowWidthChars));
-    oled.setCursor(0, 29);
-    oled.print(mgr.stripAccents(rsLine).substring(0, rowWidthChars));
-    oled.setCursor(0, 40);
-    oled.print(mgr.stripAccents(heapLine + " " + storageCompact).substring(0, rowWidthChars));
-    oled.setCursor(0, 49);
-    oled.print(mgr.stripAccents(uptimeLine).substring(0, rowWidthChars));
+    oled.setCursor(jitter, 0);
+    oled.print(mgr.fitForPanel(String(PACK_SYSTEM_NAME)));
+    oled.setCursor(jitter, 9);
+    oled.print(mgr.fitForPanel(String("IP:") + ctx.ipStr + " " + ctx.sinalStr));
+    oled.setCursor(jitter, 20);
+    oled.print(mgr.fitForPanel(ctx.line3));
+    oled.setCursor(jitter, 29);
+    oled.print(mgr.fitForPanel(rsLine));
+    oled.setCursor(jitter, 40);
+    oled.print(mgr.fitForPanel(heapLine + " " + storageCompact));
+    oled.setCursor(jitter, 49);
+    oled.print(mgr.fitForPanel(uptimeLine));
     oled.display();}
 
 #endif // SELECTED_PACK == PACK_RS232
