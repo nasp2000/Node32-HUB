@@ -58,21 +58,17 @@ Endpoints (todos registados uma vez, servidos nas duas interfaces):
 ## 3. Layout
 
 ```
-div.actions.nav-inicio > a.btn[href='/']   ← first child (repo rule)
-h1 "⚡ TDK-Lambda / Genesys"                ← English UI (HTML fallback rule)
-p.tdk-note
-div.tdk-box 1) Status        badges (module/listen|master/link ok|no data/polling/csv/error C0x)
-                             #tdkIdn #tdkRev #tdkSn + [Identify] (IDN? REV? SN?)
-div.tdk-box 2) Live values   #vMeas #vSet #iMeas #iSet #tdkMode(badge CV/CC) #tdkOut(badge) #tdkOvp #tdkLast
-div.tdk-box 3) Trend         #tdkWin (30|60|120) + canvas#tdkChart (browser canvas, no library)
-                             alert limits: #tdkLimOn #tdkLimVMin #tdkLimVMax #tdkLimIMax + #tdkAlert
-div.tdk-box 4) Console       #tdkListen + #tdkAllowW + #tdkGuardMsg
-                             #tdkCmd + [Send] [DVC?] [STT?] [STAT?] [FLT?] [Clear log] + pre#tdkLog
-div.tdk-box 5) CSV log       #tdkCsv + #tdkPoll #tdkPollSec #tdkCsvOn #tdkFmt [Flush now] [Download CSV]
-div.tdk-box 6) Supply profile presets + #tdkMode2 #tdkCmdV #tdkCmdI #tdkCmdSt #tdkMap #tdkSv #tdkSi #tdkOv #tdkOi
-                             #tdkAddr (multi-drop) #tdkInject (sensor-style line) #tdkAuto
-                             [Save profile] [Save the detected profile] #tdkProfMsg
-div.tdk-box 7) Commands      #tdkSearch + table (Command|Group|Usage|Description|Reply|Notes|[use])
+div.page.tdk-lambda > div.wrap          ← the asset opens its own page/wrap
+├ <style> (.section-box/.section-title + .tdk-* helpers)
+├ div.actions.nav-inicio > a.btn[href='/'] "Home"
+├ h1 "⚡ TDK-Lambda / Genesys" + p.tdk-note
+├ div.section-box 1) Status      #tdkStatus badges + #tdkIdn/#tdkRev/#tdkSn + [Identify]
+├ div.section-box 2) Live values .tdk-grid com 8 .tdk-val (#vMeas #vSet #iMeas #iSet #tdkMode #tdkOut #tdkOvp #tdkLast)
+├ div.section-box 3) Trend       #tdkWin + canvas#tdkChart + limites (#tdkLimOn #tdkLimVMin/Max/IMax #tdkAlert)
+├ div.section-box 4) Console     #tdkListen #tdkAllowW #tdkGuardMsg + #tdkCmd + botões + pre#tdkLog
+├ div.section-box 5) CSV log     #tdkCsv + #tdkPoll #tdkPollSec #tdkCsvOn #tdkFmt [Flush now] [Download CSV]
+├ div.section-box 6) Supply profile presets + campos + #tdkInject #tdkAuto + [Save profile] [Save the detected]
+└ div.section-box 7) Commands    #tdkSearch + .tdk-tbl (#tdkCat)
 ```
 
 ---

@@ -1,5 +1,11 @@
 // page_tdk_lambda_asset.cpp — /tdk-lambda console (HTML + inline JS, PROGMEM).
 //
+// Layout follows the Node32-HUB standard (see page_ipg_laser_asset.cpp): the
+// asset opens its own .page/.wrap and every block is a .section-box with a
+// .section-title. Without the wrapper core.css lays the boxes out as flex
+// children of <body> (side by side, shrunk) — that is what made this page look
+// broken.
+//
 // English UI (repo rule: HTML fallback text in English).
 // Read-only by default; the trend chart draws in the browser from a compact
 // JSON endpoint (no JS library, no PSRAM allocation on the device).
@@ -7,174 +13,169 @@
 #include "page_tdk_lambda_asset.h"
 
 const char PAGE_TDK_LAMBDA[] PROGMEM = R"rawliteral(
+<div class='page tdk-lambda'>
+<div class='wrap'>
 <style>
-.tdk-box{border:2px solid #3b82f6;border-radius:10px;padding:12px;margin:14px 0;background:#0f172a;color:#e2e8f0}
-.tdk-box h2{margin:0 0 8px;font-size:16px;color:#93c5fd}
-.tdk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
-.tdk-val{background:#1e293b;border-radius:8px;padding:8px}
-.tdk-val .k{font-size:11px;color:#94a3b8}
-.tdk-val .v{font-size:22px;font-weight:700;color:#f8fafc}
-.tdk-val .u{font-size:12px;color:#94a3b8;margin-left:3px}
-.tdk-in{width:100%;padding:8px;border-radius:6px;border:1px solid #334155;background:#0b1220;color:#e2e8f0}
-.tdk-btn{padding:8px 12px;border-radius:6px;border:0;background:#2563eb;color:#fff;font-weight:600;cursor:pointer;margin:2px}
-.tdk-btn.sec{background:#334155}
-.tdk-btn:disabled{opacity:.45;cursor:not-allowed}
-.tdk-pre{background:#020617;border:1px solid #1e293b;border-radius:8px;padding:8px;height:180px;overflow:auto;font:12px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap}
-.tdk-tbl{width:100%;border-collapse:collapse;font-size:12px}
-.tdk-tbl th,.tdk-tbl td{border-bottom:1px solid #1e293b;padding:5px 6px;text-align:left;vertical-align:top}
-.tdk-tbl th{color:#93c5fd;position:sticky;top:0;background:#0f172a}
-.tdk-tbl tr:hover{background:#111c33}
-.tdk-scroll{max-height:320px;overflow:auto}
-.tdk-note{font-size:11px;color:#94a3b8}
-.tdk-badge{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700}
-.tdk-badge.ok{background:#052e16;color:#4ade80;border:1px solid #14532d}
-.tdk-badge.warn{background:#3b1d05;color:#fbbf24;border:1px solid #78350f}
-.tdk-badge.err{background:#450a0a;color:#f87171;border:1px solid #7f1d1d}
-.tdk-badge.off{background:#1f2937;color:#9ca3af;border:1px solid #374151}
-canvas#tdkChart{width:100%;height:190px;background:#020617;border:1px solid #1e293b;border-radius:8px;display:block}
+  .section-box{margin:20px 0;padding:18px;background:#0f172a;border-radius:8px;border:2px solid #3b82f6}
+  .section-title{margin:0 0 15px 0;font-size:20px;color:#60a5fa;font-weight:bold}
+  .tdk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+  .tdk-val{background:#1e293b;border-radius:8px;padding:8px}
+  .tdk-val .k{font-size:11px;color:#94a3b8}
+  .tdk-val .v{font-size:22px;font-weight:700;color:#f8fafc}
+  .tdk-val .u{font-size:12px;color:#94a3b8;margin-left:3px}
+  .tdk-pre{background:#020617;border:1px solid #1e293b;border-radius:8px;padding:8px;height:180px;overflow:auto;font:12px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap}
+  .tdk-tbl{width:100%;border-collapse:collapse;font-size:12px}
+  .tdk-tbl th,.tdk-tbl td{border-bottom:1px solid #1e293b;padding:5px 6px;text-align:left;vertical-align:top}
+  .tdk-tbl th{color:#93c5fd;position:sticky;top:0;background:#0f172a}
+  .tdk-scroll{max-height:320px;overflow:auto}
+  .tdk-note{font-size:12px;color:#94a3b8}
+  .tdk-badge{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700}
+  .tdk-badge.ok{background:#052e16;color:#4ade80;border:1px solid #14532d}
+  .tdk-badge.warn{background:#3b1d05;color:#fbbf24;border:1px solid #78350f}
+  .tdk-badge.err{background:#450a0a;color:#f87171;border:1px solid #7f1d1d}
+  .tdk-badge.off{background:#1f2937;color:#9ca3af;border:1px solid #374151}
+  .tdk-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+  .tdk-field{display:flex;flex-direction:column;gap:2px;font-size:12px;color:#94a3b8}
+  .tdk-field input,.tdk-field select{min-height:30px}
+  canvas#tdkChart{width:100%;height:190px;background:#020617;border:1px solid #1e293b;border-radius:8px;display:block}
+  @media (max-width:480px){.section-box{padding:14px}}
 </style>
 
-<div class="actions nav-inicio"><a class="btn" href="/">&#127968; Home</a></div>
+<div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome'>&#127968; Home</a></div>
 <h1>&#9889; TDK-Lambda / Genesys</h1>
-<p class="tdk-note">SCPI console and CSV logger for TDK-Lambda Genesys (GEN/GENH) supplies.
-Every command and reply also appears in the
-<a href="/monitor">Serial Monitor</a> like any other RS232 line.</p>
+<p class='tdk-note'>SCPI console and CSV logger for TDK-Lambda Genesys (GEN/GENH) supplies.
+Every command and reply also appears in the <a href='/monitor'>Serial Monitor</a> like any other RS232 line.</p>
 
-<div class="tdk-box">
-  <h2>1) Status</h2>
-  <div id="tdkStatus">loading&hellip;</div>
-  <div style="margin-top:8px" class="tdk-note">
-    Unit: <span id="tdkIdn">--</span> &middot; FW <span id="tdkRev">--</span> &middot; SN <span id="tdkSn">--</span>
-    <button class="tdk-btn sec" onclick="tdkIdentify()">Identify (IDN? REV? SN?)</button>
+<div class='section-box'>
+  <h3 class='section-title'>1) Status</h3>
+  <div id='tdkStatus'>loading&hellip;</div>
+  <div class='tdk-row' style='margin-top:10px'>
+    <span class='tdk-note'>Unit: <b id='tdkIdn'>--</b> &middot; FW <b id='tdkRev'>--</b> &middot; SN <b id='tdkSn'>--</b></span>
+    <button class='btn' onclick='tdkIdentify()'>&#128269; Identify (IDN? REV? SN?)</button>
   </div>
 </div>
 
-<div class="tdk-box">
-  <h2>2) Live values</h2>
-  <div class="tdk-grid">
-    <div class="tdk-val"><div class="k">Measured voltage</div><div><span class="v" id="vMeas">--</span><span class="u">V</span></div></div>
-    <div class="tdk-val"><div class="k">Set voltage</div><div><span class="v" id="vSet">--</span><span class="u">V</span></div></div>
-    <div class="tdk-val"><div class="k">Measured current</div><div><span class="v" id="iMeas">--</span><span class="u">A</span></div></div>
-    <div class="tdk-val"><div class="k">Set current</div><div><span class="v" id="iSet">--</span><span class="u">A</span></div></div>
-    <div class="tdk-val"><div class="k">Mode</div><div class="v" id="tdkMode">--</div></div>
-    <div class="tdk-val"><div class="k">Output</div><div class="v" id="tdkOut">--</div></div>
-    <div class="tdk-val"><div class="k">OVP / UVL</div><div class="v" id="tdkOvp" style="font-size:16px">-- / --</div></div>
-    <div class="tdk-val"><div class="k">Last line</div><div class="v" id="tdkLast" style="font-size:12px;word-break:break-all">--</div></div>
+<div class='section-box'>
+  <h3 class='section-title'>2) Live values</h3>
+  <div class='tdk-grid'>
+    <div class='tdk-val'><div class='k'>Measured voltage</div><div><span class='v' id='vMeas'>--</span><span class='u'>V</span></div></div>
+    <div class='tdk-val'><div class='k'>Set voltage</div><div><span class='v' id='vSet'>--</span><span class='u'>V</span></div></div>
+    <div class='tdk-val'><div class='k'>Measured current</div><div><span class='v' id='iMeas'>--</span><span class='u'>A</span></div></div>
+    <div class='tdk-val'><div class='k'>Set current</div><div><span class='v' id='iSet'>--</span><span class='u'>A</span></div></div>
+    <div class='tdk-val'><div class='k'>Mode</div><div class='v' id='tdkMode'>--</div></div>
+    <div class='tdk-val'><div class='k'>Output</div><div class='v' id='tdkOut'>--</div></div>
+    <div class='tdk-val'><div class='k'>OVP / UVL</div><div class='v' id='tdkOvp' style='font-size:16px'>-- / --</div></div>
+    <div class='tdk-val'><div class='k'>Last line</div><div class='v' id='tdkLast' style='font-size:12px;word-break:break-all'>--</div></div>
   </div>
 </div>
 
-<div class="tdk-box">
-  <h2>3) Trend</h2>
-  <div style="margin-bottom:6px">
-    <label class="tdk-note">Window
-      <select id="tdkWin" onchange="tdkLoadTrend()" style="padding:4px;background:#0b1220;color:#e2e8f0;border:1px solid #334155;border-radius:5px">
-        <option value="30">30 samples</option>
-        <option value="60" selected>60 samples</option>
-        <option value="120">120 samples</option>
+<div class='section-box'>
+  <h3 class='section-title'>3) Trend</h3>
+  <div class='tdk-row'>
+    <label class='tdk-note'>Window
+      <select id='tdkWin' onchange='tdkLoadTrend()'>
+        <option value='30'>30 samples</option>
+        <option value='60' selected>60 samples</option>
+        <option value='120'>120 samples</option>
       </select>
     </label>
-    <span class="tdk-note">&nbsp;<b style="color:#60a5fa">&#9472; V</b> &nbsp; <b style="color:#fbbf24">&#9472; A</b> &nbsp;
-      <span id="tdkTrendInfo">--</span></span>
+    <span class='tdk-note'><b style='color:#60a5fa'>&#9472; V</b> &nbsp; <b style='color:#fbbf24'>&#9472; A</b> &nbsp; <span id='tdkTrendInfo'>--</span></span>
   </div>
-  <canvas id="tdkChart" width="900" height="190"></canvas>
-  <div style="margin-top:8px" class="tdk-note">
-    <label><input type="checkbox" id="tdkLimOn" onchange="tdkSaveExtras()"> Alert limits</label>
-    <label style="margin-left:12px">V min <input id="tdkLimVMin" value="0" style="width:70px;padding:3px;background:#0b1220;color:#e2e8f0;border:1px solid #334155;border-radius:4px" onchange="tdkSaveExtras()"></label>
-    <label style="margin-left:12px">V max <input id="tdkLimVMax" value="0" style="width:70px;padding:3px;background:#0b1220;color:#e2e8f0;border:1px solid #334155;border-radius:4px" onchange="tdkSaveExtras()"></label>
-    <label style="margin-left:12px">I max <input id="tdkLimIMax" value="0" style="width:70px;padding:3px;background:#0b1220;color:#e2e8f0;border:1px solid #334155;border-radius:4px" onchange="tdkSaveExtras()"></label>
-    &nbsp;<span id="tdkAlert"></span>
+  <canvas id='tdkChart' width='900' height='190'></canvas>
+  <div class='tdk-row' style='margin-top:10px'>
+    <label class='tdk-note'><input type='checkbox' id='tdkLimOn' onchange='tdkSaveExtras()'> Alert limits</label>
+    <label class='tdk-field'>V min <input id='tdkLimVMin' value='0' style='width:80px' onchange='tdkSaveExtras()'></label>
+    <label class='tdk-field'>V max <input id='tdkLimVMax' value='0' style='width:80px' onchange='tdkSaveExtras()'></label>
+    <label class='tdk-field'>I max <input id='tdkLimIMax' value='0' style='width:80px' onchange='tdkSaveExtras()'></label>
+    <span id='tdkAlert'></span>
   </div>
-  <p class="tdk-note">0 disables a threshold. An alert is logged to the Serial Monitor and shows here.</p>
+  <p class='tdk-note'>0 disables a threshold. An alert is logged to the Serial Monitor and shows here.</p>
 </div>
 
-<div class="tdk-box">
-  <h2>4) Console</h2>
-  <div style="margin-bottom:8px">
-    <label class="tdk-note"><input type="checkbox" id="tdkListen" onchange="tdkSaveSafety()">
-      <b>Listen mode</b> &mdash; never transmit (the PLC owns the line)</label><br>
-    <label class="tdk-note"><input type="checkbox" id="tdkAllowW" onchange="tdkSaveSafety()">
-      Allow <b>write</b> commands (PV / PC / OUT / OVP&hellip;)</label>
-    <div class="tdk-note" id="tdkGuardMsg"></div>
+<div class='section-box'>
+  <h3 class='section-title'>4) Console</h3>
+  <div class='tdk-row'>
+    <label class='tdk-note'><input type='checkbox' id='tdkListen' onchange='tdkSaveSafety()'> <b>Listen mode</b> &mdash; never transmit (the PLC owns the line)</label>
+    <label class='tdk-note'><input type='checkbox' id='tdkAllowW' onchange='tdkSaveSafety()'> Allow <b>write</b> commands (PV / PC / OUT / OVP&hellip;)</label>
   </div>
-  <input class="tdk-in" id="tdkCmd" placeholder="e.g. DVC?   MV?   MC?   MODE?   STT?   STAT?">
-  <div style="margin-top:8px">
-    <button class="tdk-btn" id="tdkSendBtn" onclick="tdkSend()">&#10148; Send</button>
-    <button class="tdk-btn sec" onclick="tdkQuick('DVC?')">DVC?</button>
-    <button class="tdk-btn sec" onclick="tdkQuick('STT?')">STT?</button>
-    <button class="tdk-btn sec" onclick="tdkQuick('STAT?')">STAT?</button>
-    <button class="tdk-btn sec" onclick="tdkQuick('FLT?')">FLT?</button>
-    <button class="tdk-btn sec" onclick="tdkClear()">&#128465; Clear log</button>
+  <div class='tdk-note' id='tdkGuardMsg'></div>
+  <input id='tdkCmd' class='tdk-in' placeholder='e.g. DVC?   MV?   MC?   MODE?   STT?   STAT?' style='width:100%;margin-top:8px'>
+  <div class='tdk-row' style='margin-top:8px'>
+    <button class='btn' id='tdkSendBtn' onclick='tdkSend()'>&#10148; Send</button>
+    <button class='btn' onclick="tdkQuick('DVC?')">DVC?</button>
+    <button class='btn' onclick="tdkQuick('STT?')">STT?</button>
+    <button class='btn' onclick="tdkQuick('STAT?')">STAT?</button>
+    <button class='btn' onclick="tdkQuick('FLT?')">FLT?</button>
+    <button class='btn' onclick='tdkClear()'>&#128465; Clear log</button>
   </div>
-  <div class="tdk-pre" id="tdkLog" style="margin-top:8px">no lines yet.</div>
+  <div class='tdk-pre' id='tdkLog' style='margin-top:8px'>no lines yet.</div>
 </div>
 
-<div class="tdk-box">
-  <h2>5) CSV log</h2>
-  <div id="tdkCsv">--</div>
-  <div style="margin-top:8px">
-    <label><input type="checkbox" id="tdkPoll" onchange="tdkSaveCfg()"> Automatic polling</label>
-    <label style="margin-left:14px">Interval (s)
-      <input type="number" id="tdkPollSec" min="5" max="3600" value="60" style="width:80px;padding:4px;background:#0b1220;color:#e2e8f0;border:1px solid #334155;border-radius:5px" onchange="tdkSaveCfg()">
-    </label>
-    <label style="margin-left:14px"><input type="checkbox" id="tdkCsvOn" onchange="tdkSaveCfg()"> Write CSV</label>
-    <label style="margin-left:14px">Format
-      <select id="tdkFmt" onchange="tdkSaveCfg()" style="padding:4px;background:#0b1220;color:#e2e8f0;border:1px solid #334155;border-radius:5px">
-        <option value="sensor">sensor (key, value)</option>
-        <option value="table">table (columns)</option>
+<div class='section-box'>
+  <h3 class='section-title'>5) CSV log</h3>
+  <div id='tdkCsv'>--</div>
+  <div class='tdk-row' style='margin-top:10px'>
+    <label class='tdk-note'><input type='checkbox' id='tdkPoll' onchange='tdkSaveCfg()'> Automatic polling</label>
+    <label class='tdk-field'>Interval (s) <input type='number' id='tdkPollSec' min='5' max='3600' value='60' style='width:90px' onchange='tdkSaveCfg()'></label>
+    <label class='tdk-note'><input type='checkbox' id='tdkCsvOn' onchange='tdkSaveCfg()'> Write CSV</label>
+    <label class='tdk-field'>Format
+      <select id='tdkFmt' onchange='tdkSaveCfg()'>
+        <option value='sensor'>sensor (key, value)</option>
+        <option value='table'>table (columns)</option>
       </select>
     </label>
-    <button class="tdk-btn sec" onclick="tdkCsvFlush()">&#128190; Flush now</button>
-    <a class="tdk-btn sec" href="/api/tdk-lambda-csv" download="TDK.csv" style="text-decoration:none">&#11015; Download CSV</a>
+    <button class='btn' onclick='tdkCsvFlush()'>&#128190; Flush now</button>
+    <a class='btn' href='/api/tdk-lambda-csv' download='TDK.csv' style='text-decoration:none'>&#11015; Download CSV</a>
   </div>
-  <p class="tdk-note">CSV lives at <code>/&lt;system&gt;/TDK_DD-MM-YYYY.csv</code> &mdash; on the SD card when
-  available, otherwise on LittleFS at the same path (written at the configured flush interval).</p>
+  <p class='tdk-note'>CSV lives at <code>/&lt;system&gt;/TDK_DD-MM-YYYY.csv</code> &mdash; on the SD card when available,
+  otherwise on LittleFS at the same path (written at the configured flush interval).</p>
 </div>
 
-<div class="tdk-box">
-  <h2>6) Supply profile <span class="tdk-note">(manual / advanced)</span></h2>
-  <p class="tdk-note">Pick the model/family and save: the profile defines which queries are sent and
+<div class='section-box'>
+  <h3 class='section-title'>6) Supply profile <span class='tdk-note'>(manual / advanced)</span></h3>
+  <p class='tdk-note'>Pick the model/family and save: the profile defines which queries are sent and
   where the values sit in the reply, so the same page works for any Genesys (and for supplies that
   only offer <code>MV?</code>/<code>MC?</code>).</p>
-  <div style="margin-bottom:8px">
-    <button class="tdk-btn sec" onclick="tdkPreset('genh')">GENH600-1.3 / GEN (DVC? 6 fields)</button>
-    <button class="tdk-btn sec" onclick="tdkPreset('split')">MV? + MC? (two queries)</button>
-    <button class="tdk-btn sec" onclick="tdkPreset('mv')">DVC? in mV/mA</button>
+  <div class='tdk-row'>
+    <button class='btn' onclick="tdkPreset('genh')">GENH600-1.3 / GEN (DVC? 6 fields)</button>
+    <button class='btn' onclick="tdkPreset('split')">MV? + MC? (two queries)</button>
+    <button class='btn' onclick="tdkPreset('mv')">DVC? in mV/mA</button>
   </div>
-  <div class="tdk-grid">
-    <label class="tdk-note">Mode<br>
-      <select id="tdkMode2" class="tdk-in">
-        <option value="dvc">dvc (one query, N fields)</option>
-        <option value="split">split (V and I separate)</option>
+  <div class='tdk-grid'>
+    <label class='tdk-field'>Mode
+      <select id='tdkMode2'>
+        <option value='dvc'>dvc (one query, N fields)</option>
+        <option value='split'>split (V and I separate)</option>
       </select>
     </label>
-    <label class="tdk-note">V query (or DVC?)<br><input class="tdk-in" id="tdkCmdV" value="DVC?"></label>
-    <label class="tdk-note">I query (split mode)<br><input class="tdk-in" id="tdkCmdI" value="MC?"></label>
-    <label class="tdk-note">State query<br><input class="tdk-in" id="tdkCmdSt" value="MODE?"></label>
-    <label class="tdk-note">Field map<br><input class="tdk-in" id="tdkMap" value="0,1,2,3,4,5"></label>
-    <label class="tdk-note">Scale V<br><input class="tdk-in" id="tdkSv" value="1"></label>
-    <label class="tdk-note">Scale I<br><input class="tdk-in" id="tdkSi" value="1"></label>
-    <label class="tdk-note">Offset V<br><input class="tdk-in" id="tdkOv" value="0"></label>
-    <label class="tdk-note">Offset I<br><input class="tdk-in" id="tdkOi" value="0"></label>
-    <label class="tdk-note">Multi-drop address (0 = off)<br><input class="tdk-in" id="tdkAddr" value="0"></label>
+    <label class='tdk-field'>V query (or DVC?)<input id='tdkCmdV' value='DVC?'></label>
+    <label class='tdk-field'>I query (split mode)<input id='tdkCmdI' value='MC?'></label>
+    <label class='tdk-field'>State query<input id='tdkCmdSt' value='MODE?'></label>
+    <label class='tdk-field'>Field map<input id='tdkMap' value='0,1,2,3,4,5'></label>
+    <label class='tdk-field'>Scale V<input id='tdkSv' value='1'></label>
+    <label class='tdk-field'>Scale I<input id='tdkSi' value='1'></label>
+    <label class='tdk-field'>Offset V<input id='tdkOv' value='0'></label>
+    <label class='tdk-field'>Offset I<input id='tdkOi' value='0'></label>
+    <label class='tdk-field'>Multi-drop address (0 = off)<input id='tdkAddr' value='0'></label>
   </div>
-  <div style="margin-top:8px">
-    <label class="tdk-note"><input type="checkbox" id="tdkInject" onchange="tdkSaveExtras()">
-      Also inject a sensor-style line (<code>vout, …</code>) into the monitor/chart</label><br>
-    <label class="tdk-note"><input type="checkbox" id="tdkAuto" onchange="tdkSaveAuto()"> Detect automatically on the first reply
-      <b>(never overwrites the saved profile)</b></label><br>
-    <button class="tdk-btn" onclick="tdkSaveProfile()">&#128190; Save profile</button>
-    <button class="tdk-btn sec" onclick="tdkAdoptDetected()">&#10133; Save the detected profile</button>
-    <span class="tdk-note" id="tdkProfMsg"></span>
+  <div class='tdk-row' style='margin-top:10px'>
+    <label class='tdk-note'><input type='checkbox' id='tdkInject' onchange='tdkSaveExtras()'> Also inject a sensor-style line (<code>TDK &hellip;, vout, &hellip;</code>) into the monitor/chart</label>
+    <label class='tdk-note'><input type='checkbox' id='tdkAuto' onchange='tdkSaveAuto()'> Detect automatically on the first reply <b>(never overwrites the saved profile)</b></label>
+  </div>
+  <div class='tdk-row'>
+    <button class='btn' onclick='tdkSaveProfile()'>&#128190; Save profile</button>
+    <button class='btn' onclick='tdkAdoptDetected()'>&#10133; Save the detected profile</button>
+    <span class='tdk-note' id='tdkProfMsg'></span>
   </div>
 </div>
 
-<div class="tdk-box">
-  <h2>7) Commands</h2>
-  <input class="tdk-in" id="tdkSearch" placeholder="Filter (e.g. DVC, OVP, monitor)" oninput="tdkRenderCatalog()">
-  <div class="tdk-scroll" style="margin-top:8px">
-    <table class="tdk-tbl">
+<div class='section-box'>
+  <h3 class='section-title'>7) Commands</h3>
+  <input id='tdkSearch' placeholder='Filter (e.g. DVC, OVP, monitor)' oninput='tdkRenderCatalog()' style='width:100%'>
+  <div class='tdk-scroll' style='margin-top:10px'>
+    <table class='tdk-tbl'>
       <thead><tr><th>Command</th><th>Group</th><th>Usage</th><th>Description</th><th>Reply</th><th>Notes</th><th></th></tr></thead>
-      <tbody id="tdkCat"></tbody>
+      <tbody id='tdkCat'></tbody>
     </table>
   </div>
 </div>
@@ -483,4 +484,6 @@ setInterval(tdkStatus,5000);
 setInterval(tdkLog,3000);
 setInterval(tdkLoadTrend,30000);
 </script>
+</div>
+</div>
 )rawliteral";
