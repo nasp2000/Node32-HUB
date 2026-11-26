@@ -82,6 +82,7 @@ Section headers render only when at least one button in the section exists (comp
 | "🔔 Buzzer" | `/buzzer` | `ENABLE_BUZZER==1` (`:170`) |
 | "🐦 Unikon RAMBOX" | `/unikon` | `ENABLE_UNIKON==1` (`:173`) |
 | "🕊 Bricon Rambox" (green `background:#15803d`, dove `&#128330;` — deliberately distinct from the blue `&#128038;` Unikon button) | `/bricon` | `ENABLE_BRICON==1` (`home_page_renderer.h:182-184`) |
+| "⚡ TDK-Lambda PSU" (**first button** of Modules) | `/tdk-lambda` | `ENABLE_TDK_LAMBDA==1` (`:151-153`) |
 | "🔥 IPG Laser RS232" | `/ipg-laser` | `ENABLE_IPG_LASER==1` (`:176`) |
 | "🔊 Placa de Som UDA1334A" | `/uda1334a` | `ENABLE_UDA1334A==1` (`:179`) |
 | "📷 Câmara" (new tab) | `/camera` | `ENABLE_CAMERA==1` (`:182`) |

@@ -143,10 +143,14 @@ inline void streamHomePageToPrint(Print& out,
                     (ENABLE_SOUND_SENSOR==1) || (ENABLE_MAX31865==1) ||
                     (ENABLE_UDA1334A==1) || (ENABLE_CAMERA==1) ||
                     (ENABLE_STRUCTURES_PAGE==1) || (ENABLE_RS232==1) || (ENABLE_SNIFFER==1) ||
-                    (ENABLE_USBIP_SERVER==1) || (ENABLE_GRBL==1);
+                    (ENABLE_USBIP_SERVER==1) || (ENABLE_GRBL==1) || (ENABLE_TDK_LAMBDA==1);
                 if (kHasAnyModule) {
                 out.print(F("<div class='home-section'><h2 style='margin:0 0 12px 0;font-size:18px;color:#60a5fa' data-i18n='homeModulesTitle'>&#128300; Modules</h2>"));
                 }
+#if ENABLE_TDK_LAMBDA==1
+                // First entry: the power supply is the instrument this pack exists for.
+                out.print(F("<a href='/tdk-lambda' class='btn' style='background:#0f5298;border-color:#ffffff'>&#9889; TDK-Lambda PSU</a>"));
+#endif
 #if defined(SELECTED_PACK) && (SELECTED_PACK == PACK_S3_TOUCH7)
                 out.print(F("<a href='/ecra' class='btn' style='background:#0f5298;border-color:#ffffff' data-i18n='homeEcra'>&#128241; Screen mirror</a>"));
 #endif
