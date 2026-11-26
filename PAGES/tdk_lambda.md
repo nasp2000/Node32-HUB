@@ -59,16 +59,33 @@ Endpoints (todos registados uma vez, servidos nas duas interfaces):
 
 ```
 div.page.tdk-lambda > div.wrap          ← the asset opens its own page/wrap
-├ <style> (.section-box/.section-title + .tdk-* helpers)
+├ <style> (.section-box/.section-title + .tdk-tab-* + .tdk-* helpers)
 ├ div.actions.nav-inicio > a.btn[href='/'] "Home"
-├ h1 "⚡ TDK-Lambda / Genesys" + p.tdk-note
-├ div.section-box 1) Status      #tdkStatus badges + #tdkIdn/#tdkRev/#tdkSn + [Identify]
-├ div.section-box 2) Live values .tdk-grid com 8 .tdk-val (#vMeas #vSet #iMeas #iSet #tdkMode #tdkOut #tdkOvp #tdkLast)
-├ div.section-box 3) Trend       #tdkWin + canvas#tdkChart + limites (#tdkLimOn #tdkLimVMin/Max/IMax #tdkAlert)
-├ div.section-box 4) Console     #tdkListen #tdkAllowW #tdkGuardMsg + #tdkCmd + botões + pre#tdkLog
-├ div.section-box 5) CSV log     #tdkCsv + #tdkPoll #tdkPollSec #tdkCsvOn #tdkFmt [Flush now] [Download CSV]
-├ div.section-box 6) Supply profile presets + campos + #tdkInject #tdkAuto + [Save profile] [Save the detected]
-└ div.section-box 7) Commands    #tdkSearch + .tdk-tbl (#tdkCat)
+├ h1 "⚡ TDK-Lambda / Genesys" + p.tdk-note (ligações) + p.tdk-note "Hover any control…"
+├ div#tdkTabBar .tdk-tab-bar            ← botões criados por JS a partir de TDK_TABS
+│   Live | Console | CSV | Setup | Commands   (último separador activo fica em localStorage)
+├ div.tdk-panel[data-tab=live] data-tab-default
+│   ├ div.section-box 1) Status   #tdkStatus badges + #tdkIdn/#tdkRev/#tdkSn + [Identify]
+│   ├ div.section-box 2) Live     .tdk-grid com 8 .tdk-val (#vMeas #vSet #iMeas #iSet #tdkMode #tdkOut #tdkOvp #tdkLast)
+│   └ div.section-box 3) Trend    #tdkWin + canvas#tdkChart + limites (#tdkLimOn #tdkLimVMin/Max/IMax #tdkAlert)
+├ div.tdk-panel[data-tab=console]
+│   └ div.section-box 4) Console  #tdkListen #tdkAllowW #tdkGuardMsg + #tdkCmd + botões + pre#tdkLog
+├ div.tdk-panel[data-tab=csv]
+│   └ div.section-box 5) CSV log  #tdkCsv + #tdkPoll #tdkPollSec #tdkCsvOn #tdkFmt [Flush now] [Download CSV]
+├ div.tdk-panel[data-tab=profile]
+│   └ div.section-box 6) Supply profile  presets + campos + #tdkInject #tdkAuto + [Save profile] [Save the detected]
+└ div.tdk-panel[data-tab=commands]
+    └ div.section-box 7) Commands #tdkSearch + .tdk-tbl (#tdkCat; botão `use` da linha → separador Console)
+
+**Separadores** (mesma organização de `/access`): o conteúdo é dividido em cinco painéis
+`.tdk-panel[data-tab]`; `tdkInitTabs()` cria os botões, activa o painel por omissão
+(`data-tab-default`) ou o último usado (`localStorage.tdk_tab`) e `tdkShowTab(key)` permite saltar
+de fora (usado pelo botão `use` do catálogo, que carrega o comando e passa ao Console).
+
+**Tooltips e descrições**: cada botão, input, select, quadro de valor, coluna da tabela e o
+primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `data-i18n-title=`
+(chaves `tdkTip*`/`tdkDesc*`, EN e PT); os dois campos de texto livre usam
+`data-i18n-placeholder`. Os controlos dentro de um `<label>` herdam o `title` do label.
 ```
 
 ---
