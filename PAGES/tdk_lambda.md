@@ -191,6 +191,9 @@ Desenhado **no browser** (canvas 2D), com os dados de `/api/tdk-lambda-samples`:
   na config, por isso o perfil gravado (modo manual) mantém-se e volta no próximo boot.
   Se a resposta for ambígua (0 V, pares empatados) **não mexe** — fica o perfil gravado.
   Botão "Gravar o detetado" promove a detecção a perfil manual.
+- **OLED (`screen.cpp`)**: num build com `ENABLE_TDK_LAMBDA=1` a **terceira linha** é do PSU,
+  sem rotação: `TDK 600V 1.30A CV` (ou `TDK listen`, `TDK ALERT`, `TDK err C04`, `TDK waiting`).
+  Vale para o ecrã 0.96" (3 linhas roladas) e para o 2.42" (`view_psram.h`, linha 3).
 - `tdkLambdaUpdate()` (loop): ciclo `<cmd_v>` → `<cmd_i>` (só `split`) → `<cmd_state>` a cada intervalo configurado,
   e flush do CSV **no backend ativo** (SD ou LittleFS) na janela de `getSdcardFlushInterval()`
   (10/30/60 min) ou quando o buffer de 128 KB passa dos **96 KB**.

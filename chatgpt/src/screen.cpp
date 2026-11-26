@@ -2,6 +2,10 @@
 #include "screen.h"
 
 #include "feature_flags.h"
+
+#if ENABLE_TDK_LAMBDA==1
+#include "tdk_lambda.h"   // after feature_flags.h: the guard needs the flag
+#endif
 #if ENABLE_LCD_SCREEN==1
 #include <Arduino.h>
 #include <WiFi.h>
@@ -651,6 +655,24 @@ void ScreenManager::updateScrolling() {
     }
 }
 
+#if ENABLE_TDK_LAMBDA==1
+// Third OLED line in a TDK-Lambda build: one glance shows the PSU state.
+// "TDK 600V 1.30A CV" fits the 21-char 2.42" rows and the 0.96" scroller alike.
+static String tdkScreenLine() {
+    TdkStatus st = tdkLambdaGetStatus();
+    TdkValues v  = tdkLambdaGetValues();
+    if (st.listen)      return String(F("TDK listen"));
+    if (st.alertActive) return String(F("TDK ALERT"));
+    if (st.lastError[0] && st.lastErrorAgeMs < 120000UL) {
+        return String(F("TDK err ")) + st.lastError;
+    }
+    if (!v.valid)       return String(F("TDK waiting"));
+    char b[28];
+    snprintf(b, sizeof(b), "TDK %.0fV %.2fA %s", v.vMeas, v.iMeas, v.mode);
+    return String(b);
+}
+#endif
+
 void ScreenManager::showStatusScreen() {
     String line1, line2, line3;
 
@@ -991,6 +1013,10 @@ void ScreenManager::showStatusScreen() {
     } else {
         line3 = "Status: sem modulos ativos";
     }
+#if ENABLE_TDK_LAMBDA==1
+    // This build's third line belongs to the power supply (no rotation).
+    line3 = tdkScreenLine();
+#endif
 
     // Pack-specific status layouts live in src/screen/view_*.h (one file
     // per pack, selected by screen/view_selector.h). Only the shared line
