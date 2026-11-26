@@ -191,8 +191,10 @@ Desenhado **no browser** (canvas 2D), com os dados de `/api/tdk-lambda-samples`:
   na config, por isso o perfil gravado (modo manual) mantém-se e volta no próximo boot.
   Se a resposta for ambígua (0 V, pares empatados) **não mexe** — fica o perfil gravado.
   Botão "Gravar o detetado" promove a detecção a perfil manual.
-- **OLED (`screen.cpp`)**: num build com `ENABLE_TDK_LAMBDA=1` a **terceira linha** é do PSU,
-  sem rotação de módulos. Formato consoante o painel:
+- **OLED (`screen.cpp`)**: num build com `ENABLE_TDK_LAMBDA=1`, a **terceira linha** ganha o
+  cartão do PSU como **primeiro da rotação** (aparece no boot e volta a cada ciclo de 6 s,
+  alternando com os restantes cartões — o pequeno 0.96" tem só 3 linhas, por isso a rotação é
+  obrigatória para não se perder informação). Formato consoante o painel:
   - **0.96" (SCREEN_TYPE 1)** — janela de **10 caracteres** por linha (texto maior faz scroll),
     por isso a forma compacta: `600V 1.30A`, ou `listen` / `ALERT` / `C04` / `wait`;
   - **2.42" (SCREEN_TYPE 2)** — forma completa: `TDK 600V 1.30A CV` (21 chars), idem estados.

@@ -836,6 +836,11 @@ void ScreenManager::showStatusScreen() {
 #endif
 
     if (!line3UnikonOnly) {
+#if ENABLE_TDK_LAMBDA==1
+        // PSU card first (this is the pack's main instrument), then it rotates
+        // with the other cards so nothing is lost on the small 3-line OLED.
+        moduleLines[moduleCount++] = tdkScreenLine();
+#endif
 #if ENABLE_AHT20_BMP280==1
         {
             const SensorConfig &cfg = sensorConfigManager.getConfig();
@@ -1021,10 +1026,6 @@ void ScreenManager::showStatusScreen() {
     } else {
         line3 = "Status: sem modulos ativos";
     }
-#if ENABLE_TDK_LAMBDA==1
-    // This build's third line belongs to the power supply (no rotation).
-    line3 = tdkScreenLine();
-#endif
 
     // Pack-specific status layouts live in src/screen/view_*.h (one file
     // per pack, selected by screen/view_selector.h). Only the shared line
