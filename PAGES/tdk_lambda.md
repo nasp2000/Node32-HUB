@@ -192,11 +192,12 @@ Desenhado **no browser** (canvas 2D), com os dados de `/api/tdk-lambda-samples`:
   Se a resposta for ambígua (0 V, pares empatados) **não mexe** — fica o perfil gravado.
   Botão "Gravar o detetado" promove a detecção a perfil manual.
 - **OLED (`screen.cpp`)**: num build com `ENABLE_TDK_LAMBDA=1`, a **terceira linha** ganha o
-  cartão do PSU como **primeiro da rotação** (aparece no boot e volta a cada ciclo de 6 s,
-  alternando com os restantes cartões — o pequeno 0.96" tem só 3 linhas, por isso a rotação é
-  obrigatória para não se perder informação). Formato consoante o painel:
-  - **0.96" (SCREEN_TYPE 1)** — janela de **10 caracteres** por linha (texto maior faz scroll),
-    por isso a forma compacta: `600V 1.30A`, ou `listen` / `ALERT` / `C04` / `wait`;
+  cartão do PSU como **primeiro da rotação** — e o primário leva **peso 2** (aparece 2 de cada
+  N turnos), com ordem **determinística** de 6 s (era `random`). O 0.96" tem 3 linhas, por isso
+  a rotação é obrigatória para não se perder informação. Formato consoante o painel:
+  - **0.96" (SCREEN_TYPE 1)** — as linhas passaram a usar a **largura toda (21 caracteres)**;
+    textos até 2× a largura são truncados com `~`, só os muito longos fazem marquee. O cartão do
+    PSU usa a forma compacta: `600V 1.30A`, ou `listen` / `ALERT` / `C04` / `wait`;
   - **2.42" (SCREEN_TYPE 2)** — forma completa: `TDK 600V 1.30A CV` (21 chars), idem estados.
 - `tdkLambdaUpdate()` (loop): ciclo `<cmd_v>` → `<cmd_i>` (só `split`) → `<cmd_state>` a cada intervalo configurado,
   e flush do CSV **no backend ativo** (SD ou LittleFS) na janela de `getSdcardFlushInterval()`

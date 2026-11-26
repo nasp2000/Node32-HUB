@@ -2,6 +2,7 @@
 #include "screen.h"
 
 #include "feature_flags.h"
+#include "screen/screen_card_logic.h"
 
 #if ENABLE_TDK_LAMBDA==1
 #include "tdk_lambda.h"   // after feature_flags.h: the guard needs the flag
@@ -552,28 +553,36 @@ void ScreenManager::displayMessage(const String& line1, const String& line2, con
     oled.setTextSize(OLED_TEXT_SIZE);
     oled.setTextColor(SSD1306_WHITE);
 
-    // center each visible string horizontally
-    String display1 = getScrolledText(scrollLine1, scrollPos1, 10);
-    int charW = 6 * OLED_TEXT_SIZE; // approx character width in pixels (5px font + 1px spacing)
-    int disp1WidthPx = display1.length() * charW;
-    int x1 = (SSD1306_WIDTH - disp1WidthPx) / 2;
-    if (x1 < 0) x1 = 0;
-    oled.setCursor(x1, 0);
-    oled.print(display1);
+    // The panel fits ~21 characters at text size 1 (128 px / 6 px). Fitting the
+    // whole width beats the old 10-character window: most status lines fit
+    // without scrolling. Truly long texts fall back to the marquee.
+    const int charW = 6 * OLED_TEXT_SIZE; // 5 px font + 1 px spacing
+    const int maxChars = SSD1306_WIDTH / charW;
+    // Burn-in protection: nudge the whole block by one pixel every 10 minutes.
+    const int jitter = (int)((millis() / 600000UL) % 2);
 
-    String display2 = getScrolledText(scrollLine2, scrollPos2, 10);
-    int disp2WidthPx = display2.length() * charW;
-    int x2 = (SSD1306_WIDTH - disp2WidthPx) / 2;
-    if (x2 < 0) x2 = 0;
-    oled.setCursor(x2, 24);
-    oled.print(display2);
+    auto prep = [&](const String &text, int &scrollPos) -> String {
+        if ((int)text.length() <= maxChars) { scrollPos = 0; return text; }
+        if ((int)text.length() <= maxChars * 2) {
+            char buf[48];
+            screenFitText(text.c_str(), buf, (size_t)maxChars + 1);   // truncate + '~'
+            return String(buf);
+        }
+        return getScrolledText(text, scrollPos, maxChars);            // very long: marquee
+    };
 
-    String display3 = getScrolledText(scrollLine3, scrollPos3, 10);
-    int disp3WidthPx = display3.length() * charW;
-    int x3 = (SSD1306_WIDTH - disp3WidthPx) / 2;
-    if (x3 < 0) x3 = 0;
-    oled.setCursor(x3, 48);
-    oled.print(display3);
+    auto drawLine = [&](const String &text, int &scrollPos, int y) {
+        String shown = prep(text, scrollPos);
+        int wPx = shown.length() * charW;
+        int x = (SSD1306_WIDTH - wPx) / 2;
+        if (x < 0) x = 0;
+        oled.setCursor(x + jitter, y);
+        oled.print(shown);
+    };
+
+    drawLine(scrollLine1, scrollPos1, 0);
+    drawLine(scrollLine2, scrollPos2, 24);
+    drawLine(scrollLine3, scrollPos3, 48);
 
     oled.display(); // 📤 Atualiza OLED
 }
@@ -789,7 +798,9 @@ void ScreenManager::showStatusScreen() {
     // RS232/LPT raw-byte counters intentionally excluded; shown in /monitor page instead.
     // In RAMBOX/Unikon builds, keep line 3 focused on Unikon metrics only.
     String moduleLines[16];
+    uint8_t cardWeight[16];
     int moduleCount = 0;
+    for (int wi = 0; wi < 16; ++wi) cardWeight[wi] = 1;
 
 #if (defined(SELECTED_PACK) && (SELECTED_PACK == PACK_RAMBOX)) || (ENABLE_UNIKON==1)
     const bool line3UnikonOnly = true;
@@ -994,15 +1005,14 @@ void ScreenManager::showStatusScreen() {
     }
 
     if (moduleCount > 0) {
-        static bool randomSeeded = false;
         static unsigned long lastRotateMs = 0;
+        static uint32_t rotationTick = 0;
         static int currentModuleIndex = 0;
         const unsigned long MODULE_ROTATE_MS = 6000UL;
 
-        if (!randomSeeded) {
-            randomSeed((uint32_t)micros());
-            randomSeeded = true;
-        }
+        // The primary card (pushed first, e.g. the PSU or the clock module)
+        // gets two turns per cycle so it reappears sooner; the rest get one.
+        if (moduleCount > 0) cardWeight[0] = 2;
 
         if (currentModuleIndex < 0 || currentModuleIndex >= moduleCount) {
             currentModuleIndex = 0;
@@ -1011,14 +1021,8 @@ void ScreenManager::showStatusScreen() {
 
         unsigned long nowMs = millis();
         if (moduleCount > 1 && (nowMs - lastRotateMs) >= MODULE_ROTATE_MS) {
-            int nextIndex = currentModuleIndex;
-            for (uint8_t guard = 0; guard < 8 && nextIndex == currentModuleIndex; guard++) {
-                nextIndex = random(moduleCount);
-            }
-            if (nextIndex == currentModuleIndex) {
-                nextIndex = (currentModuleIndex + 1) % moduleCount;
-            }
-            currentModuleIndex = nextIndex;
+            rotationTick++;
+            currentModuleIndex = (int)screenRotationIndex(cardWeight, (uint8_t)moduleCount, rotationTick);
             lastRotateMs = nowMs;
         }
 

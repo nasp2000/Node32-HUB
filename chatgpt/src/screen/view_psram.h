@@ -13,11 +13,13 @@
 #include "sdcard.h"
 #include "psram_vfs.h"
 #include "littlefs_manager.h"
+#include "ConfigManager.h"
 #if ENABLE_UNIKON==1
 #include "unikon_protocol.h"
 #endif
 
 extern volatile StorageMode currentStorageMode;
+extern ConfigManager configManager;
 extern unsigned long bootTime;
 
 // Same compile exposure as the original showStatusScreen branch.
@@ -53,9 +55,15 @@ static inline void screenDrawPsramView(ScreenManager &mgr, Adafruit_SSD1306 &ole
 #else
         rsLine = String("Unikon: N/A");
 #endif
+    } else if (ENABLE_RS232==1) {
+        // The old "RS232:ON XON:ON" echoed the build flags; the baud rate is
+        // what an operator actually needs to see next to the port.
+        static const int kBauds[] = {1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200};
+        const int bi = configManager.getRs232BaudrateIndex();
+        const int baud = (bi >= 0 && bi < 8) ? kBauds[bi] : 9600;
+        rsLine = String("RS232 ") + String(baud);
     } else {
-        rsLine = String("RS232:") + (ENABLE_RS232==1 ? "ON" : "OFF") +
-                 " XON:" + (ENABLE_RS232_XONXOFF==1 ? "ON" : "OFF");
+        rsLine = String("RS232 off");
     }
 
     oled.setCursor(0, 0);
