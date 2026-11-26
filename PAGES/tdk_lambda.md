@@ -250,7 +250,7 @@ silêncio).
 
 | # | Finding | Pri | Suggestion |
 |---|---|---|---|
-| 0 | Página sem teste automático (o asset é um blob PROGMEM) | **Fixed** | `tests/native/test_tdk_lambda_page.cpp`: shell `.page/.wrap`, 7 secções, 5 tabs, tooltip em cada botão/input/select, ids do JS existem no markup, sem `alert()` nativo, sem `d.ok` |
+| 0 | Página sem teste automático (o asset é um blob PROGMEM) | **Fixed** | `tests/native/test_tdk_lambda_page.cpp`: shell `.page/.wrap`, 7 secções, 5 tabs, tooltip em cada botão/input/select, ids do JS existem no markup, sem `alert()` nativo, sem `d.ok`; `tests/web/test_tdk_tabs.js` (jsdom): 5 botões criados, painel por omissão, último separador em `localStorage`, init idempotente, `tdkShowTab`/`tdkUse`, rótulos e tooltips traduzidos |
 | 1 | Sem screenshot em `PAGES/desktop/` (flag desligada em todos os packs) | Low | capturar com build `ENABLE_TDK_LAMBDA=1` |
 | 2 | Strings da página em **inglês** (regra do repo: HTML fallback EN); sem chaves `LangStrings` | Info | traduzir via i18n só se o pack exigir PT |
 | 3 | `csvRows` em LittleFS conta linhas do último flush (não do ficheiro todo) | Info | ler o ficheiro ao abrir a página, se for preciso |

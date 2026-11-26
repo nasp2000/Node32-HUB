@@ -542,6 +542,7 @@ function tdkShowTab(key){
 function tdkInitTabs(){
   var bar = _tdkQ('tdkTabBar');
   if (!bar) return;
+  if (bar.children.length) return;   /* already built: never duplicate the bar */
   var panels = document.querySelectorAll('.tdk-panel[data-tab]');
   if (!panels.length) return;
   var btns = [];
