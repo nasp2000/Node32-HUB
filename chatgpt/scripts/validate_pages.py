@@ -34,7 +34,12 @@ import os
 import re
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+try:
+    HERE = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    # PlatformIO runs pre-scripts through SCons exec(): no __file__, CWD is
+    # chatgpt/. Same fallback as validate_third_party.py.
+    HERE = os.path.abspath(os.path.join(os.getcwd(), "scripts"))
 ASSETS = os.path.join(HERE, "..", "src", "webpages", "assets")
 
 # Documented exceptions (path fragment -> reason).
