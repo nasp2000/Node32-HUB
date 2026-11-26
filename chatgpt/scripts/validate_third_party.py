@@ -35,8 +35,15 @@ SKIP_LIBS = {"integrity.dat", "framework-arduinoespressif32", "framework-arduino
 
 
 def _norm(name):
-    """Normalize a library name for comparison (case/space/separator-insensitive)."""
-    return re.sub(r"[^a-z0-9]", "", (name or "").lower())
+    """Normalize a library name for comparison (case/space/separator-insensitive).
+
+    PlatformIO renames a library folder to "<name>@<version>" when two versions
+    of the same library coexist (e.g. a transitive install left the newest copy
+    next to our pinned one). The "@version" suffix must not change the key, or
+    the pinned copy is reported as "not in THIRD_PARTY_NOTICES".
+    """
+    n = re.sub(r"@[0-9][^/\\]*$", "", name or "")
+    return re.sub(r"[^a-z0-9]", "", n.lower())
 
 
 def _libdeps_roots():
@@ -128,9 +135,20 @@ def main():
             warnings.append(f"library '{name}' {sorted(entry['versions']) or ['?']} is not in THIRD_PARTY_NOTICES")
             continue
         cell = notice[key]
-        for v in entry["versions"]:
-            if v and v not in cell:
-                warnings.append(f"version drift '{name}': installed {v}, notices say '{cell}'")
+        installed = {v for v in entry["versions"] if v}
+        # A transitive install can leave a *second* copy at the newest version
+        # next to the pinned one (SSD1306 asks for "GFX >= 1.10" with no upper
+        # bound, so PlatformIO downloads the latest before applying our pin).
+        # The build links the pinned copy, so one matching version is enough;
+        # the stale copy is reported as a note, not as a gate failure.
+        if any(v in cell for v in installed):
+            stale = sorted(v for v in installed if v not in cell)
+            if stale:
+                print(f"[third-party] note: '{name}' also has a stale copy "
+                      f"{stale} (build uses {cell.split()[0]}); ignored")
+            continue
+        for v in sorted(installed):
+            warnings.append(f"version drift '{name}': installed {v}, notices say '{cell}'")
 
     bundle_missing = not os.path.isdir(BUNDLE)
     if bundle_missing:
