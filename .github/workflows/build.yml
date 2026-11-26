@@ -3,8 +3,18 @@ name: Build Firmware
 on:
   push:
     branches: [main]
+    # Only rebuild firmware when something can actually change it: docs, PAGES/
+    # and agents/ do not (they used to trigger 11 full builds).
+    paths:
+      - 'chatgpt/**'
+      - 'tests/**'
+      - '.github/workflows/build.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'chatgpt/**'
+      - 'tests/**'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
     inputs:
       env:
@@ -13,6 +23,11 @@ on:
         default: all
         type: choice
         options: [all, n16r8, waveshare_8di8do, s3_touch7, esp32p4, esp32p4cam]
+      elf:
+        description: "Keep firmware.elf in the artifacts (needed for addr2line on a crash)"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -162,7 +177,10 @@ jobs:
         working-directory: chatgpt
         env:
           DIST_THIRD_PARTY: "0"
-          EXPORT_ELF_MAP: "1"   # keep firmware.elf: a TASK_WDT crash is only decodable with it
+          # firmware.elf is only kept on request (manual dispatch, elf=true): it
+          # is needed for addr2line on a crash but not to flash. Everything else
+          # in the build folder is unchanged.
+          EXPORT_ELF_MAP: ${{ (github.event.inputs.elf == 'true') && '1' || '0' }}
         run: python rename_firmware.py --copy --env ${{ matrix.env }} --pack ${{ matrix.pack }}
       - name: Upload firmware artifacts
         if: env.MATRIX_ENV == '' || env.MATRIX_ENV == matrix.env
@@ -172,5 +190,6 @@ jobs:
           path: |
             chatgpt/build/**/*.bin
             chatgpt/build/**/*.elf
+            # (the .elf only exists when the manual dispatch asked for it)
           if-no-files-found: warn
           retention-days: 7
