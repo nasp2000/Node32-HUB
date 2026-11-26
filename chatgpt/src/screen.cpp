@@ -811,7 +811,8 @@ void ScreenManager::showStatusScreen() {
 
     // Highest-priority card: no network at all. Without it the pack cannot do
     // its job (OTA, e-mail, pages), so it is shown first in the rotation.
-    if (!connected && !ethernetConnected && !apActive) {   // AP mode is a valid state
+    // NOTE: the local `connected` of the line-1 block is out of scope here.
+    if (WiFi.status() != WL_CONNECTED && !ethernetConnected && !apActive) {
         moduleLines[moduleCount++] = String(F("! OFFLINE"));
     }
 
