@@ -53,6 +53,8 @@
 #endif
 #if ENABLE_IPG_LASER == 1
 #include "routes/web_routes_ipg_laser.h"
+#endif
+#if ENABLE_TDK_LAMBDA == 1
 #include "routes/web_routes_tdk_lambda.h"
 #endif
 #if ENABLE_UDA1334A == 1
