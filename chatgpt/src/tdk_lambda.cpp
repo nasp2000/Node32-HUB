@@ -345,20 +345,10 @@ void csvAppendSample() {
     snprintf(ts, sizeof(ts), "%04d-%02d-%02d %02d:%02d:%02d",
              ti.tm_year + 1900, ti.tm_mon + 1, ti.tm_mday, ti.tm_hour, ti.tm_min, ti.tm_sec);
     char row[220];
-    if (s_csvSensorFmt) {
-        // Same shape as the temperature/humidity sensors:
-        // "2026-11-26 10:00:00, vout, 599.99, vset, 600.00, iout, 0.500, ..."
-        snprintf(row, sizeof(row),
-                 "%s, vout, %.2f, vset, %.2f, iout, %.3f, iset, %.3f, power, %.2f, "
-                 "ovp, %.1f, uvl, %.1f, mode, %s, out, %s",
-                 ts, s_values.vMeas, s_values.vSet, s_values.iMeas, s_values.iSet,
-                 s_values.vMeas * s_values.iMeas, s_values.ovp, s_values.uvl,
-                 s_values.mode, s_values.outOn ? "ON" : "OFF");
-    } else {
-        snprintf(row, sizeof(row), "%s,%.2f,%.2f,%.3f,%.3f,%.2f,%.1f,%.1f,%s,%d",
-                 ts, s_values.vMeas, s_values.vSet, s_values.iMeas, s_values.iSet,
-                 s_values.vMeas * s_values.iMeas, s_values.ovp, s_values.uvl,
-                 s_values.mode, s_values.outOn ? 1 : 0);
+    if (tdkFormatCsvRow(row, sizeof(row), ts, s_csvSensorFmt,
+                        s_values.vMeas, s_values.vSet, s_values.iMeas, s_values.iSet,
+                        s_values.ovp, s_values.uvl, s_values.mode, s_values.outOn) == 0) {
+        return;
     }
 
     // Both backends write in batches at the configured window (30 min default):
@@ -411,16 +401,9 @@ void handleLine(char* line) {
                 }
             }
             if (n > 0) {
-                auto pick = [&](uint8_t slot) -> float {
-                    const uint8_t idx = s_map[slot];
-                    return (idx < n) ? f[idx] : 0.0f;
-                };
-                s_values.vMeas = pick(0) * s_scaleV + s_offV;
-                s_values.vSet  = pick(1) * s_scaleV + s_offV;
-                s_values.iMeas = pick(2) * s_scaleI + s_offI;
-                s_values.iSet  = pick(3) * s_scaleI + s_offI;
-                s_values.ovp   = pick(4) * s_scaleV + s_offV;
-                s_values.uvl   = pick(5) * s_scaleV + s_offV;
+                tdkApplyMap(f, n, s_map, s_scaleV, s_scaleI, s_offV, s_offI,
+                            &s_values.vMeas, &s_values.vSet, &s_values.iMeas,
+                            &s_values.iSet, &s_values.ovp, &s_values.uvl);
                 s_values.valid = true;
                 s_values.lastUpdateMs = millis();
                 pushSample();
@@ -470,16 +453,9 @@ void handleLine(char* line) {
             float f[16];
             const uint8_t n = tdkParseFloats(line, f, 16);
             if (n >= 4) {
-                auto pick = [&](uint8_t slot) -> float {
-                    const uint8_t idx = s_map[slot];
-                    return (idx < n) ? f[idx] : 0.0f;
-                };
-                s_values.vMeas = pick(0) * s_scaleV + s_offV;
-                s_values.vSet  = pick(1) * s_scaleV + s_offV;
-                s_values.iMeas = pick(2) * s_scaleI + s_offI;
-                s_values.iSet  = pick(3) * s_scaleI + s_offI;
-                s_values.ovp   = pick(4) * s_scaleV + s_offV;
-                s_values.uvl   = pick(5) * s_scaleV + s_offV;
+                tdkApplyMap(f, n, s_map, s_scaleV, s_scaleI, s_offV, s_offI,
+                            &s_values.vMeas, &s_values.vSet, &s_values.iMeas,
+                            &s_values.iSet, &s_values.ovp, &s_values.uvl);
                 s_values.valid = true;
                 s_values.lastUpdateMs = millis();
                 csvAppendSample();

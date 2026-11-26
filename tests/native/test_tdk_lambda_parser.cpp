@@ -117,3 +117,65 @@ TEST_CASE("tdkSuggestMap: non-numeric or short replies are refused") {
     const float two[6] = {599.99f, 600.0f, 0, 0, 0, 0};
     CHECK(tdkSuggestMap(two, 2, 600.0f, 1.3f, map, &sv, &si, nullptr, 0) == 0);
 }
+
+TEST_CASE("tdkApplyMap: identity map keeps the documented order") {
+    const float dvc[6] = {599.99f, 600.00f, 0.50f, 1.30f, 660.0f, 0.0f};
+    const uint8_t map[6] = {0, 1, 2, 3, 4, 5};
+    float vM, vS, iM, iS, ovp, uvl;
+    tdkApplyMap(dvc, 6, map, 1.0f, 1.0f, 0.0f, 0.0f, &vM, &vS, &iM, &iS, &ovp, &uvl);
+    CHECK(vM == doctest::Approx(599.99f));
+    CHECK(vS == doctest::Approx(600.00f));
+    CHECK(iM == doctest::Approx(0.50f));
+    CHECK(iS == doctest::Approx(1.30f));
+    CHECK(ovp == doctest::Approx(660.0f));
+    CHECK(uvl == doctest::Approx(0.0f));
+}
+
+TEST_CASE("tdkApplyMap: swapped map + scale + offsets") {
+    // (Iset, Imeas, Vset, Vmeas) and a mV/mA reply with a +2 V calibration offset.
+    const float dvc[6] = {1300.0f, 500.0f, 600000.0f, 599990.0f, 660000.0f, 0.0f};
+    const uint8_t map[6] = {3, 2, 1, 0, 4, 5};
+    float vM, vS, iM, iS, ovp, uvl;
+    tdkApplyMap(dvc, 6, map, 0.001f, 0.001f, 2.0f, 0.0f, &vM, &vS, &iM, &iS, &ovp, &uvl);
+    CHECK(vM == doctest::Approx(601.99f));   // 599990 * 0.001 + 2
+    CHECK(vS == doctest::Approx(602.00f));   // 600000 * 0.001 + 2
+    CHECK(iM == doctest::Approx(0.50f));     // 500 * 0.001
+    CHECK(iS == doctest::Approx(1.30f));     // 1300 * 0.001
+}
+
+TEST_CASE("tdkApplyMap: missing fields fall back to zero, never out of range") {
+    const float shortReply[2] = {123.0f, 456.0f};
+    const uint8_t map[6] = {0, 9, 1, 9, 9, 9};   // indexes beyond n
+    float vM, vS, iM, iS, ovp, uvl;
+    tdkApplyMap(shortReply, 2, map, 1.0f, 1.0f, 0.0f, 0.0f, &vM, &vS, &iM, &iS, &ovp, &uvl);
+    CHECK(vM == doctest::Approx(123.0f));
+    CHECK(vS == doctest::Approx(0.0f));
+    CHECK(iM == doctest::Approx(456.0f));
+    CHECK(ovp == doctest::Approx(0.0f));
+}
+
+TEST_CASE("tdkFormatCsvRow: sensor style (default) has keys and units") {
+    char row[220];
+    const size_t n = tdkFormatCsvRow(row, sizeof(row), "2026-11-26 10:00:00", true,
+                                     599.99f, 600.00f, 0.500f, 1.300f, 660.0f, 0.0f, "CV", true);
+    CHECK(n > 0);
+    CHECK(std::string(row) ==
+          "2026-11-26 10:00:00, vout, 599.99, vset, 600.00, iout, 0.500, iset, 1.300, "
+          "power, 299.99, ovp, 660.0, uvl, 0.0, mode, CV, out, ON");
+}
+
+TEST_CASE("tdkFormatCsvRow: table style + OFF/CC variants") {
+    char row[220];
+    CHECK(tdkFormatCsvRow(row, sizeof(row), "2026-11-26 10:01:00", false,
+                          100.0f, 100.00f, 0.213f, 1.300f, 660.0f, 0.0f, "CC", false) > 0);
+    CHECK(std::string(row) == "2026-11-26 10:01:00,100.00,100.00,0.213,1.300,21.30,660.0,0.0,CC,0");
+}
+
+TEST_CASE("tdkFormatCsvRow: bad arguments and a null mode are safe") {
+    char row[220];
+    CHECK(tdkFormatCsvRow(nullptr, sizeof(row), "t", true, 0, 0, 0, 0, 0, 0, "CV", true) == 0);
+    CHECK(tdkFormatCsvRow(row, 0, "t", true, 0, 0, 0, 0, 0, 0, "CV", true) == 0);
+    // A null/empty mode must never print NULL into the CSV.
+    CHECK(tdkFormatCsvRow(row, sizeof(row), "t", true, 0, 0, 0, 0, 0, 0, nullptr, false) > 0);
+    CHECK(std::string(row).find("--") != std::string::npos);
+}

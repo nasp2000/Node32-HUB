@@ -169,3 +169,44 @@ inline TdkPending tdkClassify(const char* upperCommand) {
     if (!strncmp(upperCommand, "STT?", 4))  return TDK_P_STT;
     return TDK_P_OTHER;
 }
+
+// ── Field mapping + CSV row (pure, host-tested) ───────────────────────────
+// Apply the profile map (indexes into the reply), then scale/offset. This is
+// what turns a DVC? line into the six values the module reports.
+inline void tdkApplyMap(const float* f, uint8_t n, const uint8_t map[6],
+                        float scaleV, float scaleI, float offV, float offI,
+                        float* vMeas, float* vSet, float* iMeas, float* iSet,
+                        float* ovp, float* uvl) {
+    if (!f || !map) return;
+    auto pick = [&](uint8_t slot) -> float {
+        const uint8_t idx = map[slot];
+        return (idx < n) ? f[idx] : 0.0f;
+    };
+    if (vMeas) *vMeas = pick(0) * scaleV + offV;
+    if (vSet)  *vSet  = pick(1) * scaleV + offV;
+    if (iMeas) *iMeas = pick(2) * scaleI + offI;
+    if (iSet)  *iSet  = pick(3) * scaleI + offI;
+    if (ovp)   *ovp   = pick(4) * scaleV + offV;
+    if (uvl)   *uvl   = pick(5) * scaleV + offV;
+}
+
+// One CSV row. sensorFmt = the temperature-sensor style (key, value pairs);
+// otherwise a plain column line. Returns the written length (0 on bad args).
+//   sensor: "2026-11-26 10:00:00, vout, 599.99, vset, 600.00, ... mode, CV, out, ON"
+//   table : "2026-11-26 10:00:00,599.99,600.00,0.500,1.300,300.00,660.0,0.0,CV,1"
+inline size_t tdkFormatCsvRow(char* out, size_t outSize, const char* ts, bool sensorFmt,
+                              float vM, float vS, float iM, float iS,
+                              float ovp, float uvl, const char* mode, bool outOn) {
+    if (!out || outSize == 0) return 0;
+    const char* md = (mode && mode[0]) ? mode : "--";
+    const int n = sensorFmt
+        ? snprintf(out, outSize,
+                   "%s, vout, %.2f, vset, %.2f, iout, %.3f, iset, %.3f, power, %.2f, "
+                   "ovp, %.1f, uvl, %.1f, mode, %s, out, %s",
+                   ts ? ts : "", vM, vS, iM, iS, vM * iM, ovp, uvl, md, outOn ? "ON" : "OFF")
+        : snprintf(out, outSize,
+                   "%s,%.2f,%.2f,%.3f,%.3f,%.2f,%.1f,%.1f,%s,%d",
+                   ts ? ts : "", vM, vS, iM, iS, vM * iM, ovp, uvl, md, outOn ? 1 : 0);
+    if (n <= 0) return 0;
+    return ((size_t)n < outSize) ? (size_t)n : (outSize - 1);
+}
