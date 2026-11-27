@@ -745,6 +745,23 @@ void tdkLambdaApplyProfile(const char* mode, const char* vCmd, const char* iCmd,
     if (!s_cmdV[0])     tdkUpperTrim("DVC?",  s_cmdV, sizeof(s_cmdV));
     if (!s_cmdI[0])     tdkUpperTrim("MC?",   s_cmdI, sizeof(s_cmdI));
     if (!s_cmdState[0]) tdkUpperTrim("MODE?", s_cmdState, sizeof(s_cmdState));
+    // The poll sends these without going through the send guard: with "allow
+    // write" off, a setter typed into the profile would change the supply every
+    // cycle. Only queries are accepted then; anything else falls back and says so.
+    if (!configManager.getTdkLambdaAllowWrite()) {
+        if (!tdkIsQueryCmd(s_cmdV)) {
+            tdkLogSys("profile: V command is not a query, using DVC?");
+            tdkUpperTrim("DVC?", s_cmdV, sizeof(s_cmdV));
+        }
+        if (!tdkIsQueryCmd(s_cmdI)) {
+            tdkLogSys("profile: I command is not a query, using MC?");
+            tdkUpperTrim("MC?", s_cmdI, sizeof(s_cmdI));
+        }
+        if (!tdkIsQueryCmd(s_cmdState)) {
+            tdkLogSys("profile: state command is not a query, using MODE?");
+            tdkUpperTrim("MODE?", s_cmdState, sizeof(s_cmdState));
+        }
+    }
     parseMap(map ? map : "0,1,2,3,4,5", s_map);
     s_scaleV = (scaleV == 0.0f) ? 1.0f : scaleV;
     s_scaleI = (scaleI == 0.0f) ? 1.0f : scaleI;

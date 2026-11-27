@@ -236,3 +236,16 @@ TEST_CASE("tdkOutFromMode: MODE? decides whether the output is enabled") {
     CHECK(tdkOutFromMode("O", true) == true);      // too short to be OFF
     CHECK(tdkOutFromMode("C", false) == false);
 }
+
+TEST_CASE("tdkIsQueryCmd: only trailing-? commands may ride the poll profile") {
+    CHECK(tdkIsQueryCmd("DVC?"));
+    CHECK(tdkIsQueryCmd("dvc?"));
+    CHECK(tdkIsQueryCmd("  MODE?  "));
+    CHECK(tdkIsQueryCmd("PV?"));
+    CHECK_FALSE(tdkIsQueryCmd("PV 600"));
+    CHECK_FALSE(tdkIsQueryCmd("OUT 1"));
+    CHECK_FALSE(tdkIsQueryCmd("SAV"));
+    CHECK_FALSE(tdkIsQueryCmd(""));
+    CHECK_FALSE(tdkIsQueryCmd("   "));
+    CHECK_FALSE(tdkIsQueryCmd(nullptr));
+}

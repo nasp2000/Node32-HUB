@@ -190,6 +190,18 @@ inline void tdkApplyMap(const float* f, uint8_t n, const uint8_t map[6],
     if (uvl)   *uvl   = pick(5) * scaleV + offV;
 }
 
+// True when `cmd` is a SCPI query (trailing '?', spaces ignored). The poll
+// profile must only ever contain queries unless "allow write" is on: a setter
+// there would change the unit every poll.
+inline bool tdkIsQueryCmd(const char* cmd) {
+    if (!cmd) return false;
+    const char* p = cmd;
+    while (*p == ' ' || *p == '\t') ++p;
+    size_t n = strlen(p);
+    while (n > 0 && (p[n - 1] == ' ' || p[n - 1] == '\t')) --n;
+    return n > 0 && p[n - 1] == '?';
+}
+
 // Output state from the MODE? reply: "CV"/"CC" mean the output is on, "OFF"
 // means it is disabled. Anything else (empty, "--", a STAT? reply) keeps the
 // previous state. The poll cycle asks MODE? and not OUT?, so this is what makes

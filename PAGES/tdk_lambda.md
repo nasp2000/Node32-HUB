@@ -144,7 +144,7 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
 |---|---|---|
 | Comando | `tdkCmd` | livre; max 32 caracteres (o handler corta); desactivado em modo escuta |
 | Modo escuta | `tdkListen` | **não transmite nada** (poll parado, `send` devolve 409) — para quando o PLC é mestre |
-| Permitir escrita | `tdkAllowW` | sem isto, só passa a **allow-list de leitura** (`MV? MC? DVC? STT? STAT? FLT? MODE? OUT? IDN? …`); `PV/PC/OUT/OVP/RMT/SAV/G*` → 403 |
+| Permitir escrita | `tdkAllowW` | sem isto, só passa a **allow-list de leitura** (`MV? MC? DVC? STT? STAT? FLT? MODE? OUT? IDN? …`); `PV/PC/OUT/OVP/RMT/SAV/G*` → 403. Aplica-se também ao **perfil de poll**: com a escrita desligada, `cmd_v`/`cmd_i`/`cmd_state` que não terminem em `?` são recusados na gravação e o módulo volta a `DVC?`/`MC?`/`MODE?`, com aviso no monitor |
 | Filtro do catálogo | `tdkSearch` | filtra por comando/grupo/descrição/notas |
 | Polling | `tdkPoll` | checkbox; grava na hora (`POST /api/tdk-lambda-config`) |
 | Intervalo | `tdkPollSec` | **60…3600 s** entre leituras (piso de 1 minuto: servidor, ConfigManager e input `min='60'`) |
@@ -190,7 +190,9 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
 - `status`: inclui `lastLine`, `lastCommand`, `csvPath`, `csvOnSd`, `csvRows`, `lastRxAgeMs`.
   `values`: `vMeas,vSet,iMeas,iSet,ovp,uvl,mode,outOn,valid`.
 - `send`: **recusa em modo escuta** (409) e recusa comandos fora da allow-list
-  quando `allow_write` está off (403). Só depois enfileira no **pipeline RS232** (`enqueueRS232Command`) — respeita baud, XOFF/XON,
+  quando `allow_write` está off (403). O poll do perfil é a única via que não passa pelo `send`:
+  por isso `tdkLambdaApplyProfile()` valida as três queries (têm de terminar em `?`) quando a
+  escrita está desligada. Só depois enfileira no **pipeline RS232** (`enqueueRS232Command`) — respeita baud, XOFF/XON,
   template e pacing do RS232. Não abre UART própria.
 - `config`: `setTdkLambda()` persiste (config doc, `markDirtyAndScheduleSave`) e aplica em
   runtime (`tdkLambdaSetPoll/SetCsv`).
