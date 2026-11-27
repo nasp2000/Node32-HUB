@@ -3440,7 +3440,7 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "tdkTipLog": "Command and reply log, the same lines the Serial Monitor shows",
   "tdkTipCsvBox": "File path, storage backend and buffered lines",
   "tdkTipPoll": "Ask the supply for values at the interval below and keep them in the trend buffer",
-  "tdkTipPollSec": "Seconds between polls, 5 to 3600; one poll is one CSV row",
+  "tdkTipPollSec": "Seconds between polls, 60 minimum; with Row every N the CSV row covers N polls",
   "tdkTipCsvOn": "Write the polls to the daily CSV file",
   "tdkTipFmt": "table: one column per value; sensor: key,value pairs like the sensor logs",
   "tdkTipFlush": "Write the buffered lines to the file now, without waiting for the automatic flush",
@@ -3486,7 +3486,8 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "tdkTipSessCc": "Time the supply spent in current limit (CC)",
   "tdkTipSessLim": "Time with the output current at its setpoint",
   "tdkTipSessOff": "Time with the output switched off",
-  "tdkTipSessTrans": "How many times the regulation changed between CV and CC (inrush, load steps)"
+  "tdkTipSessTrans": "How many times the regulation changed between CV and CC (inrush, load steps)",
+  "tdkTipCatRow": "Click to load this command into the console"
 }
 )JSON";
 

@@ -1269,7 +1269,9 @@ public:
     int getTdkLambdaPollSec() {
         if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey("poll_s")) return 60;
         int v = config["tdklambda"]["poll_s"].as<int>();
-        if (v < 5) v = 5;
+        // One minute is the floor: below that the supply only adds line traffic
+        // and flash writes without telling us anything new at this timescale.
+        if (v < 60) v = 60;
         if (v > 3600) v = 3600;
         return v;
     }
@@ -1401,7 +1403,7 @@ public:
     }
 
     bool setTdkLambda(bool poll, int pollSec, bool csv, const String& csvFormat = String("sensor")) {
-        if (pollSec < 5) pollSec = 5;
+        if (pollSec < 60) pollSec = 60;   // 1 min floor, same as the getter
         if (pollSec > 3600) pollSec = 3600;
         if (!config.containsKey("tdklambda") || !config["tdklambda"].is<JsonObject>()) {
             config["tdklambda"].to<JsonObject>();

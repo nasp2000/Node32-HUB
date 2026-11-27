@@ -3440,7 +3440,7 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "tdkTipLog": "Registo de comandos e respostas, as mesmas linhas do Monitor Série",
   "tdkTipCsvBox": "Caminho do ficheiro, armazenamento e linhas em buffer",
   "tdkTipPoll": "Pede valores à fonte no intervalo abaixo e guarda-os no buffer de tendência",
-  "tdkTipPollSec": "Segundos entre leituras, 5 a 3600; uma leitura é uma linha CSV",
+  "tdkTipPollSec": "Segundos entre leituras, mínimo 60; com Row every N a linha CSV cobre N leituras",
   "tdkTipCsvOn": "Grava as leituras no ficheiro CSV do dia",
   "tdkTipFmt": "table: uma coluna por valor; sensor: pares chave,valor como nos registos de sensores",
   "tdkTipFlush": "Grava agora as linhas em buffer, sem esperar pela gravação automática",
@@ -3486,7 +3486,8 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "tdkTipSessCc": "Tempo que a fonte passou em limitação de corrente (CC)",
   "tdkTipSessLim": "Tempo com a corrente de saída no setpoint",
   "tdkTipSessOff": "Tempo com a saída desligada",
-  "tdkTipSessTrans": "Quantas vezes a regulação mudou entre CV e CC (inrush, degraus de carga)"
+  "tdkTipSessTrans": "Quantas vezes a regulação mudou entre CV e CC (inrush, degraus de carga)",
+  "tdkTipCatRow": "Clique para carregar este comando na consola"
 }
 )JSON";
 

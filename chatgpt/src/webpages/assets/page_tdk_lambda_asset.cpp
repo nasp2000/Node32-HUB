@@ -167,7 +167,7 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
     <div class='tdk-note' id='tdkCsvAuto' style='margin-top:8px'>--</div>
     <div class='tdk-row' style='margin-top:10px'>
       <label class='tdk-note' title='Ask the supply for values at the interval below and keep them in the trend buffer' data-i18n-title='tdkTipPoll'><input type='checkbox' id='tdkPoll' onchange='tdkSaveCfg()'> Automatic polling</label>
-      <label class='tdk-field' title='Seconds between polls, 5 to 3600' data-i18n-title='tdkTipPollSec'>Interval (s) <input type='number' id='tdkPollSec' min='5' max='3600' value='60' style='width:90px' onchange='tdkSaveCfg()'></label>
+      <label class='tdk-field' title='Seconds between polls, 60 minimum' data-i18n-title='tdkTipPollSec'>Interval (s) <input type='number' id='tdkPollSec' min='60' max='3600' value='60' style='width:90px' onchange='tdkSaveCfg()'></label>
       <label class='tdk-field' title='One CSV row every N polls. With N above 1 the row carries min/avg/max and the energy of the window' data-i18n-title='tdkTipCsvEvery'>Row every <input type='number' id='tdkCsvEvery' min='1' max='60' value='1' style='width:80px' onchange='tdkSaveCfg()'></label>
       <label class='tdk-note' title='Write the polls to the daily CSV file' data-i18n-title='tdkTipCsvOn'><input type='checkbox' id='tdkCsvOn' onchange='tdkSaveCfg()'> Write CSV</label>
       <label class='tdk-field' title='table: one column per value; sensor: key,value pairs like the sensor logs' data-i18n-title='tdkTipFmt'>Format
@@ -640,7 +640,7 @@ setInterval(tdkLog,3000);
 /* The chart follows the poll cadence (5..60 s), not a fixed 30 s: with a 10 s
    poll the trend used to lag three samples behind. One re-arm only. */
 function _tdkArmTrend(ms){
-  var want=Math.max(5000,Math.min(60000,ms||30000));
+  var want=Math.max(60000,Math.min(300000,ms||60000));   /* never below the 1 min floor */
   if(_tdkTrendTimer&&_tdkTrendTimer.ms===want){return;}
   if(_tdkTrendTimer){clearInterval(_tdkTrendTimer.id);}
   _tdkTrendTimer={id:setInterval(tdkLoadTrend,want),ms:want};

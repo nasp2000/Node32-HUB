@@ -325,7 +325,7 @@ void handleTdkLambdaConfigPost(HttpRequest& req, HttpResponse& res) {
 
     if (pollS.length() || pollSec.length() || csvS.length() || fmtS.length()) {
         configManager.setTdkLambda(poll, sec, csv, fmt);
-        tdkLambdaSetPoll(poll, (uint32_t)((sec < 5 ? 5 : (sec > 3600 ? 3600 : sec))) * 1000UL);
+        tdkLambdaSetPoll(poll, (uint32_t)((sec < 60 ? 60 : (sec > 3600 ? 3600 : sec))) * 1000UL);
         tdkLambdaSetCsvFormat(fmt == "sensor");
         tdkLambdaSetCsv(csv);
     }

@@ -1033,7 +1033,7 @@ static bool ftpCwdTo(WiFiClient& ctl, char* resp, size_t rs, const String& remot
 }
 
 bool ftpUploadFileImpl(FtpLocalFs fs, const String& localPath, const String& remoteName,
-                       String& detail, bool deleteAfter) {
+                       String& detail, bool deleteAfter, size_t* sentOut = nullptr) {
     bool useSd = (fs == FTP_FS_SD);
     bool usePsram = (fs == FTP_FS_PSRAM);
     // Resolve size first (cheap stat, no bulk DMA), then STREAM the file in
@@ -1118,6 +1118,7 @@ bool ftpUploadFileImpl(FtpLocalFs fs, const String& localPath, const String& rem
         if (f) f.close();
         if (stored) {
             ok = true;
+            if (sentOut) *sentOut = sent;
             detail = String("OK ") + remoteName + " (" + String((unsigned)sent) + "B)";
             ftpMarkSent(remoteName, fileSize);
             if (deleteAfter) {
@@ -1241,10 +1242,24 @@ static int ftpRunCycle(String& detail) {
         vTaskDelay(pdMS_TO_TICKS(1));   // keep IDLE0 alive between files (TASK_WDT)
         if (!ftpShouldUpload(cands[i].relPath.c_str(), cands[i].size, filter.c_str(), onlyNew, sent.c_str())) continue;
         diagTraceMark("ftp:upload");
+#if ENABLE_TDK_LAMBDA == 1
+        // PSU CSV: rows wait in its own 128 KB RAM buffer until the configured
+        // window. Flushing here (only for a TDK file about to be sent) keeps the
+        // upload current without writing on every FTP cycle.
+        if (ftpIsTdkCsvName(cands[i].relPath.c_str())) {
+            extern bool tdkLambdaCsvFlushNow();
+            (void)tdkLambdaCsvFlushNow();
+        }
+#endif
         String d;
-        if (ftpUploadFileImpl(cands[i].fs, cands[i].readPath, cands[i].relPath, d, deleteAfter)) {
+        size_t sentBytes = 0;
+        if (ftpUploadFileImpl(cands[i].fs, cands[i].readPath, cands[i].relPath, d, deleteAfter, &sentBytes)) {
             diagTraceMark("ftp:uploaded");
-            done++; sent += cands[i].relPath + ":" + String((unsigned)cands[i].size) + "\n";
+            done++;
+            // Journal the size that was really streamed: the flush above (or a
+            // file that grew since the scan) makes the scanned size stale, and a
+            // stale entry would re-upload the same file next cycle.
+            sent += cands[i].relPath + ":" + String((unsigned)sentBytes) + "\n";
         }
         else if (ftpIsConnectFailure(d.c_str())) break;  // server/session down: retry next interval
         else {

@@ -136,7 +136,7 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
 | Permitir escrita | `tdkAllowW` | sem isto, só passa a **allow-list de leitura** (`MV? MC? DVC? STT? STAT? FLT? MODE? OUT? IDN? …`); `PV/PC/OUT/OVP/RMT/SAV/G*` → 403 |
 | Filtro do catálogo | `tdkSearch` | filtra por comando/grupo/descrição/notas |
 | Polling | `tdkPoll` | checkbox; grava na hora (`POST /api/tdk-lambda-config`) |
-| Intervalo | `tdkPollSec` | 5…3600 s entre **leituras** (servidor volta a limitar) |
+| Intervalo | `tdkPollSec` | **60…3600 s** entre leituras (piso de 1 minuto: servidor, ConfigManager e input `min='60'`) |
 | Linhas por leitura | `tdkCsvEvery` | 1…60: uma linha de CSV a cada N leituras. Com N>1 a linha leva **min/média/máx** e a energia da janela (`samples,v_min,v_max,i_min,i_max,wh`) |
 | Gravar CSV | `tdkCsvOn` | checkbox |
 | Formato CSV | `tdkFmt` | `sensor` (chave, valor — igual aos sensores de temperatura) ou `table` (colunas) |
@@ -268,6 +268,11 @@ python3 tests/packs/rs232/tdk_csv_report.py --selftest    # v1/v2/sensor + energ
   o **corpo e rodapé standard** dos outros emails. Antes do envio, `safeFlushBeforeCriticalCommand()`
   chama `tdkLambdaCsvFlushNow()` — sem isso o anexo sairia até 30 min atrasado (o buffer de 128 KB só
   escreve à janela/96 KB). Sem cartão SD o ficheiro está no LittleFS e o mesmo flush aplica-se.
+- **FTP** (`ENABLE_FTP_CLIENT` ligado no `pack_rs232`): o cliente envia os ficheiros de
+  `ftp_local_dir` filtrados por glob (`*.csv;*.log`…). Antes de transmitir um `TDK_*.csv` chama
+  `tdkLambdaCsvFlushNow()` — só para esse ficheiro, nunca em cada ciclo — e o journal
+  (`ftp_sent.log`) passa a registar o **tamanho realmente transmitido**, não o do scan (o flush
+  anterior tornava o do scan obsoleto, o que reenviava o mesmo ficheiro no ciclo seguinte).
 - **Destinatários / alertas**: os bytes da fonte entram no pipeline RS232 **sem serem consumidos**
   (cópia não destrutiva), por isso as respostas `DVC?` aparecem no `/monitor` como qualquer linha; e
   com `inject` ligado é injectada uma linha `TDK <ts>, vout, …, power, 784.49, mode, CV`. Os alertas

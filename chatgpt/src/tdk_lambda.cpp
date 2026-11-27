@@ -124,7 +124,7 @@ char          s_sn[24] = {0};
 char          s_lastError[8] = {0};
 uint32_t      s_lastErrorMs = 0;
 
-// Always-on sample ring (RAM only, newest last): 4 h at 1/min, 40 min at 10 s.
+// Always-on sample ring (RAM only, newest last): 4 h at 1/min (the poll floor).
 // 240 x 12 B = 2.9 KB of .bss — no heap, and no file write for the chart.
 static const uint16_t TDK_RING_MAX = 240;
 TdkSample     s_ring[TDK_RING_MAX];
@@ -728,7 +728,7 @@ void tdkLambdaSetCsvEvery(uint16_t polls) {
 
 void tdkLambdaSetPoll(bool enabled, uint32_t intervalMs) {
     s_polling = enabled;
-    if (intervalMs >= 5000UL) s_pollMs = intervalMs;
+    if (intervalMs >= 60000UL) s_pollMs = intervalMs;   // 1 min floor
     s_lastPollMs = millis();
     s_pollStep = 0;
 }

@@ -17,6 +17,8 @@
 #else
 #include <string>
 #endif
+#include <string.h>
+#include <stddef.h>
 
 // Max files uploaded per monitor cycle (flood protection).
 #define FTP_MAX_FILES_PER_CYCLE 50
@@ -30,6 +32,25 @@
 // filesystem prefix: "SD:/logs", "PSRAM:/", "LFS:/logs". FTP_FS_AUTO is a
 // legacy bare path (e.g. "/logs") resolved at runtime by ftpResolveLocalFs.
 enum FtpLocalFs { FTP_FS_SD = 0, FTP_FS_PSRAM, FTP_FS_LFS, FTP_FS_AUTO };
+
+// TDK daily CSV ("TDK_DD-MM-YYYY.csv", with or without a folder in front).
+// The FTP client flushes the PSU buffer before streaming such a file, so the
+// upload carries every row and the journal records the size really sent.
+inline bool ftpIsTdkCsvName(const char* relPath) {
+    if (!relPath) return false;
+    const char* base = relPath;
+    for (const char* q = relPath; *q; q++) if (*q == '/' || *q == '\\') base = q + 1;
+    const size_t n = strlen(base);
+    if (n < 9) return false;                       // shortest: "TDK_x.csv"
+    if (!(base[0] == 'T' || base[0] == 't') ||
+        !(base[1] == 'D' || base[1] == 'd') ||
+        !(base[2] == 'K' || base[2] == 'k') || base[3] != '_') return false;
+    const char* ext = base + n - 4;                // ".csv"
+    return ext[0] == '.' &&
+           (ext[1] == 'c' || ext[1] == 'C') &&
+           (ext[2] == 's' || ext[2] == 'S') &&
+           (ext[3] == 'v' || ext[3] == 'V');
+}
 
 // Split a local_dir ref into filesystem + path part.
 //   "SD:/logs"       -> FTP_FS_SD, outPath "/logs"

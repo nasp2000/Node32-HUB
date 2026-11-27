@@ -236,3 +236,11 @@ All present in `lang_en_ui.h` and `lang_pt_ui.h`; HTML fallback text is English.
 | Tests | `tests/native/test_ftp_client.cpp`, `tests/native/test_ftp_stream_guard.cpp`, `tests/native/test_ftp_status_store.cpp`, `tests/web/test_ftp.js`, fixture `tests/web/pages/ftp.html` |
 | Persisted last-sends store | `chatgpt/src/ftp_status_store.h` (pure) + `/config/ftp_status.json` I/O in `chatgpt/src/ftp_client.cpp` |
 | Flags sentinel | `tests/native/test_config_defaults.cpp`, `test_pack_validator.cpp` |
+
+## Nota: CSV do TDK-Lambda
+
+Quando o pacote tem a fonte TDK (`ENABLE_TDK_LAMBDA`), o ficheiro `TDK_DD-MM-YYYY.csv` aparece na
+origem configurada (SD ou LittleFS, mesmo caminho). Antes de o transmitir, o cliente descarrega o
+buffer de 128 KB do módulo (`tdkLambdaCsvFlushNow()`), para o envio levar as linhas até ao
+momento; nos outros ficheiros nada muda. O journal de enviados regista o tamanho **efectivamente**
+transmitido, para não repetir o ficheiro no ciclo seguinte.
