@@ -40,6 +40,67 @@ static inline void screenDrawRamboxView(ScreenManager &mgr, Adafruit_SSD1306 &ol
 
     const unsigned long arrivalRotateMs = 3000UL;
     const unsigned long bottomRotateMs = 3000UL;
+    const int rowWidthChars = 21;
+    const int rowCharWidthPx = 6;
+    const int16_t leftPaneX = 2;
+    const int16_t leftPaneW = 68;
+    const int16_t rightPaneX = 74;
+    const int16_t rightPaneW = 50;
+
+    auto formatHms = [&](const char* hhmmss, bool colonOn, bool withSeconds) -> String {
+        if (!hhmmss || strlen(hhmmss) < 6) return String("--:--:--");
+        char t[10];
+        const char sep = colonOn ? ':' : ' ';
+        if (withSeconds) {
+            snprintf(t, sizeof(t), "%c%c%c%c%c%c%c%c", hhmmss[0], hhmmss[1], sep, hhmmss[2], hhmmss[3], sep, hhmmss[4], hhmmss[5]);
+        } else {
+            snprintf(t, sizeof(t), "%c%c%c%c%c", hhmmss[0], hhmmss[1], sep, hhmmss[2], hhmmss[3]);
+        }
+        return String(t);
+    };
+
+    auto formatClockNow = [&](bool colonOn, bool withSeconds) -> String {
+        time_t epoch = time(nullptr);
+        if (epoch < 100000) return String("--:--:--");
+        struct tm ti;
+        localtime_r(&epoch, &ti);
+        char b[16];
+        const char sep = colonOn ? ':' : ' ';
+        if (withSeconds) {
+            snprintf(b, sizeof(b), "%02d%c%02d%c%02d", ti.tm_hour, sep, ti.tm_min, sep, ti.tm_sec);
+        } else {
+            snprintf(b, sizeof(b), "%02d%c%02d", ti.tm_hour, sep, ti.tm_min);
+        }
+        return String(b);
+    };
+
+    auto formatDateNow = [&]() -> String {
+        time_t epoch = time(nullptr);
+        if (epoch < 100000) return String("----.--.--");
+        struct tm ti;
+        localtime_r(&epoch, &ti);
+        char b[16];
+        snprintf(b, sizeof(b), "%04d.%02d.%02d", ti.tm_year + 1900, ti.tm_mon + 1, ti.tm_mday);
+        return String(b);
+    };
+
+    auto drawCenteredRow = [&](int16_t y, const String& text) {
+        String clean = mgr.stripAccents(text);
+        if ((int)clean.length() > rowWidthChars) clean = clean.substring(0, rowWidthChars);
+        int16_t widthPx = (int16_t)clean.length() * rowCharWidthPx;
+        int16_t x = (SSD1306_WIDTH - widthPx) / 2;
+        if (x < 0) x = 0;
+        oled.setCursor(x, y);
+        oled.print(clean);
+    };
+
+    auto drawLeftRow = [&](int16_t y, const String& text) {
+        oled.setCursor(0, y);
+        String out = mgr.stripAccents(text);
+        if ((int)out.length() > rowWidthChars) out = out.substring(0, rowWidthChars);
+        oled.print(out);
+    };
+
     auto drawCenteredInBox = [&](int16_t x, int16_t w, int16_t y, const String& text, uint8_t size) {
         String clean = mgr.stripAccents(text);
         int16_t charPx = (int16_t)(6 * size);
