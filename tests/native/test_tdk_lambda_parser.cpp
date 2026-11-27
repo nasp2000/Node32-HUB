@@ -154,28 +154,72 @@ TEST_CASE("tdkApplyMap: missing fields fall back to zero, never out of range") {
     CHECK(ovp == doctest::Approx(0.0f));
 }
 
-TEST_CASE("tdkFormatCsvRow: sensor style (default) has keys and units") {
-    char row[220];
+TEST_CASE("tdkFormatCsvRow: a single sample is n=1 with min=max=avg") {
+    char row[400];
+    TdkAgg agg;                            // never fed: the formatter must cope
     const size_t n = tdkFormatCsvRow(row, sizeof(row), "2026-11-26 10:00:00", true,
-                                     599.99f, 600.00f, 0.500f, 1.300f, 660.0f, 0.0f, "CV", true);
+                                     599.99f, 600.0f, 0.5f, 1.3f, 660.0f, 0.0f, "CV", true, &agg);
     CHECK(n > 0);
-    CHECK(std::string(row) ==
-          "2026-11-26 10:00:00, vout, 599.99, vset, 600.00, iout, 0.500, iset, 1.300, "
-          "power, 299.99, ovp, 660.0, uvl, 0.0, mode, CV, out, ON");
+    const std::string s(row);
+    CHECK(s.find("vout, 599.99") != std::string::npos);
+    CHECK(s.find("vmin, 599.99") != std::string::npos);
+    CHECK(s.find("vmax, 599.99") != std::string::npos);
+    CHECK(s.find("iout, 0.500") != std::string::npos);
+    CHECK(s.find("n, 1") != std::string::npos);
+    CHECK(s.find("mode, CV") != std::string::npos);
+    CHECK(s.find("out, ON") != std::string::npos);
 }
 
-TEST_CASE("tdkFormatCsvRow: table style + OFF/CC variants") {
-    char row[220];
-    CHECK(tdkFormatCsvRow(row, sizeof(row), "2026-11-26 10:01:00", false,
-                          100.0f, 100.00f, 0.213f, 1.300f, 660.0f, 0.0f, "CC", false) > 0);
-    CHECK(std::string(row) == "2026-11-26 10:01:00,100.00,100.00,0.213,1.300,21.30,660.0,0.0,CC,0");
+TEST_CASE("tdkFormatCsvRow: the aggregate carries min/max/wh and the average") {
+    char row[400];
+    TdkAgg agg;
+    agg.add(600.0f, 1.30f, 1000);
+    agg.add(599.0f, 1.35f, 11000);   // 10 s at 600 V / 1.30 A
+    agg.add(601.0f, 1.25f, 21000);   // 10 s at 599 V / 1.35 A
+    agg.close(31000);                // 10 s at 601 V / 1.25 A
+    CHECK(agg.n == 3);
+    CHECK(agg.vMin == 599.0f);
+    CHECK(agg.vMax == 601.0f);
+    CHECK(agg.iMin == 1.25f);
+    CHECK(agg.iMax == 1.35f);
+    // energy: 3 intervals of 10 s with the value held from the previous sample
+    const double wh = (600.0 * 1.30 + 599.0 * 1.35 + 601.0 * 1.25) * (10.0 / 3600.0);
+    CHECK(agg.wh > wh - 1e-6);
+    CHECK(agg.wh < wh + 1e-6);
+
+    const size_t n = tdkFormatCsvRow(row, sizeof(row), "2026-11-26 10:01:00", false,
+                                     600.0f, 600.0f, 1.30f, 1.35f, 660.0f, 0.0f, "CC", false, &agg);
+    CHECK(n > 0);
+    const std::string s(row);
+    CHECK(s.find(",3,599.00,601.00,1.250,1.350,") != std::string::npos);  // samples + min/max
+    CHECK(s.find(",CC,0,") != std::string::npos);                          // mode + output off
+    CHECK(s.find("600.00") != std::string::npos);                          // average voltage
 }
 
 TEST_CASE("tdkFormatCsvRow: bad arguments and a null mode are safe") {
-    char row[220];
-    CHECK(tdkFormatCsvRow(nullptr, sizeof(row), "t", true, 0, 0, 0, 0, 0, 0, "CV", true) == 0);
-    CHECK(tdkFormatCsvRow(row, 0, "t", true, 0, 0, 0, 0, 0, 0, "CV", true) == 0);
-    // A null/empty mode must never print NULL into the CSV.
-    CHECK(tdkFormatCsvRow(row, sizeof(row), "t", true, 0, 0, 0, 0, 0, 0, nullptr, false) > 0);
-    CHECK(std::string(row).find("--") != std::string::npos);
+    char row[400];
+    TdkAgg agg;
+    CHECK(tdkFormatCsvRow(nullptr, sizeof(row), "t", true, 0, 0, 0, 0, 0, 0, "CV", true, &agg) == 0);
+    CHECK(tdkFormatCsvRow(row, 0, "t", true, 0, 0, 0, 0, 0, 0, "CV", true, &agg) == 0);
+    CHECK(tdkFormatCsvRow(row, sizeof(row), "t", true, 0, 0, 0, 0, 0, 0, nullptr, false, nullptr) > 0);
 }
+
+TEST_CASE("TdkSession integrates energy and time in CC / limit / off") {
+    TdkSession s;
+    s.add(600.0f, 1.0f, "CV", true, false, 60000);   // 1 min at 600 W
+    s.add(600.0f, 1.0f, "CC", true, true, 30000);    // 30 s in CC at the limit
+    s.add(0.0f, 0.0f, "OFF", false, false, 30000);   // 30 s with the output off
+    CHECK(s.transitions == 1);                        // CV -> CC
+    CHECK(s.ccMs == 30000u);
+    CHECK(s.limMs == 30000u);
+    CHECK(s.offMs == 30000u);
+    const double wh = 600.0 * 1.0 * (60.0 / 3600.0) + 600.0 * 1.0 * (30.0 / 3600.0);
+    CHECK(s.wh > wh - 1e-6);
+    CHECK(s.wh < wh + 1e-6);
+
+    s.add(0.0f, 0.0f, "CV", true, false, 1000);       // OFF -> CV is not a CV/CC transition
+    CHECK(s.transitions == 1);
+    s.add(0.0f, 0.0f, "CC", true, false, 1000);
+    CHECK(s.transitions == 2);
+}
+

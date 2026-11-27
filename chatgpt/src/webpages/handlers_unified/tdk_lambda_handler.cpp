@@ -84,7 +84,7 @@ void handleTdkLambdaStatusGet(HttpRequest& req, HttpResponse& res) {
     TdkValues v  = tdkLambdaGetValues();
 
     String j;
-    j.reserve(1200);
+    j.reserve(1400);
     j += F("{\"success\":true,\"status\":{");
     j += F("\"polling\":");           j += st.polling ? F("true") : F("false");
     j += F(",\"csvEnabled\":");       j += st.csvEnabled ? F("true") : F("false");
@@ -105,6 +105,14 @@ void handleTdkLambdaStatusGet(HttpRequest& req, HttpResponse& res) {
     j += F(",\"scaleIUsed\":");       j += String(st.scaleIUsed, 4);
 
     j += F(",\"csvPath\":\"");        j += tdkJsonEscape(st.csvPath);     j += '"';
+    j += F(",\"csvEvery\":");        j += String(st.csvEvery);
+    j += F(",\"csvRowMs\":");        j += String(st.csvRowMs);
+    j += F(",\"aggCount\":");        j += String(st.aggCount);
+    j += F(",\"sessionWh\":");       j += String(st.sessionWh, 3);
+    j += F(",\"sessionCcMs\":");     j += String(st.sessionCcMs);
+    j += F(",\"sessionLimitMs\":");  j += String(st.sessionLimitMs);
+    j += F(",\"sessionOffMs\":");    j += String(st.sessionOffMs);
+    j += F(",\"cvccTransitions\":"); j += String(st.cvccTransitions);
     j += F(",\"lastCommand\":\"");    j += tdkJsonEscape(st.lastCommand); j += '"';
     j += F(",\"lastLine\":\"");       j += tdkJsonEscape(st.lastLine);    j += '"';
     j += F(",\"profileMode\":\"");    j += tdkJsonEscape(st.profileMode); j += '"';
@@ -227,6 +235,7 @@ void handleTdkLambdaConfigGet(HttpRequest& req, HttpResponse& res) {
     j += F("{\"success\":true");
     j += F(",\"poll\":");        j += configManager.getTdkLambdaPoll() ? F("true") : F("false");
     j += F(",\"poll_s\":");      j += String(configManager.getTdkLambdaPollSec());
+    j += F(",\"csv_every\":");   j += String(configManager.getTdkLambdaCsvEvery());
     j += F(",\"csv\":");         j += configManager.getTdkLambdaCsv() ? F("true") : F("false");
     j += F(",\"format\":\"");    j += configManager.getTdkLambdaCsvFormat() ? F("sensor") : F("table");  j += '"';
     j += F(",\"auto_map\":");    j += configManager.getTdkLambdaAutoMap() ? F("true") : F("false");
@@ -305,6 +314,14 @@ void handleTdkLambdaConfigPost(HttpRequest& req, HttpResponse& res) {
     const int  sec  = pollSec.length() ? pollSec.toInt() : configManager.getTdkLambdaPollSec();
     const bool csv  = tdkTruthy(csvS);
     const String fmt = (fmtS == "table") ? String("table") : String("sensor");
+    const String everyS = tdkFormValue(req.body, "csv_every");
+    if (everyS.length()) {
+        int n = everyS.toInt();
+        if (n < 1) n = 1;
+        if (n > 60) n = 60;
+        configManager.setTdkLambdaCsvEvery(n);
+        tdkLambdaSetCsvEvery((uint16_t)n);
+    }
 
     if (pollS.length() || pollSec.length() || csvS.length() || fmtS.length()) {
         configManager.setTdkLambda(poll, sec, csv, fmt);
@@ -344,7 +361,9 @@ void handleTdkLambdaConfigPost(HttpRequest& req, HttpResponse& res) {
     j += F(",\"poll\":");    j += poll ? F("true") : F("false");
     j += F(",\"poll_s\":");  j += String(sec);
     j += F(",\"csv\":");     j += csv ? F("true") : F("false");
-    j += F(",\"format\":\""); j += fmt; j += F("\"}");
+    j += F(",\"format\":\""); j += fmt; j += '"';
+    j += F(",\"csv_every\":"); j += String(configManager.getTdkLambdaCsvEvery());
+    j += F("}");
     res.sendJson(j);
 #else
     (void)req;

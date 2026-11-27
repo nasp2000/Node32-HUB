@@ -156,7 +156,8 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
     <div class='tdk-note' id='tdkCsvAuto' style='margin-top:8px'>--</div>
     <div class='tdk-row' style='margin-top:10px'>
       <label class='tdk-note' title='Ask the supply for values at the interval below and keep them in the trend buffer' data-i18n-title='tdkTipPoll'><input type='checkbox' id='tdkPoll' onchange='tdkSaveCfg()'> Automatic polling</label>
-      <label class='tdk-field' title='Seconds between polls, 5 to 3600; one poll is one CSV row' data-i18n-title='tdkTipPollSec'>Interval (s) <input type='number' id='tdkPollSec' min='5' max='3600' value='60' style='width:90px' onchange='tdkSaveCfg()'></label>
+      <label class='tdk-field' title='Seconds between polls, 5 to 3600' data-i18n-title='tdkTipPollSec'>Interval (s) <input type='number' id='tdkPollSec' min='5' max='3600' value='60' style='width:90px' onchange='tdkSaveCfg()'></label>
+      <label class='tdk-field' title='One CSV row every N polls. With N above 1 the row carries min/avg/max and the energy of the window' data-i18n-title='tdkTipCsvEvery'>Row every <input type='number' id='tdkCsvEvery' min='1' max='60' value='1' style='width:80px' onchange='tdkSaveCfg()'></label>
       <label class='tdk-note' title='Write the polls to the daily CSV file' data-i18n-title='tdkTipCsvOn'><input type='checkbox' id='tdkCsvOn' onchange='tdkSaveCfg()'> Write CSV</label>
       <label class='tdk-field' title='table: one column per value; sensor: key,value pairs like the sensor logs' data-i18n-title='tdkTipFmt'>Format
         <select id='tdkFmt' onchange='tdkSaveCfg()' title='table: one column per value; sensor: key,value pairs like the sensor logs' data-i18n-title='tdkTipFmt'>
@@ -167,6 +168,15 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
       <button class='btn' onclick='tdkCsvFlush()' title='Write the buffered lines to the file now, without waiting for the automatic flush' data-i18n-title='tdkTipFlush'>&#128190; Flush now</button>
       <a class='btn' href='/api/tdk-lambda-csv' download='TDK.csv' style='text-decoration:none' title='Download the CSV of the current day from the device' data-i18n-title='tdkTipDownload'>&#11015; Download CSV</a>
     </div>
+    <h4 class='tdk-subtitle' data-i18n='tdkSessionTitle'>Since boot</h4>
+    <div class='tdk-grid'>
+      <div class='tdk-val' title='Energy delivered since boot (V x I integrated over time)' data-i18n-title='tdkTipSessWh'><div class='k'>Energy</div><div class='v' id='sessWh' style='font-size:18px'>--</div></div>
+      <div class='tdk-val' title='Time the supply spent in current limit (CC)' data-i18n-title='tdkTipSessCc'><div class='k'>In CC</div><div class='v' id='sessCc' style='font-size:18px'>--</div></div>
+      <div class='tdk-val' title='Time with the output current at its setpoint' data-i18n-title='tdkTipSessLim'><div class='k'>At limit</div><div class='v' id='sessLim' style='font-size:18px'>--</div></div>
+      <div class='tdk-val' title='Time with the output switched off' data-i18n-title='tdkTipSessOff'><div class='k'>Output off</div><div class='v' id='sessOff' style='font-size:18px'>--</div></div>
+      <div class='tdk-val' title='How many times the regulation changed between CV and CC (inrush, load steps)' data-i18n-title='tdkTipSessTrans'><div class='k'>CV/CC changes</div><div class='v' id='sessTrans' style='font-size:18px'>--</div></div>
+    </div>
+
     <h4 class='tdk-subtitle' data-i18n='tdkCsvPrevTitle'>Last polls (ring buffer)</h4>
     <div class='tdk-scroll' style='max-height:340px'>
       <table class='tdk-tbl'>
@@ -243,6 +253,12 @@ function _tdkFail(d){
   var m='Failed: '+((d&&d.message)||'?');
   if(window.customAlert){window.customAlert(m);}
 }
+function _tdkDur(ms){
+  var t=Math.floor((ms||0)/1000),h=Math.floor(t/3600),m=Math.floor((t%3600)/60);
+  if(h>0){return h+'h '+m+'m';}
+  if(m>0){return m+'m';}
+  return t+'s';
+}
 function _tdkEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function _tdkPost(url,body){
   return fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body})
@@ -262,8 +278,11 @@ function tdkStatus(){
     if(st.lastError){b+='<span class="tdk-badge err">error '+_tdkEsc(st.lastError)+'</span> ';}
     if(st.alertActive){b+='<span class="tdk-badge err">ALERT '+_tdkEsc(st.alertText)+'</span> ';}
     _tdkQ('tdkAlert').innerHTML=st.alertActive?'<span class="tdk-badge err">'+_tdkEsc(st.alertText)+'</span>':'';
-    b+='<span class="tdk-note">every '+(st.pollIntervalMs/1000)+' s &middot; last RX '+
-       (st.lastRxAgeMs?Math.round(st.lastRxAgeMs/1000)+' s':'--')+' &middot; lines '+(st.logCount||0)+'</span>';
+    var cadence = Math.round((st.pollIntervalMs||0)/1000);
+    var rowS = Math.round((st.csvRowMs||st.pollIntervalMs||0)/1000);
+    b+='<span class="tdk-note">poll '+cadence+' s'+
+       (rowS!==cadence?' \u00B7 row '+rowS+' s':'')+' \u00B7 last RX '+
+       (st.lastRxAgeMs?Math.round(st.lastRxAgeMs/1000)+' s':'--')+' \u00B7 lines '+(st.logCount||0)+'</span>';
     _tdkQ('tdkStatus').innerHTML=b;
 
     _tdkQ('vMeas').textContent=(v.valid?v.vMeas.toFixed(2):'--');
@@ -283,6 +302,12 @@ function tdkStatus(){
     _tdkQ('csvPath').textContent=st.csvPath||'--';
     _tdkQ('csvRows').textContent=(st.csvRows||0);
     _tdkQ('csvFormat').textContent=(st.csvSensorFormat?'sensor':'table');
+    var wh = st.sessionWh||0;
+    _tdkQ('sessWh').textContent = (wh>=1000? (wh/1000).toFixed(2)+' kWh' : wh.toFixed(2)+' Wh');
+    _tdkQ('sessCc').textContent  = _tdkDur(st.sessionCcMs);
+    _tdkQ('sessLim').textContent = _tdkDur(st.sessionLimitMs);
+    _tdkQ('sessOff').textContent = _tdkDur(st.sessionOffMs);
+    _tdkQ('sessTrans').textContent = (st.cvccTransitions||0);
     _tdkQ('tdkCsvAuto').textContent=
       (st.autoMap?(st.autoNote?('auto ['+st.autoNote+']'):'auto (no detection - saved profile in use)'):'manual (fixed)')+
       ' \u00B7 map '+(st.mapUsed||'--');
@@ -415,6 +440,7 @@ function tdkLoadCfg(){
     if(!d.success){return;}
     _tdkQ('tdkPoll').checked=!!d.poll;
     _tdkQ('tdkPollSec').value=d.poll_s||60;
+    _tdkQ('tdkCsvEvery').value=d.csv_every||1;
     _tdkQ('tdkCsvOn').checked=!!d.csv;
     _tdkQ('tdkFmt').value=(d.format==='table')?'table':'sensor';
     _tdkQ('tdkMode2').value=(d.mode==='split')?'split':'dvc';
@@ -484,6 +510,7 @@ function tdkSaveAuto(){
 function tdkSaveCfg(){
   var b='poll='+(_tdkQ('tdkPoll').checked?'1':'0')+
         '&poll_s='+encodeURIComponent(_tdkQ('tdkPollSec').value)+
+        '&csv_every='+encodeURIComponent(_tdkQ('tdkCsvEvery').value)+
         '&csv='+(_tdkQ('tdkCsvOn').checked?'1':'0')+
         '&format='+encodeURIComponent(_tdkQ('tdkFmt').value);
   _tdkPost('/api/tdk-lambda-config',b).then(function(d){

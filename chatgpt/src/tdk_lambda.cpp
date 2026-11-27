@@ -162,6 +162,10 @@ static const size_t TDK_CSV_BUF_BYTES = 131072UL;   // 128 KB capacity (PSRAM)
 static const size_t TDK_CSV_FLUSH_BYTES = 98304UL;  // 96 KB high-watermark: write now
 bool          s_csvBufReserved = false;
 bool          s_csvEnabled = true;
+uint16_t      s_csvEvery = 1;        // one CSV row per N polls (1 = every poll)
+TdkAgg        s_agg;                 // window being accumulated for the next row
+TdkSession    s_session;             // since boot: Wh, CC, limit, off, transitions
+uint32_t      s_sessionLastMs = 0;   // millis() of the previous session sample
 // ── device profile (which queries, how to read the reply) ──────────────────
 bool          s_profileDvc = true;          // "dvc" (one query, N fields) vs "split"
 char          s_cmdV[16]   = "DVC?";        // dvc mode: the only query; split: voltage
@@ -295,7 +299,10 @@ void csvHeader(File& f) {
     // Table format only: the sensor-style line carries its own keys, so a
     // header row would be redundant (the sensors write no header either).
     if (!s_csvSensorFmt && f.size() == 0) {
-        f.println(F("timestamp,v_meas,v_set,i_meas,i_set,p_w,ovp,uvl,mode,out"));
+        // v2: the row is a window (csv_every polls) — averages plus the min/max
+        // inside the window and its energy, so a spike cannot hide between rows.
+        f.println(F("timestamp,v_meas,v_set,i_meas,i_set,p_w,ovp,uvl,mode,out,"
+                    "samples,v_min,v_max,i_min,i_max,wh"));
     }
 }
 
@@ -337,18 +344,41 @@ bool appendRowsFlash(const String& path, const String& rows) {
 
 bool tdkCsvFlushPending();   // defined below (used on overflow)
 
+// Every poll feeds this: the session counters always run (they are what the
+// page shows), and the CSV row is emitted once per `s_csvEvery` polls.
 void csvAppendSample() {
-    if (!s_csvEnabled || !s_values.valid) return;
+    if (!s_values.valid) return;
+    const uint32_t nowMs = millis();
+
+    // Session counters: the elapsed time is attributed to this sample's state.
+    // The gap is capped so a silent line (listen mode, PLC idle, long poll) does
+    // not credit an hour of "in CC" to a single sample.
+    uint32_t dt = (s_sessionLastMs && nowMs > s_sessionLastMs) ? (nowMs - s_sessionLastMs) : 0;
+    const uint32_t dtCap = (s_pollMs > 120000UL) ? (s_pollMs * 3UL) : 600000UL;
+    if (dt > dtCap) dt = dtCap;
+    const bool atLimit = (s_values.iSet > 0.0f && s_values.iMeas >= 0.98f * s_values.iSet);
+    s_session.add(s_values.vMeas, s_values.iMeas, s_values.mode, s_values.outOn, atLimit, dt);
+    s_sessionLastMs = nowMs;
+
+    if (!s_csvEnabled) { s_agg.clear(nowMs); return; }
+    if (s_csvEvery < 1) s_csvEvery = 1;
+    s_agg.add(s_values.vMeas, s_values.iMeas, nowMs);
+    if (s_agg.n < s_csvEvery) return;          // window still open
+
     time_t now = time(nullptr);
     struct tm ti = {};
     localtime_r(&now, &ti);
     char ts[24];
     snprintf(ts, sizeof(ts), "%04d-%02d-%02d %02d:%02d:%02d",
              ti.tm_year + 1900, ti.tm_mon + 1, ti.tm_mday, ti.tm_hour, ti.tm_min, ti.tm_sec);
-    char row[220];
-    if (tdkFormatCsvRow(row, sizeof(row), ts, s_csvSensorFmt,
-                        s_values.vMeas, s_values.vSet, s_values.iMeas, s_values.iSet,
-                        s_values.ovp, s_values.uvl, s_values.mode, s_values.outOn) == 0) {
+    s_agg.close(nowMs);                        // integrate the tail of the window
+    char row[320];
+    const size_t made = tdkFormatCsvRow(row, sizeof(row), ts, s_csvSensorFmt,
+                                        s_values.vMeas, s_values.vSet, s_values.iMeas, s_values.iSet,
+                                        s_values.ovp, s_values.uvl, s_values.mode, s_values.outOn,
+                                        &s_agg);
+    s_agg.clear(nowMs);
+    if (made == 0) {
         return;
     }
 
@@ -509,6 +539,10 @@ void tdkLambdaBegin() {
     s_rateV = configManager.getTdkLambdaRateV();
     s_rateI = configManager.getTdkLambdaRateI();
     s_csvSensorFmt = configManager.getTdkLambdaCsvFormat();
+    s_csvEvery = (uint16_t)configManager.getTdkLambdaCsvEvery();
+    s_agg.clear(millis());
+    s_session.clear();
+    s_sessionLastMs = millis();
     tdkLambdaApplyProfile(configManager.getTdkLambdaMode().c_str(),
                           configManager.getTdkLambdaCmdV().c_str(),
                           configManager.getTdkLambdaCmdI().c_str(),
@@ -628,6 +662,14 @@ TdkStatus tdkLambdaGetStatus() {
     String p = csvPathNow();
     strncpy(st.csvPath, p.c_str(), sizeof(st.csvPath) - 1);
     st.csvOnSd = sdcardShouldUseSD();
+    st.csvEvery = s_csvEvery;
+    st.csvRowMs = s_pollMs * (uint32_t)(s_csvEvery ? s_csvEvery : 1);
+    st.aggCount = s_agg.n;
+    st.sessionWh = s_session.wh;
+    st.sessionCcMs = s_session.ccMs;
+    st.sessionLimitMs = s_session.limMs;
+    st.sessionOffMs = s_session.offMs;
+    st.cvccTransitions = s_session.transitions;
     return st;
 }
 
@@ -676,6 +718,11 @@ bool tdkLambdaCsvFlushNow() {
     const bool ok = tdkCsvFlushPending();
     s_csvLastFlushMs = millis();
     return ok;
+}
+
+void tdkLambdaSetCsvEvery(uint16_t polls) {
+    s_csvEvery = (polls < 1) ? 1 : polls;
+    s_agg.clear(millis());   // the open window restarts with the new cadence
 }
 
 void tdkLambdaSetPoll(bool enabled, uint32_t intervalMs) {

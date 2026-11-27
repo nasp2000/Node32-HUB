@@ -61,7 +61,7 @@ TEST_CASE("TDK page: shared page/wrap shell with balanced divs") {
     // Sections are .section-box + .section-title (IPG/Rambox construction).
     CHECK(countOf(html, "class='section-box'") == 7);
     CHECK(countOf(html, "class='section-title'") == 7);
-    CHECK(countOf(html, "class='tdk-subtitle'") == 1);   // inside a section, not a section
+    CHECK(countOf(html, "class='tdk-subtitle'") == 2);   // inside a section, not a section
 }
 
 TEST_CASE("TDK page: five tabs, one default, keys match the JS table") {
@@ -105,7 +105,7 @@ TEST_CASE("TDK page: every control has a tooltip") {
     // Value tiles and table headers explain themselves on hover. The last-line
     // tile carries an extra class ("tdk-val wide"), hence the prefix match.
     INFO("value tiles");
-    CHECK(countOf(html, "<div class='tdk-val") == 12);   // 8 live + 4 CSV
+    CHECK(countOf(html, "<div class='tdk-val") == 17);   // 8 live + 4 CSV + 5 session
     for (const std::string& line : linesWith(html, "<div class='tdk-val")) {
         INFO(line);
         CHECK(line.find("title=") != std::string::npos);

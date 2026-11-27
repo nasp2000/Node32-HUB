@@ -1273,6 +1273,24 @@ public:
         if (v > 3600) v = 3600;
         return v;
     }
+    // One CSV row per N polls (1 = every poll). With N > 1 the module samples
+    // faster than it logs and the row carries min/avg/max + Wh of the window,
+    // so a spike between rows cannot hide.
+    int getTdkLambdaCsvEvery() {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey("csv_every")) return 1;
+        int v = config["tdklambda"]["csv_every"].as<int>();
+        if (v < 1) v = 1;
+        if (v > 60) v = 60;
+        return v;
+    }
+    bool setTdkLambdaCsvEvery(int polls) {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].is<JsonObject>()) config["tdklambda"].to<JsonObject>();
+        if (polls < 1) polls = 1;
+        if (polls > 60) polls = 60;
+        config["tdklambda"]["csv_every"] = polls;
+        markDirtyAndScheduleSave();
+        return true;
+    }
     bool getTdkLambdaCsv() {
         if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey("csv")) return true;
         return config["tdklambda"]["csv"].as<bool>();

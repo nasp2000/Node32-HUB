@@ -494,6 +494,7 @@ void ConfigManager::ensureAllFieldsExist() {
         config["tdklambda"].to<JsonObject>();
         config["tdklambda"]["poll"] = true;
         config["tdklambda"]["poll_s"] = 60;
+        config["tdklambda"]["csv_every"] = 1;   // one CSV row per poll
         config["tdklambda"]["csv"] = true;
         config["tdklambda"]["csv_format"] = "sensor";
         config["tdklambda"]["mode"]      = "dvc";

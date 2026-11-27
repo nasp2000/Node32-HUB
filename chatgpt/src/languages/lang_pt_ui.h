@@ -3479,7 +3479,14 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "tdkTipCsvFormat": "sensor: pares chave,valor; table: uma coluna por valor",
   "tdkTipThTime": "Hora da leitura",
   "tdkTipThVolt": "Tensão medida",
-  "tdkTipThAmp": "Corrente medida"
+  "tdkTipThAmp": "Corrente medida",
+  "tdkSessionTitle": "Desde o arranque",
+  "tdkTipCsvEvery": "Uma linha CSV a cada N leituras. Com N acima de 1 a linha leva mín/média/máx e a energia da janela",
+  "tdkTipSessWh": "Energia entregue desde o arranque (V x I integrado no tempo)",
+  "tdkTipSessCc": "Tempo que a fonte passou em limitação de corrente (CC)",
+  "tdkTipSessLim": "Tempo com a corrente de saída no setpoint",
+  "tdkTipSessOff": "Tempo com a saída desligada",
+  "tdkTipSessTrans": "Quantas vezes a regulação mudou entre CV e CC (inrush, degraus de carga)"
 }
 )JSON";
 

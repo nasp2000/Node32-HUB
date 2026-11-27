@@ -79,6 +79,15 @@ struct TdkStatus {
     char     alertText[64];  // which limit (for the page badge)
     char     csvPath[64];
     bool     csvOnSd;
+    uint16_t csvEvery;          // polls per CSV row (1 = every poll)
+    uint32_t csvRowMs;          // nominal row cadence = poll * csvEvery
+    uint16_t aggCount;          // samples accumulated in the open row
+    // Session counters since boot (RAM): what the CSV tab shows as "since boot".
+    double   sessionWh;         // energy, Wh
+    uint32_t sessionCcMs;       // time in current limit (CC)
+    uint32_t sessionLimitMs;    // time with I at the setpoint
+    uint32_t sessionOffMs;      // time with the output off
+    uint32_t cvccTransitions;   // CV <-> CC changes
 };
 
 void tdkLambdaBegin();
@@ -97,6 +106,7 @@ const TdkCommandInfo* tdkLambdaCatalog(size_t* count);
 bool tdkLambdaCsvFlushNow();
 String tdkLambdaCsvPath();
 void tdkLambdaSetPoll(bool enabled, uint32_t intervalMs);
+void tdkLambdaSetCsvEvery(uint16_t polls);   // one CSV row per N polls
 void tdkLambdaSetCsv(bool enabled);
 void tdkLambdaSetCsvFormat(bool sensorFormat);
 void tdkLambdaSetAutoMap(bool enabled);

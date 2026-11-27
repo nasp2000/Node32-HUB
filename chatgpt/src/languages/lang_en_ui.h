@@ -3479,7 +3479,14 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "tdkTipCsvFormat": "sensor: key,value pairs; table: one column per value",
   "tdkTipThTime": "Time of the poll",
   "tdkTipThVolt": "Measured voltage",
-  "tdkTipThAmp": "Measured current"
+  "tdkTipThAmp": "Measured current",
+  "tdkSessionTitle": "Since boot",
+  "tdkTipCsvEvery": "One CSV row every N polls. With N above 1 the row carries min/avg/max and the energy of the window",
+  "tdkTipSessWh": "Energy delivered since boot (V x I integrated over time)",
+  "tdkTipSessCc": "Time the supply spent in current limit (CC)",
+  "tdkTipSessLim": "Time with the output current at its setpoint",
+  "tdkTipSessOff": "Time with the output switched off",
+  "tdkTipSessTrans": "How many times the regulation changed between CV and CC (inrush, load steps)"
 }
 )JSON";
 

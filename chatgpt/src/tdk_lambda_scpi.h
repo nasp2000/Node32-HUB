@@ -190,23 +190,132 @@ inline void tdkApplyMap(const float* f, uint8_t n, const uint8_t map[6],
     if (uvl)   *uvl   = pick(5) * scaleV + offV;
 }
 
+// Window aggregator: one CSV row can cover several polls. A single 1-minute
+// sample hides a spike; min/max inside the window shows it, and the energy is
+// integrated with the rectangle rule between samples (Wh).
+struct TdkAgg {
+    uint16_t n;
+    float    vMin, vMax, iMin, iMax;
+    double   vSum, iSum;
+    double   wh;        // energy of the window
+    uint32_t lastMs;    // millis() of the previous add (for the integral)
+    float    prevV, prevI;
+    bool     started;
+
+    TdkAgg() { clear(0); }
+
+    void clear(uint32_t nowMs) {
+        n = 0;
+        vMin = vMax = iMin = iMax = 0;
+        vSum = iSum = wh = 0;
+        prevV = prevI = 0;
+        lastMs = nowMs;
+        started = false;
+    }
+
+    void add(float v, float i, uint32_t nowMs) {
+        if (!started) {
+            vMin = vMax = v;
+            iMin = iMax = i;
+            started = true;
+            lastMs = nowMs;
+            prevV = v;
+            prevI = i;
+            vSum += v;
+            iSum += i;
+            n = 1;
+            return;
+        }
+        if (v < vMin) vMin = v;
+        if (v > vMax) vMax = v;
+        if (i < iMin) iMin = i;
+        if (i > iMax) iMax = i;
+        if (nowMs > lastMs) {
+            const double dtH = (double)(nowMs - lastMs) / 3600000.0;
+            wh += (double)prevV * (double)prevI * dtH;   // power held since the last sample
+        }
+        prevV = v;
+        prevI = i;
+        lastMs = nowMs;
+        vSum += v;
+        iSum += i;
+        ++n;
+    }
+
+    // Integrate the tail up to `nowMs` (the last sample is held until the row is written).
+    void close(uint32_t nowMs) {
+        if (started && nowMs > lastMs) {
+            const double dtH = (double)(nowMs - lastMs) / 3600000.0;
+            wh += (double)prevV * (double)prevI * dtH;
+            lastMs = nowMs;
+        }
+    }
+
+    float vAvg() const { return n ? (float)(vSum / (double)n) : 0.0f; }
+    float iAvg() const { return n ? (float)(iSum / (double)n) : 0.0f; }
+};
+
+// Session counters (since boot, RAM only): energy, time in CC, time at the
+// current limit, time with the output off, CV<->CC transitions.
+struct TdkSession {
+    double   wh;
+    uint32_t ccMs, limMs, offMs, transitions;
+    char     lastMode[4];
+
+    TdkSession() { clear(); }
+
+    void clear() {
+        wh = 0;
+        ccMs = limMs = offMs = transitions = 0;
+        lastMode[0] = '\0';
+    }
+
+    // `limit` = the current is at the setpoint (the supply is in current limit).
+    void add(float v, float i, const char* mode, bool outOn, bool limit, uint32_t dtMs) {
+        const double dtH = (double)dtMs / 3600000.0;
+        if (outOn) wh += (double)v * (double)i * dtH;
+        else       offMs += dtMs;
+        const bool cv = (mode && mode[0] == 'C' && mode[1] == 'V');
+        const bool cc = (mode && mode[0] == 'C' && mode[1] == 'C');
+        if (cc) ccMs += dtMs;
+        if (limit) limMs += dtMs;
+        const bool wasCv = (lastMode[0] == 'C' && lastMode[1] == 'V');
+        const bool wasCc = (lastMode[0] == 'C' && lastMode[1] == 'C');
+        if ((cv && wasCc) || (cc && wasCv)) ++transitions;
+        if (mode && mode[0]) snprintf(lastMode, sizeof(lastMode), "%s", mode);
+    }
+};
+
 // One CSV row. sensorFmt = the temperature-sensor style (key, value pairs);
 // otherwise a plain column line. Returns the written length (0 on bad args).
-//   sensor: "2026-11-26 10:00:00, vout, 599.99, vset, 600.00, ... mode, CV, out, ON"
-//   table : "2026-11-26 10:00:00,599.99,600.00,0.500,1.300,300.00,660.0,0.0,CV,1"
+// The row carries the window aggregate: average V/I, power, min/max and Wh.
+//   sensor: "2026-11-26 10:00:00, vout, 599.99, vmin, 599.10, ..., wh, 13.060, n, 6"
+//   table : "2026-11-26 10:00:00,599.99,600.00,0.500,1.300,300.00,660.0,0.0,CV,1,6,599.10,600.40,0.480,0.520,13.060"
 inline size_t tdkFormatCsvRow(char* out, size_t outSize, const char* ts, bool sensorFmt,
                               float vM, float vS, float iM, float iS,
-                              float ovp, float uvl, const char* mode, bool outOn) {
+                              float ovp, float uvl, const char* mode, bool outOn,
+                              const TdkAgg* agg) {
     if (!out || outSize == 0) return 0;
     const char* md = (mode && mode[0]) ? mode : "--";
-    const int n = sensorFmt
+    const uint16_t n = (agg && agg->n) ? agg->n : 1;
+    const float vA = (agg && agg->n) ? agg->vAvg() : vM;
+    const float iA = (agg && agg->n) ? agg->iAvg() : iM;
+    const float vMin = (agg && agg->n) ? agg->vMin : vM;
+    const float vMax = (agg && agg->n) ? agg->vMax : vM;
+    const float iMin = (agg && agg->n) ? agg->iMin : iM;
+    const float iMax = (agg && agg->n) ? agg->iMax : iM;
+    const double wh = (agg && agg->n) ? agg->wh : 0.0;
+    const int k = sensorFmt
         ? snprintf(out, outSize,
-                   "%s, vout, %.2f, vset, %.2f, iout, %.3f, iset, %.3f, power, %.2f, "
+                   "%s, vout, %.2f, vmin, %.2f, vmax, %.2f, iout, %.3f, imin, %.3f, imax, %.3f, "
+                   "power, %.2f, wh, %.3f, n, %u, vset, %.2f, iset, %.3f, "
                    "ovp, %.1f, uvl, %.1f, mode, %s, out, %s",
-                   ts ? ts : "", vM, vS, iM, iS, vM * iM, ovp, uvl, md, outOn ? "ON" : "OFF")
+                   ts ? ts : "", vA, vMin, vMax, iA, iMin, iMax,
+                   (double)vA * iA, wh, (unsigned)n, vS, iS, ovp, uvl, md, outOn ? "ON" : "OFF")
         : snprintf(out, outSize,
-                   "%s,%.2f,%.2f,%.3f,%.3f,%.2f,%.1f,%.1f,%s,%d",
-                   ts ? ts : "", vM, vS, iM, iS, vM * iM, ovp, uvl, md, outOn ? 1 : 0);
-    if (n <= 0) return 0;
-    return ((size_t)n < outSize) ? (size_t)n : (outSize - 1);
+                   "%s,%.2f,%.2f,%.3f,%.3f,%.2f,%.1f,%.1f,%s,%d,%u,%.2f,%.2f,%.3f,%.3f,%.3f",
+                   ts ? ts : "", vA, vS, iA, iS, (double)vA * iA, ovp, uvl, md,
+                   outOn ? 1 : 0, (unsigned)n, vMin, vMax, iMin, iMax, wh);
+    if (k <= 0) return 0;
+    return ((size_t)k < outSize) ? (size_t)k : (outSize - 1);
 }

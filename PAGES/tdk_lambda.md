@@ -74,7 +74,8 @@ div.page.tdk-lambda > div.wrap          ← the asset opens its own page/wrap
 │   └ div.section-box 5) CSV log
 │       ├ .tdk-grid 4 tiles   #csvBackend (SD/LittleFS) · #csvPath · #csvRows · #csvFormat
 │       ├ #tdkCsvAuto         (auto/manual + map em uso)
-│       ├ linha de controlo   #tdkPoll #tdkPollSec #tdkCsvOn #tdkFmt [Flush now] [Download CSV]
+│       ├ linha de controlo   #tdkPoll #tdkPollSec #tdkCsvEvery #tdkCsvOn #tdkFmt [Flush now] [Download CSV]
+│       ├ h4.tdk-subtitle "Since boot" + 5 quadros: #sessWh #sessCc #sessLim #sessOff #sessTrans
 │       └ h4.tdk-subtitle "Last polls" + tabela #tdkPrevBody — as últimas **8** leituras
 │         (hora, V, A) do mesmo buffer do gráfico; nenhum endpoint novo
 ├ div.tdk-panel[data-tab=profile]
@@ -119,7 +120,8 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
 | Permitir escrita | `tdkAllowW` | sem isto, só passa a **allow-list de leitura** (`MV? MC? DVC? STT? STAT? FLT? MODE? OUT? IDN? …`); `PV/PC/OUT/OVP/RMT/SAV/G*` → 403 |
 | Filtro do catálogo | `tdkSearch` | filtra por comando/grupo/descrição/notas |
 | Polling | `tdkPoll` | checkbox; grava na hora (`POST /api/tdk-lambda-config`) |
-| Intervalo | `tdkPollSec` | 5…3600 s (servidor volta a limitar) |
+| Intervalo | `tdkPollSec` | 5…3600 s entre **leituras** (servidor volta a limitar) |
+| Linhas por leitura | `tdkCsvEvery` | 1…60: uma linha de CSV a cada N leituras. Com N>1 a linha leva **min/média/máx** e a energia da janela (`samples,v_min,v_max,i_min,i_max,wh`) |
 | Gravar CSV | `tdkCsvOn` | checkbox |
 | Formato CSV | `tdkFmt` | `sensor` (chave, valor — igual aos sensores de temperatura) ou `table` (colunas) |
 | Modo do perfil | `tdkMode2` | `dvc` (uma pergunta devolve N campos) ou `split` (V e I separadas) |
@@ -211,6 +213,38 @@ Desenhado **no browser** (canvas 2D), com os dados de `/api/tdk-lambda-samples`:
   gráfico a ignorar (sem o prefixo, a data ISO seria lida como `2026,-11,-26,10,0,0` e
   criava uma linha de lixo no gráfico).
 
+### 8.1 Esquema do CSV (v2)
+
+Uma linha por janela de `csv_every` leituras (1 = cada leitura, comportamento antigo):
+
+```
+v2 (tabela):  timestamp,v_meas,v_set,i_meas,i_set,p_w,ovp,uvl,mode,out,samples,v_min,v_max,i_min,i_max,wh
+v2 (sensor):  ts, vout, 600.22, vmin, ... , wh, 13.060, n, 6, vset, ... , mode, CV, out, ON
+v1 (antigo):  timestamp,v_meas,v_set,i_meas,i_set,p_w,ovp,uvl,mode,out
+```
+
+- `v_meas`/`i_meas` são a **média** da janela; `p_w` = média × média;
+- `v_min/v_max/i_min/i_max` apanham o pico **dentro** da janela (um único sample de 60 s esconde-o);
+- `wh` = energia da janela (regra do rectângulo entre amostras);
+- `samples` = quantas leituras entraram na linha (1 no esquema antigo).
+
+Contadores de sessão (RAM, desde o arranque) no `/api/tdk-lambda-status` e nos quadros
+"Since boot" da página: `sessionWh`, `sessionCcMs`, `sessionLimitMs`, `sessionOffMs`,
+`cvccTransitions` (mudanças CV↔CC). `csvRowMs` = cadência nominal da linha (`poll × N`).
+
+### 8.2 Relatório do CSV
+
+`tests/packs/rs232/tdk_csv_report.py` (só stdlib) lê o ficheiro do dia — v1, v2 ou sensor — e
+devolve: energia (kWh), potência média/pico, R aparente (mín/média/máx), tempo em CC, tempo no
+limite, tempo com saída desligada, standby, transições CV↔CC, deriva entre a primeira e a última
+hora **com carga**, tabela hora a hora, as 5 maiores excursões dentro de uma linha e um gráfico SVG.
+
+```bash
+python3 tests/packs/rs232/tdk_csv_report.py TDK_27-11-2026.csv --out report.md --svg report.svg
+python3 tests/packs/rs232/tdk_csv_report.py --selftest    # v1/v2/sensor + energia/CC/limite/SVG
+```
+
+
 ## 9. Runtime engine
 
 - `tdkLambdaBegin()` (setup): lê a config; o módulo não abre UART.
@@ -279,6 +313,7 @@ silêncio).
 | 5 | Modo *listener* não distingue `DVC?` de outras linhas de 6 campos | Low | usar `STT?` como marcador quando o PLC o pedir |
 | 6 | `fitForPanel()` usava `OLED_TEXT_SIZE` para todos os painéis → a vista 2.42" cortava a 10 caracteres | **Fixed** | cols do perfil (`activeDisplayProfile().textSize`); 2.42" = 1 → 21 caracteres |
 | 7 | 15 construtores de cartões com `#if` de packs dentro do `screen.cpp` | **Fixed** | `screen_cards.h` (modelo) + `screen_cards_pack.h` (construtores); o core só roda |
+| 9 | CSV mudou de esquema (v2: `samples`, `v_min…`, `wh`) | Info | o cabeçalho identifica a versão; leitores antigos que indexem colunas por posição devem usar o header |
 | 8 | Cartões de proximidade/Modbus/CAN/USB/rádio sem marca de dados velhos | Low | **parcial**: ambiente, TDK e **Modbus** (`lastPollMs` > 3× intervalo → `~`); CAN/USB/rádio não têm timestamp no runtime — precisam de um `lastRxMs` antes de poderem marcar |
 
 ## 12. Source map
@@ -296,4 +331,5 @@ silêncio).
 | Handlers (WiFi+Ethernet) | `chatgpt/src/webpages/handlers_unified/tdk_lambda_handler.{h,cpp}` |
 | Ethernet page | `ethernet_bootstrap_routes.h` (`/tdk-lambda`) + `web_shared_pages.{h,cpp}` |
 | Hooks | `loop_impl.h` (RX copy + TX echo), `setup_impl.h` (`tdkLambdaBegin`) |
-| Config | `ConfigManager.h` (`get/setTdkLambda*`), `ConfigManager.cpp` (defaults) |
+| Config | `ConfigManager.h` (`get/setTdkLambda*`, incl. `csv_every`), `ConfigManager.cpp` (defaults) |
+| Análise do CSV | `tests/packs/rs232/tdk_csv_report.py` (relatório + SVG, `--selftest`) |
