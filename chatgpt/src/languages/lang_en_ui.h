@@ -3471,7 +3471,15 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "tdkTipThReply": "Reply format",
   "tdkTipThNotes": "Cautions and model differences",
   "tdkTipThSend": "Load the command into the console",
-  "tdkTipIdn": "Identification strings answered by the supply"
+  "tdkTipIdn": "Identification strings answered by the supply",
+  "tdkCsvPrevTitle": "Last polls (ring buffer)",
+  "tdkTipCsvBackend": "Storage backend: SD card when mounted, otherwise LittleFS at the same path",
+  "tdkTipCsvPath": "File path of the day",
+  "tdkTipCsvRows": "Rows written to that file today",
+  "tdkTipCsvFormat": "sensor: key,value pairs; table: one column per value",
+  "tdkTipThTime": "Time of the poll",
+  "tdkTipThVolt": "Measured voltage",
+  "tdkTipThAmp": "Measured current"
 }
 )JSON";
 

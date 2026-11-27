@@ -3471,7 +3471,15 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "tdkTipThReply": "Formato da resposta",
   "tdkTipThNotes": "Cuidados e diferenças entre modelos",
   "tdkTipThSend": "Carregar o comando na consola",
-  "tdkTipIdn": "Cadeias de identificação respondidas pela fonte"
+  "tdkTipIdn": "Cadeias de identificação respondidas pela fonte",
+  "tdkCsvPrevTitle": "Últimas leituras (buffer circular)",
+  "tdkTipCsvBackend": "Armazenamento: cartão SD quando montado, senão LittleFS no mesmo caminho",
+  "tdkTipCsvPath": "Caminho do ficheiro do dia",
+  "tdkTipCsvRows": "Linhas gravadas nesse ficheiro hoje",
+  "tdkTipCsvFormat": "sensor: pares chave,valor; table: uma coluna por valor",
+  "tdkTipThTime": "Hora da leitura",
+  "tdkTipThVolt": "Tensão medida",
+  "tdkTipThAmp": "Corrente medida"
 }
 )JSON";
 

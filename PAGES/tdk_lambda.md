@@ -71,7 +71,12 @@ div.page.tdk-lambda > div.wrap          ← the asset opens its own page/wrap
 ├ div.tdk-panel[data-tab=console]
 │   └ div.section-box 4) Console  #tdkListen #tdkAllowW #tdkGuardMsg + #tdkCmd + botões + pre#tdkLog
 ├ div.tdk-panel[data-tab=csv]
-│   └ div.section-box 5) CSV log  #tdkCsv + #tdkPoll #tdkPollSec #tdkCsvOn #tdkFmt [Flush now] [Download CSV]
+│   └ div.section-box 5) CSV log
+│       ├ .tdk-grid 4 tiles   #csvBackend (SD/LittleFS) · #csvPath · #csvRows · #csvFormat
+│       ├ #tdkCsvAuto         (auto/manual + map em uso)
+│       ├ linha de controlo   #tdkPoll #tdkPollSec #tdkCsvOn #tdkFmt [Flush now] [Download CSV]
+│       └ h4.tdk-subtitle "Last polls" + tabela #tdkPrevBody — as últimas **8** leituras
+│         (hora, V, A) do mesmo buffer do gráfico; nenhum endpoint novo
 ├ div.tdk-panel[data-tab=profile]
 │   └ div.section-box 6) Supply profile  presets + campos + #tdkInject #tdkAuto + [Save profile] [Save the detected]
 └ div.tdk-panel[data-tab=commands]
@@ -81,6 +86,11 @@ div.page.tdk-lambda > div.wrap          ← the asset opens its own page/wrap
 `.tdk-panel[data-tab]`; `tdkInitTabs()` cria os botões, activa o painel por omissão
 (`data-tab-default`) ou o último usado (`localStorage.tdk_tab`) e `tdkShowTab(key)` permite saltar
 de fora (usado pelo botão `use` do catálogo, que carrega o comando e passa ao Console).
+
+**Separador CSV**: quatro quadros com o estado real do ficheiro (backend, caminho, linhas de hoje,
+formato), a nota de perfil automático/manual e a tabela das últimas 8 leituras — tudo do
+`/api/tdk-lambda-samples` que o gráfico já usa, por isso o custo em firmware é **zero** e o
+separador deixou de ser uma caixa vazia.
 
 **Sobreposições ao `core.css`** (necessárias nesta página): o core dá a **todos** os botões
 `width:100%;max-width:420px;margin:6px auto`, o que transformava a barra de separadores num

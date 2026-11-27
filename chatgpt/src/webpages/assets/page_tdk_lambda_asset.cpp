@@ -47,6 +47,8 @@ const char PAGE_TDK_LAMBDA[] PROGMEM = R"rawliteral(
   .tdk-tbl th{color:#93c5fd;position:sticky;top:0;background:#0f172a}
   .tdk-scroll{max-height:340px;overflow:auto}
   .tdk-note{font-size:12px;color:#94a3b8}
+  /* sub-heading inside a section (not a .section-title: that one is per box) */
+  .tdk-subtitle{margin:16px 0 6px 0;font-size:14px;color:#60a5fa;font-weight:bold}
   .tdk-badge{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700}
   .tdk-badge.ok{background:#052e16;color:#4ade80;border:1px solid #14532d}
   .tdk-badge.warn{background:#3b1d05;color:#fbbf24;border:1px solid #78350f}
@@ -145,7 +147,13 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
 <div class='tdk-panel' data-tab='csv'>
   <div class='section-box'>
     <h3 class='section-title'>5) CSV log</h3>
-    <div id='tdkCsv' title='File path, storage backend and buffered lines' data-i18n-title='tdkTipCsvBox'>--</div>
+    <div class='tdk-grid'>
+      <div class='tdk-val' title='Storage backend: SD card when mounted, otherwise LittleFS at the same path' data-i18n-title='tdkTipCsvBackend'><div class='k'>Backend</div><div class='v' id='csvBackend' style='font-size:16px'>--</div></div>
+      <div class='tdk-val wide' title='File path of the day' data-i18n-title='tdkTipCsvPath'><div class='k'>File</div><div class='v' id='csvPath' style='font-size:12px;word-break:break-all'>--</div></div>
+      <div class='tdk-val' title='Rows written to that file today' data-i18n-title='tdkTipCsvRows'><div class='k'>Rows today</div><div class='v' id='csvRows' style='font-size:20px'>--</div></div>
+      <div class='tdk-val' title='sensor: key,value pairs; table: one column per value' data-i18n-title='tdkTipCsvFormat'><div class='k'>Format</div><div class='v' id='csvFormat' style='font-size:14px'>--</div></div>
+    </div>
+    <div class='tdk-note' id='tdkCsvAuto' style='margin-top:8px'>--</div>
     <div class='tdk-row' style='margin-top:10px'>
       <label class='tdk-note' title='Ask the supply for values at the interval below and keep them in the trend buffer' data-i18n-title='tdkTipPoll'><input type='checkbox' id='tdkPoll' onchange='tdkSaveCfg()'> Automatic polling</label>
       <label class='tdk-field' title='Seconds between polls, 5 to 3600; one poll is one CSV row' data-i18n-title='tdkTipPollSec'>Interval (s) <input type='number' id='tdkPollSec' min='5' max='3600' value='60' style='width:90px' onchange='tdkSaveCfg()'></label>
@@ -159,8 +167,16 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
       <button class='btn' onclick='tdkCsvFlush()' title='Write the buffered lines to the file now, without waiting for the automatic flush' data-i18n-title='tdkTipFlush'>&#128190; Flush now</button>
       <a class='btn' href='/api/tdk-lambda-csv' download='TDK.csv' style='text-decoration:none' title='Download the CSV of the current day from the device' data-i18n-title='tdkTipDownload'>&#11015; Download CSV</a>
     </div>
+    <h4 class='tdk-subtitle' data-i18n='tdkCsvPrevTitle'>Last polls (ring buffer)</h4>
+    <div class='tdk-scroll' style='max-height:340px'>
+      <table class='tdk-tbl'>
+        <thead><tr><th title='Time of the poll' data-i18n-title='tdkTipThTime'>Time</th><th title='Measured voltage' data-i18n-title='tdkTipThVolt'>V</th><th title='Measured current' data-i18n-title='tdkTipThAmp'>A</th></tr></thead>
+        <tbody id='tdkPrevBody'><tr><td colspan='3' class='tdk-note'>no samples yet.</td></tr></tbody>
+      </table>
+    </div>
     <p class='tdk-note'>CSV lives at <code>/&lt;system&gt;/TDK_DD-MM-YYYY.csv</code> &mdash; on the SD card when available,
-    otherwise on LittleFS at the same path (written at the configured flush interval).</p>
+    otherwise on LittleFS at the same path (written at the configured flush interval). The table above is
+    the same ring buffer the trend draws from.</p>
   </div>
 </div>
 
@@ -263,12 +279,13 @@ function tdkStatus(){
     _tdkQ('tdkIdn').textContent=st.idn||'--';
     _tdkQ('tdkRev').textContent=st.rev||'--';
     _tdkQ('tdkSn').textContent=st.sn||'--';
-    _tdkQ('tdkCsv').innerHTML='<span class="tdk-note">'+(st.csvOnSd?'SD':'LittleFS')+' &middot; '+
-      (st.csvSensorFormat?'sensor format':'table format')+' &middot; '+
-      _tdkEsc(st.csvPath||'')+' &middot; rows '+(st.csvRows||0)+'</span>';
-    _tdkQ('tdkCsv').innerHTML+='<div class="tdk-note" style="margin-top:4px">'+
-      (st.autoMap?(st.autoNote?('auto ['+_tdkEsc(st.autoNote)+']'):'auto (no detection - saved profile in use)'):'manual (fixed)')+
-      ' &middot; map '+(st.mapUsed||'--')+'</div>';
+    _tdkQ('csvBackend').textContent=(st.csvOnSd?'SD card':'LittleFS');
+    _tdkQ('csvPath').textContent=st.csvPath||'--';
+    _tdkQ('csvRows').textContent=(st.csvRows||0);
+    _tdkQ('csvFormat').textContent=(st.csvSensorFormat?'sensor':'table');
+    _tdkQ('tdkCsvAuto').textContent=
+      (st.autoMap?(st.autoNote?('auto ['+st.autoNote+']'):'auto (no detection - saved profile in use)'):'manual (fixed)')+
+      ' \u00B7 map '+(st.mapUsed||'--');
   }).catch(function(){_tdkQ('tdkStatus').innerHTML='<span class="tdk-badge warn">no response</span>';});
 }
 
@@ -341,6 +358,20 @@ function tdkDrawTrend(rows){
   ctx.fillText(sI.lo.toFixed(2),W-40,H-10);
   _tdkQ('tdkTrendInfo').textContent=rows.length+' pts \u00B7 V '+minV.toFixed(1)+'-'+maxV.toFixed(1)+
                                        ' \u00B7 A '+minI.toFixed(2)+'-'+maxI.toFixed(2);
+  tdkRenderPrev(rows);
+}
+
+/* Last 8 polls, newest first: what the CSV rows carry (the file itself is a
+   download, this is the same ring buffer the chart draws). */
+function tdkRenderPrev(rows){
+  var tb=_tdkQ('tdkPrevBody');
+  if(!tb){return;}
+  var out='',n=Math.min(8,rows.length);
+  for(var i=rows.length-1;i>=rows.length-n;i--){
+    var t=rows[i][0]?new Date(rows[i][0]*1000).toLocaleTimeString():'--';
+    out+='<tr><td>'+_tdkEsc(t)+'</td><td>'+Number(rows[i][1]).toFixed(2)+'</td><td>'+Number(rows[i][2]).toFixed(3)+'</td></tr>';
+  }
+  tb.innerHTML=out||'<tr><td colspan="3" class="tdk-note">no samples yet.</td></tr>';
 }
 
 function tdkSend(){
