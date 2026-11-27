@@ -275,3 +275,60 @@ TEST_CASE("tdkPendingForSend: DVC? stays the bulk query in dvc mode") {
     CHECK(tdkPendingForSend("STAT?", "VOUT?", "IOUT?", "STAT?") == TDK_P_MODE);
     CHECK(tdkPendingForSend("IDN?", "DVC?", "MC?", "MODE?") == TDK_P_OTHER);
 }
+
+TEST_CASE("bench lines: swap and mV/mA replies come out as 600 V / 1.28 A") {
+    // The two reply shapes the simulator emits, end to end: parse -> suggest ->
+    // apply. This is the exact path the poll takes after the DVC? fix.
+    struct Case { const char* line; uint8_t n; };
+    const Case cases[] = {
+        {"1.30,1.28,600.0000,599.9600,660.0,0.000", 6},          // swap
+        {"599930.0000,600000.0000,1276.50,1300.00,660000.0,0.000", 6}, // mV/mA
+    };
+    for (const Case& c : cases) {
+        float f[16];
+        const uint8_t n = tdkParseFloats(c.line, f, 16);
+        REQUIRE(n == c.n);
+        uint8_t map[6] = {0, 1, 2, 3, 4, 5};
+        float sv = 1.0f, si = 1.0f;
+        char why[64] = {0};
+        REQUIRE(tdkSuggestMap(f, n, 600.0f, 1.3f, map, &sv, &si, why, sizeof(why)) == 1);
+        float vM, vS, iM, iS, ovp, uvl;
+        tdkApplyMap(f, n, map, sv, si, 0.0f, 0.0f, &vM, &vS, &iM, &iS, &ovp, &uvl);
+        CHECK(vM == doctest::Approx(599.96f).epsilon(0.001));
+        CHECK(vS == doctest::Approx(600.00f).epsilon(0.001));
+        CHECK(iM == doctest::Approx(1.28f).epsilon(0.01));
+        CHECK(iS == doctest::Approx(1.30f).epsilon(0.01));
+        // direction matters: measured current is the one under the limit
+        CHECK(iM <= iS + 0.005f);
+        CHECK(ovp == doctest::Approx(660.0f).epsilon(0.01));
+    }
+}
+
+TEST_CASE("tdkSuggestMap: the measured current is the one under the limit") {
+    // Swap reply (Iset, Imeas, Vset, Vmeas): the V pair agrees within ripple, so
+    // only the current pair can orient the layout. It used to come back as
+    // {2,3,0,1} (iMeas=1.30 above its own 1.28 limit).
+    const float f[6] = {1.30f, 1.28f, 600.09f, 599.96f, 660.0f, 0.0f};
+    uint8_t map[6] = {0, 1, 2, 3, 4, 5};
+    float sv = 1, si = 1; char why[64] = {0};
+    REQUIRE(tdkSuggestMap(f, 6, 600.0f, 1.3f, map, &sv, &si, why, sizeof(why)) == 1);
+    CHECK(map[0] == 3); CHECK(map[1] == 2); CHECK(map[2] == 1); CHECK(map[3] == 0);
+}
+
+TEST_CASE("tdkMapPlausible: keeps the layout when only ripple separates the pairs") {
+    // genh with the measured voltage a hair above the setpoint: identity map is
+    // still right and must not be swapped on every poll.
+    const float up[6]   = {600.11f, 600.00f, 1.28f, 1.30f, 660.0f, 0.0f};
+    const float down[6] = {599.89f, 600.00f, 1.28f, 1.30f, 660.0f, 0.0f};
+    const uint8_t id[6] = {0, 1, 2, 3, 4, 5};
+    CHECK(tdkMapPlausible(up,   6, id, 1.0f, 1.0f, 600.0f, 1.3f));
+    CHECK(tdkMapPlausible(down, 6, id, 1.0f, 1.0f, 600.0f, 1.3f));
+
+    // Wrong scale (mV/mA read as volts/amps) and wrong pair (current in the V
+    // slot) are rejected.
+    const float mvma[6] = {599930.0f, 600000.0f, 1276.5f, 1300.0f, 660000.0f, 0.0f};
+    CHECK_FALSE(tdkMapPlausible(mvma, 6, id, 1.0f, 1.0f, 600.0f, 1.3f));
+    CHECK(tdkMapPlausible(mvma, 6, id, 0.001f, 0.001f, 600.0f, 1.3f));
+    const float swap[6] = {1.30f, 1.28f, 600.09f, 599.96f, 660.0f, 0.0f};
+    CHECK_FALSE(tdkMapPlausible(swap, 6, id, 1.0f, 1.0f, 600.0f, 1.3f));
+}

@@ -204,6 +204,19 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
   por isso `tdkLambdaApplyProfile()` valida as três queries (têm de terminar em `?`) quando a
   escrita está desligada. Só depois enfileira no **pipeline RS232** (`enqueueRS232Command`) — respeita baud, XOFF/XON,
   template e pacing do RS232. Não abre UART própria.
+- **`DVC?` é sempre a leitura múltipla**: em modo `dvc` o próprio `cmd_v` é `DVC?`, e a
+  classificação da resposta passou a olhar para o comando conhecido antes do "lugar" do perfil
+  (`tdkPendingForSend`). Antes, `DVC?` caía no lugar de tensão e a resposta de seis campos era
+  lida como um único float: só `vMeas` mudava e a auto-detecção nunca via os seis campos (medição
+  na bancada: resposta `swap` dava `vMeas=1.30`, resposta em mV/mA dava `vMeas=599940` com escala 1).
+- **Sem resposta não trava**: um pedido sem resposta é libertado ao fim de `tdkReplyTimeoutMs()`
+  (3…15 s) e o ciclo volta a tentar no intervalo seguinte
+  (*"no reply (timeout) - retrying next interval"* no monitor).
+- **Baud**: o módulo usa a RS232 do pack (`baudrate`, frame e flow da página **RS232**), não uma
+  porta própria. Na bancada o Node32 corre a **19200 8N1**; o simulador tem de estar no mesmo baud.
+- **Auto-detecção** (`applyAutoMap`): corre na resposta múltipla do poll e também numa linha
+  multi-campo não pedida (modo escuta). Nunca grava o perfil; o botão **➕ Gravar o detetado**
+  é que o torna manual.
 - `config`: `setTdkLambda()` persiste (config doc, `markDirtyAndScheduleSave`) e aplica em
   runtime (`tdkLambdaSetPoll/SetCsv`).
 - `csv-flush`: força a escrita do buffer (útil antes de desligar); normalmente é a janela de 30 min ou a marca de água de 96 KB que grava.

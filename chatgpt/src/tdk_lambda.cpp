@@ -409,6 +409,10 @@ void applyAutoMap(const float* f, uint8_t n) {
     bool differs = (fabsf(sv - s_scaleV) > 1e-6f) || (fabsf(si - s_scaleI) > 1e-6f);
     for (uint8_t k = 0; k < 6; ++k) if (sug[k] != s_map[k]) differs = true;
     if (!differs) return;
+    // Keep the layout in use when it already explains the reply: at CV the two
+    // voltage orders are separated by ripple alone, and flipping them on every
+    // poll only makes vMeas/vSet jitter and the monitor noisy.
+    if (tdkMapPlausible(f, n, s_map, s_scaleV, s_scaleI, s_rateV, s_rateI)) return;
     for (uint8_t k = 0; k < 6; ++k) s_map[k] = sug[k];
     s_scaleV = sv;
     s_scaleI = si;

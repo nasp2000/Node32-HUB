@@ -130,9 +130,10 @@ inline int tdkSuggestMap(const float* f, uint8_t n, float rateV, float rateI,
             // Voltage setpoint vs measured: the only field pair that must agree
             // (current measured can legitimately be below the limit).
             float err = fabsf(vM - vS) / (vS > 1.0f ? vS : 1.0f);
-            // Measured current cannot exceed its own limit (direction matters:
-            // it tells Imeas from Iset when the values differ a lot).
-            if (iM > iS + (iS * 0.05f) + 0.01f) err += 0.3f;
+            // Measured current cannot exceed its own limit beyond noise. This is
+            // the rule that tells Imeas from Iset: the two orders differ by the
+            // limit-vs-measured gap, which is small at the bench (1.30 / 1.28).
+            if (iM > iS * 1.01f + 0.005f) err += 0.5f;
             err += (float)si * 1e-4f;   // tie-break: prefer the largest scale that fits
             if (n >= 5) {
                 const float ovp = f[m[4]] * s;
@@ -151,6 +152,31 @@ inline int tdkSuggestMap(const float* f, uint8_t n, float rateV, float rateI,
                  outMap[0], outMap[1], outMap[2], outMap[3], outMap[4], outMap[5], bestScale);
     }
     return 1;
+}
+
+// Does a layout already explain this reply? Used to keep the profile stable:
+// at CV the measured and set voltage differ only by ripple, so the two orders
+// are numerically identical and must not flip on every poll.
+inline bool tdkMapPlausible(const float* f, uint8_t n, const uint8_t map[6],
+                            float scaleV, float scaleI, float rateV, float rateI) {
+    if (!f || n < 4 || !map) return false;
+    if (rateV <= 0) rateV = 600.0f;
+    if (rateI <= 0) rateI = 1.3f;
+    auto pick = [&](uint8_t slot) -> float {
+        return (map[slot] < n) ? f[map[slot]] : 0.0f;
+    };
+    const float vM = pick(0) * scaleV, vS = pick(1) * scaleV;
+    const float iM = pick(2) * scaleI, iS = pick(3) * scaleI;
+    if (vS < rateV * 0.02f || vS > rateV * 1.25f) return false;
+    if (vM < 0 || vM > rateV * 1.25f) return false;
+    if (iS < 0 || iS > rateI * 1.25f || iM < 0 || iM > rateI * 1.25f) return false;
+    if (iM > iS * 1.02f + 0.01f) return false;              // above its own limit
+    if (vS > 0 && fabsf(vM - vS) > 0.05f * vS) return false; // V pair must agree
+    if (n >= 5) {
+        const float ovp = pick(4) * scaleV;
+        if (ovp < vS * 0.9f) return false;
+    }
+    return true;
 }
 
 // Query classification (the reply parser needs to know what it asked for).
