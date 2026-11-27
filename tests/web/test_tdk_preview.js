@@ -32,7 +32,7 @@ function extractFn(src, name) {
 
 const asset = fs.readFileSync(SRC, 'utf8');
 const CODE = ['_tdkQ', '_tdkEsc', 'tdkRenderPrev', '_tdkArmTrend', '_tdkAsleep',
-               'tdkStatus', 'tdkLog', 'tdkLoadTrend']
+               'tdkStatus', 'tdkLog', 'tdkLoadTrend', '_tdkLines']
   .map(function (n) { return extractFn(asset, n); }).join('\n') +
   '\nvar _tdkTrendTimer = null;\nfunction tdkLoadTrend(){}\n';
 
@@ -140,6 +140,21 @@ test('the trend refresh follows the poll cadence, one timer only', function () {
   is(lastMs, 60000, 'clamp min (1 min)');
   w._tdkArmTrend(3600000);          // above the ceiling -> 300 s
   is(lastMs, 300000, 'clamp max');
+});
+
+test('the commands tab shows what was sent and what came back', function () {
+  const dom = new JSDOM("<!doctype html><html><body>" +
+    "<div id='tdkCatSentLine'>TX> --</div><div id='tdkCatReplyLine'>RX  --</div>" +
+    "</body></html>", { runScripts: 'outside-only' });
+  const w = dom.window;
+  w.eval(CODE);
+  w._tdkLines('DVC?', 'waiting\u2026');
+  is(w.document.getElementById('tdkCatSentLine').textContent, 'TX> DVC?', 'sent line');
+  is(w.document.getElementById('tdkCatReplyLine').textContent, 'RX  waiting\u2026', 'waiting line');
+  w._tdkLines(null, '600.00,600.00,001.30,001.40,660.0,0.000');
+  is(w.document.getElementById('tdkCatSentLine').textContent, 'TX> DVC?', 'null leaves the TX line');
+  is(w.document.getElementById('tdkCatReplyLine').textContent,
+     'RX  600.00,600.00,001.30,001.40,660.0,0.000', 'reply line');
 });
 
 console.log('\n' + passed + '/' + (passed + failed) + ' passed');

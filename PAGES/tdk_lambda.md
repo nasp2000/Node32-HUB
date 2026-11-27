@@ -84,6 +84,8 @@ div.page.tdk-lambda > div.wrap          ← the asset opens its own page/wrap
     └ div.section-box 7) Commands
         ├ #tdkSearch (filtro) + linha de envio: #tdkCatSel (menu pendente com o catálogo),
         │  [Send] #tdkCatSendBtn, [Load] e #tdkCatSendMsg
+        ├ #tdkCatSentLine  "TX> <comando>"  — o que saiu (actualiza no Send e no poll do log)
+        ├ #tdkCatReplyLine "RX  <resposta>" — a última resposta da fonte, ao lado do comando
         └ .tdk-tbl 6 colunas (#tdkCat; **a linha inteira** carrega o comando → Console)
 
 **Separadores** (mesma organização de `/access`): o conteúdo é dividido em cinco painéis
@@ -94,7 +96,9 @@ de fora (usado pela **linha** do catálogo, que carrega o comando e passa ao Con
 **Envio pelo catálogo**: o menu pendente `#tdkCatSel` lista todos os comandos; **Send** envia
 directamente os que terminam em `?` (consultas) e, para um setpoint (`PV`, `PC`, `OUT`…), carrega a
 forma com valor para a Consola em vez de disparar algo sem valor — a mensagem diz o que falta.
-**Load** (ou clicar na linha) só preenche a consola.
+**Load** (ou clicar na linha) só preenche a consola. As duas linhas por baixo mostram **`TX> comando`**
+e **`RX resposta`** (a última do log, actualizada a cada poll de 3 s), para não ser preciso saltar
+para o separador Consola.
 
 **Catálogo**: seis colunas (Command, Group, Usage, Description, Reply, Notes), `table-layout:fixed`
 e `overflow-x:hidden` — **nunca há scroll horizontal**; em ecrãs <720 px escondem-se Group e Notes.

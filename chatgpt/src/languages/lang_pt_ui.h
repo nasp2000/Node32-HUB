@@ -3492,10 +3492,12 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "tdkTipCatSendBtn": "Enviar o comando seleccionado",
   "tdkTipCatLoad": "Carregar o comando seleccionado na consola",
   "tdkCatNeedsValue": "Precisa de um valor: edite-o na Consola e prima Enviar lá.",
-  "tdkCatSent": "Enviado — a resposta está no separador Consola.",
+  "tdkCatSent": "Enviado — a resposta aparece abaixo.",
   "statusTabSystem": "🖥️ Sistema",
   "statusTabModules": "🔌 Módulos e I/O",
-  "statusTabStorage": "💾 Armazenamento"
+  "statusTabStorage": "💾 Armazenamento",
+  "tdkTipCatSent": "Comando enviado a partir deste menu",
+  "tdkTipCatReply": "Última resposta da fonte"
 }
 )JSON";
 

@@ -58,6 +58,8 @@ const char PAGE_TDK_LAMBDA[] PROGMEM = R"rawliteral(
     .tdk-tbl th:nth-child(5){width:20%}
   }
   .tdk-note{font-size:12px;color:#94a3b8}
+  .tdk-line{font:12px/1.45 ui-monospace,Consolas,monospace;background:#020617;border:1px solid #1e293b;border-radius:6px;padding:6px 8px;margin-top:6px;white-space:pre-wrap;word-break:break-all;color:#93c5fd;cursor:help}
+  .tdk-line-rx{color:#fbbf24}
   /* sub-heading inside a section (not a .section-title: that one is per box) */
   .tdk-subtitle{margin:16px 0 6px 0;font-size:14px;color:#60a5fa;font-weight:bold}
   .tdk-badge{display:inline-block;padding:2px 7px;border-radius:999px;font-size:11px;font-weight:700}
@@ -254,6 +256,8 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
       <button class='btn' onclick='tdkCatLoad()' title='Load the selected command into the console' data-i18n-title='tdkTipCatLoad'>Load</button>
       <span class='tdk-note' id='tdkCatSendMsg'></span>
     </div>
+    <div class='tdk-line' id='tdkCatSentLine' title='Command sent from this menu' data-i18n-title='tdkTipCatSent'>TX&gt; --</div>
+    <div class='tdk-line tdk-line-rx' id='tdkCatReplyLine' title='Last reply from the supply' data-i18n-title='tdkTipCatReply'>RX  --</div>
     <div class='tdk-scroll' style='margin-top:10px'>
       <table class='tdk-tbl'>
         <thead><tr><th title='SCPI mnemonic; queries end with ?' data-i18n-title='tdkTipThCommand'>Command</th><th title='Catalogue group' data-i18n-title='tdkTipThGroup'>Group</th><th title='Typical syntax, with parameters where they exist' data-i18n-title='tdkTipThUsage'>Usage</th><th title='What the command does' data-i18n-title='tdkTipThDesc'>Description</th><th title='Reply format' data-i18n-title='tdkTipThReply'>Reply</th><th title='Cautions and model differences' data-i18n-title='tdkTipThNotes'>Notes</th></tr></thead>
@@ -342,8 +346,14 @@ function tdkLog(){
   if(_tdkAsleep()){return;}
   fetch('/api/tdk-lambda-log',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
     if(!d.success||!d.entries){return;}
-    var out='';
-    for(var i=0;i<d.entries.length;i++){out+='['+String(d.entries[i].dir)+'] '+_tdkEsc(d.entries[i].text)+'\n';}
+    var out='',lastRx='',lastTx='';
+    for(var i=0;i<d.entries.length;i++){
+      out+='['+String(d.entries[i].dir)+'] '+_tdkEsc(d.entries[i].text)+'\n';
+      var dir=String(d.entries[i].dir).toUpperCase();
+      if(dir==='RX'){lastRx=String(d.entries[i].text);}
+      else if(dir==='TX'){lastTx=String(d.entries[i].text);}
+    }
+    _tdkLines(lastTx||'--',lastRx||'--');
     var el=_tdkQ('tdkLog');
     el.textContent=out||'no lines yet.';
     el.scrollTop=el.scrollHeight;
@@ -631,6 +641,13 @@ function tdkCatLoad(){
   if(!p.cmd){return;}
   tdkUse(p.usage||p.cmd);
 }
+/* The two lines under the menu: what we sent, what came back. `null` leaves a
+   line untouched (the log poll only knows the RX side). */
+function _tdkLines(tx,rx){
+  var a=_tdkQ('tdkCatSentLine'), b=_tdkQ('tdkCatReplyLine');
+  if(a&&tx!==null&&tx!==undefined){a.textContent='TX> '+tx;}
+  if(b&&rx!==null&&rx!==undefined){b.textContent='RX  '+rx;}
+}
 function tdkCatSend(){
   var p=tdkCatPick(), msg=_tdkQ('tdkCatSendMsg');
   if(!p.cmd){return;}
@@ -641,8 +658,9 @@ function tdkCatSend(){
     if(msg){msg.textContent=_tdkT('tdkCatNeedsValue','Needs a value: edit it in the Console and press Send there.');}
     return;
   }
+  _tdkLines(p.cmd,'waiting\u2026');
   tdkQuick(p.cmd);
-  if(msg){msg.textContent=_tdkT('tdkCatSent','Sent \u2014 the reply is in the Console tab.');}
+  if(msg){msg.textContent=_tdkT('tdkCatSent','Sent \u2014 the reply appears below.');}
 }
 function tdkRenderCatSel(){
   var sel=_tdkQ('tdkCatSel');

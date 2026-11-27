@@ -3492,10 +3492,12 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "tdkTipCatSendBtn": "Send the selected command",
   "tdkTipCatLoad": "Load the selected command into the console",
   "tdkCatNeedsValue": "Needs a value: edit it in the Console and press Send there.",
-  "tdkCatSent": "Sent — the reply is in the Console tab.",
+  "tdkCatSent": "Sent — the reply appears below.",
   "statusTabSystem": "🖥️ System",
   "statusTabModules": "🔌 Modules & I/O",
-  "statusTabStorage": "💾 Storage"
+  "statusTabStorage": "💾 Storage",
+  "tdkTipCatSent": "Command sent from this menu",
+  "tdkTipCatReply": "Last reply from the supply"
 }
 )JSON";
 
