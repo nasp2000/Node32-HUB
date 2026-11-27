@@ -93,7 +93,13 @@ div.page.tdk-lambda > div.wrap          ← the asset opens its own page/wrap
 (`data-tab-default`) ou o último usado (`localStorage.tdk_tab`) e `tdkShowTab(key)` permite saltar
 de fora (usado pela **linha** do catálogo, que carrega o comando e passa ao Console).
 
-**Envio pelo catálogo**: o menu pendente `#tdkCatSel` lista todos os comandos; **Send** envia
+**Modo só leitura (`TDK_READ_ONLY=1`, `tdk_lambda.h`)**: o módulo faz **poll e recebe** — o
+interruptor "Allow write" não é mostrado (`ro:true` no `/api/tdk-lambda-config`), o `send` recusa
+qualquer comando fora da allow-list com 403 (*"read-only module: only queries are sent"*) e o perfil
+de poll só aceita queries. Para reabrir escrita: compilar com `-DTDK_READ_ONLY=0` (a página volta a
+mostrar o interruptor).
+
+**Envio pelo catálogo**: o menu pendente `#tdkCatSel` lista **só consultas** (terminadas em `?`); **Send** envia
 directamente os que terminam em `?` (consultas) e, para um setpoint (`PV`, `PC`, `OUT`…), carrega a
 forma com valor para a Consola em vez de disparar algo sem valor — a mensagem diz o que falta.
 **Load** (ou clicar na linha) só preenche a consola. As duas linhas por baixo mostram **`TX> comando`**
@@ -144,7 +150,7 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
 |---|---|---|
 | Comando | `tdkCmd` | livre; max 32 caracteres (o handler corta); desactivado em modo escuta |
 | Modo escuta | `tdkListen` | **não transmite nada** (poll parado, `send` devolve 409) — para quando o PLC é mestre |
-| Permitir escrita | `tdkAllowW` | sem isto, só passa a **allow-list de leitura** (`MV? MC? DVC? STT? STAT? FLT? MODE? OUT? IDN? …`); `PV/PC/OUT/OVP/RMT/SAV/G*` → 403. Aplica-se também ao **perfil de poll**: com a escrita desligada, `cmd_v`/`cmd_i`/`cmd_state` que não terminem em `?` são recusados na gravação e o módulo volta a `DVC?`/`MC?`/`MODE?`, com aviso no monitor |
+| Permitir escrita | `tdkAllowW` | **não existe na UI desta build** (`TDK_READ_ONLY=1`, modo só leitura). Sem escrita, só passa a **allow-list de leitura** (`MV? MC? DVC? STT? STAT? FLT? MODE? OUT? IDN? …`); `PV/PC/OUT/OVP/RMT/SAV/G*` → 403. Aplica-se também ao **perfil de poll**: `cmd_v`/`cmd_i`/`cmd_state` que não terminem em `?` são recusados e o módulo volta a `DVC?`/`MC?`/`MODE?`, com aviso no monitor |
 | Filtro do catálogo | `tdkSearch` | filtra por comando/grupo/descrição/notas |
 | Polling | `tdkPoll` | checkbox; grava na hora (`POST /api/tdk-lambda-config`) |
 | Intervalo | `tdkPollSec` | **60…3600 s** entre leituras (piso de 1 minuto: servidor, ConfigManager e input `min='60'`) |

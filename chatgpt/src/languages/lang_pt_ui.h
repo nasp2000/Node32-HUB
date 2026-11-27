@@ -3497,7 +3497,11 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "statusTabModules": "🔌 Módulos e I/O",
   "statusTabStorage": "💾 Armazenamento",
   "tdkTipCatSent": "Comando enviado a partir deste menu",
-  "tdkTipCatReply": "Última resposta da fonte"
+  "tdkTipCatReply": "Última resposta da fonte",
+  "tdkGuardListen": "TX desligado: só se lê o que passa na linha.",
+  "tdkGuardReadOnly": "Módulo só de leitura: só são enviadas consultas (poll + receber).",
+  "tdkGuardWriteOn": "Escrita activa: PV/PC/OUT/OVP podem alterar a fonte.",
+  "tdkGuardAllowList": "Comandos de leitura (allow-list)."
 }
 )JSON";
 

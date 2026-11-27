@@ -31,6 +31,14 @@ struct TdkLogEntry {
     char text[160];
 };
 
+// Read-only policy (poll + receive). While this is 1 the module never accepts a
+// setpoint from the page, the console or the poll profile — the send handler
+// rejects writes and the profile only keeps queries. Build with
+// -DTDK_READ_ONLY=0 to lift it (the page also hides the write switch then).
+#ifndef TDK_READ_ONLY
+#define TDK_READ_ONLY 1
+#endif
+
 // Samples kept in RAM for the trend (the endpoint serves at most this many).
 // 4 h at the 1-minute poll floor; 240 x 12 B = 2.9 KB of .bss, no heap.
 #define TDK_SAMPLES_MAX 240
@@ -109,6 +117,8 @@ bool tdkLambdaTakeInjectLine(char* out, size_t maxLen);
 const TdkCommandInfo* tdkLambdaCatalog(size_t* count);
 bool tdkLambdaCsvFlushNow();
 String tdkLambdaCsvPath();
+// Effective permission: false in read-only builds, otherwise the saved toggle.
+bool tdkLambdaAllowWrite();
 void tdkLambdaSetPoll(bool enabled, uint32_t intervalMs);
 void tdkLambdaSetCsvEvery(uint16_t polls);   // one CSV row per N polls
 void tdkLambdaSetCsv(bool enabled);

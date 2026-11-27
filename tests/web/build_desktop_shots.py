@@ -640,7 +640,7 @@ TDK_SEED = r"""
       map: '0,1,2,3,4,5', scale_v: 1, scale_i: 1, off_v: 0, off_i: 0,
       auto_map: true, addr: 0, inject: true, csv_every: 6,
       limits: { enabled: true, v_min: 590, v_max: 610, i_max: 1.35 },
-      listen: false, allow_write: false },
+      listen: false, allow_write: false, ro: true },
     '/api/tdk-lambda-samples': { success: true, samples: samples },
     '/api/tdk-lambda-commands': { success: true, commands: [
       { cmd: 'DVC?', group: 'measure', usage: 'DVC?',

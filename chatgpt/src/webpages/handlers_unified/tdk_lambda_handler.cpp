@@ -93,7 +93,7 @@ void handleTdkLambdaStatusGet(HttpRequest& req, HttpResponse& res) {
     j += F(",\"csvSensorFormat\":");  j += st.csvSensorFormat ? F("true") : F("false");
     j += F(",\"autoMap\":");          j += st.autoMap ? F("true") : F("false");
     j += F(",\"listen\":");           j += st.listen ? F("true") : F("false");
-    j += F(",\"allowWrite\":");       j += configManager.getTdkLambdaAllowWrite() ? F("true") : F("false");
+    j += F(",\"allowWrite\":");       j += tdkLambdaAllowWrite() ? F("true") : F("false");
     j += F(",\"pollIntervalMs\":");   j += String(st.pollIntervalMs);
     j += F(",\"lastRxAgeMs\":");      j += String(st.lastRxAgeMs);
     j += F(",\"logCount\":");         j += String(st.logCount);
@@ -203,9 +203,13 @@ void handleTdkLambdaSendPost(HttpRequest& req, HttpResponse& res) {
         res.sendJson(F("{\"success\":false,\"message\":\"listen mode: TX disabled (the PLC owns the line)\"}"));
         return;
     }
-    if (!configManager.getTdkLambdaAllowWrite() && !tdkIsReadOnlyCommand(cmd)) {
+    if (!tdkLambdaAllowWrite() && !tdkIsReadOnlyCommand(cmd)) {
         res.code = 403;
+#if TDK_READ_ONLY
+        res.sendJson(F("{\"success\":false,\"message\":\"read-only module: only queries are sent\"}"));
+#else
         res.sendJson(F("{\"success\":false,\"message\":\"write command blocked (enable 'allow write')\"}"));
+#endif
         return;
     }
     const bool ok = tdkLambdaSend(cmd);
@@ -242,7 +246,12 @@ void handleTdkLambdaConfigGet(HttpRequest& req, HttpResponse& res) {
     j += F(",\"format\":\"");    j += configManager.getTdkLambdaCsvFormat() ? F("sensor") : F("table");  j += '"';
     j += F(",\"auto_map\":");    j += configManager.getTdkLambdaAutoMap() ? F("true") : F("false");
     j += F(",\"listen\":");      j += configManager.getTdkLambdaListen() ? F("true") : F("false");
-    j += F(",\"allow_write\":"); j += configManager.getTdkLambdaAllowWrite() ? F("true") : F("false");
+    j += F(",\"allow_write\":"); j += tdkLambdaAllowWrite() ? F("true") : F("false");
+#if TDK_READ_ONLY
+    j += F(",\"ro\":true");     // this build never writes: the page hides the switch
+#else
+    j += F(",\"ro\":false");
+#endif
     j += F(",\"addr\":");        j += String(configManager.getTdkLambdaAddr());
     j += F(",\"inject\":");      j += configManager.getTdkLambdaInject() ? F("true") : F("false");
     j += F(",\"mode\":\"");      j += configManager.getTdkLambdaMode();                    j += '"';

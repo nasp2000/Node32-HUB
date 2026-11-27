@@ -141,7 +141,7 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
     <h3 class='section-title'>4) Console</h3>
     <div class='tdk-row'>
       <label class='tdk-note' title='Never transmit: only copies what the PLC sends, which is safe on a shared line' data-i18n-title='tdkTipListen'><input type='checkbox' id='tdkListen' onchange='tdkSaveSafety()'> <b>Listen mode</b> &mdash; never transmit</label>
-      <label class='tdk-note' title='Allow setpoint commands such as PV, PC, OUT and OVP; off means queries only' data-i18n-title='tdkTipAllowW'><input type='checkbox' id='tdkAllowW' onchange='tdkSaveSafety()'> Allow <b>write</b> commands (PV / PC / OUT / OVP&hellip;)</label>
+      <label class='tdk-note' id='tdkAllowWrap' style='display:none' title='Allow setpoint commands such as PV, PC, OUT and OVP; off means queries only' data-i18n-title='tdkTipAllowW'><input type='checkbox' id='tdkAllowW' onchange='tdkSaveSafety()'> Allow <b>write</b> commands (PV / PC / OUT / OVP&hellip;)</label>
     </div>
     <div class='tdk-note' id='tdkGuardMsg'></div>
     <input id='tdkCmd' placeholder='e.g. DVC?   MV?   MC?   MODE?   STT?   STAT?' data-i18n-placeholder='tdkTipPhCmd' title='SCPI command to send, for example DVC? or STAT?' data-i18n-title='tdkTipCmd' style='width:100%;margin-top:8px'>
@@ -516,27 +516,33 @@ function tdkLoadCfg(){
       _tdkQ('tdkLimIMax').value=d.limits.i_max||0;
     }
     _tdkQ('tdkListen').checked=!!d.listen;
-    _tdkQ('tdkAllowW').checked=!!d.allow_write;
+    var wrap=_tdkQ('tdkAllowWrap');
+    if(wrap){wrap.style.display=d.ro?'none':''; if(!d.ro){wrap.style.display='flex';}}
+    var aw=_tdkQ('tdkAllowW');
+    if(aw){aw.checked=!!d.allow_write;}
     tdkApplyGuard();
   }).catch(function(){});
 }
 
 function tdkApplyGuard(){
   var listen=_tdkQ('tdkListen').checked;
-  var allow=_tdkQ('tdkAllowW').checked;
+  var w=_tdkQ('tdkAllowW'), wrap=_tdkQ('tdkAllowWrap');
+  var capable=!!(w&&wrap&&wrap.style.display!=='none');
   _tdkQ('tdkCmd').disabled=listen;
   _tdkQ('tdkSendBtn').disabled=listen;
   _tdkQ('tdkGuardMsg').textContent=listen
-    ? 'TX disabled: only what passes on the line is read.'
-    : (allow ? 'write enabled: PV/PC/OUT/OVP can change the supply.'
-             : 'read-only commands (allow-list).');
+    ? _tdkT('tdkGuardListen','TX disabled: only what passes on the line is read.')
+    : (!capable ? _tdkT('tdkGuardReadOnly','Read-only module: only queries are sent (poll + receive).')
+                : (w.checked ? _tdkT('tdkGuardWriteOn','Write enabled: PV/PC/OUT/OVP can change the supply.')
+                             : _tdkT('tdkGuardAllowList','Read-only commands (allow-list).')));
 }
 
 function tdkSaveSafety(){
   tdkApplyGuard();
   _tdkPost('/api/tdk-lambda-config',
     'listen='+(_tdkQ('tdkListen').checked?'1':'0')+
-    '&allow_write='+(_tdkQ('tdkAllowW').checked?'1':'0')).then(function(d){
+    (_tdkQ('tdkAllowWrap')&&_tdkQ('tdkAllowWrap').style.display!=='none'
+      ? '&allow_write='+(_tdkQ('tdkAllowW').checked?'1':'0') : '')).then(function(d){
       if(!d.success){_tdkFail(d);}
       tdkStatus();
   });
@@ -668,6 +674,9 @@ function tdkRenderCatSel(){
   var out='';
   for(var i=0;i<_tdkCat.length;i++){
     var c=_tdkCat[i];
+    /* Read-only module: the menu offers queries only (a setpoint would be a
+       write). The full catalogue stays below as documentation. */
+    if(c.cmd.charAt(c.cmd.length-1)!=='?'){continue;}
     out+='<option value="'+_tdkEsc(c.cmd)+'|'+_tdkEsc(c.usage)+'">'+
          _tdkEsc(c.cmd)+' \u2014 '+_tdkEsc(c.desc)+'</option>';
   }

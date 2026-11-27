@@ -723,6 +723,14 @@ bool tdkLambdaCsvFlushNow() {
     return ok;
 }
 
+bool tdkLambdaAllowWrite() {
+#if TDK_READ_ONLY
+    return false;   // poll + receive only
+#else
+    return configManager.getTdkLambdaAllowWrite();
+#endif
+}
+
 void tdkLambdaSetCsvEvery(uint16_t polls) {
     s_csvEvery = (polls < 1) ? 1 : polls;
     s_agg.clear(millis());   // the open window restarts with the new cadence
@@ -748,7 +756,7 @@ void tdkLambdaApplyProfile(const char* mode, const char* vCmd, const char* iCmd,
     // The poll sends these without going through the send guard: with "allow
     // write" off, a setter typed into the profile would change the supply every
     // cycle. Only queries are accepted then; anything else falls back and says so.
-    if (!configManager.getTdkLambdaAllowWrite()) {
+    if (!tdkLambdaAllowWrite()) {
         if (!tdkIsQueryCmd(s_cmdV)) {
             tdkLogSys("profile: V command is not a query, using DVC?");
             tdkUpperTrim("DVC?", s_cmdV, sizeof(s_cmdV));
