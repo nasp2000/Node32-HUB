@@ -109,8 +109,13 @@ com larguras por coluna (a Description estava esmagada).
 **Gráfico**: cada série escala ao **seu** min/max (±10 %) e marca os dois extremos — com eixo
 desde 0 uma fonte de 600 V com 2 V de ripple era uma linha recta no topo. É **automático**: a
 página pede `/api/tdk-lambda-samples` ao carregar e volta a pedir ao ritmo do poll (5…60 s,
-`_tdkArmTrend`), sem clique nenhum; o buffer circular tem 120 amostras (2 h a 1/min, 20 min a
-10 s). Em `/sensor-charts` o TDK só aparece em builds **com SD**: esse pipeline
+`_tdkArmTrend`), sem clique nenhum; o buffer circular tem **240 amostras** (4 h a 1/min, 40 min a
+10 s) e a janela é 60/120/240. Três faixas num só canvas — **V, I e P** (P = V×I calculado no
+browser, para não crescer o payload), cada uma com a sua escala (min/max ±10 %).
+**Custo**: o buffer são 2,9 KB de `.bss` (sem heap), o JSON é ≥ ~10 B/amostra e **nada é escrito
+em ficheiro** pelo gráfico; uma aba do browser em segundo plano não faz fetch nenhum
+(`document.hidden`, retoma no `visibilitychange`). O LittleFS continua a ser escrito **só** na
+janela configurada do CSV (10/30/60 min) ou aos 96 KB. Em `/sensor-charts` o TDK só aparece em builds **com SD**: esse pipeline
 (`appendRs232LivePoints`) está dentro de `#if ENABLE_SDCARD==1`, e a linha `TDK …` do inject é
 que alimenta esse gráfico.
 

@@ -124,8 +124,9 @@ char          s_sn[24] = {0};
 char          s_lastError[8] = {0};
 uint32_t      s_lastErrorMs = 0;
 
-// Always-on sample ring (2 h at 1/min, newest last).
-static const uint16_t TDK_RING_MAX = 120;
+// Always-on sample ring (RAM only, newest last): 4 h at 1/min, 40 min at 10 s.
+// 240 x 12 B = 2.9 KB of .bss — no heap, and no file write for the chart.
+static const uint16_t TDK_RING_MAX = 240;
 TdkSample     s_ring[TDK_RING_MAX];
 uint16_t      s_ringStart = 0;
 uint16_t      s_ringCount = 0;

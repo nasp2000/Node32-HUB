@@ -31,7 +31,8 @@ function extractFn(src, name) {
 }
 
 const asset = fs.readFileSync(SRC, 'utf8');
-const CODE = ['_tdkQ', '_tdkEsc', 'tdkRenderPrev', '_tdkArmTrend']
+const CODE = ['_tdkQ', '_tdkEsc', 'tdkRenderPrev', '_tdkArmTrend', '_tdkAsleep',
+               'tdkStatus', 'tdkLog', 'tdkLoadTrend']
   .map(function (n) { return extractFn(asset, n); }).join('\n') +
   '\nvar _tdkTrendTimer = null;\nfunction tdkLoadTrend(){}\n';
 
@@ -52,9 +53,10 @@ function cells(w) {
   });
 }
 
+// The endpoint contract: [ageSeconds, v, i], oldest first.
 function sample(n) {
   const out = [];
-  for (let i = 0; i < n; i++) out.push([1764300000 + i * 60, 600 + i, 1.3 + i / 100]);
+  for (let i = 0; i < n; i++) out.push([(n - 1 - i) * 60, 600 + i, 1.3 + i / 100]);
   return out;
 }
 
@@ -69,7 +71,7 @@ test('newest sample comes first and only the last 8 are shown', function () {
 });
 
 test('voltages keep 2 decimals, currents 3', function () {
-  const w = boot([[1764300000, 599.4567, 1.30049], [1764300060, 600, 1.3]]);
+  const w = boot([[60, 599.4567, 1.30049], [0, 600, 1.3]]);
   w.tdkRenderPrev(w.__rows);
   const rows = cells(w);
   is(rows.length, 2, 'row count');
@@ -79,12 +81,16 @@ test('voltages keep 2 decimals, currents 3', function () {
   is(rows[1][2], '1.300', 'rounded current');
 });
 
-test('the time column is a local time, not an empty cell', function () {
-  const ts = 1764300000;
-  const w = boot([[ts, 600, 1.3]]);
+test('the time column is now minus the sample age', function () {
+  const age = 120;                              // 2 min old
+  const w = boot([[age, 600, 1.3]]);
+  const before = Date.now();
   w.tdkRenderPrev(w.__rows);
-  const expected = new Date(ts * 1000).toLocaleTimeString();
-  is(cells(w)[0][0], expected, 'time cell');
+  const after = Date.now();
+  const cell = cells(w)[0][0];
+  const okBefore = new Date(before - age * 1000).toLocaleTimeString();
+  const okAfter = new Date(after - age * 1000).toLocaleTimeString();
+  ok(cell === okBefore || cell === okAfter, 'expected now-age, got ' + cell);
 });
 
 test('no samples shows the empty state, not an empty table', function () {
@@ -101,6 +107,18 @@ test('a missing tbody does not throw', function () {
   let threw = false;
   try { dom.window.tdkRenderPrev([[1, 2, 3]]); } catch (e) { threw = true; }
   ok(!threw, 'tdkRenderPrev must tolerate a page without the table');
+});
+
+test('a background browser tab does not fetch at all', function () {
+  // jsdom always reports document.hidden, so the guard is exercised by stubbing
+  // it: with the tab asleep none of the three pollers may touch fetch (or the
+  // DOM), and that is exactly what stops the WiFi traffic and the heap churn.
+  const w = boot([]);
+  let fetches = 0;
+  w.fetch = function () { fetches++; return Promise.resolve({}); };
+  w._tdkAsleep = function () { return true; };
+  w.tdkStatus(); w.tdkLog(); w.tdkLoadTrend();
+  is(fetches, 0, 'no fetch while asleep');
 });
 
 test('the trend refresh follows the poll cadence, one timer only', function () {

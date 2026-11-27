@@ -390,9 +390,10 @@ void handleTdkLambdaSamplesGet(HttpRequest& req, HttpResponse& res) {
     const int q = req.query.indexOf("n=");
     if (q >= 0) want = req.query.substring(q + 2).toInt();
     if (want < 2) want = 2;
-    if (want > 120) want = 120;
+    if (want > 240) want = 240;   // ring size: 4 h at 1/min
 
-    static TdkSample samples[120];
+    // Static, not stack/heap: the ring is copied here and freed with the TU.
+    static TdkSample samples[240];
     const uint16_t n = tdkLambdaCopySamples(samples, (uint16_t)want);
     const uint32_t now = millis();
     String j;

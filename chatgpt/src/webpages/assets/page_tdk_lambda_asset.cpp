@@ -69,7 +69,7 @@ const char PAGE_TDK_LAMBDA[] PROGMEM = R"rawliteral(
   .tdk-row > .btn,.tdk-row > button{width:auto;max-width:none;margin:0;flex:0 0 auto;padding:8px 16px;min-height:36px;display:inline-block}
   .tdk-field{display:flex;flex-direction:column;gap:2px;font-size:12px;color:#94a3b8}
   .tdk-field input,.tdk-field select{min-height:30px}
-  canvas#tdkChart{width:100%;height:190px;background:#020617;border:1px solid #1e293b;border-radius:8px;display:block;cursor:help}
+  canvas#tdkChart{width:100%;height:270px;background:#020617;border:1px solid #1e293b;border-radius:8px;display:block;cursor:help}
 </style>
 
 <div class='actions nav-inicio'><a href='/' class='btn' data-i18n='btnHome' title='Back to the home page' data-i18n-title='tdkTipHome'>&#127968; Home</a></div>
@@ -112,15 +112,15 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
     <h3 class='section-title'>3) Trend</h3>
     <div class='tdk-row'>
       <label class='tdk-note' title='How many samples the chart draws' data-i18n-title='tdkTipWindow'>Window
-        <select id='tdkWin' onchange='tdkLoadTrend()' title='How many samples the chart draws' data-i18n-title='tdkTipWindow'>
-          <option value='30'>30 samples</option>
-          <option value='60' selected>60 samples</option>
-          <option value='120'>120 samples</option>
+        <select id='tdkWin' onchange='tdkLoadTrend()' title='How many samples the chart draws (the buffer holds 240)' data-i18n-title='tdkTipWindow'>
+          <option value='60'>60 samples</option>
+          <option value='120' selected>120 samples</option>
+          <option value='240'>240 samples</option>
         </select>
       </label>
-      <span class='tdk-note'><b style='color:#60a5fa'>&#9472; V</b> &nbsp; <b style='color:#fbbf24'>&#9472; A</b> &nbsp; <span id='tdkTrendInfo'>--</span></span>
+      <span class='tdk-note'><b style='color:#60a5fa'>&#9472; V</b> &nbsp; <b style='color:#fbbf24'>&#9472; A</b> &nbsp; <b style='color:#4ade80'>&#9472; W</b> &nbsp; <span id='tdkTrendInfo'>--</span></span>
     </div>
-    <canvas id='tdkChart' width='900' height='190' title='Voltage in blue and current in amber, from the polling buffer' data-i18n-title='tdkTipChart'></canvas>
+    <canvas id='tdkChart' width='900' height='270' title='Voltage, current and power, each on its own scale, from the polling buffer' data-i18n-title='tdkTipChart'></canvas>
     <div class='tdk-row' style='margin-top:10px'>
       <label class='tdk-note' title='Log an alert when a reading leaves these limits; 0 turns a limit off' data-i18n-title='tdkTipLimits'><input type='checkbox' id='tdkLimOn' onchange='tdkSaveExtras()'> Alert limits</label>
       <span id='tdkAlert'></span>
@@ -278,7 +278,9 @@ function _tdkPost(url,body){
     .then(function(r){return r.json();});
 }
 
+function _tdkAsleep(){return (typeof document!=='undefined' && document.hidden===true);}
 function tdkStatus(){
+  if(_tdkAsleep()){return;}                 /* background tab: no fetch */
   fetch('/api/tdk-lambda-status',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
     if(!d.success){_tdkQ('tdkStatus').innerHTML='<span class="tdk-badge off">module disabled</span> '+_tdkEsc(d.message||'');return;}
     var st=d.status||{}, v=d.values||{};
@@ -329,6 +331,7 @@ function tdkStatus(){
 }
 
 function tdkLog(){
+  if(_tdkAsleep()){return;}
   fetch('/api/tdk-lambda-log',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
     if(!d.success||!d.entries){return;}
     var out='';
@@ -340,7 +343,8 @@ function tdkLog(){
 }
 
 function tdkLoadTrend(){
-  var n=parseInt(_tdkQ('tdkWin').value,10)||60;
+  if(_tdkAsleep()){return;}                 /* resume on visibilitychange */
+  var n=parseInt(_tdkQ('tdkWin').value,10)||120;
   fetch('/api/tdk-lambda-samples?n='+n,{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
     if(!d.success||!d.samples){return;}
     var s=d.samples, sig=s.length+':'+(s.length?String(s[s.length-1][0])+String(s[s.length-1][1]):'');
@@ -352,62 +356,80 @@ function tdkLoadTrend(){
 
 function tdkDrawTrend(rows){
   var c=_tdkQ('tdkChart'), ctx=c.getContext('2d');
-  var W=c.width, H=c.height;
+  var W=c.width, H=c.height, i;
   ctx.clearRect(0,0,W,H);
-  ctx.strokeStyle='#1e293b'; ctx.lineWidth=1;
-  for(var g=0;g<=4;g++){
-    var y=12+g*(H-24)/4;
-    ctx.beginPath(); ctx.moveTo(40,y); ctx.lineTo(W-10,y); ctx.stroke();
-  }
   if(!rows||rows.length<2){
     ctx.fillStyle='#64748b'; ctx.font='12px sans-serif';
-    ctx.fillText(rows&&rows.length?'collecting samples...':'no samples yet',44,H/2);
+    ctx.fillText(rows&&rows.length?'collecting samples...':'no samples yet',46,H/2);
     return;
   }
-  /* Scale each series to its own range: a 600 V supply with 2 V of ripple is a
-     flat line at the top of a 0..max axis. 10 % margin top and bottom. */
-  var minV=1e9,maxV=-1e9,minI=1e9,maxI=-1e9;
-  for(var k=0;k<rows.length;k++){
-    if(rows[k][1]<minV){minV=rows[k][1];}
-    if(rows[k][1]>maxV){maxV=rows[k][1];}
-    if(rows[k][2]<minI){minI=rows[k][2];}
-    if(rows[k][2]>maxI){maxI=rows[k][2];}
+
+  /* Three bands on one canvas: V, I and P (P = V x I computed here, so the
+     module keeps sending only v and i). Each band scales to its own min/max
+     with a 10 % margin — on a 0..max axis a 600 V supply with 2 V of ripple is
+     a flat line. Nothing is fetched for this: same samples, larger window. */
+  var bands=[
+    {key:'V', unit:'V', colour:'#60a5fa', dec:2, get:function(r){return r[1];}},
+    {key:'I', unit:'A', colour:'#fbbf24', dec:3, get:function(r){return r[2];}},
+    {key:'P', unit:'W', colour:'#4ade80', dec:1, get:function(r){return r[1]*r[2];}}
+  ];
+  var left=54, right=W-52, top=4, bottom=H-10;
+  var bandH=(bottom-top)/bands.length;
+
+  function spanOf(f){
+    var lo=1e18, hi=-1e18, v, d, pad;
+    for(var k=0;k<rows.length;k++){v=f(rows[k]); if(v<lo){lo=v;} if(v>hi){hi=v;}}
+    d=hi-lo;
+    if(!(d>1e-9)){pad=(hi?Math.abs(hi)*0.001:0.5); lo-=pad; hi+=pad; d=hi-lo;}
+    pad=d*0.1;
+    return {lo:lo-pad, hi:hi+pad};
   }
-  function span(a,b){
-    var lo=Math.min(a,b),hi=Math.max(a,b),d=hi-lo;
-    if(d<=1e-9){lo-=(hi?hi*0.001:0.5);hi+=(hi?hi*0.001:0.5);d=hi-lo;}
-    var pad=d*0.1;
-    return {lo:lo-pad,hi:hi+pad};
+  function px(k){return left+(right-left)*(k/(rows.length-1));}
+
+  ctx.font='10px sans-serif';
+  for(var b=0;b<bands.length;b++){
+    var band=bands[b], y0=top+b*bandH, y1=y0+bandH-8;
+    var st=spanOf(band.get);
+    var yAt=function(v){return y1-(y1-y0)*((v-st.lo)/(st.hi-st.lo));};
+
+    ctx.strokeStyle='#1e293b'; ctx.lineWidth=1;
+    for(var g=0;g<3;g++){
+      var y=y0+(y1-y0)*g/2;
+      ctx.beginPath(); ctx.moveTo(left,y); ctx.lineTo(right,y); ctx.stroke();
+    }
+    ctx.fillStyle=band.colour;
+    ctx.fillText(band.key, 8, y0+9);
+    ctx.fillStyle='#94a3b8';
+    ctx.fillText(st.hi.toFixed(band.dec)+' '+band.unit, 8, y0+21);
+    if(b===bands.length-1){ctx.fillText(st.lo.toFixed(band.dec)+' '+band.unit, 8, y1);}
+    else {ctx.fillText(st.lo.toFixed(band.dec), 8, y1);}
+
+    ctx.strokeStyle=band.colour; ctx.lineWidth=1.6;
+    ctx.beginPath();
+    for(i=0;i<rows.length;i++){
+      var x=px(i), yv=yAt(band.get(rows[i]));
+      if(i){ctx.lineTo(x,yv);}else{ctx.moveTo(x,yv);}
+    }
+    ctx.stroke();
   }
-  var sV=span(minV,maxV), sI=span(minI,maxI);
-  function px(i){return 40+(W-56)*(i/(rows.length-1));}
-  function pyV(v){return H-12-(H-24)*((v-sV.lo)/(sV.hi-sV.lo));}
-  function pyI(a){return H-12-(H-24)*((a-sI.lo)/(sI.hi-sI.lo));}
-  ctx.lineWidth=2;
-  ctx.strokeStyle='#60a5fa'; ctx.beginPath();
-  for(var i=0;i<rows.length;i++){var x=px(i),y=pyV(rows[i][1]); if(i){ctx.lineTo(x,y);}else{ctx.moveTo(x,y);}}
-  ctx.stroke();
-  ctx.strokeStyle='#fbbf24'; ctx.beginPath();
-  for(var j=0;j<rows.length;j++){var x2=px(j),y2=pyI(rows[j][2]); if(j){ctx.lineTo(x2,y2);}else{ctx.moveTo(x2,y2);}}
-  ctx.stroke();
-  ctx.fillStyle='#94a3b8'; ctx.font='10px sans-serif';
-  ctx.fillText(sV.hi.toFixed(1)+' V',2,14);      /* V axis, top */
-  ctx.fillText(sV.lo.toFixed(1),2,H-10);          /* V axis, bottom */
-  ctx.fillText(sI.hi.toFixed(2)+' A',W-56,14);    /* I axis, top (own scale) */
-  ctx.fillText(sI.lo.toFixed(2),W-40,H-10);
-  _tdkQ('tdkTrendInfo').textContent=rows.length+' pts \u00B7 V '+minV.toFixed(1)+'-'+maxV.toFixed(1)+
-                                       ' \u00B7 A '+minI.toFixed(2)+'-'+maxI.toFixed(2);
+
+  var sv=spanOf(bands[0].get), si=spanOf(bands[1].get), sp=spanOf(bands[2].get);
+  _tdkQ('tdkTrendInfo').textContent=
+    rows.length+' pts \u00B7 '+_tdkDur(rows[0][0]*1000)+
+    ' \u00B7 V '+sv.lo.toFixed(1)+'-'+sv.hi.toFixed(1)+
+    ' \u00B7 A '+si.lo.toFixed(2)+'-'+si.hi.toFixed(2)+
+    ' \u00B7 W '+sp.lo.toFixed(0)+'-'+sp.hi.toFixed(0);
   tdkRenderPrev(rows);
 }
 
-/* Last 8 polls, newest first: what the CSV rows carry (the file itself is a
-   download, this is the same ring buffer the chart draws). */
+/* Last 8 polls, newest first: what the CSV rows carry. The endpoint sends the
+   sample AGE in seconds, so the clock time is now - age. */
 function tdkRenderPrev(rows){
   var tb=_tdkQ('tdkPrevBody');
   if(!tb){return;}
   var out='',n=Math.min(8,rows.length);
   for(var i=rows.length-1;i>=rows.length-n;i--){
-    var t=rows[i][0]?new Date(rows[i][0]*1000).toLocaleTimeString():'--';
+    var t=(rows[i][0]!==undefined)?new Date(Date.now()-rows[i][0]*1000).toLocaleTimeString():'--';
     out+='<tr><td>'+_tdkEsc(t)+'</td><td>'+Number(rows[i][1]).toFixed(2)+'</td><td>'+Number(rows[i][2]).toFixed(3)+'</td></tr>';
   }
   tb.innerHTML=out||'<tr><td colspan="3" class="tdk-note">no samples yet.</td></tr>';
@@ -624,6 +646,9 @@ function _tdkArmTrend(ms){
   _tdkTrendTimer={id:setInterval(tdkLoadTrend,want),ms:want};
 }
 _tdkArmTrend(30000);
+document.addEventListener('visibilitychange',function(){
+  if(!document.hidden){tdkStatus();tdkLog();tdkLoadTrend();}
+});
 
 /* ---- tabs (same organisation as /access) ---------------------------------- */
 var TDK_TABS = [

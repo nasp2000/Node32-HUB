@@ -616,12 +616,13 @@ TDK_SEED = r"""
   var values = { valid: true, vMeas: 600.0, vSet: 600.0, iMeas: 1.302, iSet: 1.4,
                  ovp: 660.0, uvl: 0.0, mode: 'CV', outOn: true, lastUpdateMs: 0 };
 
-  // 60 samples of the polling ring buffer: slow voltage drift, current ripple.
+  // 120 samples of the polling ring, oldest first. The endpoint sends the AGE in
+  // seconds (now - ts), not an epoch: 119 min ago ... now.
   var samples = [];
-  for (var i = 0; i < 60; i++) {
-    samples.push([1764300000 + i * 60,
-                  600 + 2.4 * Math.sin(i / 6),
-                  1.30 + 0.05 * Math.cos(i / 4)]);
+  for (var i = 0; i < 120; i++) {
+    samples.push([(119 - i) * 60,
+                  600 + 2.4 * Math.sin(i / 12),
+                  1.30 + 0.05 * Math.cos(i / 8)]);
   }
 
   window.__MOCK_API__ = {
