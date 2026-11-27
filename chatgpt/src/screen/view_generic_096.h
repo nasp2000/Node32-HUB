@@ -10,8 +10,10 @@
 
 static inline void screenDrawGeneric096(ScreenManager &mgr, const String &line1,
                                         const String &line2, const String &line3) {
-    String outLine3 = mgr.stripAccents(line3);
-    mgr.displayMessage(line1, line2, outLine3);
+    // The 0.96" font has no accented glyphs: strip them from every row, not
+    // just line 3 (an SSID with an accent printed garbage before).
+    mgr.displayMessage(mgr.stripAccents(line1), mgr.stripAccents(line2),
+                       mgr.stripAccents(line3));
 }
 
 #endif // ENABLE_LCD_SCREEN

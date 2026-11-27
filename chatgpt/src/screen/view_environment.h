@@ -28,7 +28,6 @@ extern volatile StorageMode currentStorageMode;
 static inline void screenDrawEnvironmentView(ScreenManager &mgr, Adafruit_SSD1306 &oled,
                                              const ScreenStatusContext &ctx) {
     // Dedicated 2.42" profile for Environment pack.
-    const int rowWidthChars = 21;
     String env1 = "Temp: N/A";
     String env2 = "Hum : N/A";
     String gas = "MQ135: N/A";
@@ -78,17 +77,17 @@ static inline void screenDrawEnvironmentView(ScreenManager &mgr, Adafruit_SSD130
     String heapLine = String("Heap:") + String(ESP.getFreeHeap() / 1024U) + "K " + storageCompact;
 
     oled.setCursor(0, 0);
-    oled.print(mgr.stripAccents(String(PACK_SYSTEM_NAME)).substring(0, rowWidthChars));
+    oled.print(mgr.fitForPanel(String(PACK_SYSTEM_NAME)));
     oled.setCursor(0, 9);
-    oled.print(mgr.stripAccents(String("IP:") + ctx.ipStr).substring(0, rowWidthChars));
+    oled.print(mgr.fitForPanel(String("IP:") + ctx.ipStr));
     oled.setCursor(0, 20);
-    oled.print(mgr.stripAccents(env1).substring(0, rowWidthChars));
+    oled.print(mgr.fitForPanel(env1));
     oled.setCursor(0, 29);
-    oled.print(mgr.stripAccents(env2).substring(0, rowWidthChars));
+    oled.print(mgr.fitForPanel(env2));
     oled.setCursor(0, 40);
-    oled.print(mgr.stripAccents(gas).substring(0, rowWidthChars));
+    oled.print(mgr.fitForPanel(gas));
     oled.setCursor(0, 49);
-    oled.print(mgr.stripAccents(heapLine).substring(0, rowWidthChars));
+    oled.print(mgr.fitForPanel(heapLine));
     oled.display();}
 
 #endif // SELECTED_PACK == PACK_ENVIRONMENT
