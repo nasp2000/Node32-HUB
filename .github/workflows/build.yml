@@ -104,6 +104,12 @@ jobs:
           - env: n16r8
             pack: ENVIRONMENT
             flags: "-DSELECTED_PACK=PACK_ENVIRONMENT"
+          # Bench build for the TDK-Lambda PSU module on the HomeE32 unit
+          # (.24): same pack, module enabled, so the artifact can be OTA'd and
+          # the SCPI path tested against the simulator (.23).
+          - env: n16r8
+            pack: ENVIRONMENT_TDK
+            flags: "-DSELECTED_PACK=PACK_ENVIRONMENT -DENABLE_TDK_LAMBDA=1"
           - env: n16r8
             pack: RADIO
             flags: "-DSELECTED_PACK=PACK_RADIO"
