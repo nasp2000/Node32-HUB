@@ -381,6 +381,15 @@ bool forceSwapSdcardBuffersForEmailday(unsigned long waitMs) {
 }
 
 bool safeFlushBeforeCriticalCommand(const String& commandName) {
+#if ENABLE_TDK_LAMBDA == 1
+    // The PSU keeps its CSV in its own RAM buffer (written every 10/30/60 min).
+    // Any command that lists files (EMAILDAY) or reboots must push it out first,
+    // or the attachment/judgement leaves without the latest rows. Runs before
+    // the SD checks below: on a board without SD the rows go to LittleFS, which
+    // is exactly the backend the mailer lists.
+    { extern bool tdkLambdaCsvFlushNow(); (void)tdkLambdaCsvFlushNow(); }
+#endif
+
     if (!configManager.getSdcardEnabled()) return true;
     if (!sdcardIsMounted()) return true;
 

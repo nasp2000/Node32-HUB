@@ -35,17 +35,28 @@ const char PAGE_TDK_LAMBDA[] PROGMEM = R"rawliteral(
   .tdk-val .v{font-size:22px;font-weight:700;color:#f8fafc}
   .tdk-val .u{font-size:12px;color:#94a3b8;margin-left:3px}
   .tdk-pre{background:#020617;border:1px solid #1e293b;border-radius:8px;padding:8px;height:220px;overflow:auto;font:12px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap}
+  /* Table: fixed layout + no horizontal scroll. The whole row is the action,
+     so there is no per-row button and nothing to scroll sideways. */
   .tdk-tbl{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
-  .tdk-tbl th:nth-child(1){width:11%}
+  .tdk-tbl th:nth-child(1){width:13%}
   .tdk-tbl th:nth-child(2){width:10%}
-  .tdk-tbl th:nth-child(3){width:12%}
-  .tdk-tbl th:nth-child(4){width:30%}
+  .tdk-tbl th:nth-child(3){width:17%}
+  .tdk-tbl th:nth-child(4){width:28%}
   .tdk-tbl th:nth-child(5){width:16%}
-  .tdk-tbl th:nth-child(6){width:14%}
-  .tdk-tbl th:nth-child(7){width:7%}
-  .tdk-tbl th,.tdk-tbl td{border-bottom:1px solid #1e293b;padding:5px 6px;text-align:left;vertical-align:top}
-  .tdk-tbl th{color:#93c5fd;position:sticky;top:0;background:#0f172a}
-  .tdk-scroll{max-height:340px;overflow:auto}
+  .tdk-tbl th:nth-child(6){width:16%}
+  .tdk-tbl th,.tdk-tbl td{border-bottom:1px solid #1e293b;padding:5px 6px;text-align:left;vertical-align:top;word-break:break-word;overflow-wrap:anywhere}
+  .tdk-tbl th{color:#93c5fd;position:sticky;top:0;background:#0f172a;z-index:1}
+  .tdk-tbl tbody tr{cursor:pointer}
+  .tdk-tbl tbody tr:hover{background:#1e293b}
+  .tdk-scroll{max-height:340px;overflow-y:auto;overflow-x:hidden}
+  @media(max-width:720px){
+    .tdk-tbl th:nth-child(2),.tdk-tbl td:nth-child(2),
+    .tdk-tbl th:nth-child(6),.tdk-tbl td:nth-child(6){display:none}
+    .tdk-tbl th:nth-child(1){width:22%}
+    .tdk-tbl th:nth-child(3){width:24%}
+    .tdk-tbl th:nth-child(4){width:34%}
+    .tdk-tbl th:nth-child(5){width:20%}
+  }
   .tdk-note{font-size:12px;color:#94a3b8}
   /* sub-heading inside a section (not a .section-title: that one is per box) */
   .tdk-subtitle{margin:16px 0 6px 0;font-size:14px;color:#60a5fa;font-weight:bold}
@@ -233,11 +244,11 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
 <div class='tdk-panel' data-tab='commands'>
   <div class='section-box'>
     <h3 class='section-title'>7) Commands</h3>
-    <p class='tdk-note' data-i18n='tdkDescCatalog'>Genesys SCPI catalogue. Press use on a row to load the command into the console.</p>
+    <p class='tdk-note' data-i18n='tdkDescCatalog'>Genesys SCPI catalogue. Click a row to load the command into the console.</p>
     <input id='tdkSearch' placeholder='Filter (e.g. DVC, OVP, monitor)' data-i18n-placeholder='tdkTipPhSearch' oninput='tdkRenderCatalog()' title='Filter the catalogue by command, group or text' data-i18n-title='tdkTipSearch' style='width:100%'>
     <div class='tdk-scroll' style='margin-top:10px'>
       <table class='tdk-tbl'>
-        <thead><tr><th title='SCPI mnemonic; queries end with ?' data-i18n-title='tdkTipThCommand'>Command</th><th title='Catalogue group' data-i18n-title='tdkTipThGroup'>Group</th><th title='Typical syntax, with parameters where they exist' data-i18n-title='tdkTipThUsage'>Usage</th><th title='What the command does' data-i18n-title='tdkTipThDesc'>Description</th><th title='Reply format' data-i18n-title='tdkTipThReply'>Reply</th><th title='Cautions and model differences' data-i18n-title='tdkTipThNotes'>Notes</th><th title='Load the command into the console' data-i18n-title='tdkTipThSend'></th></tr></thead>
+        <thead><tr><th title='SCPI mnemonic; queries end with ?' data-i18n-title='tdkTipThCommand'>Command</th><th title='Catalogue group' data-i18n-title='tdkTipThGroup'>Group</th><th title='Typical syntax, with parameters where they exist' data-i18n-title='tdkTipThUsage'>Usage</th><th title='What the command does' data-i18n-title='tdkTipThDesc'>Description</th><th title='Reply format' data-i18n-title='tdkTipThReply'>Reply</th><th title='Cautions and model differences' data-i18n-title='tdkTipThNotes'>Notes</th></tr></thead>
         <tbody id='tdkCat'></tbody>
       </table>
     </div>
@@ -253,6 +264,7 @@ function _tdkFail(d){
   var m='Failed: '+((d&&d.message)||'?');
   if(window.customAlert){window.customAlert(m);}
 }
+function _tdkT(k,fb){return (window._t)?window._t(k,fb):fb;}
 function _tdkDur(ms){
   var t=Math.floor((ms||0)/1000),h=Math.floor(t/3600),m=Math.floor((t%3600)/60);
   if(h>0){return h+'h '+m+'m';}
@@ -578,15 +590,18 @@ function tdkLoadCatalog(){
 function tdkRenderCatalog(){
   var q=(_tdkQ('tdkSearch').value||'').toLowerCase();
   var tb=_tdkQ('tdkCat'),out='';
+  var rowTitle=_tdkEsc(_tdkT('tdkTipCatRow','Load this command into the console'));
   for(var i=0;i<_tdkCat.length;i++){
     var c=_tdkCat[i];
     var hay=(c.cmd+' '+c.group+' '+c.desc+' '+c.usage+' '+(c.notes||'')).toLowerCase();
     if(q&&hay.indexOf(q)<0){continue;}
-    out+='<tr><td><b>'+_tdkEsc(c.cmd)+'</b></td><td>'+_tdkEsc(c.group)+'</td><td><code>'+_tdkEsc(c.usage)+
+    /* The row IS the action: no per-row button (and no sideways scroll). */
+    out+='<tr onclick="tdkUse(\''+_tdkEsc(c.usage)+'\')" title="'+rowTitle+'" data-i18n-title="tdkTipCatRow">'+
+         '<td><b>'+_tdkEsc(c.cmd)+'</b></td><td>'+_tdkEsc(c.group)+'</td><td><code>'+_tdkEsc(c.usage)+
          '</code></td><td>'+_tdkEsc(c.desc)+'</td><td><code>'+_tdkEsc(c.reply)+'</code></td><td class="tdk-note">'+
-         _tdkEsc(c.notes||'')+'</td><td><button class="btn" onclick="tdkUse(\''+_tdkEsc(c.usage)+'\')" title="Load the command into the console" data-i18n-title="tdkTipThSend">use</button></td></tr>';
+         _tdkEsc(c.notes||'')+'</td></tr>';
   }
-  tb.innerHTML=out||'<tr><td colspan="7" class="tdk-note">no matches</td></tr>';
+  tb.innerHTML=out||'<tr><td colspan="6" class="tdk-note">no matches</td></tr>';
 }
 
 function tdkUse(u){

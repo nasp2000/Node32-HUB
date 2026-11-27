@@ -81,12 +81,18 @@ div.page.tdk-lambda > div.wrap          ← the asset opens its own page/wrap
 ├ div.tdk-panel[data-tab=profile]
 │   └ div.section-box 6) Supply profile  presets + campos + #tdkInject #tdkAuto + [Save profile] [Save the detected]
 └ div.tdk-panel[data-tab=commands]
-    └ div.section-box 7) Commands #tdkSearch + .tdk-tbl (#tdkCat; botão `use` da linha → separador Console)
+    └ div.section-box 7) Commands #tdkSearch + .tdk-tbl 6 colunas (#tdkCat;
+        **a linha inteira é o botão** → carrega o comando e salta para o Console)
 
 **Separadores** (mesma organização de `/access`): o conteúdo é dividido em cinco painéis
 `.tdk-panel[data-tab]`; `tdkInitTabs()` cria os botões, activa o painel por omissão
 (`data-tab-default`) ou o último usado (`localStorage.tdk_tab`) e `tdkShowTab(key)` permite saltar
 de fora (usado pelo botão `use` do catálogo, que carrega o comando e passa ao Console).
+
+**Catálogo**: seis colunas (Command, Group, Usage, Description, Reply, Notes), `table-layout:fixed`
+e `overflow-x:hidden` — **nunca há scroll horizontal**; em ecrãs <720 px escondem-se Group e Notes.
+Não há botão por linha (o "use" foi removido): a **linha é a acção** (`cursor:pointer`, realce no
+hover) e leva o comando para a consola.
 
 **Separador CSV**: quatro quadros com o estado real do ficheiro (backend, caminho, linhas de hoje,
 formato), a nota de perfil automático/manual e a tabela das últimas 8 leituras — tudo do
@@ -243,6 +249,21 @@ hora **com carga**, tabela hora a hora, as 5 maiores excursões dentro de uma li
 python3 tests/packs/rs232/tdk_csv_report.py TDK_27-11-2026.csv --out report.md --svg report.svg
 python3 tests/packs/rs232/tdk_csv_report.py --selftest    # v1/v2/sensor + energia/CC/limite/SVG
 ```
+
+
+### 8.3 EMAILDAY e alertas por destinatários
+
+- **EMAILDAY** (`emailday` na consola/Telnet, ou agendado como comando) envia os ficheiros do dia
+  da pasta `/<sistema>/`; o `TDK_DD-MM-YYYY.csv` está lá e é aceite (`.csv` + sufixo da data), com
+  o **corpo e rodapé standard** dos outros emails. Antes do envio, `safeFlushBeforeCriticalCommand()`
+  chama `tdkLambdaCsvFlushNow()` — sem isso o anexo sairia até 30 min atrasado (o buffer de 128 KB só
+  escreve à janela/96 KB). Sem cartão SD o ficheiro está no LittleFS e o mesmo flush aplica-se.
+- **Destinatários / alertas**: os bytes da fonte entram no pipeline RS232 **sem serem consumidos**
+  (cópia não destrutiva), por isso as respostas `DVC?` aparecem no `/monitor` como qualquer linha; e
+  com `inject` ligado é injectada uma linha `TDK <ts>, vout, …, power, 784.49, mode, CV`. Os alertas
+  de limites escrevem `[TDK] ALERT: <motivo> (<V> / <A>)` no monitor. Regras de destinatário
+  recomendadas: palavra **`alert`** (alarme da fonte), **`TDK`** (qualquer leitura, com throttle) ou
+  uma regra numérica sobre `power`/`vout` do inject.
 
 
 ## 9. Runtime engine

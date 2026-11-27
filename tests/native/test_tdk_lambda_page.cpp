@@ -110,7 +110,11 @@ TEST_CASE("TDK page: every control has a tooltip") {
         INFO(line);
         CHECK(line.find("title=") != std::string::npos);
     }
-    CHECK(countOf(html, "<th title=") == 10);   // catalogue 7 + CSV preview 3
+    CHECK(countOf(html, "<th title=") == 9);    // catalogue 6 + CSV preview 3
+    // The catalogue row is the action: no per-row button, no sideways scroll.
+    CHECK(html.find("onclick=\"tdkUse(") != std::string::npos);
+    CHECK(html.find(">use</button>") == std::string::npos);
+    CHECK(html.find("overflow-x:hidden") != std::string::npos);
     // No leftover custom button class: the core .btn look is the standard.
     CHECK(countOf(html, "tdk-btn") == 0);
 }
