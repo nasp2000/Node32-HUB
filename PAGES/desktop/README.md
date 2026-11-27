@@ -387,8 +387,9 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 
 ### 3.11 Blocked routes — smoke matrix
 
-The 5 rows still **pending** have no live page to capture (seventeen of the original 22 are
-now delivered as smoke captures, §3.12). Each was probed **once** on all
+Every row below has been delivered as a smoke capture (§3.12) — the matrix is kept because it
+records what each board answered and the compile-time reason, so a future attempt starts from the
+cause. Each was probed **once** on all
 four live boards (`.29` Waveshare, `.24` HomeE32, `.18` Cam-P4, `.9` Cam-M1) with
 
 ```bash
@@ -426,6 +427,7 @@ turned on for a capture — which is a firmware change and out of scope for this
 | `/ecra` | `ecra.png` | 404 ×4 | same Touch7 pack — **captured by smoke, §3.12** |
 | `/ipg-laser` | `ipg_laser.png` | 404 ×4 | `ENABLE_IPG_LASER 0` in every pack — **captured by smoke, §3.12** |
 | `/usb-server` | `usb_server.png` | 404 ×4 | `ENABLE_USBIP_SERVER` — only `pack_p4_usb_server.h:30` sets 1 — **captured by smoke, §3.12** |
+| `/tdk-lambda` | `tdk_lambda.png` | 404 ×4 | `ENABLE_TDK_LAMBDA` — only `pack_rs232.h` sets 1 and that board is offline — **captured by smoke, §3.12** |
 
 ### 3.12 Smoke captures — routes only the firmware has
 
