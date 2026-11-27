@@ -19,18 +19,30 @@ const char PAGE_TDK_LAMBDA[] PROGMEM = R"rawliteral(
   .section-title{margin:0 0 12px 0;font-size:18px;color:#60a5fa;font-weight:bold}
   /* tabs — same look as /access */
   .tdk-tab-bar{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 0 0}
-  .tdk-tab-btn{flex:1 1 auto;min-width:90px;border:2px solid #1e40af;border-radius:8px;background:#0f172a;color:#93c5fd;padding:8px 10px;font-size:13px;cursor:pointer;transition:all .2s ease;text-align:center;white-space:nowrap}
+  /* core.css sets button{width:100%;max-width:420px;margin:6px auto}: undo it so
+     the five tabs share one row and the action buttons stay compact. */
+  .tdk-tab-btn{flex:1 1 0;min-width:0;width:auto;max-width:none;margin:0;border:2px solid #1e40af;border-radius:8px;background:#0f172a;color:#93c5fd;padding:8px 10px;font-size:13px;cursor:pointer;transition:all .2s ease;text-align:center;white-space:nowrap}
   .tdk-tab-btn.active{background:#1d4ed8;color:#fff;border-color:#3b82f6;box-shadow:0 0 0 1px rgba(96,165,250,.35) inset}
   .tdk-panel{display:none}
   .tdk-panel.active{display:block}
   @media(max-width:480px){.tdk-tab-btn{min-width:72px;padding:7px 6px;font-size:12px}}
-  .tdk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+  .tdk-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+  @media (min-width:700px){.tdk-val.wide{grid-column:span 2}}
+  /* the catalogue rows: core would stretch every button to 100% of the cell */
+  .tdk-tbl .btn,.tdk-tbl button{width:auto;max-width:none;margin:0;padding:4px 14px;min-height:30px;display:inline-block;font-size:12px}
   .tdk-val{background:#1e293b;border-radius:8px;padding:8px;cursor:help}
   .tdk-val .k{font-size:11px;color:#94a3b8}
   .tdk-val .v{font-size:22px;font-weight:700;color:#f8fafc}
   .tdk-val .u{font-size:12px;color:#94a3b8;margin-left:3px}
   .tdk-pre{background:#020617;border:1px solid #1e293b;border-radius:8px;padding:8px;height:220px;overflow:auto;font:12px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap}
-  .tdk-tbl{width:100%;border-collapse:collapse;font-size:12px}
+  .tdk-tbl{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+  .tdk-tbl th:nth-child(1){width:11%}
+  .tdk-tbl th:nth-child(2){width:10%}
+  .tdk-tbl th:nth-child(3){width:12%}
+  .tdk-tbl th:nth-child(4){width:30%}
+  .tdk-tbl th:nth-child(5){width:16%}
+  .tdk-tbl th:nth-child(6){width:14%}
+  .tdk-tbl th:nth-child(7){width:7%}
   .tdk-tbl th,.tdk-tbl td{border-bottom:1px solid #1e293b;padding:5px 6px;text-align:left;vertical-align:top}
   .tdk-tbl th{color:#93c5fd;position:sticky;top:0;background:#0f172a}
   .tdk-scroll{max-height:340px;overflow:auto}
@@ -40,7 +52,8 @@ const char PAGE_TDK_LAMBDA[] PROGMEM = R"rawliteral(
   .tdk-badge.warn{background:#3b1d05;color:#fbbf24;border:1px solid #78350f}
   .tdk-badge.err{background:#450a0a;color:#f87171;border:1px solid #7f1d1d}
   .tdk-badge.off{background:#1f2937;color:#9ca3af;border:1px solid #374151}
-  .tdk-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+  .tdk-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px}
+  .tdk-row > .btn,.tdk-row > button{width:auto;max-width:none;margin:0;flex:0 0 auto;padding:8px 16px;min-height:36px;display:inline-block}
   .tdk-field{display:flex;flex-direction:column;gap:2px;font-size:12px;color:#94a3b8}
   .tdk-field input,.tdk-field select{min-height:30px}
   canvas#tdkChart{width:100%;height:190px;background:#020617;border:1px solid #1e293b;border-radius:8px;display:block;cursor:help}
@@ -61,6 +74,8 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
     <div id='tdkStatus'>loading&hellip;</div>
     <div class='tdk-row' style='margin-top:10px'>
       <span class='tdk-note' title='Identification strings answered by the supply' data-i18n-title='tdkTipIdn'>Unit: <b id='tdkIdn'>--</b> &middot; FW <b id='tdkRev'>--</b> &middot; SN <b id='tdkSn'>--</b></span>
+    </div>
+    <div class='tdk-row'>
       <button class='btn' onclick='tdkIdentify()' title='Sends IDN?, REV? and SN? to read the unit identity' data-i18n-title='tdkTipIdentify'>&#128269; Identify (IDN? REV? SN?)</button>
     </div>
   </div>
@@ -76,7 +91,7 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
       <div class='tdk-val' title='Regulation mode reported by the supply: CV for voltage, CC for current' data-i18n-title='tdkTipMode'><div class='k'>Mode</div><div class='v' id='tdkMode'>--</div></div>
       <div class='tdk-val' title='Output state on or off, from STT? or STAT?' data-i18n-title='tdkTipOut'><div class='k'>Output</div><div class='v' id='tdkOut'>--</div></div>
       <div class='tdk-val' title='Over-voltage protection and under-voltage limit (OVP? and UVL?)' data-i18n-title='tdkTipOvp'><div class='k'>OVP / UVL</div><div class='v' id='tdkOvp' style='font-size:16px'>-- / --</div></div>
-      <div class='tdk-val' title='Last line received from the supply, exactly as it arrived' data-i18n-title='tdkTipLast'><div class='k'>Last line</div><div class='v' id='tdkLast' style='font-size:12px;word-break:break-all'>--</div></div>
+      <div class='tdk-val wide' title='Last line received from the supply, exactly as it arrived' data-i18n-title='tdkTipLast'><div class='k'>Last line</div><div class='v' id='tdkLast' style='font-size:12px;word-break:break-all'>--</div></div>
     </div>
   </div>
 
@@ -95,10 +110,12 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
     <canvas id='tdkChart' width='900' height='190' title='Voltage in blue and current in amber, from the polling buffer' data-i18n-title='tdkTipChart'></canvas>
     <div class='tdk-row' style='margin-top:10px'>
       <label class='tdk-note' title='Log an alert when a reading leaves these limits; 0 turns a limit off' data-i18n-title='tdkTipLimits'><input type='checkbox' id='tdkLimOn' onchange='tdkSaveExtras()'> Alert limits</label>
-      <label class='tdk-field' title='Minimum acceptable voltage in V; 0 disables' data-i18n-title='tdkTipLimVMin'>V min <input id='tdkLimVMin' value='0' style='width:80px' onchange='tdkSaveExtras()'></label>
-      <label class='tdk-field' title='Maximum acceptable voltage in V; 0 disables' data-i18n-title='tdkTipLimVMax'>V max <input id='tdkLimVMax' value='0' style='width:80px' onchange='tdkSaveExtras()'></label>
-      <label class='tdk-field' title='Maximum acceptable current in A; 0 disables' data-i18n-title='tdkTipLimIMax'>I max <input id='tdkLimIMax' value='0' style='width:80px' onchange='tdkSaveExtras()'></label>
       <span id='tdkAlert'></span>
+    </div>
+    <div class='tdk-row'>
+      <label class='tdk-field' title='Minimum acceptable voltage in V; 0 disables' data-i18n-title='tdkTipLimVMin'>V min <input id='tdkLimVMin' value='0' style='width:90px' onchange='tdkSaveExtras()'></label>
+      <label class='tdk-field' title='Maximum acceptable voltage in V; 0 disables' data-i18n-title='tdkTipLimVMax'>V max <input id='tdkLimVMax' value='0' style='width:90px' onchange='tdkSaveExtras()'></label>
+      <label class='tdk-field' title='Maximum acceptable current in A; 0 disables' data-i18n-title='tdkTipLimIMax'>I max <input id='tdkLimIMax' value='0' style='width:90px' onchange='tdkSaveExtras()'></label>
     </div>
     <p class='tdk-note'>0 disables a threshold. An alert is logged to the Serial Monitor and shows here.</p>
   </div>
@@ -161,8 +178,8 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
     <div class='tdk-grid'>
       <label class='tdk-field' title='dvc: one query with several fields; split: one query per value' data-i18n-title='tdkTipMode2'>Mode
         <select id='tdkMode2' title='dvc: one query with several fields; split: one query per value' data-i18n-title='tdkTipMode2'>
-          <option value='dvc'>dvc (one query, N fields)</option>
-          <option value='split'>split (V and I separate)</option>
+          <option value='dvc'>dvc (one query)</option>
+          <option value='split'>split (two queries)</option>
         </select>
       </label>
       <label class='tdk-field' title='Voltage query, or the multi-field DVC?' data-i18n-title='tdkTipCmdV'>V query (or DVC?)<input id='tdkCmdV' value='DVC?'></label>
@@ -173,7 +190,7 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
       <label class='tdk-field' title='Multiplier applied to the current field' data-i18n-title='tdkTipSi'>Scale I<input id='tdkSi' value='1'></label>
       <label class='tdk-field' title='Value added to the voltage after scaling' data-i18n-title='tdkTipOv'>Offset V<input id='tdkOv' value='0'></label>
       <label class='tdk-field' title='Value added to the current after scaling' data-i18n-title='tdkTipOi'>Offset I<input id='tdkOi' value='0'></label>
-      <label class='tdk-field' title='Multi-drop address prefix for supplies on an addressed bus; 0 means none' data-i18n-title='tdkTipAddr'>Multi-drop address (0 = off)<input id='tdkAddr' value='0'></label>
+      <label class='tdk-field' title='Multi-drop address prefix for supplies on an addressed bus; 0 means none' data-i18n-title='tdkTipAddr'>Addr (0 = off)<input id='tdkAddr' value='0'></label>
     </div>
     <div class='tdk-row' style='margin-top:10px'>
       <label class='tdk-note' title='Also emit a TDK sensor line, so the values reach the charts and alarms' data-i18n-title='tdkTipInject'><input type='checkbox' id='tdkInject' onchange='tdkSaveExtras()'> Also inject a sensor-style line (<code>TDK &hellip;, vout, &hellip;</code>) into the monitor/chart</label>
@@ -284,22 +301,32 @@ function tdkDrawTrend(rows){
   ctx.strokeStyle='#1e293b'; ctx.lineWidth=1;
   for(var g=0;g<=4;g++){
     var y=12+g*(H-24)/4;
-    ctx.beginPath(); ctx.moveTo(34,y); ctx.lineTo(W-8,y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(40,y); ctx.lineTo(W-10,y); ctx.stroke();
   }
   if(!rows||rows.length<2){
     ctx.fillStyle='#64748b'; ctx.font='12px sans-serif';
     ctx.fillText(rows&&rows.length?'collecting samples...':'no samples yet',44,H/2);
     return;
   }
-  var maxV=0,maxI=0;
+  /* Scale each series to its own range: a 600 V supply with 2 V of ripple is a
+     flat line at the top of a 0..max axis. 10 % margin top and bottom. */
+  var minV=1e9,maxV=-1e9,minI=1e9,maxI=-1e9;
   for(var k=0;k<rows.length;k++){
+    if(rows[k][1]<minV){minV=rows[k][1];}
     if(rows[k][1]>maxV){maxV=rows[k][1];}
+    if(rows[k][2]<minI){minI=rows[k][2];}
     if(rows[k][2]>maxI){maxI=rows[k][2];}
   }
-  if(maxV<=0){maxV=1;} if(maxI<=0){maxI=1;}
-  function px(i){return 34+(W-42)*(i/(rows.length-1));}
-  function pyV(v){return H-12-(H-24)*(v/maxV);}
-  function pyI(a){return H-12-(H-24)*(a/maxI);}
+  function span(a,b){
+    var lo=Math.min(a,b),hi=Math.max(a,b),d=hi-lo;
+    if(d<=1e-9){lo-=(hi?hi*0.001:0.5);hi+=(hi?hi*0.001:0.5);d=hi-lo;}
+    var pad=d*0.1;
+    return {lo:lo-pad,hi:hi+pad};
+  }
+  var sV=span(minV,maxV), sI=span(minI,maxI);
+  function px(i){return 40+(W-56)*(i/(rows.length-1));}
+  function pyV(v){return H-12-(H-24)*((v-sV.lo)/(sV.hi-sV.lo));}
+  function pyI(a){return H-12-(H-24)*((a-sI.lo)/(sI.hi-sI.lo));}
   ctx.lineWidth=2;
   ctx.strokeStyle='#60a5fa'; ctx.beginPath();
   for(var i=0;i<rows.length;i++){var x=px(i),y=pyV(rows[i][1]); if(i){ctx.lineTo(x,y);}else{ctx.moveTo(x,y);}}
@@ -308,10 +335,12 @@ function tdkDrawTrend(rows){
   for(var j=0;j<rows.length;j++){var x2=px(j),y2=pyI(rows[j][2]); if(j){ctx.lineTo(x2,y2);}else{ctx.moveTo(x2,y2);}}
   ctx.stroke();
   ctx.fillStyle='#94a3b8'; ctx.font='10px sans-serif';
-  ctx.fillText(maxV.toFixed(1)+' V',2,14);
-  ctx.fillText('0',22,H-10);
-  ctx.fillText(maxI.toFixed(2)+' A',W-52,14);
-  _tdkQ('tdkTrendInfo').textContent=rows.length+' pts, max '+maxV.toFixed(1)+' V / '+maxI.toFixed(3)+' A';
+  ctx.fillText(sV.hi.toFixed(1)+' V',2,14);      /* V axis, top */
+  ctx.fillText(sV.lo.toFixed(1),2,H-10);          /* V axis, bottom */
+  ctx.fillText(sI.hi.toFixed(2)+' A',W-56,14);    /* I axis, top (own scale) */
+  ctx.fillText(sI.lo.toFixed(2),W-40,H-10);
+  _tdkQ('tdkTrendInfo').textContent=rows.length+' pts \u00B7 V '+minV.toFixed(1)+'-'+maxV.toFixed(1)+
+                                       ' \u00B7 A '+minI.toFixed(2)+'-'+maxI.toFixed(2);
 }
 
 function tdkSend(){

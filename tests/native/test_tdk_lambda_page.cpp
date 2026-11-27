@@ -101,9 +101,14 @@ TEST_CASE("TDK page: every control has a tooltip") {
         INFO(line);
         CHECK(line.find("title=") != std::string::npos);
     }
-    // Value tiles and table headers explain themselves on hover.
-    CHECK(countOf(html, "class='tdk-val'") == 8);
-    CHECK(countOf(html, "class='tdk-val' title=") == 8);
+    // Value tiles and table headers explain themselves on hover. The last-line
+    // tile carries an extra class ("tdk-val wide"), hence the prefix match.
+    INFO("value tiles");
+    CHECK(countOf(html, "<div class='tdk-val") == 8);
+    for (const std::string& line : linesWith(html, "<div class='tdk-val")) {
+        INFO(line);
+        CHECK(line.find("title=") != std::string::npos);
+    }
     CHECK(countOf(html, "<th title=") == 7);
     // No leftover custom button class: the core .btn look is the standard.
     CHECK(countOf(html, "tdk-btn") == 0);

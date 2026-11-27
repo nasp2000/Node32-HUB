@@ -8,11 +8,11 @@ Same convention as `PAGES/mobile/`, applied to the **desktop** pages:
 > `buffer_viewer`, `access`, `ota`, `wifi`, `ethernet`, `email`, `recipients`, `alerts`,
 > `ftp`, `commands`, `commands_datetime`, `printer`, `do`, `rs232`), the Waveshare pack
 > (`proximity`, `proximity_dashboard`), the camera pack (`camera`, `hub`, `modbus_tcp`) and
-> the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus **twenty-two
+> the environment pack (`sensor_config`, `mq135_config`, `sensor_charts`), plus **twenty-three
 > smoke renders** of pages no live board serves (`dualfile`, `api_reference`, `networks`,
 > `structures`, `buzzer`, `lpt_db25`, `grbl_controller`, `modbus_rtu`, `modbus_live`, `rambox`,
 > `hx711`, `ina226`, `max31865`, `sound`, `can`, `uda1334a`, `radio_ui`, `ipg_laser`,
-> `google_script`, `falas`, `ecra`, `usb_server` — §3.12). No row is pending any more: every
+> `google_script`, `falas`, `ecra`, `usb_server`, `tdk_lambda` — §3.12). No row is pending any more: every
 > route that no live board serves was rendered from its shipped asset (§3.11/§3.12).
 
 Two provenances, marked in the Status column:
@@ -106,7 +106,7 @@ It prints a JSON report and exits `1` unless all of these pass:
 | `no cross-origin sheet` | all stylesheets come from the board itself |
 | `png width 1440` | the file matches the desktop viewport |
 
-## 3. Inventory (desktop pages, 50 images)
+## 3. Inventory (desktop pages, 51 images)
 
 Legend: **pending** = image not taken yet · **done** = image present here.
 Source of truth for behaviour/flags: `PAGES/WEB_PAGES_REFERENCE.md`.
@@ -153,6 +153,8 @@ python3 build_desktop_shots.py radio_ui
 node desktop_smoke_shot.js shots/desktop_radio_ui.html ../../PAGES/desktop/radio_ui.png
 python3 build_desktop_shots.py ipg_laser
 node desktop_smoke_shot.js shots/desktop_ipg_laser.html ../../PAGES/desktop/ipg_laser.png
+python3 build_desktop_shots.py tdk_lambda
+node desktop_smoke_shot.js shots/desktop_tdk_lambda.html ../../PAGES/desktop/tdk_lambda.png
 python3 build_desktop_shots.py google_script
 node desktop_smoke_shot.js shots/desktop_google_script.html ../../PAGES/desktop/google_script.png
 python3 build_desktop_shots.py falas
@@ -370,7 +372,8 @@ the tab was on Home. If `location` is not the requested path, the capture is voi
 
 | Page | Route | Image | Status |
 |---|---|---|---|
-| IPG laser RS232 | `/ipg-laser` | `ipg_laser.png` | **done** (smoke — §3.12; the page script is dead as shipped, `BACKLOG.md` IPG-7) |
+| IPG laser RS232 | `/tdk-lambda` | `tdk_lambda.png` | `chatgpt/src/webpages/assets/page_tdk_lambda_asset.cpp` (fragment) + the page shell | 1440 × 1238. Seed: `-status` (GENH600-1.3, CV, 600.00 V / 1.302 A, OVP 660 / UVL 0, output ON, CSV on SD, 143 rows), `-config`, `-log` (three TX/RX exchanges), `-samples` (60 points) and `-commands` (10 catalogue rows). Title `⚡ TDK-Lambda / Genesys` — hardcoded in `tdk_lambda_page_renderer.cpp:10`; 1 037 chars, 30 controls, 1 table / 11 rows, 0 broken images, overlay hidden, no horizontal overflow, PNG 1440 wide → **7/7 harness checks**. Five tabs (Live active). The capture is what found and fixed, in the same change: (a) `core.css`'s `button{width:100%;max-width:420px;margin:6px auto}` turned the tab bar into a 2+2+1 grid and every action button into a full-width pill — page-scoped overrides give the tabs `flex:1 1 0` and the row/cell buttons `width:auto`; (b) the trend chart scaled every series from 0, so a 600 V supply with 2 V of ripple was a flat line at the top — each series now scales to its own min/max with a 10 % margin and labels both ends; (c) `#tdkTrendInfo` printed `&middot;` literally (`textContent` does not decode entities → `\u00B7`); (d) the alert-limits row wrapped into three visual lines (switch and thresholds are separate rows now); (e) the catalogue `use` pill was stretched and the Description column collapsed (`table-layout:fixed` + column widths) |
+| `/ipg-laser` | `ipg_laser.png` | **done** (smoke — §3.12; the page script is dead as shipped, `BACKLOG.md` IPG-7) |
 | USB/IP server | `/usb-server` | `usb_server.png` | **done** (smoke — §3.12) |
 
 ### 3.10 Deliberately **not** in this folder

@@ -592,6 +592,81 @@ RADIO_UI_SEED = r"""
 </script>
 """
 
+TDK_SEED = r"""
+<script>
+(function () {
+  // GET /api/tdk-lambda-status: the status/values pair tdkStatus() reads. A
+  // GENH600-1.3 in CV at 600 V with the output on, one poll per minute.
+  var status = {
+    enabled: true, polling: true, csvEnabled: true, csvSensorFormat: true,
+    pollIntervalMs: 60000, lastRxAgeMs: 1400, csvRows: 143, logCount: 6,
+    lastCommand: 'DVC?', profileMode: 'dvc', autoMap: true,
+    listen: false, autoNote: 'map 0,1 (V pair 461x I pair)',
+    mapUsed: '0,1,2,3,4,5', scaleVUsed: 1, scaleIUsed: 1,
+    lastLine: '600.00 1.302 660.0 1.400 0 0',
+    idn: 'GENH600-1.3', rev: 'V3.02', sn: 'H1234567',
+    lastError: '', lastErrorAgeMs: 0, address: 0, inject: true,
+    alertActive: false, alertText: '',
+    csvPath: '/PSU/TDK_26-11-2026.csv', csvOnSd: true
+  };
+  var values = { valid: true, vMeas: 600.0, vSet: 600.0, iMeas: 1.302, iSet: 1.4,
+                 ovp: 660.0, uvl: 0.0, mode: 'CV', outOn: true, lastUpdateMs: 0 };
+
+  // 60 samples of the polling ring buffer: slow voltage drift, current ripple.
+  var samples = [];
+  for (var i = 0; i < 60; i++) {
+    samples.push([1764300000 + i * 60,
+                  600 + 2.4 * Math.sin(i / 6),
+                  1.30 + 0.05 * Math.cos(i / 4)]);
+  }
+
+  window.__MOCK_API__ = {
+    '/api/tdk-lambda-status': { success: true, status: status, values: values },
+    '/api/tdk-lambda-log': { success: true, entries: [
+      { dir: 'TX', text: 'DVC?' },
+      { dir: 'RX', text: '600.00 1.302 660.0 1.400 0 0' },
+      { dir: 'TX', text: 'MODE?' },
+      { dir: 'RX', text: 'CV' },
+      { dir: 'TX', text: 'STT?' },
+      { dir: 'RX', text: '0,0,0,0,0,0,0,0,0,0' }
+    ] },
+    '/api/tdk-lambda-config': { success: true, poll: true, poll_s: 60, csv: true,
+      format: 'sensor', mode: 'dvc', cmd_v: 'DVC?', cmd_i: 'MC?', cmd_state: 'MODE?',
+      map: '0,1,2,3,4,5', scale_v: 1, scale_i: 1, off_v: 0, off_i: 0,
+      auto_map: true, addr: 0, inject: true,
+      limits: { enabled: true, v_min: 590, v_max: 610, i_max: 1.35 },
+      listen: false, allow_write: false },
+    '/api/tdk-lambda-samples': { success: true, samples: samples },
+    '/api/tdk-lambda-commands': { success: true, commands: [
+      { cmd: 'DVC?', group: 'measure', usage: 'DVC?',
+        desc: 'Measured voltage and current in one reply',
+        reply: '600.00 1.302 660.0 1.400 0 0',
+        notes: 'Field layout depends on the model' },
+      { cmd: 'MV?', group: 'measure', usage: 'MV?', desc: 'Measured output voltage',
+        reply: '600.00', notes: '' },
+      { cmd: 'MC?', group: 'measure', usage: 'MC?', desc: 'Measured output current',
+        reply: '1.302', notes: '' },
+      { cmd: 'MODE?', group: 'measure', usage: 'MODE?', desc: 'Regulation mode: CV or CC',
+        reply: 'CV', notes: '' },
+      { cmd: 'STT?', group: 'status', usage: 'STT?', desc: 'Status registers',
+        reply: '0,0,0,0,0,0,0,0,0,0', notes: '' },
+      { cmd: 'STAT?', group: 'status', usage: 'STAT?', desc: 'Fault and status summary',
+        reply: '0,0', notes: '' },
+      { cmd: 'FLT?', group: 'status', usage: 'FLT?', desc: 'Fault text',
+        reply: 'No fault', notes: '' },
+      { cmd: 'OVP?', group: 'protection', usage: 'OVP?', desc: 'Over-voltage protection level',
+        reply: '660.0', notes: '' },
+      { cmd: 'UVL?', group: 'protection', usage: 'UVL?', desc: 'Under-voltage limit',
+        reply: '0.0', notes: '' },
+      { cmd: 'PV', group: 'setpoint', usage: 'PV 600.0',
+        desc: 'Set the output voltage', reply: 'OK',
+        notes: 'Requires write commands enabled' }
+    ] }
+  };
+})();
+</script>
+"""
+
 IPG_LASER_SEED = r"""
 <script>
 (function () {
@@ -950,6 +1025,7 @@ PAGES = {
     'uda1334a': ('page_audio_dac_uda1334a_asset.cpp', UDA1334A_SEED, 'fragment'),
     'radio_ui': ('page_radio_ui_asset.cpp', RADIO_UI_SEED, 'fragment'),
     'ipg_laser': ('page_ipg_laser_asset.cpp', IPG_LASER_SEED, 'fragment'),
+    'tdk_lambda': ('page_tdk_lambda_asset.cpp', TDK_SEED, 'fragment'),
     'google_script': ('page_google_script_asset.cpp', GOOGLE_SCRIPT_SEED, 'fragment'),
     'falas': ('page_falas_asset.h', FALAS_SEED, 'fragment'),
     'ecra': ('page_ecra_asset.h', ECRA_SEED, 'fragment'),
@@ -1019,6 +1095,8 @@ FRAGMENT_TITLES = {
     # Hardcoded in ipg_laser_page_renderer.cpp:8 ("\xF0\x9F\x94\xA5 IPG Laser RS232");
     # there is no pageTitleIpgLaser key (IPG-1 covers the whole page's missing i18n).
     'ipg_laser': '🔥 IPG Laser RS232',
+    # tdk_lambda_page_renderer.cpp passes "\xE2\x9A\xA1 TDK-Lambda / Genesys".
+    'tdk_lambda': '⚡ TDK-Lambda / Genesys',
     # Google's shell title is not a UTF-8 literal: google_script_page_renderer.cpp:8 passes
     # "&#127760; Google App Script", so <title> holds the entity and the parser turns it into
     # "🌐 Google App Script" (title is RCDATA) — kept byte-identical here, entity included.

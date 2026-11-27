@@ -82,6 +82,16 @@ div.page.tdk-lambda > div.wrap          ← the asset opens its own page/wrap
 (`data-tab-default`) ou o último usado (`localStorage.tdk_tab`) e `tdkShowTab(key)` permite saltar
 de fora (usado pelo botão `use` do catálogo, que carrega o comando e passa ao Console).
 
+**Sobreposições ao `core.css`** (necessárias nesta página): o core dá a **todos** os botões
+`width:100%;max-width:420px;margin:6px auto`, o que transformava a barra de separadores num
+2+2+1 e cada botão de acção numa pílula de largura total. A página corrige em `.tdk-tab-btn`
+(`flex:1 1 0;width:auto`), `.tdk-row > .btn`/`button` (`width:auto;flex:0 0 auto`) e
+`.tdk-tbl .btn` (`width:auto`, botão de célula). A tabela do catálogo usa `table-layout:fixed`
+com larguras por coluna (a Description estava esmagada).
+
+**Gráfico**: cada série escala ao **seu** min/max (±10 %) e marca os dois extremos — com eixo
+desde 0 uma fonte de 600 V com 2 V de ripple era uma linha recta no topo.
+
 **Tooltips e descrições**: cada botão, input, select, quadro de valor, coluna da tabela e o
 primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `data-i18n-title=`
 (chaves `tdkTip*`/`tdkDesc*`, EN e PT); os dois campos de texto livre usam
@@ -251,7 +261,7 @@ silêncio).
 | # | Finding | Pri | Suggestion |
 |---|---|---|---|
 | 0 | Página sem teste automático (o asset é um blob PROGMEM) | **Fixed** | `tests/native/test_tdk_lambda_page.cpp`: shell `.page/.wrap`, 7 secções, 5 tabs, tooltip em cada botão/input/select, ids do JS existem no markup, sem `alert()` nativo, sem `d.ok`; `tests/web/test_tdk_tabs.js` (jsdom): 5 botões criados, painel por omissão, último separador em `localStorage`, init idempotente, `tdkShowTab`/`tdkUse`, rótulos e tooltips traduzidos |
-| 1 | Sem screenshot em `PAGES/desktop/` (flag desligada em todos os packs) | Low | capturar com build `ENABLE_TDK_LAMBDA=1` |
+| 1 | Sem screenshot em `PAGES/desktop/` (flag desligada em todos os packs) | **Fixed** | `PAGES/desktop/tdk_lambda.png` (1440 × 1238) — render do próprio asset pelo harness (`build_desktop_shots.py tdk_lambda` + `desktop_smoke_shot.js`, 7/7 verificações); a captura revelou e fechou 5 defeitos de layout (botões do core a 100%, gráfico escalado desde 0, `&middot;` literal, linha dos limites a partir em três, coluna Description colapsada) |
 | 2 | Strings da página em **inglês** (regra do repo: HTML fallback EN); sem chaves `LangStrings` | Info | traduzir via i18n só se o pack exigir PT |
 | 3 | `csvRows` em LittleFS conta linhas do último flush (não do ficheiro todo) | Info | ler o ficheiro ao abrir a página, se for preciso |
 | 4 | Catálogo em inglês (nomes do manual) | Info | manter: são literais SCPI |
