@@ -249,15 +249,27 @@ inline void screenBuildPackCards(ScreenCardList& cards) {
         {
             if (g_modbusDeviceCount > 0) {
                 uint32_t totalPolls = 0, totalErrors = 0;
+                uint32_t oldestPoll = 0, longestInterval = 0;
                 for (uint8_t d = 0; d < g_modbusDeviceCount; d++) {
-                    totalPolls  += g_modbusDevices[d].pollCount;
-                    totalErrors += g_modbusDevices[d].errorCount;
+                    const ModbusDevice& dev = g_modbusDevices[d];
+                    totalPolls  += dev.pollCount;
+                    totalErrors += dev.errorCount;
+                    if (!dev.enabled) continue;
+                    if (dev.pollIntervalMs > longestInterval) longestInterval = dev.pollIntervalMs;
+                    // earliest lastPollMs of the enabled devices (0 = never polled)
+                    if (oldestPoll == 0 || (int32_t)(dev.lastPollMs - oldestPoll) < 0) {
+                        oldestPoll = dev.lastPollMs;
+                    }
                 }
                 char mbBuf[SCREEN_CARD_TEXT_MAX];
                 snprintf(mbBuf, sizeof(mbBuf), "Modbus: %u dev poll:%lu err:%lu",
                          (unsigned)g_modbusDeviceCount,
                          (unsigned long)totalPolls, (unsigned long)totalErrors);
-                cards.add(mbBuf);
+                // Stale marker: the poller stopped answering for 3 intervals. A
+                // frozen poll/err counter must not look like a live bus.
+                const bool mbStale = (longestInterval > 0 &&
+                                      (uint32_t)(millis() - oldestPoll) > (longestInterval * 3UL));
+                cards.add(mbBuf, 1, mbStale);
             }
         }
 #endif

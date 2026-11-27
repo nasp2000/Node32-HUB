@@ -237,8 +237,9 @@ Desenhado **no browser** (canvas 2D), com os dados de `/api/tdk-lambda-samples`:
   - **Cartão `! OFFLINE`** — quando não há Wi-Fi **nem** Ethernet (fora de modo AP) entra como
     **primeiro** cartão da rotação: sem rede o pack não faz o seu trabalho. É composto no core
     (estado de rede), não no pack;
-  - **`~` = dados velhos** — ambiente com leitura >5 min e TDK com resposta mais antiga que 3
-    intervalos de poll levam o prefixo; um valor parado deixa de parecer vivo.
+  - **`~` = dados velhos** — ambiente com leitura >5 min, TDK com resposta mais antiga que 3
+    intervalos de poll e **Modbus** quando o ciclo de poll parou há mais de 3 intervalos
+    (`ModbusDevice::lastPollMs`) levam o prefixo; um valor parado deixa de parecer vivo.
 - `tdkLambdaUpdate()` (loop): ciclo `<cmd_v>` → `<cmd_i>` (só `split`) → `<cmd_state>` a cada intervalo configurado,
   e flush do CSV **no backend ativo** (SD ou LittleFS) na janela de `getSdcardFlushInterval()`
   (10/30/60 min) ou quando o buffer de 128 KB passa dos **96 KB**.
@@ -268,7 +269,7 @@ silêncio).
 | 5 | Modo *listener* não distingue `DVC?` de outras linhas de 6 campos | Low | usar `STT?` como marcador quando o PLC o pedir |
 | 6 | `fitForPanel()` usava `OLED_TEXT_SIZE` para todos os painéis → a vista 2.42" cortava a 10 caracteres | **Fixed** | cols do perfil (`activeDisplayProfile().textSize`); 2.42" = 1 → 21 caracteres |
 | 7 | 15 construtores de cartões com `#if` de packs dentro do `screen.cpp` | **Fixed** | `screen_cards.h` (modelo) + `screen_cards_pack.h` (construtores); o core só roda |
-| 8 | Cartões de proximidade/Modbus/CAN/USB/rádio sem marca de dados velhos | Low | falta um `lastUpdate` por módulo; o ambiente e o TDK já a têm |
+| 8 | Cartões de proximidade/Modbus/CAN/USB/rádio sem marca de dados velhos | Low | **parcial**: ambiente, TDK e **Modbus** (`lastPollMs` > 3× intervalo → `~`); CAN/USB/rádio não têm timestamp no runtime — precisam de um `lastRxMs` antes de poderem marcar |
 
 ## 12. Source map
 
