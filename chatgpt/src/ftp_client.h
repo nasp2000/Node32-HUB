@@ -167,7 +167,11 @@ bool ftpTestConnection(String& detail);
 // is streamed in internal-RAM chunks (cap FTP_MAX_UPLOAD_BYTES), never staged
 // whole in PSRAM. When deleteAfter and server SIZE matches, removes local file.
 // fs selects the filesystem to read from.
-bool ftpUploadFileImpl(FtpLocalFs fs, const String& localPath, const String& remoteName, String& detail, bool deleteAfter);
+// sentOut (optional) receives the bytes actually streamed: the file can grow
+// between the directory scan and the open (PSU CSV flush), and the journal must
+// record what was sent, not what was scanned.
+bool ftpUploadFileImpl(FtpLocalFs fs, const String& localPath, const String& remoteName,
+                       String& detail, bool deleteAfter, size_t* sentOut = nullptr);
 // Monitor tick: every interval_min, uploads up to max_files new files.
 void ftpMonitorTick();
 // Force immediate cycle (web "Upload now"). Returns files uploaded.

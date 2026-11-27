@@ -122,23 +122,24 @@ test('a background browser tab does not fetch at all', function () {
 });
 
 test('the trend refresh follows the poll cadence, one timer only', function () {
+  // The poll floor is 1 min now, so the refresh is clamped to 60..300 s.
   const w = boot([]);
   let created = 0, cleared = 0, lastMs = 0;
   w.setInterval = function (fn, ms) { created++; lastMs = ms; return created; };
   w.clearInterval = function () { cleared++; };
-  w._tdkArmTrend(30000);            // initial 30 s
+  w._tdkArmTrend(60000);            // initial: one row a minute
   is(created, 1, 'one timer');
-  is(lastMs, 30000, 'initial cadence');
-  w._tdkArmTrend(30000);            // same cadence: must not re-arm
+  is(lastMs, 60000, 'initial cadence');
+  w._tdkArmTrend(60000);            // same cadence: must not re-arm
   is(created, 1, 'no duplicate timer');
-  w._tdkArmTrend(10000);            // 10 s poll: follow it
+  w._tdkArmTrend(180000);           // 3 min poll: follow it
   is(created, 2, 're-armed for a new cadence');
   is(cleared, 1, 'old timer cleared');
-  is(lastMs, 10000, 'poll cadence used');
-  w._tdkArmTrend(500);              // clamped up to 5 s
-  is(lastMs, 5000, 'clamp min');
-  w._tdkArmTrend(3600000);          // clamped down to 60 s
-  is(lastMs, 60000, 'clamp max');
+  is(lastMs, 180000, 'poll cadence used');
+  w._tdkArmTrend(5000);             // below the floor -> 60 s
+  is(lastMs, 60000, 'clamp min (1 min)');
+  w._tdkArmTrend(3600000);          // above the ceiling -> 300 s
+  is(lastMs, 300000, 'clamp max');
 });
 
 console.log('\n' + passed + '/' + (passed + failed) + ' passed');

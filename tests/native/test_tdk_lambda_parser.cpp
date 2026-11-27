@@ -223,3 +223,16 @@ TEST_CASE("TdkSession integrates energy and time in CC / limit / off") {
     CHECK(s.transitions == 2);
 }
 
+TEST_CASE("tdkOutFromMode: MODE? decides whether the output is enabled") {
+    CHECK(tdkOutFromMode("CV", false) == true);
+    CHECK(tdkOutFromMode("CC", false) == true);
+    CHECK(tdkOutFromMode("OFF", true) == false);
+    CHECK(tdkOutFromMode("CV", true) == true);
+    // Anything that is not a mode keeps what we knew (STAT? replies, blanks).
+    CHECK(tdkOutFromMode("", true) == true);
+    CHECK(tdkOutFromMode("--", false) == false);
+    CHECK(tdkOutFromMode("0,0,0", true) == true);
+    CHECK(tdkOutFromMode(nullptr, true) == true);
+    CHECK(tdkOutFromMode("O", true) == true);      // too short to be OFF
+    CHECK(tdkOutFromMode("C", false) == false);
+}

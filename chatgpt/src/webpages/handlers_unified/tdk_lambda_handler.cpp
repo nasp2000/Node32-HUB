@@ -17,6 +17,8 @@ extern ConfigManager configManager;
 #include "../../tdk_lambda.h"
 #include "../../sdcard.h"
 #include "../../littlefs_manager.h"
+#include <esp_heap_caps.h>
+#include <esp_task_wdt.h>
 
 static String tdkJsonEscape(const char* s) {
     String o;
@@ -390,10 +392,10 @@ void handleTdkLambdaSamplesGet(HttpRequest& req, HttpResponse& res) {
     const int q = req.query.indexOf("n=");
     if (q >= 0) want = req.query.substring(q + 2).toInt();
     if (want < 2) want = 2;
-    if (want > 240) want = 240;   // ring size: 4 h at 1/min
+    if (want > TDK_SAMPLES_MAX) want = TDK_SAMPLES_MAX;   // 4 h at 1/min
 
     // Static, not stack/heap: the ring is copied here and freed with the TU.
-    static TdkSample samples[240];
+    static TdkSample samples[TDK_SAMPLES_MAX];
     const uint16_t n = tdkLambdaCopySamples(samples, (uint16_t)want);
     const uint32_t now = millis();
     String j;
@@ -417,40 +419,106 @@ void handleTdkLambdaSamplesGet(HttpRequest& req, HttpResponse& res) {
 void handleTdkLambdaCsvGet(HttpRequest& req, HttpResponse& res) {
     (void)req;
 #if ENABLE_TDK_LAMBDA == 1
-    const String path = tdkLambdaCsvPath();
-    String body;
-    const size_t kMaxCsvBytes = 220UL * 1024UL;
+    // The rows wait in the module's RAM buffer until the configured window:
+    // flush first so a download carries everything up to now (no-op when empty).
+    (void)tdkLambdaCsvFlushNow();
 
+    const String path = tdkLambdaCsvPath();
+    const size_t kMaxCsvBytes = 1024UL * 1024UL;   // a full day at 1/min fits
+
+    File f;
+    bool lockedSd = false, lockedFs = false;
     if (sdcardShouldUseSD()) {
 #if ENABLE_SDCARD==1
         if (sdMutexLock(pdMS_TO_TICKS(1500))) {
-            File f = SD_MMC.open(path.c_str(), FILE_READ);
-            if (f) {
-                while (f.available() && body.length() < kMaxCsvBytes) body += (char)f.read();
-                f.close();
-            }
-            sdMutexUnlock();
+            f = SD_MMC.open(path.c_str(), FILE_READ);
+            lockedSd = true;
         }
 #endif
     } else {
 #if ENABLE_FILESYSTEM==1
         if (lfsMutexLock(pdMS_TO_TICKS(2000))) {
-            File f = LittleFS.open(path.c_str(), FILE_READ);
-            if (f) {
-                while (f.available() && body.length() < kMaxCsvBytes) body += (char)f.read();
-                f.close();
-            }
-            lfsMutexUnlock();
+            f = LittleFS.open(path.c_str(), FILE_READ);
+            lockedFs = true;
         }
 #endif
     }
 
-    if (body.length() == 0) {
+    const size_t fileSize = (f && !f.isDirectory()) ? (size_t)f.size() : 0;
+    if (fileSize == 0) {
+        if (f) f.close();
+#if ENABLE_SDCARD==1
+        if (lockedSd) sdMutexUnlock();
+#endif
+#if ENABLE_FILESYSTEM==1
+        if (lockedFs) { extern void lfsMutexUnlock(); lfsMutexUnlock(); }
+#endif
         res.code = 404;
         res.sendJson(F("{\"success\":false,\"message\":\"no CSV for today yet\"}"));
         return;
     }
-    res.send(200, F("text/csv"), body);
+
+    // One PSRAM buffer (internal RAM only as a last resort, capped): never a
+    // 200 KB+ String on the heap.
+    size_t want = (fileSize > kMaxCsvBytes) ? kMaxCsvBytes : fileSize;
+    uint8_t* buf = (uint8_t*)heap_caps_malloc(want + 1, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (!buf) {
+        want = (want > (256UL * 1024UL)) ? (256UL * 1024UL) : want;
+        buf = (uint8_t*)heap_caps_malloc(want + 1, MALLOC_CAP_8BIT);
+    }
+    if (!buf) {
+        if (f) f.close();
+#if ENABLE_SDCARD==1
+        if (lockedSd) sdMutexUnlock();
+#endif
+#if ENABLE_FILESYSTEM==1
+        if (lockedFs) { extern void lfsMutexUnlock(); lfsMutexUnlock(); }
+#endif
+        res.code = 503;
+        res.sendJson(F("{\"success\":false,\"message\":\"not enough memory for the CSV\"}"));
+        return;
+    }
+
+    size_t got = 0;
+    while (got < want && f.available()) {
+        const int n = f.read(buf + got, want - got);
+        if (n <= 0) break;
+        got += (size_t)n;
+        esp_task_wdt_reset();
+    }
+    f.close();
+#if ENABLE_SDCARD==1
+    if (lockedSd) sdMutexUnlock();
+#endif
+#if ENABLE_FILESYSTEM==1
+    if (lockedFs) { extern void lfsMutexUnlock(); lfsMutexUnlock(); }
+#endif
+
+    if (got == 0) {
+        heap_caps_free(buf);
+        res.code = 404;
+        res.sendJson(F("{\"success\":false,\"message\":\"no CSV for today yet\"}"));
+        return;
+    }
+
+    // Truncated (beyond the cap or short of memory): end on a line boundary so
+    // the last row is never half a row, and say so on the monitor.
+    if (got < fileSize) {
+        size_t cut = got;
+        while (cut > 0 && buf[cut - 1] != '\n') --cut;
+        if (cut > 0) got = cut;
+        char msg[96];
+        snprintf(msg, sizeof(msg), "CSV download truncated: %u of %u bytes",
+                 (unsigned)got, (unsigned)fileSize);
+        sendVirtualMessage(String(F("[TDK] ")) + msg, 1, true, false);
+    }
+
+    res.code = 200;
+    res.contentType = F("text/csv");
+    res.isBinary = true;
+    res.binaryData = buf;
+    res.binaryLen = got;
+    res.freeFn = [](const uint8_t* p) { heap_caps_free((void*)p); };
 #else
     res.code = 503;
     res.sendJson(F("{\"success\":false,\"message\":\"module disabled\"}"));

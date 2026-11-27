@@ -31,6 +31,10 @@ struct TdkLogEntry {
     char text[160];
 };
 
+// Samples kept in RAM for the trend (the endpoint serves at most this many).
+// 4 h at the 1-minute poll floor; 240 x 12 B = 2.9 KB of .bss, no heap.
+#define TDK_SAMPLES_MAX 240
+
 struct TdkSample {
     uint32_t ts;   // millis()
     float    v;

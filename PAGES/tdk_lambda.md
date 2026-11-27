@@ -44,13 +44,13 @@ Endpoints (todos registados uma vez, servidos nas duas interfaces):
 | GET | `/api/tdk-lambda-status` | `status{…}` + `values{…}` |
 | GET | `/api/tdk-lambda-commands` | catálogo (`cmd,group,usage,desc,reply,notes`) |
 | GET | `/api/tdk-lambda-log` | últimas 32 linhas (`dir,ageMs,text`) |
-| GET | `/api/tdk-lambda-config` | `{poll,poll_s,csv,format,mode,cmd_v,cmd_i,cmd_state,map,scale_v,scale_i,off_v,off_i,auto_map,listen,allow_write}` |
+| GET | `/api/tdk-lambda-config` | `{poll,poll_s,csv_every,csv,format,mode,cmd_v,cmd_i,cmd_state,map,scale_v,scale_i,off_v,off_i,auto_map,listen,allow_write}` |
 | GET | `/api/tdk-lambda-config` extras | `addr`, `inject`, `limits{enabled,v_min,v_max,i_max}` |
-| GET | `/api/tdk-lambda-samples?n=` | `{samples:[[age_s,volts,amps],…]}` — ring in RAM, ≤120 pontos |
-| GET | `/api/tdk-lambda-csv` | ficheiro do dia (`text/csv`, ≤220 KB); usada pelo botão Download |
+| GET | `/api/tdk-lambda-samples?n=` | `{samples:[[age_s,volts,amps],…]}` — ring em RAM, ≤**240** pontos (`n` limitado a 240) |
+| GET | `/api/tdk-lambda-csv` | ficheiro do dia (`text/csv`, até **1 MB**); descarrega o buffer primeiro, lê para **PSRAM** (nunca um `String` grande no heap) e, se cortar, corta em fim de linha e avisa no monitor |
 | POST | `/api/tdk-lambda-send` | corpo `cmd=…` → `{success,message}` |
 | POST | `/api/tdk-lambda-clear` | limpa o log |
-| POST | `/api/tdk-lambda-config` | `poll=0|1&poll_s=5..3600&csv=0|1` |
+| POST | `/api/tdk-lambda-config` | `poll=0|1&poll_s=60..3600&csv_every=1..60&csv=0|1&format=sensor|table` |
 | POST | `/api/tdk-lambda-csv-flush` | força a gravação das linhas em buffer (LittleFS) |
 
 ---
@@ -87,7 +87,7 @@ div.page.tdk-lambda > div.wrap          ← the asset opens its own page/wrap
 **Separadores** (mesma organização de `/access`): o conteúdo é dividido em cinco painéis
 `.tdk-panel[data-tab]`; `tdkInitTabs()` cria os botões, activa o painel por omissão
 (`data-tab-default`) ou o último usado (`localStorage.tdk_tab`) e `tdkShowTab(key)` permite saltar
-de fora (usado pelo botão `use` do catálogo, que carrega o comando e passa ao Console).
+de fora (usado pela **linha** do catálogo, que carrega o comando e passa ao Console).
 
 **Catálogo**: seis colunas (Command, Group, Usage, Description, Reply, Notes), `table-layout:fixed`
 e `overflow-x:hidden` — **nunca há scroll horizontal**; em ecrãs <720 px escondem-se Group e Notes.

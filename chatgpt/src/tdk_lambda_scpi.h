@@ -190,6 +190,17 @@ inline void tdkApplyMap(const float* f, uint8_t n, const uint8_t map[6],
     if (uvl)   *uvl   = pick(5) * scaleV + offV;
 }
 
+// Output state from the MODE? reply: "CV"/"CC" mean the output is on, "OFF"
+// means it is disabled. Anything else (empty, "--", a STAT? reply) keeps the
+// previous state. The poll cycle asks MODE? and not OUT?, so this is what makes
+// the CSV `out` column and the session energy right.
+inline bool tdkOutFromMode(const char* mode, bool previous) {
+    if (!mode || !mode[0]) return previous;
+    if (mode[0] == 'C' && (mode[1] == 'V' || mode[1] == 'C')) return true;
+    if (mode[0] == 'O' && mode[1] == 'F' && mode[2] == 'F') return false;
+    return previous;
+}
+
 // Window aggregator: one CSV row can cover several polls. A single 1-minute
 // sample hides a spike; min/max inside the window shows it, and the energy is
 // integrated with the rectangle rule between samples (Wh).

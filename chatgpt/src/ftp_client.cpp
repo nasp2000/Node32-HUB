@@ -1033,7 +1033,7 @@ static bool ftpCwdTo(WiFiClient& ctl, char* resp, size_t rs, const String& remot
 }
 
 bool ftpUploadFileImpl(FtpLocalFs fs, const String& localPath, const String& remoteName,
-                       String& detail, bool deleteAfter, size_t* sentOut = nullptr) {
+                       String& detail, bool deleteAfter, size_t* sentOut) {
     bool useSd = (fs == FTP_FS_SD);
     bool usePsram = (fs == FTP_FS_PSRAM);
     // Resolve size first (cheap stat, no bulk DMA), then STREAM the file in

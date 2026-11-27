@@ -124,9 +124,9 @@ char          s_sn[24] = {0};
 char          s_lastError[8] = {0};
 uint32_t      s_lastErrorMs = 0;
 
-// Always-on sample ring (RAM only, newest last): 4 h at 1/min (the poll floor).
-// 240 x 12 B = 2.9 KB of .bss — no heap, and no file write for the chart.
-static const uint16_t TDK_RING_MAX = 240;
+// Always-on sample ring (RAM only, newest last): TDK_SAMPLES_MAX = 4 h at the
+// 1-minute poll floor. No heap and no file write for the chart.
+static const uint16_t TDK_RING_MAX = TDK_SAMPLES_MAX;
 TdkSample     s_ring[TDK_RING_MAX];
 uint16_t      s_ringStart = 0;
 uint16_t      s_ringCount = 0;
@@ -467,6 +467,8 @@ void handleLine(char* line) {
         case P_MODE:
             strncpy(s_values.mode, line, sizeof(s_values.mode) - 1);
             s_values.mode[sizeof(s_values.mode) - 1] = '\0';
+            // CV/CC = output on, OFF = disabled (the cycle does not ask OUT?).
+            s_values.outOn = tdkOutFromMode(s_values.mode, s_values.outOn);
             break;
         case P_OUT:
             s_values.outOn = (toupper((unsigned char)line[0]) == 'O' &&
