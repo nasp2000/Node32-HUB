@@ -29,8 +29,12 @@ struct HttpResponse {
         frameHash = "";
     }
 
+    // Keeps a status code the handler already set (400/403/404/409/503...).
+    // It used to force 200, so every error path answered 200 with the failure
+    // only inside the JSON body.
     void sendJson(const String& json) {
-        send(200, F("application/json"), json);
+        const int c = (code > 0) ? code : 200;
+        send(c, F("application/json"), json);
     }
 
     void sendError(int c) {

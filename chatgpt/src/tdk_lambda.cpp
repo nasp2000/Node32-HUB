@@ -579,6 +579,12 @@ bool tdkLambdaSend(const String& command) {
     cmd.trim();
     if (cmd.isEmpty()) return false;
     if (s_listen) return false;   // passive listener: never transmit
+#if ENABLE_RS232!=1
+    // The module has no UART of its own: it talks through the pack's RS232 port.
+    // A pack that enables TDK_LAMBDA without RS232 compiles, but cannot send.
+    tdkLogSys("pack has no RS232 port - command not sent");
+    return false;
+#endif
     char upper[32];
     tdkUpperTrim(cmd.c_str(), upper, sizeof(upper));
     strncpy(s_pendingCmd, upper, sizeof(s_pendingCmd) - 1);
