@@ -258,6 +258,7 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
 <script>
 var _tdkCat=[];
 var _tdkTrendSig='';
+var _tdkTrendTimer=null;   /* {id, ms} of the adaptive trend refresh */
 var _tdkLastSendMs=0;    /* console rate limit (300 ms) */
 function _tdkQ(id){return document.getElementById(id);}
 function _tdkFail(d){
@@ -290,6 +291,7 @@ function tdkStatus(){
     if(st.lastError){b+='<span class="tdk-badge err">error '+_tdkEsc(st.lastError)+'</span> ';}
     if(st.alertActive){b+='<span class="tdk-badge err">ALERT '+_tdkEsc(st.alertText)+'</span> ';}
     _tdkQ('tdkAlert').innerHTML=st.alertActive?'<span class="tdk-badge err">'+_tdkEsc(st.alertText)+'</span>':'';
+    if(typeof _tdkArmTrend==='function'){_tdkArmTrend(st.pollIntervalMs||30000);}
     var cadence = Math.round((st.pollIntervalMs||0)/1000);
     var rowS = Math.round((st.csvRowMs||st.pollIntervalMs||0)/1000);
     b+='<span class="tdk-note">poll '+cadence+' s'+
@@ -613,7 +615,15 @@ function tdkUse(u){
 tdkStatus();tdkLog();tdkLoadCfg();tdkLoadCatalog();tdkLoadTrend();
 setInterval(tdkStatus,5000);
 setInterval(tdkLog,3000);
-setInterval(tdkLoadTrend,30000);
+/* The chart follows the poll cadence (5..60 s), not a fixed 30 s: with a 10 s
+   poll the trend used to lag three samples behind. One re-arm only. */
+function _tdkArmTrend(ms){
+  var want=Math.max(5000,Math.min(60000,ms||30000));
+  if(_tdkTrendTimer&&_tdkTrendTimer.ms===want){return;}
+  if(_tdkTrendTimer){clearInterval(_tdkTrendTimer.id);}
+  _tdkTrendTimer={id:setInterval(tdkLoadTrend,want),ms:want};
+}
+_tdkArmTrend(30000);
 
 /* ---- tabs (same organisation as /access) ---------------------------------- */
 var TDK_TABS = [

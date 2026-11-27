@@ -31,8 +31,9 @@ function extractFn(src, name) {
 }
 
 const asset = fs.readFileSync(SRC, 'utf8');
-const CODE = ['_tdkQ', '_tdkEsc', 'tdkRenderPrev']
-  .map(function (n) { return extractFn(asset, n); }).join('\n');
+const CODE = ['_tdkQ', '_tdkEsc', 'tdkRenderPrev', '_tdkArmTrend']
+  .map(function (n) { return extractFn(asset, n); }).join('\n') +
+  '\nvar _tdkTrendTimer = null;\nfunction tdkLoadTrend(){}\n';
 
 function boot(rows) {
   const dom = new JSDOM('<!doctype html><html><body><table><tbody id="tdkPrevBody"></tbody></table>' +
@@ -100,6 +101,26 @@ test('a missing tbody does not throw', function () {
   let threw = false;
   try { dom.window.tdkRenderPrev([[1, 2, 3]]); } catch (e) { threw = true; }
   ok(!threw, 'tdkRenderPrev must tolerate a page without the table');
+});
+
+test('the trend refresh follows the poll cadence, one timer only', function () {
+  const w = boot([]);
+  let created = 0, cleared = 0, lastMs = 0;
+  w.setInterval = function (fn, ms) { created++; lastMs = ms; return created; };
+  w.clearInterval = function () { cleared++; };
+  w._tdkArmTrend(30000);            // initial 30 s
+  is(created, 1, 'one timer');
+  is(lastMs, 30000, 'initial cadence');
+  w._tdkArmTrend(30000);            // same cadence: must not re-arm
+  is(created, 1, 'no duplicate timer');
+  w._tdkArmTrend(10000);            // 10 s poll: follow it
+  is(created, 2, 're-armed for a new cadence');
+  is(cleared, 1, 'old timer cleared');
+  is(lastMs, 10000, 'poll cadence used');
+  w._tdkArmTrend(500);              // clamped up to 5 s
+  is(lastMs, 5000, 'clamp min');
+  w._tdkArmTrend(3600000);          // clamped down to 60 s
+  is(lastMs, 60000, 'clamp max');
 });
 
 console.log('\n' + passed + '/' + (passed + failed) + ' passed');

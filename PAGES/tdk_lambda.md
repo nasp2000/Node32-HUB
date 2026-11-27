@@ -107,7 +107,12 @@ separador deixou de ser uma caixa vazia.
 com larguras por coluna (a Description estava esmagada).
 
 **Gráfico**: cada série escala ao **seu** min/max (±10 %) e marca os dois extremos — com eixo
-desde 0 uma fonte de 600 V com 2 V de ripple era uma linha recta no topo.
+desde 0 uma fonte de 600 V com 2 V de ripple era uma linha recta no topo. É **automático**: a
+página pede `/api/tdk-lambda-samples` ao carregar e volta a pedir ao ritmo do poll (5…60 s,
+`_tdkArmTrend`), sem clique nenhum; o buffer circular tem 120 amostras (2 h a 1/min, 20 min a
+10 s). Em `/sensor-charts` o TDK só aparece em builds **com SD**: esse pipeline
+(`appendRs232LivePoints`) está dentro de `#if ENABLE_SDCARD==1`, e a linha `TDK …` do inject é
+que alimenta esse gráfico.
 
 **Tooltips e descrições**: cada botão, input, select, quadro de valor, coluna da tabela e o
 primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `data-i18n-title=`
