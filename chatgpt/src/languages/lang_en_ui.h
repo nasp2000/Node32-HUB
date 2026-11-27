@@ -3501,7 +3501,13 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "tdkGuardListen": "TX disabled: only what passes on the line is read.",
   "tdkGuardReadOnly": "Read-only module: only queries are sent (poll + receive).",
   "tdkGuardWriteOn": "Write enabled: PV/PC/OUT/OVP can change the supply.",
-  "tdkGuardAllowList": "Read-only commands (allow-list)."
+  "tdkGuardAllowList": "Read-only commands (allow-list).",
+  "tdkWriteExamplesTitle": "Writable examples - click loads it into the console (Send is separate):",
+  "tdkConfirmWrite": "<b>Enable write commands?</b><br>This allows the page to change the supply:<br><code>PV 600</code> set voltage &middot; <code>PC 1.30</code> current limit &middot; <code>OUT 1 / OUT 0</code> output &middot; <code>OVP 660</code> over-voltage &middot; <code>UVL 300</code> under-voltage &middot; <code>SAV</code> store<br>Queries stay allowed either way.",
+  "tdkTipWriteSyntax": "How the command is written: mnemonic, space, value",
+  "tdkWriteThWhat": "What it changes",
+  "tdkWriteThNote": "Limit / reply",
+  "tdkWriteSyntaxNote": "Format: the mnemonic, a space, the value - no \"?\" (a \"?\" makes it a query). Wrong values are refused by the supply with C0x/E0x codes, shown in the log."
 }
 )JSON";
 

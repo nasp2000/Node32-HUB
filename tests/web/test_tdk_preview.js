@@ -32,7 +32,8 @@ function extractFn(src, name) {
 
 const asset = fs.readFileSync(SRC, 'utf8');
 const CODE = ['_tdkQ', '_tdkEsc', 'tdkRenderPrev', '_tdkArmTrend', '_tdkAsleep',
-               'tdkStatus', 'tdkLog', 'tdkLoadTrend', '_tdkLines']
+               'tdkStatus', 'tdkLog', 'tdkLoadTrend', '_tdkLines', '_tdkT',
+               'tdkApplyGuard', 'tdkAskAllowWrite']
   .map(function (n) { return extractFn(asset, n); }).join('\n') +
   '\nvar _tdkTrendTimer = null;\nfunction tdkLoadTrend(){}\n';
 
@@ -155,6 +156,39 @@ test('the commands tab shows what was sent and what came back', function () {
   is(w.document.getElementById('tdkCatSentLine').textContent, 'TX> DVC?', 'null leaves the TX line');
   is(w.document.getElementById('tdkCatReplyLine').textContent,
      'RX  600.00,600.00,001.30,001.40,660.0,0.000', 'reply line');
+});
+
+test('enabling writes needs the confirmation; cancel puts the switch back', function () {
+  const dom = new JSDOM("<!doctype html><html><body>" +
+    "<input type='checkbox' id='tdkListen'>" +
+    "<div id='tdkAllowWrap'><input type='checkbox' id='tdkAllowW'></div>" +
+    "<div id='tdkGuardMsg'></div><div id='tdkWriteExamples' style='display:none'></div>" +
+    "<input id='tdkCmd'><button id='tdkSendBtn'></button>" +
+    "</body></html>", { runScripts: 'outside-only' });
+  const w = dom.window;
+  w.eval(CODE);
+  let saved = 0, askedMsg = '';
+  // the real one applies the guard (which shows the examples) before saving
+  w.tdkSaveSafety = function () { saved++; w.tdkApplyGuard(); };
+  w.customConfirm = function (msg, cb) { askedMsg = msg; cb(false); };   // Cancel
+  const box = w.document.getElementById('tdkAllowW');
+  box.checked = true;
+  w.tdkAskAllowWrite(box);
+  is(box.checked, false, 'cancel clears the switch');
+  is(saved, 0, 'nothing saved on cancel');
+  ok(askedMsg.indexOf('PV 600') >= 0 && askedMsg.indexOf('OVP 660') >= 0, 'the dialog lists the writes');
+
+  w.customConfirm = function (msg, cb) { cb(true); };                    // OK
+  box.checked = true;
+  w.tdkAskAllowWrite(box);
+  is(saved, 1, 'saved once on confirm');
+  ok(w.document.getElementById('tdkWriteExamples').style.display !== 'none', 'examples shown');
+
+  // Unchecking never asks.
+  w.customConfirm = function () { throw new Error('must not ask to disable'); };
+  box.checked = false;
+  w.tdkAskAllowWrite(box);
+  is(saved, 2, 'disable saves directly');
 });
 
 console.log('\n' + passed + '/' + (passed + failed) + ' passed');

@@ -3501,7 +3501,13 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "tdkGuardListen": "TX desligado: só se lê o que passa na linha.",
   "tdkGuardReadOnly": "Módulo só de leitura: só são enviadas consultas (poll + receber).",
   "tdkGuardWriteOn": "Escrita activa: PV/PC/OUT/OVP podem alterar a fonte.",
-  "tdkGuardAllowList": "Comandos de leitura (allow-list)."
+  "tdkGuardAllowList": "Comandos de leitura (allow-list).",
+  "tdkWriteExamplesTitle": "Exemplos de escrita - clicar carrega na consola (o Enviar é à parte):",
+  "tdkConfirmWrite": "<b>Activar comandos de escrita?</b><br>Isto permite que a página altere a fonte:<br><code>PV 600</code> tensão &middot; <code>PC 1.30</code> limite de corrente &middot; <code>OUT 1 / OUT 0</code> saída &middot; <code>OVP 660</code> sobretensão &middot; <code>UVL 300</code> subtensão &middot; <code>SAV</code> guardar<br>As consultas continuam permitidas de qualquer forma.",
+  "tdkTipWriteSyntax": "Como o comando é escrito: mnemónica, espaço, valor",
+  "tdkWriteThWhat": "O que altera",
+  "tdkWriteThNote": "Limite / resposta",
+  "tdkWriteSyntaxNote": "Formato: a mnemónica, um espaço, o valor - sem \"?\" (com \"?\" passa a consulta). Valores errados são recusados pela fonte com códigos C0x/E0x, visíveis no registo."
 }
 )JSON";
 

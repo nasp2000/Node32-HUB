@@ -58,6 +58,10 @@ const char PAGE_TDK_LAMBDA[] PROGMEM = R"rawliteral(
     .tdk-tbl th:nth-child(5){width:20%}
   }
   .tdk-note{font-size:12px;color:#94a3b8}
+  .tdk-write{margin-top:8px;padding:8px 10px;border:1px solid #78350f;border-radius:8px;background:#3b1d05}
+  .tdk-chip{display:inline-block;margin:3px 6px 3px 0;padding:3px 9px;border:1px solid #b45309;border-radius:999px;background:#1f2937;color:#fbbf24;font:12px ui-monospace,Consolas,monospace;cursor:pointer}
+  .tdk-chip i{color:#94a3b8;font-style:normal;font-size:11px;margin-left:4px}
+  .tdk-chip:hover{background:#374151}
   .tdk-line{font:12px/1.45 ui-monospace,Consolas,monospace;background:#020617;border:1px solid #1e293b;border-radius:6px;padding:6px 8px;margin-top:6px;white-space:pre-wrap;word-break:break-all;color:#93c5fd;cursor:help}
   .tdk-line-rx{color:#fbbf24}
   /* sub-heading inside a section (not a .section-title: that one is per box) */
@@ -68,6 +72,9 @@ const char PAGE_TDK_LAMBDA[] PROGMEM = R"rawliteral(
   .tdk-badge.err{background:#450a0a;color:#f87171;border:1px solid #7f1d1d}
   .tdk-badge.off{background:#1f2937;color:#9ca3af;border:1px solid #374151}
   .tdk-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:8px}
+  .tdk-row.tdk-checks{align-items:center}
+  .tdk-checks > label{display:inline-flex;align-items:center;gap:6px;margin:0;white-space:nowrap}
+  .tdk-checks > label input[type=checkbox]{margin:0;flex:0 0 auto}
   .tdk-row > .btn,.tdk-row > button{width:auto;max-width:none;margin:0;flex:0 0 auto;padding:8px 16px;min-height:36px;display:inline-block}
   .tdk-field{display:flex;flex-direction:column;gap:2px;font-size:12px;color:#94a3b8}
   .tdk-field input,.tdk-field select{min-height:30px}
@@ -139,11 +146,35 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
 <div class='tdk-panel' data-tab='console'>
   <div class='section-box'>
     <h3 class='section-title'>4) Console</h3>
-    <div class='tdk-row'>
+    <div class='tdk-row tdk-checks'>
       <label class='tdk-note' title='Never transmit: only copies what the PLC sends, which is safe on a shared line' data-i18n-title='tdkTipListen'><input type='checkbox' id='tdkListen' onchange='tdkSaveSafety()'> <b>Listen mode</b> &mdash; never transmit</label>
-      <label class='tdk-note' id='tdkAllowWrap' style='display:none' title='Allow setpoint commands such as PV, PC, OUT and OVP; off means queries only' data-i18n-title='tdkTipAllowW'><input type='checkbox' id='tdkAllowW' onchange='tdkSaveSafety()'> Allow <b>write</b> commands (PV / PC / OUT / OVP&hellip;)</label>
+      <label class='tdk-note' id='tdkAllowWrap' style='display:none' title='Allow setpoint commands such as PV, PC, OUT and OVP; off means queries only' data-i18n-title='tdkTipAllowW'><input type='checkbox' id='tdkAllowW' onchange='tdkAskAllowWrite(this)'> Allow writes (PV / PC / OUT / OVP&hellip;)</label>
     </div>
     <div class='tdk-note' id='tdkGuardMsg'></div>
+    <div id='tdkWriteExamples' class='tdk-write' style='display:none'>
+      <div class='tdk-note' style='margin-bottom:4px' data-i18n='tdkWriteExamplesTitle'>Writable examples - click loads it into the console (Send is separate):</div>
+      <span class='tdk-chip' onclick="tdkUse('PV 600')">PV 600 <i>V set</i></span>
+      <span class='tdk-chip' onclick="tdkUse('PC 1.30')">PC 1.30 <i>A limit</i></span>
+      <span class='tdk-chip' onclick="tdkUse('OUT 1')">OUT 1 <i>on</i></span>
+      <span class='tdk-chip' onclick="tdkUse('OUT 0')">OUT 0 <i>off</i></span>
+      <span class='tdk-chip' onclick="tdkUse('OVP 660')">OVP 660 <i>V trip</i></span>
+      <span class='tdk-chip' onclick="tdkUse('UVL 300')">UVL 300 <i>V floor</i></span>
+      <span class='tdk-chip' onclick="tdkUse('SAV')">SAV <i>store</i></span>
+      <table class='tdk-tbl' style='margin-top:8px'>
+        <thead><tr><th title='How the command is written: mnemonic, space, value' data-i18n-title='tdkTipWriteSyntax'>Written as</th><th data-i18n='tdkWriteThWhat'>What it changes</th><th data-i18n='tdkWriteThNote'>Limit / reply</th></tr></thead>
+        <tbody>
+          <tr onclick="tdkUse('PV 600')"><td><code>PV &lt;volts&gt;</code></td><td>set voltage</td><td>&ge;0 &middot; OK &middot; goes Remote</td></tr>
+          <tr onclick="tdkUse('PC 1.30')"><td><code>PC &lt;amps&gt;</code></td><td>current limit</td><td>OK</td></tr>
+          <tr onclick="tdkUse('OUT 1')"><td><code>OUT 1</code> / <code>OUT 0</code></td><td>output on / off</td><td>E07 if a latch is active</td></tr>
+          <tr onclick="tdkUse('OVP 660')"><td><code>OVP &lt;volts&gt;</code></td><td>over-voltage trip</td><td>&ge;105% of PV, else E04</td></tr>
+          <tr onclick="tdkUse('UVL 300')"><td><code>UVL &lt;volts&gt;</code></td><td>under-voltage floor</td><td>must be &le; PV, else E06</td></tr>
+          <tr onclick="tdkUse('RMT 2')"><td><code>RMT 0</code> / <code>1</code> / <code>2</code></td><td>local / remote / lockout</td><td>RMT? reads it back</td></tr>
+          <tr onclick="tdkUse('SAV')"><td><code>SAV</code> / <code>RCL</code></td><td>store / recall settings</td><td>OK</td></tr>
+          <tr onclick="tdkUse('CLS')"><td><code>CLS</code> / <code>RST</code></td><td>clear events / safe reset</td><td>RST: V=0, I=0, OUT off</td></tr>
+        </tbody>
+      </table>
+      <div class='tdk-note' style='margin-top:6px' data-i18n='tdkWriteSyntaxNote'>Format: the mnemonic, a space, the value - no "?" (a "?" makes it a query). Wrong values are refused by the supply with C0x/E0x codes, shown in the log.</div>
+    </div>
     <input id='tdkCmd' placeholder='e.g. DVC?   MV?   MC?   MODE?   STT?   STAT?' data-i18n-placeholder='tdkTipPhCmd' title='SCPI command to send, for example DVC? or STAT?' data-i18n-title='tdkTipCmd' style='width:100%;margin-top:8px'>
     <div class='tdk-row' style='margin-top:8px'>
       <button class='btn' id='tdkSendBtn' onclick='tdkSend()' title='Send the command and append the reply to the log' data-i18n-title='tdkTipSend'>&#10148; Send</button>
@@ -167,7 +198,7 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
       <div class='tdk-val' title='sensor: key,value pairs; table: one column per value' data-i18n-title='tdkTipCsvFormat'><div class='k'>Format</div><div class='v' id='csvFormat' style='font-size:14px'>--</div></div>
     </div>
     <div class='tdk-note' id='tdkCsvAuto' style='margin-top:8px'>--</div>
-    <div class='tdk-row' style='margin-top:10px'>
+    <div class='tdk-row tdk-checks' style='margin-top:10px'>
       <label class='tdk-note' title='Ask the supply for values at the interval below and keep them in the trend buffer' data-i18n-title='tdkTipPoll'><input type='checkbox' id='tdkPoll' onchange='tdkSaveCfg()'> Automatic polling</label>
       <label class='tdk-field' title='Seconds between polls, 60 minimum' data-i18n-title='tdkTipPollSec'>Interval (s) <input type='number' id='tdkPollSec' min='60' max='3600' value='60' style='width:90px' onchange='tdkSaveCfg()'></label>
       <label class='tdk-field' title='One CSV row every N polls. With N above 1 the row carries min/avg/max and the energy of the window' data-i18n-title='tdkTipCsvEvery'>Row every <input type='number' id='tdkCsvEvery' min='1' max='60' value='1' style='width:80px' onchange='tdkSaveCfg()'></label>
@@ -520,16 +551,37 @@ function tdkLoadCfg(){
     if(wrap){wrap.style.display=d.ro?'none':''; if(!d.ro){wrap.style.display='flex';}}
     var aw=_tdkQ('tdkAllowW');
     if(aw){aw.checked=!!d.allow_write;}
+    var ex=_tdkQ('tdkWriteExamples');
+    if(ex){ex.style.display=(d.allow_write&&!d.ro)?'':'none';}
     tdkApplyGuard();
   }).catch(function(){});
 }
 
+/* Enabling writes is a deliberate act: the second box lists what can be written.
+   Cancel puts the switch back and nothing is saved. */
+function tdkAskAllowWrite(el){
+  if(!el){return;}
+  if(!el.checked){ tdkSaveSafety(); return; }
+  var msg=_tdkT('tdkConfirmWrite','<b>Enable write commands?</b><br>'+
+    'This allows the page to change the supply:<br>'+
+    '<code>PV 600</code> set voltage &middot; <code>PC 1.30</code> current limit &middot; '+
+    '<code>OUT 1 / OUT 0</code> output &middot; <code>OVP 660</code> over-voltage &middot; '+
+    '<code>UVL 300</code> under-voltage &middot; <code>SAV</code> store<br>'+
+    'Queries stay allowed either way.');
+  var apply=function(ok){
+    if(!ok){ el.checked=false; tdkApplyGuard(); return; }
+    tdkSaveSafety();
+  };
+  if(window.customConfirm){ window.customConfirm(msg,apply); } else { apply(true); }
+}
 function tdkApplyGuard(){
   var listen=_tdkQ('tdkListen').checked;
   var w=_tdkQ('tdkAllowW'), wrap=_tdkQ('tdkAllowWrap');
   var capable=!!(w&&wrap&&wrap.style.display!=='none');
   _tdkQ('tdkCmd').disabled=listen;
   _tdkQ('tdkSendBtn').disabled=listen;
+  var ex=_tdkQ('tdkWriteExamples');
+  if(ex){ex.style.display=(!listen&&capable&&w.checked)?'':'none';}
   _tdkQ('tdkGuardMsg').textContent=listen
     ? _tdkT('tdkGuardListen','TX disabled: only what passes on the line is read.')
     : (!capable ? _tdkT('tdkGuardReadOnly','Read-only module: only queries are sent (poll + receive).')

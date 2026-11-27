@@ -31,12 +31,12 @@ struct TdkLogEntry {
     char text[160];
 };
 
-// Read-only policy (poll + receive). While this is 1 the module never accepts a
-// setpoint from the page, the console or the poll profile — the send handler
-// rejects writes and the profile only keeps queries. Build with
-// -DTDK_READ_ONLY=0 to lift it (the page also hides the write switch then).
+// Hard read-only lock. 0 (default) = the page offers "Allow write", OFF by
+// default and behind a confirmation with examples; the toggle is still enforced
+// server-side (403 outside the read allow-list). 1 = the switch never appears
+// and nothing can write, whatever the saved config says.
 #ifndef TDK_READ_ONLY
-#define TDK_READ_ONLY 1
+#define TDK_READ_ONLY 0
 #endif
 
 // Samples kept in RAM for the trend (the endpoint serves at most this many).
