@@ -246,8 +246,14 @@ static inline void screenDrawRamboxView(ScreenManager &mgr, Adafruit_SSD1306 &ol
     drawHudFrame();
 
     oled.setTextSize(1);
-    drawCenteredInBox(2, 88, 2, topLeft, 1);
-    drawCenteredInBox(92, 34, 2, topRight, 1);
+    if (ctx.priorityLine.length()) {
+        // Urgent card (OFFLINE/ALARM) takes the whole top bar: this HUD never
+        // prints line 3, and an alarm outranks the module name and the heap.
+        drawCenteredInBox(0, SSD1306_WIDTH, 2, ctx.priorityLine, 1);
+    } else {
+        drawCenteredInBox(2, 88, 2, topLeft, 1);
+        drawCenteredInBox(92, 34, 2, topRight, 1);
+    }
 
     drawCenteredInBox(leftPaneX, leftPaneW, 18, bigTime, 2);
     drawCenteredInBox(leftPaneX, leftPaneW, 38, dateLine, 1);

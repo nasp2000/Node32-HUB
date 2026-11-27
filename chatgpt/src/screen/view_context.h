@@ -19,6 +19,9 @@ struct ScreenStatusContext {
     const String &sinalStr;
     const String &storageInfo;
     bool line3UnikonOnly;
+    // First card when it is an urgent one ("! OFFLINE" / "! ALARM"), else empty.
+    // Views with their own fixed layout print this instead of line 3.
+    const String &priorityLine;
 };
 
 #endif // ENABLE_LCD_SCREEN

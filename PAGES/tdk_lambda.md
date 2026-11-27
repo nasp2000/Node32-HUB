@@ -280,7 +280,9 @@ python3 tests/packs/rs232/tdk_csv_report.py --selftest    # v1/v2/sensor + energ
     tamanho real das linhas de estado (1);
   - **Cartão `! OFFLINE`** — quando não há Wi-Fi **nem** Ethernet (fora de modo AP) entra como
     **primeiro** cartão da rotação: sem rede o pack não faz o seu trabalho. É composto no core
-    (estado de rede), não no pack;
+    (estado de rede), não no pack. As vistas com layout próprio (HUD do Rambox, grelha fixa do
+    Environment) **não imprimem a linha 3**: recebem este cartão (e o `! ALARM`) por
+    `ScreenStatusContext::priorityLine` e mostram-no no lugar mais visível;
   - **`~` = dados velhos** — ambiente com leitura >5 min, TDK com resposta mais antiga que 3
     intervalos de poll e **Modbus** quando o ciclo de poll parou há mais de 3 intervalos
     (`ModbusDevice::lastPollMs`) levam o prefixo; um valor parado deixa de parecer vivo.

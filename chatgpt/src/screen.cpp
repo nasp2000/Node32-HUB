@@ -842,8 +842,15 @@ void ScreenManager::showStatusScreen() {
     // per pack, selected by screen/view_selector.h). Only the shared line
     // builders stay here; rendering is delegated so new packs or displays
     // never touch this core file.
+    // Urgent card (OFFLINE/ALARM): views with a fixed layout never print line 3,
+    // so they get it separately instead of losing the alarm.
+    String priorityLine;
+    if (cards.count() > 0) {
+        const ScreenCard* first = cards.at(0);
+        if (first && first->text[0] == '!') priorityLine = String(first->text);
+    }
     ScreenStatusContext statusCtx{line1, line2, line3, ipStr, ssidStr, sinalStr,
-                                  storage_info, line3UnikonOnly};
+                                  storage_info, line3UnikonOnly, priorityLine};
 #if SCREEN_TYPE == 3
     screenDrawStatusView(*this, statusCtx);
 #else

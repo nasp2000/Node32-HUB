@@ -85,7 +85,9 @@ static inline void screenDrawEnvironmentView(ScreenManager &mgr, Adafruit_SSD130
     oled.setCursor(0, 29);
     oled.print(mgr.fitForPanel(env2));
     oled.setCursor(0, 40);
-    oled.print(mgr.fitForPanel(gas));
+    // Urgent card first (no network / CNC alarm): this layout never prints the
+    // rotating line 3, so the core hands it over separately.
+    oled.print(mgr.fitForPanel(ctx.priorityLine.length() ? ctx.priorityLine : gas));
     oled.setCursor(0, 49);
     oled.print(mgr.fitForPanel(heapLine));
     oled.display();}
