@@ -249,3 +249,12 @@ TEST_CASE("tdkIsQueryCmd: only trailing-? commands may ride the poll profile") {
     CHECK_FALSE(tdkIsQueryCmd("   "));
     CHECK_FALSE(tdkIsQueryCmd(nullptr));
 }
+
+TEST_CASE("tdkReplyTimeoutMs: 3..15 s, whatever the poll interval") {
+    CHECK(tdkReplyTimeoutMs(60000) == 15000);   // 1 min poll: give up after 15 s
+    CHECK(tdkReplyTimeoutMs(300000) == 15000);  // 5 min poll: same ceiling
+    CHECK(tdkReplyTimeoutMs(10000) == 10000);   // follows a short poll
+    CHECK(tdkReplyTimeoutMs(5000) == 5000);
+    CHECK(tdkReplyTimeoutMs(1000) == 3000);     // floor
+    CHECK(tdkReplyTimeoutMs(0) == 15000);       // unknown -> 60 s -> ceiling
+}

@@ -596,6 +596,16 @@ bool tdkLambdaSend(const String& command) {
 void tdkLambdaUpdate() {
     const uint32_t now = millis();
 
+    // A request without a reply must not wedge the poller: on a silent line the
+    // cycle would stop at the first command and never send another one (measured
+    // on the bench: a single TX per boot). Drop it and retry next interval.
+    if (!s_listen && s_pending != P_NONE && (now - s_lastPollMs) > tdkReplyTimeoutMs(s_pollMs)) {
+        s_pending = P_NONE;
+        s_pollStep = 0;
+        s_lastPollMs = now;
+        tdkLogSys("no reply (timeout) - retrying next interval");
+    }
+
     // Poll cycle: DVC? -> MODE? -> OUT? then wait the configured interval.
     if (!s_listen && s_polling && s_pending == P_NONE && (now - s_lastPollMs) >= s_pollMs) {
         // Profile-driven cycle:

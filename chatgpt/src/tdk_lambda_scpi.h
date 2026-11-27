@@ -213,6 +213,17 @@ inline bool tdkOutFromMode(const char* mode, bool previous) {
     return previous;
 }
 
+// How long the poller waits for a reply before giving up. A dead or silent line
+// must never wedge the cycle (measured: one TX per boot, then nothing). Clamped
+// to 3..15 s: at 19200 a real reply arrives in milliseconds, and a 1 h poll
+// should not block the console for an hour either.
+inline uint32_t tdkReplyTimeoutMs(uint32_t pollMs) {
+    uint32_t t = pollMs ? pollMs : 60000UL;
+    if (t > 15000UL) t = 15000UL;
+    if (t < 3000UL) t = 3000UL;
+    return t;
+}
+
 // Window aggregator: one CSV row can cover several polls. A single 1-minute
 // sample hides a spike; min/max inside the window shows it, and the energy is
 // integrated with the rectangle rule between samples (Wh).
