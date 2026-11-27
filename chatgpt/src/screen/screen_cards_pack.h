@@ -59,6 +59,10 @@
 #include "radio_audio_runtime.h"
 #endif
 
+// Translated strings: `activeLang->x` is a PROGMEM const char* and ESP32 flash
+// is memory-mapped, so the raw pointer can go straight into snprintf()/add().
+// (FPSTR() would hand over const __FlashStringHelper*, which is not a char*.)
+
 // RAMBOX/Unikon builds keep line 3 on the clock module only: the RS232 port
 // belongs to Unikon or Bricon, so the generic module cards would be noise.
 inline bool screenLine3UnikonOnly() {
@@ -127,12 +131,12 @@ inline void screenBuildPackCards(ScreenCardList& cards) {
         char buf[SCREEN_CARD_TEXT_MAX];
         if (us.connected) {
             snprintf(buf, sizeof(buf), "%s%u total %u reg %u",
-                     FPSTR(activeLang->screenUnikonPlus),
+                     activeLang->screenUnikonPlus,
                      (unsigned)us.lastNewCount, (unsigned)us.totalKnown,
                      (unsigned)us.registeredCount);
         } else {
             snprintf(buf, sizeof(buf), "%s%u",
-                     FPSTR(activeLang->screenUnikonOffline), (unsigned)us.totalKnown);
+                     activeLang->screenUnikonOffline, (unsigned)us.totalKnown);
         }
         cards.add(buf);
     }
@@ -145,12 +149,12 @@ inline void screenBuildPackCards(ScreenCardList& cards) {
         char buf[SCREEN_CARD_TEXT_MAX];
         if (bs.connected) {
             snprintf(buf, sizeof(buf), "%s%u total %u reg %u",
-                     FPSTR(activeLang->screenBriconPlus),
+                     activeLang->screenBriconPlus,
                      (unsigned)bs.lastNewCount, (unsigned)briconTotal,
                      (unsigned)briconGetRegistrationCount());
         } else {
             snprintf(buf, sizeof(buf), "%s%u",
-                     FPSTR(activeLang->screenBriconOffline), (unsigned)briconTotal);
+                     activeLang->screenBriconOffline, (unsigned)briconTotal);
         }
         cards.add(buf);
     }
@@ -190,7 +194,7 @@ inline void screenBuildPackCards(ScreenCardList& cards) {
                 }
                 cards.add(envBuf, 1, envStale);
             } else {
-                cards.add(FPSTR(activeLang->screenTempNoReading));
+                cards.add(activeLang->screenTempNoReading);
             }
         }
 #endif
@@ -207,11 +211,11 @@ inline void screenBuildPackCards(ScreenCardList& cards) {
                 } else {
                     const unsigned long warmupSec = mq135Sensor.getWarmupRemaining() / 1000UL;
                     snprintf(gasBuf, sizeof(gasBuf), "%s%lus",
-                             FPSTR(activeLang->screenGasWarmup), warmupSec);
+                             activeLang->screenGasWarmup, warmupSec);
                     cards.add(gasBuf);
                 }
             } else {
-                cards.add(FPSTR(activeLang->screenGasNoInit));
+                cards.add(activeLang->screenGasNoInit);
             }
         }
 #endif
@@ -294,18 +298,18 @@ inline void screenBuildPackCards(ScreenCardList& cards) {
                 if (title && title[0]) {
                     if (artist && artist[0] && strcmp(artist, title) != 0) {
                         snprintf(radioBuf, sizeof(radioBuf), "%s%s - %s",
-                                 FPSTR(activeLang->screenRadioLabel), artist, title);
+                                 activeLang->screenRadioLabel, artist, title);
                     } else {
                         snprintf(radioBuf, sizeof(radioBuf), "%s%s",
-                                 FPSTR(activeLang->screenRadioLabel), title);
+                                 activeLang->screenRadioLabel, title);
                     }
                 } else {
                     snprintf(radioBuf, sizeof(radioBuf), "%s",
-                             FPSTR(activeLang->screenRadioPlaying));
+                             activeLang->screenRadioPlaying);
                 }
             } else {
                 snprintf(radioBuf, sizeof(radioBuf), "%s",
-                         FPSTR(activeLang->screenRadioStopped));
+                         activeLang->screenRadioStopped);
             }
             cards.add(radioBuf);
         }
