@@ -19,6 +19,19 @@
 #include "screen/view_rambox.h"
 #include "screen/view_touch7.h"
 
+// Does the selected status view print the rotating card line? The two fixed
+// layouts (Rambox HUD, Environment grid) do not, so the core skips building the
+// module cards for them — the urgent one (OFFLINE/ALARM) comes from the network
+// and GRBL state and is passed separately (ScreenStatusContext::priorityLine).
+constexpr bool screenViewConsumesCards() {
+#if SCREEN_TYPE == 2 && defined(SELECTED_PACK) && \
+    ((SELECTED_PACK == PACK_RAMBOX) || (SELECTED_PACK == PACK_ENVIRONMENT))
+    return false;
+#else
+    return true;
+#endif
+}
+
 #if SCREEN_TYPE == 3
 static inline void screenDrawStatusView(ScreenManager &mgr,
                                         const ScreenStatusContext &ctx) {

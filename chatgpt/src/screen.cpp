@@ -801,7 +801,11 @@ void ScreenManager::showStatusScreen() {
         cards.add(screenCardLabels().offline);
     }
 
-    screenBuildPackCards(cards);
+    // The two fixed-layout views never print line 3: skip the whole list (the
+    // scheduler card alone reads 26 config slots every cycle).
+    if (screenViewConsumesCards()) {
+        screenBuildPackCards(cards);
+    }
 
     if (!cards.empty()) {
         static unsigned long lastRotateMs = 0;
