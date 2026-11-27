@@ -8,7 +8,7 @@
 > of the shipped asset (`tests/web/build_desktop_shots.py recipients`) because T26 changed the
 > page and the board was not reflashed; the previous live capture (HomeE32 `.24`, 1440 × 2210)
 > is described in `desktop/README.md`. Captured on the **Rules** tab (How-to + Operators card
-> and the 10-row Recipients List; the default Sender tab is nearly empty) with `--click`. The
+> and the Recipients List (3 rows, growing with the rules); the default Sender tab is nearly empty) with `--click`. The
 > Waveshare pack compiles this page out (`GET /recipients` → 404), so HomeE32 is the reference
 > pack. Index and proof in `desktop/README.md`).
 
@@ -131,7 +131,9 @@ not fetched.
 
 `rt(k, fb)` i18n helper (window._t → localStorage `ui_lang_cache` → fallback).
 
-1. **`init()`** — creates **10 rows** (`addRow()`), `attachSaveAll()`, `preload()`.
+1. **`init()`** — renders the rules table with **at least 3 rows**: empty trailing slots are no
+   longer drawn (ten blank rows made the page huge); the row count follows the last rule that has a
+   name or an email, and **➕ Add Rule** adds one. `attachSaveAll()`, `preload()`.
    `MAX=20` exists but is unreachable (no Add-Row button; rows are never removed) — RECIP-1.
 2. **`addRow()`** — appends `rowHTML(i)`, binds per-row save + `input`/`change` → `updateNameHint`.
 3. **`updateNameHint(tr, i)`** — live syntax checker under the Name field (green = valid,

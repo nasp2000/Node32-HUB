@@ -316,3 +316,10 @@ Slot ranges: interval 1..30, datetime 1..16, daily-reboot 1..2.
   8 erros de consola → 0.
 - **`GET /api/scheduled-command-slot` passou a devolver 200 com slot vazio** (`status:ok`,
   `i`, campos vazios) em vez de 404 `{"status":"err","msg":"slot"}`.
+
+## Layout note (2026-11-27)
+
+`core.css` carries a global `div{width:100%;text-align:center}`, which centred the Information
+lines ("Type / Interval / Unit / Days / Template") and the "Deslize horizontalmente" hint. Both
+blocks now carry `.cmd-info` / `.cmd-hint` with `text-align:left !important`; the section title
+stays centred, the rules read as a left-aligned list.

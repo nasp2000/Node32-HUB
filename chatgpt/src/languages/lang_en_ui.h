@@ -3404,7 +3404,7 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "tdkHoverHint": "Hover any control for a short explanation.",
   "tdkDescStatus": "State of the module itself: enabled, listen or master, link health, polling and CSV. The unit identity appears after Identify.",
   "tdkDescLive": "Last values reported by the supply. Hover a tile to see which query produces it.",
-  "tdkDescCatalog": "Genesys SCPI catalogue. Press use on a row to load the command into the console.",
+  "tdkDescCatalog": "Genesys SCPI catalogue. Pick a command in the menu and press Send (queries), or click a row to load it into the console.",
   "tdkTipHome": "Back to the home page",
   "tdkTipMonitorLink": "Open the Serial Monitor: every TX and RX line appears there",
   "tdkTipTabLive": "Status, live readings and the trend chart",
@@ -3487,7 +3487,15 @@ static const char LANG_UI_EN[] PROGMEM = R"JSON(
   "tdkTipSessLim": "Time with the output current at its setpoint",
   "tdkTipSessOff": "Time with the output switched off",
   "tdkTipSessTrans": "How many times the regulation changed between CV and CC (inrush, load steps)",
-  "tdkTipCatRow": "Click to load this command into the console"
+  "tdkTipCatRow": "Click to load this command into the console",
+  "tdkTipCatPick": "Pick a command and press Send (queries) or Load (editable in the Console)",
+  "tdkTipCatSendBtn": "Send the selected command",
+  "tdkTipCatLoad": "Load the selected command into the console",
+  "tdkCatNeedsValue": "Needs a value: edit it in the Console and press Send there.",
+  "tdkCatSent": "Sent — the reply is in the Console tab.",
+  "statusTabSystem": "🖥️ System",
+  "statusTabModules": "🔌 Modules & I/O",
+  "statusTabStorage": "💾 Storage"
 }
 )JSON";
 

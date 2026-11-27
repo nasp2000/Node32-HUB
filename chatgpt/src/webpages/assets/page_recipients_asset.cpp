@@ -142,7 +142,15 @@ const char PAGE_RECIPIENTS_JS[] PROGMEM = R"RECJS((function(){
             }
             b.innerHTML='';
             currentCount=0;
-            for(var d=0;d<data.length;d++){
+            // Like the command pages: the table opens with three rows. Empty
+            // trailing slots are not rendered (ten blank rows made the page
+            // huge); a rule that exists keeps its row, and "Add Rule" adds one.
+            var keep=3;
+            for(var k2=0;k2<data.length;k2++){
+                if((data[k2].name||'').trim()||(data[k2].emails||'').trim()){keep=k2+1;}
+            }
+            if(keep>data.length){keep=data.length;}
+            for(var d=0;d<keep;d++){
                 addRow();
                 var idx=d+1;
                 var nrow=b.querySelector("tr[data-i='"+idx+"']");
@@ -258,6 +266,14 @@ const char PAGE_RECIPIENTS_JS[] PROGMEM = R"RECJS((function(){
     function preload(){
         fetch('/api/recipient-slots',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(j){
             if(!j||!j.slots) return;
+            // The table opens with three rows; a saved rule beyond the third
+            // grows it, so nothing configured is hidden.
+            var last=0;
+            for(var k=0;k<j.slots.length;k++){
+                var sk=j.slots[k]||{};
+                if((sk.name||'').trim()||(sk.emails||'').trim()){last=k+1;}
+            }
+            while(currentCount<last){ if(!addRow()) break; }
             for(var i=1;i<=currentCount && i<=j.slots.length;i++){
                 var s=j.slots[i-1]||{};
                 var tr=b.querySelector("tr[data-i='"+i+"']");
@@ -272,7 +288,7 @@ const char PAGE_RECIPIENTS_JS[] PROGMEM = R"RECJS((function(){
             }
         }).catch(function(){});
     }
-    function init(){ for(var i=0;i<10;i++) addRow(); attachSaveAll(); preload(); }
+    function init(){ for(var i=0;i<3;i++) addRow(); attachSaveAll(); preload(); }
     init();
 
     // ── Tab system ──────────────────────────────────────────────────────────

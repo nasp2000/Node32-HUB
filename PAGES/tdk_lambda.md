@@ -81,13 +81,20 @@ div.page.tdk-lambda > div.wrap          ← the asset opens its own page/wrap
 ├ div.tdk-panel[data-tab=profile]
 │   └ div.section-box 6) Supply profile  presets + campos + #tdkInject #tdkAuto + [Save profile] [Save the detected]
 └ div.tdk-panel[data-tab=commands]
-    └ div.section-box 7) Commands #tdkSearch + .tdk-tbl 6 colunas (#tdkCat;
-        **a linha inteira é o botão** → carrega o comando e salta para o Console)
+    └ div.section-box 7) Commands
+        ├ #tdkSearch (filtro) + linha de envio: #tdkCatSel (menu pendente com o catálogo),
+        │  [Send] #tdkCatSendBtn, [Load] e #tdkCatSendMsg
+        └ .tdk-tbl 6 colunas (#tdkCat; **a linha inteira** carrega o comando → Console)
 
 **Separadores** (mesma organização de `/access`): o conteúdo é dividido em cinco painéis
 `.tdk-panel[data-tab]`; `tdkInitTabs()` cria os botões, activa o painel por omissão
 (`data-tab-default`) ou o último usado (`localStorage.tdk_tab`) e `tdkShowTab(key)` permite saltar
 de fora (usado pela **linha** do catálogo, que carrega o comando e passa ao Console).
+
+**Envio pelo catálogo**: o menu pendente `#tdkCatSel` lista todos os comandos; **Send** envia
+directamente os que terminam em `?` (consultas) e, para um setpoint (`PV`, `PC`, `OUT`…), carrega a
+forma com valor para a Consola em vez de disparar algo sem valor — a mensagem diz o que falta.
+**Load** (ou clicar na linha) só preenche a consola.
 
 **Catálogo**: seis colunas (Command, Group, Usage, Description, Reply, Notes), `table-layout:fixed`
 e `overflow-x:hidden` — **nunca há scroll horizontal**; em ecrãs <720 px escondem-se Group e Notes.

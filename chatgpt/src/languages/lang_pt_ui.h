@@ -3404,7 +3404,7 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "tdkHoverHint": "Passe o rato sobre qualquer controlo para ver uma explicação curta.",
   "tdkDescStatus": "Estado do próprio módulo: activo, listen ou master, ligação, polling e CSV. A identidade da fonte aparece depois do Identify.",
   "tdkDescLive": "Últimos valores comunicados pela fonte. Passe o rato sobre um quadro para ver que consulta o produz.",
-  "tdkDescCatalog": "Catálogo SCPI Genesys. Prima use numa linha para carregar o comando na consola.",
+  "tdkDescCatalog": "Catálogo SCPI Genesys. Escolha um comando no menu e prima Enviar (consultas), ou clique numa linha para o carregar na consola.",
   "tdkTipHome": "Voltar à página principal",
   "tdkTipMonitorLink": "Abrir o Monitor Série: todas as linhas TX e RX aparecem lá",
   "tdkTipTabLive": "Estado, leituras ao vivo e gráfico de tendência",
@@ -3487,7 +3487,15 @@ static const char LANG_UI_PT[] PROGMEM = R"JSON(
   "tdkTipSessLim": "Tempo com a corrente de saída no setpoint",
   "tdkTipSessOff": "Tempo com a saída desligada",
   "tdkTipSessTrans": "Quantas vezes a regulação mudou entre CV e CC (inrush, degraus de carga)",
-  "tdkTipCatRow": "Clique para carregar este comando na consola"
+  "tdkTipCatRow": "Clique para carregar este comando na consola",
+  "tdkTipCatPick": "Escolha um comando e prima Enviar (consultas) ou Carregar (editável na Consola)",
+  "tdkTipCatSendBtn": "Enviar o comando seleccionado",
+  "tdkTipCatLoad": "Carregar o comando seleccionado na consola",
+  "tdkCatNeedsValue": "Precisa de um valor: edite-o na Consola e prima Enviar lá.",
+  "tdkCatSent": "Enviado — a resposta está no separador Consola.",
+  "statusTabSystem": "🖥️ Sistema",
+  "statusTabModules": "🔌 Módulos e I/O",
+  "statusTabStorage": "💾 Armazenamento"
 }
 )JSON";
 

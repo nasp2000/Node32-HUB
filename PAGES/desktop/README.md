@@ -476,6 +476,11 @@ captured with `--expand` (all sections open); the row says so when it applies.
 | `/api-reference` | `api_reference.png` | `chatgpt/src/webpages/assets/page_api_reference_asset.h` + the `_F` flag object of `streamApiReferencePage()` (Waveshare values) | 1440 × 6735, **all 16 `<details>` opened with `--expand`** (on load they are collapsed). `_F` filtering hides the six sections this pack has off (RS232, Sensores, Modbus, GRBL, Câmara, Áudio) → 10 sections / 97 rows. Shows **APIR-6**: every `▶` test button is crushed by `core.css`'s global `button` rule into a full-width pill on its own line |
 | `/dualfile` | `dualfile.png` | `chatgpt/src/webpages/assets/page_dualfile_asset.h` (`ENABLE_DUALFILE`, P4 USB-server pack only) | 1440 × 900, two panes on `/` (left SD: gcode/logs/photos/reports + 3 files; right Flash: config/charts/reports + 3 files), F1–F10 bar, command line. Shows **DF-6**: the right pane lists Flash while its storage selector still reads *SD* |
 
+> **Pending re-capture (2026-11-27):** `status.png`, `commands.png` and `recipients.png` predate the
+> UI changes of that date (3 tabs on `/status`, left-aligned help text on `/commands`, 3-row rules
+> table on `/recipients`). The layout is verified by the harness/jsdom tests; the images are live
+> captures and need the board to be refreshed.
+
 ## 4. Capture log (proof per image)
 
 | Image | Board / pack | Firmware · ETag | Viewport · size | Verified |

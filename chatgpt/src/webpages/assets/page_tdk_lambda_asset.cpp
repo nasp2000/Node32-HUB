@@ -244,8 +244,16 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
 <div class='tdk-panel' data-tab='commands'>
   <div class='section-box'>
     <h3 class='section-title'>7) Commands</h3>
-    <p class='tdk-note' data-i18n='tdkDescCatalog'>Genesys SCPI catalogue. Click a row to load the command into the console.</p>
+    <p class='tdk-note' data-i18n='tdkDescCatalog'>Genesys SCPI catalogue. Pick a command in the menu and press Send (queries), or click a row to load it into the console.</p>
     <input id='tdkSearch' placeholder='Filter (e.g. DVC, OVP, monitor)' data-i18n-placeholder='tdkTipPhSearch' oninput='tdkRenderCatalog()' title='Filter the catalogue by command, group or text' data-i18n-title='tdkTipSearch' style='width:100%'>
+    <div class='tdk-row' style='margin-top:10px'>
+      <label class='tdk-field' style='min-width:260px;flex:1 1 260px' title='Pick a command and press Send (queries) or Load (editable in the Console)' data-i18n-title='tdkTipCatPick'>Command
+        <select id='tdkCatSel' title='Catalogue command' data-i18n-title='tdkTipCatPick'></select>
+      </label>
+      <button class='btn' id='tdkCatSendBtn' onclick='tdkCatSend()' title='Send the selected command' data-i18n-title='tdkTipCatSendBtn'>&#10148; Send</button>
+      <button class='btn' onclick='tdkCatLoad()' title='Load the selected command into the console' data-i18n-title='tdkTipCatLoad'>Load</button>
+      <span class='tdk-note' id='tdkCatSendMsg'></span>
+    </div>
     <div class='tdk-scroll' style='margin-top:10px'>
       <table class='tdk-tbl'>
         <thead><tr><th title='SCPI mnemonic; queries end with ?' data-i18n-title='tdkTipThCommand'>Command</th><th title='Catalogue group' data-i18n-title='tdkTipThGroup'>Group</th><th title='Typical syntax, with parameters where they exist' data-i18n-title='tdkTipThUsage'>Usage</th><th title='What the command does' data-i18n-title='tdkTipThDesc'>Description</th><th title='Reply format' data-i18n-title='tdkTipThReply'>Reply</th><th title='Cautions and model differences' data-i18n-title='tdkTipThNotes'>Notes</th></tr></thead>
@@ -608,7 +616,44 @@ function tdkLoadCatalog(){
   fetch('/api/tdk-lambda-commands',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
     _tdkCat=d.commands||[];
     tdkRenderCatalog();
+    tdkRenderCatSel();
   }).catch(function(){});
+}
+
+function tdkCatPick(){
+  var sel=_tdkQ('tdkCatSel');
+  if(!sel||!sel.value){return {cmd:'',usage:''};}
+  var p=sel.value.split('|');
+  return {cmd:p[0]||'',usage:p[1]||p[0]||''};
+}
+function tdkCatLoad(){
+  var p=tdkCatPick();
+  if(!p.cmd){return;}
+  tdkUse(p.usage||p.cmd);
+}
+function tdkCatSend(){
+  var p=tdkCatPick(), msg=_tdkQ('tdkCatSendMsg');
+  if(!p.cmd){return;}
+  if(p.cmd.charAt(p.cmd.length-1)!=='?'){
+    /* A setpoint mnemonic alone is not a command (PV needs a value): load it
+       into the console instead of firing something at the supply. */
+    tdkUse(p.usage||p.cmd);
+    if(msg){msg.textContent=_tdkT('tdkCatNeedsValue','Needs a value: edit it in the Console and press Send there.');}
+    return;
+  }
+  tdkQuick(p.cmd);
+  if(msg){msg.textContent=_tdkT('tdkCatSent','Sent \u2014 the reply is in the Console tab.');}
+}
+function tdkRenderCatSel(){
+  var sel=_tdkQ('tdkCatSel');
+  if(!sel||sel.options.length){return;}      /* built once */
+  var out='';
+  for(var i=0;i<_tdkCat.length;i++){
+    var c=_tdkCat[i];
+    out+='<option value="'+_tdkEsc(c.cmd)+'|'+_tdkEsc(c.usage)+'">'+
+         _tdkEsc(c.cmd)+' \u2014 '+_tdkEsc(c.desc)+'</option>';
+  }
+  sel.innerHTML=out;
 }
 
 function tdkRenderCatalog(){

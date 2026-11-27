@@ -15,7 +15,9 @@
 A single-page **read-only system status** dashboard: device identity, chip/heap/PSRAM/NVS/
 flash/SD storage, network (WiFi + Ethernet), RS232, email/recipients, scheduler, and
 "compiled modules" feature flags. Pulls everything from one **`GET /api/status`** payload
-(`fillSystemStatusJson`) and renders it into two columns + a "Monitoring" section.
+(`fillSystemStatusJson`) and renders it into **three tabs** — *System* (`#col1`), *Modules & I/O*
+(`#col2` + the "Monitoring" block) and *Storage* (`#col3` + the heap analysis) — so the page is no
+longer one long column.
 
 ---
 
@@ -44,8 +46,11 @@ main.page > div.wrap
  ├ [🏠 Home] (data-i18n='btnHome')
  ├ H1 "📊 Status"
  ├ .status-grid
- │  ├ #col1   (left column — general + storage sections)
- │  └ #col2   (right column — network + protocol sections)
+ ├ #stTabs   (3 pills: System · Modules & I/O · Storage; first active)
+ ├ #stTabSys  > #col1   (SYSTEM, CHIP ESP32, RESOURCES, GENERAL SETTINGS, COMPILED MODULES)
+ ├ #stTabIo   > #col2   (NETWORK, PRINTER, EMAIL, RS232, RAMBOX, MODBUS, CAN, CAMERA, …)
+ │             + Monitoring (destination e-mails, recipients, scheduled commands)
+ └ #stTabData > #col3   (MICRO SD, FLASH/LittleFS, NVS) + Internal Heap Analysis
  ├ #heap-section ("🧠 Loading..." → heap/PSRAM/Flash/NVS bars + counts)
  ├ .status-monitor
  │  ├ H2 "📊 Monitoring"
@@ -71,7 +76,7 @@ No other inputs — fully read-only.
 
 ## 5. Client-side logic
 
-- **`u()`** — sets both columns + monitor to `_st('statusUpdating','Updating...')`, then
+- **`u()`** — sets the three containers + monitor to `_st('statusUpdating','Updating...')`, then
   `fetch('/api/status', {cache:'no-store'})`. On `null` → "No data". Otherwise:
   - **Left column (`L`)**: SYSTEM (chip model/rev/features, cores, CPU MHz, temp,
     firmware/build, uptime, local time/timezone, reset reason, NTP sync), RESOURCES,
@@ -180,3 +185,12 @@ Timeout/TimeoutActive/TimeoutInactive`, `statusLblFreeEst/SpaceEst`.
 | `/api/status` handler | `chatgpt/src/webpages/handlers_unified/core_admin_handler.cpp:28` |
 | Status payload builder | `chatgpt/src/system_status_payload.h` (`fillSystemStatusJson`) |
 | Self-test manifest | `test_manifest_handler.cpp` (`PAGE("/status", …)`), `selftest_handler.cpp` |
+
+## Tabs (2026-11-27)
+
+The page used to be one long column. Each generated section is routed by its **localized header**
+(`stGroup()` compares `═ <label> ═` with `_st('stSec…')`, so it follows the UI language): SYSTEM,
+CHIP, RESOURCES, GENERAL and COMPILED go to *System*; MICRO SD, FLASH and NVS to *Storage*; every
+other section (and any future one) to *Modules & I/O*, so nothing is ever hidden by a missing rule.
+`stInitTabs()` builds the pill bar once (labels `statusTabSystem` / `statusTabModules` /
+`statusTabStorage`); clicking switches panels. Covered by `tests/web/test_status_tabs.js` (7 cases).
