@@ -397,6 +397,25 @@ void csvAppendSample() {
     if (s_csvPending.length() >= TDK_CSV_FLUSH_BYTES) (void)tdkCsvFlushPending();
 }
 
+// Adopt the layout/scale found in a real multi-field reply when the profile
+// allows it. Used by the bulk query and by any unrequested multi-field line
+// (listener mode), so both read the same way.
+void applyAutoMap(const float* f, uint8_t n) {
+    if (!f || n < 4 || !s_autoMap) return;
+    uint8_t sug[6];
+    float sv = 1.0f, si = 1.0f;
+    char why[64] = {0};
+    if (!tdkSuggestMap(f, n, s_rateV, s_rateI, sug, &sv, &si, why, sizeof(why))) return;
+    bool differs = (fabsf(sv - s_scaleV) > 1e-6f) || (fabsf(si - s_scaleI) > 1e-6f);
+    for (uint8_t k = 0; k < 6; ++k) if (sug[k] != s_map[k]) differs = true;
+    if (!differs) return;
+    for (uint8_t k = 0; k < 6; ++k) s_map[k] = sug[k];
+    s_scaleV = sv;
+    s_scaleI = si;
+    snprintf(s_autoNote, sizeof(s_autoNote), "%s", why);
+    tdkLogSys((String(F("perfil ajustado automaticamente: ")) + String(why)).c_str());
+}
+
 // ── RX parsing ─────────────────────────────────────────────────────────────
 void handleLine(char* line) {
     while (*line == ' ' || *line == '\t') ++line;
@@ -416,22 +435,7 @@ void handleLine(char* line) {
         case P_DVC: {
             float f[16];
             const uint8_t n = tdkParseFloats(line, f, 16);
-            if (n >= 4 && s_autoMap) {
-                uint8_t sug[6];
-                float sv = 1.0f, si = 1.0f;
-                char why[64] = {0};
-                if (tdkSuggestMap(f, n, s_rateV, s_rateI, sug, &sv, &si, why, sizeof(why))) {
-                    bool differs = (fabsf(sv - s_scaleV) > 1e-6f) || (fabsf(si - s_scaleI) > 1e-6f);
-                    for (uint8_t k = 0; k < 6; ++k) if (sug[k] != s_map[k]) differs = true;
-                    if (differs) {
-                        for (uint8_t k = 0; k < 6; ++k) s_map[k] = sug[k];
-                        s_scaleV = sv;
-                        s_scaleI = si;
-                        snprintf(s_autoNote, sizeof(s_autoNote), "%s", why);
-                        tdkLogSys((String(F("perfil ajustado automaticamente: ")) + String(why)).c_str());
-                    }
-                }
-            }
+            applyAutoMap(f, n);
             if (n > 0) {
                 tdkApplyMap(f, n, s_map, s_scaleV, s_scaleI, s_offV, s_offI,
                             &s_values.vMeas, &s_values.vSet, &s_values.iMeas,
@@ -487,6 +491,7 @@ void handleLine(char* line) {
             float f[16];
             const uint8_t n = tdkParseFloats(line, f, 16);
             if (n >= 4) {
+                applyAutoMap(f, n);
                 tdkApplyMap(f, n, s_map, s_scaleV, s_scaleI, s_offV, s_offI,
                             &s_values.vMeas, &s_values.vSet, &s_values.iMeas,
                             &s_values.iSet, &s_values.ovp, &s_values.uvl);
@@ -589,10 +594,9 @@ bool tdkLambdaSend(const String& command) {
     tdkUpperTrim(cmd.c_str(), upper, sizeof(upper));
     strncpy(s_pendingCmd, upper, sizeof(s_pendingCmd) - 1);
     s_pendingCmd[sizeof(s_pendingCmd) - 1] = '\0';
-    if (!strcmp(upper, s_cmdV))          s_pending = P_MV;     // numeric (V)
-    else if (!strcmp(upper, s_cmdI))     s_pending = P_MC;     // numeric (I)
-    else if (!strcmp(upper, s_cmdState)) s_pending = P_MODE;
-    else                                 s_pending = (PendingQuery)tdkClassify(upper);
+    // DVC? must be recognised as the bulk query even though it also occupies the
+    // profile's "voltage" slot in dvc mode (it used to be parsed as one float).
+    s_pending = (PendingQuery)tdkPendingForSend(upper, s_cmdV, s_cmdI, s_cmdState);
     strncpy(s_lastCmd, upper, sizeof(s_lastCmd) - 1);
     s_lastCmd[sizeof(s_lastCmd) - 1] = '\0';
     pushLog("TX", cmd.c_str());

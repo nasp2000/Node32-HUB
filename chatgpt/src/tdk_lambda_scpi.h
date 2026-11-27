@@ -170,6 +170,23 @@ inline TdkPending tdkClassify(const char* upperCommand) {
     return TDK_P_OTHER;
 }
 
+// What kind of reply to expect for a command the operator typed (or the poll
+// sends). A known query wins over the profile's single-value slot: in "dvc"
+// mode s_cmdV is "DVC?" itself, and matching it first turned every bulk reply
+// into a single float (vMeas only, auto-detect never ran). A custom profile
+// command ("VOUT?" as cmd_v) still falls back to the slot it belongs to.
+inline TdkPending tdkPendingForSend(const char* upperCommand,
+                                    const char* cmdV, const char* cmdI,
+                                    const char* cmdState) {
+    if (!upperCommand) return TDK_P_OTHER;
+    const TdkPending cls = tdkClassify(upperCommand);
+    if (cls != TDK_P_OTHER) return cls;
+    if (cmdV && !strcmp(upperCommand, cmdV))         return TDK_P_MV;
+    if (cmdI && !strcmp(upperCommand, cmdI))         return TDK_P_MC;
+    if (cmdState && !strcmp(upperCommand, cmdState)) return TDK_P_MODE;
+    return TDK_P_OTHER;
+}
+
 // ── Field mapping + CSV row (pure, host-tested) ───────────────────────────
 // Apply the profile map (indexes into the reply), then scale/offset. This is
 // what turns a DVC? line into the six values the module reports.

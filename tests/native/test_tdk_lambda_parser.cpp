@@ -258,3 +258,20 @@ TEST_CASE("tdkReplyTimeoutMs: 3..15 s, whatever the poll interval") {
     CHECK(tdkReplyTimeoutMs(1000) == 3000);     // floor
     CHECK(tdkReplyTimeoutMs(0) == 15000);       // unknown -> 60 s -> ceiling
 }
+
+TEST_CASE("tdkPendingForSend: DVC? stays the bulk query in dvc mode") {
+    // In dvc mode cmd_v IS "DVC?": matching the slot first parsed the six-field
+    // reply as a single float (vMeas only, auto-detect never ran).
+    CHECK(tdkPendingForSend("DVC?", "DVC?", "MC?", "MODE?") == TDK_P_DVC);
+    CHECK(tdkPendingForSend("DVC?", "VOUT?", "IOUT?", "STAT?") == TDK_P_DVC);
+    CHECK(tdkPendingForSend("MV?",  "DVC?", "MC?", "MODE?") == TDK_P_MV);
+    CHECK(tdkPendingForSend("MC?",  "DVC?", "MC?", "MODE?") == TDK_P_MC);
+    CHECK(tdkPendingForSend("MODE?", "DVC?", "MC?", "MODE?") == TDK_P_MODE);
+    CHECK(tdkPendingForSend("OUT?", "DVC?", "MC?", "MODE?") == TDK_P_OUT);
+    CHECK(tdkPendingForSend("STT?", "DVC?", "MC?", "MODE?") == TDK_P_STT);
+    // Custom profile commands fall back to their slot; anything else is "other".
+    CHECK(tdkPendingForSend("VOUT?", "VOUT?", "IOUT?", "STAT?") == TDK_P_MV);
+    CHECK(tdkPendingForSend("IOUT?", "VOUT?", "IOUT?", "STAT?") == TDK_P_MC);
+    CHECK(tdkPendingForSend("STAT?", "VOUT?", "IOUT?", "STAT?") == TDK_P_MODE);
+    CHECK(tdkPendingForSend("IDN?", "DVC?", "MC?", "MODE?") == TDK_P_OTHER);
+}
