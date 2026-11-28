@@ -15,11 +15,13 @@
 </head>
 <body>
 <svg class="sprite" aria-hidden="true" focusable="false">
-  <symbol id="i-toggle" viewBox="0 0 16 16"><rect x="1.5" y="4.5" width="13" height="7" rx="3.5"/><circle cx="11" cy="8" r="2.4"/></symbol>
-  <symbol id="i-select" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="13" height="9" rx="1.5"/><path d="M9.5 7l2 2 2-2"/></symbol>
-  <symbol id="i-number" viewBox="0 0 16 16"><path d="M6 2.5v11M10 2.5v11M2.5 6h11M2.5 10h11"/></symbol>
-  <symbol id="i-text" viewBox="0 0 16 16"><path d="M2.5 12.5h11M4 9V3.5h8V9"/></symbol>
-  <symbol id="i-action" viewBox="0 0 16 16"><path d="M3 8h8M8.5 4.5L12 8l-3.5 3.5"/></symbol>
+  <symbol id="i-toggle" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.5 5.5h9a4.5 4.5 0 010 9h-9a4.5 4.5 0 010-9zm9 1.9a2.6 2.6 0 100 5.2 2.6 2.6 0 000-5.2z"/></symbol>
+  <symbol id="i-select" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.5 3.5h15v13h-15zm4.6 5.1l2.9 3 2.9-3 1.5 1.5-4.4 4.5-4.4-4.5z"/></symbol>
+  <symbol id="i-number" viewBox="0 0 20 20"><path d="M3.5 5h2.2v10H3.5zM8.9 5H11v10H8.9zM14.3 5h2.2v10h-2.2z"/></symbol>
+  <symbol id="i-text" viewBox="0 0 20 20"><path d="M3.5 4.5h13v2.7h-5.1V15.5H8.6V7.2H3.5z"/></symbol>
+  <symbol id="i-action" viewBox="0 0 20 20"><path d="M2.5 8.6h8.2V5L17.5 10l-6.8 5v-3.6H2.5z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 20 20"><path d="M2 4.5h16v11H2z"/><path fill="var(--paper)" d="M3.4 6l6.6 4.7L16.6 6v-1l-6.6 4.6L3.4 5z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><path fill="var(--paper)" d="M9 5h1.8v5.4l3.2 2-1 1.6-4-2.5z"/></symbol>
 </svg>
 <a class="skip" href="#main">Skip to content</a>
 <div class="sheet">
@@ -46,42 +48,42 @@
       <h2 id="transport">1. Transport</h2>
       <table class="opts">
         <tr><th class="ico"></th><th>Control</th><th>What it does</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Play / Pause</td><td data-label="What it does">Starts or stops the current item; the label follows the state.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">Previous / Stop / Next</td><td data-label="What it does">Moves through the current list: stations, recent, favourites, SD library or UPnP.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-action"/></svg></td><td data-label="Control">Volume</td><td data-label="What it does">Slider and ± buttons; the change is applied immediately and survives a reboot.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Seek</td><td data-label="What it does">SD files only — live streams cannot be scrubbed.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Shuffle / Repeat</td><td data-label="What it does">Repeat one or repeat all; shuffle applies to the active list.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Sleep</td><td data-label="What it does">Stops playback after the chosen time.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Equaliser</td><td data-label="What it does">Gain bands applied to the decoded audio.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Play / Pause</td><td data-label="What it does">Starts or stops the current item; the label follows the state.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">Previous / Stop / Next</td><td data-label="What it does">Moves through the current list: stations, recent, favourites, SD library or UPnP.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-action"/></svg></td><td data-label="Control">Volume</td><td data-label="What it does">Slider and ± buttons; the change is applied immediately and survives a reboot.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Control">Seek</td><td data-label="What it does">SD files only — live streams cannot be scrubbed.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Shuffle / Repeat</td><td data-label="What it does">Repeat one or repeat all; shuffle applies to the active list.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-clock"/></svg></td><td data-label="Control">Sleep</td><td data-label="What it does">Stops playback after the chosen time.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Equaliser</td><td data-label="What it does">Gain bands applied to the decoded audio.</td></tr>
       </table>
       <h2 id="sources">2. Where the audio comes from</h2>
       <table class="opts">
         <tr><th class="ico"></th><th>Source</th><th>What it does</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Source">Stream URL</td><td data-label="What it does">Play any MP3/AAC stream URL you paste in.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Source">Discover</td><td data-label="What it does">Station search by name, genre and country, with paging.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Source">SD library</td><td data-label="What it does">MP3 files in <code>/library</code>, browsable by folder with search; queue ordered or random.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Source">PSRAM</td><td data-label="What it does">Fallback when there is no card; contents are lost on reboot.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Source">Favourites</td><td data-label="What it does">Save the current station and play it with one tap.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Source">Playlists</td><td data-label="What it does">Named lists saved on the SD as <code>.m3u</code>, so they open in other players too.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Source">UPnP / DLNA</td><td data-label="What it does">Browse a media server on the network and queue from it.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Source">Resume</td><td data-label="What it does">On boot, either nothing, the last item, or the last playlist.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Source">Stream URL</td><td data-label="What it does">Play any MP3/AAC stream URL you paste in.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Source">Discover</td><td data-label="What it does">Station search by name, genre and country, with paging.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Source">SD library</td><td data-label="What it does">MP3 files in <code>/library</code>, browsable by folder with search; queue ordered or random.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Source">PSRAM</td><td data-label="What it does">Fallback when there is no card; contents are lost on reboot.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Source">Favourites</td><td data-label="What it does">Save the current station and play it with one tap.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Source">Playlists</td><td data-label="What it does">Named lists saved on the SD as <code>.m3u</code>, so they open in other players too.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Source">UPnP / DLNA</td><td data-label="What it does">Browse a media server on the network and queue from it.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Source">Resume</td><td data-label="What it does">On boot, either nothing, the last item, or the last playlist.</td></tr>
       </table>
       <h2 id="alarms">3. Alarms</h2>
       <p>The agenda plays a station at a time of day, with a volume ramp instead of a jump scare.</p>
       <table class="opts">
         <tr><th class="ico"></th><th>Field</th><th>Values</th><th>What it does</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Days</td><td data-label="Values">one or more weekdays</td><td data-label="What it does">Which days the slot fires.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Time</td><td data-label="Values">HH:MM</td><td data-label="What it does">Start of the slot.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Station</td><td data-label="Values">any saved station</td><td data-label="What it does">What plays.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-toggle"/></svg></td><td data-label="Field">Enabled</td><td data-label="Values">on · off</td><td data-label="What it does">Keeps the slot without deleting it.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Days</td><td data-label="Values">one or more weekdays</td><td data-label="What it does">Which days the slot fires.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-clock"/></svg></td><td data-label="Field">Time</td><td data-label="Values">HH:MM</td><td data-label="What it does">Start of the slot.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Station</td><td data-label="Values">any saved station</td><td data-label="What it does">What plays.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-toggle"/></svg></td><td data-label="Field">Enabled</td><td data-label="Values">on · off</td><td data-label="What it does">Keeps the slot without deleting it.</td></tr>
       </table>
       <h2 id="hardware">4. Hardware</h2>
       <table class="opts">
         <tr><th class="ico"></th><th>Item</th><th>Detail</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Item">Board</td><td data-label="Detail">ESP32-S3 N16R8 — PSRAM buffers the stream.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Item">Output</td><td data-label="Detail">I2S to a UDA1334A DAC, line out to an amplifier.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Item">Storage</td><td data-label="Detail">microSD for the library and the playlists.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Item">Network</td><td data-label="Detail">Wi-Fi, or Ethernet on boards that have it.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Item">Board</td><td data-label="Detail">ESP32-S3 N16R8 — PSRAM buffers the stream.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Item">Output</td><td data-label="Detail">I2S to a UDA1334A DAC, line out to an amplifier.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Item">Storage</td><td data-label="Detail">microSD for the library and the playlists.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Item">Network</td><td data-label="Detail">Wi-Fi, or Ethernet on boards that have it.</td></tr>
       </table>
 
     </div>

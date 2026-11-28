@@ -15,11 +15,13 @@
 </head>
 <body>
 <svg class="sprite" aria-hidden="true" focusable="false">
-  <symbol id="i-toggle" viewBox="0 0 16 16"><rect x="1.5" y="4.5" width="13" height="7" rx="3.5"/><circle cx="11" cy="8" r="2.4"/></symbol>
-  <symbol id="i-select" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="13" height="9" rx="1.5"/><path d="M9.5 7l2 2 2-2"/></symbol>
-  <symbol id="i-number" viewBox="0 0 16 16"><path d="M6 2.5v11M10 2.5v11M2.5 6h11M2.5 10h11"/></symbol>
-  <symbol id="i-text" viewBox="0 0 16 16"><path d="M2.5 12.5h11M4 9V3.5h8V9"/></symbol>
-  <symbol id="i-action" viewBox="0 0 16 16"><path d="M3 8h8M8.5 4.5L12 8l-3.5 3.5"/></symbol>
+  <symbol id="i-toggle" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.5 5.5h9a4.5 4.5 0 010 9h-9a4.5 4.5 0 010-9zm9 1.9a2.6 2.6 0 100 5.2 2.6 2.6 0 000-5.2z"/></symbol>
+  <symbol id="i-select" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.5 3.5h15v13h-15zm4.6 5.1l2.9 3 2.9-3 1.5 1.5-4.4 4.5-4.4-4.5z"/></symbol>
+  <symbol id="i-number" viewBox="0 0 20 20"><path d="M3.5 5h2.2v10H3.5zM8.9 5H11v10H8.9zM14.3 5h2.2v10h-2.2z"/></symbol>
+  <symbol id="i-text" viewBox="0 0 20 20"><path d="M3.5 4.5h13v2.7h-5.1V15.5H8.6V7.2H3.5z"/></symbol>
+  <symbol id="i-action" viewBox="0 0 20 20"><path d="M2.5 8.6h8.2V5L17.5 10l-6.8 5v-3.6H2.5z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 20 20"><path d="M2 4.5h16v11H2z"/><path fill="var(--paper)" d="M3.4 6l6.6 4.7L16.6 6v-1l-6.6 4.6L3.4 5z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><path fill="var(--paper)" d="M9 5h1.8v5.4l3.2 2-1 1.6-4-2.5z"/></symbol>
 </svg>
 <a class="skip" href="#main">Skip to content</a>
 <div class="sheet">
@@ -80,13 +82,13 @@
       <p>One module at a time. Enabling one disables the other, and the RS232 profile switches with it.</p>
       <table class="opts">
         <tr><th class="ico"></th><th>Field</th><th>Values</th><th>Default</th><th>What it does</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td>
           <td data-label="Field">Device</td>
           <td data-label="Values"><code>Unikon</code> · <code>Bricon</code></td>
           <td data-label="Default">the active module</td>
           <td data-label="What it does">Selects which clock the page controls. On the first status read the selector adopts whichever clock is actually enabled; the remembered choice only wins when none is active.</td>
         </tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-toggle"/></svg></td>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-toggle"/></svg></td>
           <td data-label="Field">Clock active</td>
           <td data-label="Values">on · off</td>
           <td data-label="Default">off</td>
@@ -97,19 +99,19 @@
       <h2 id="polling">2. Polling and the serial profile</h2>
       <table class="opts">
         <tr><th class="ico"></th><th>Field</th><th>Values</th><th>Default</th><th>What it does</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-number"/></svg></td>
           <td data-label="Field">Poll interval</td>
           <td data-label="Values">1 · 3 · 5 · 10 · 15 · 30 · 60 min</td>
           <td data-label="Default">3 min</td>
           <td data-label="What it does">How often the clock is queried. Short intervals catch arrivals sooner and put more traffic on the bus. A stored value outside the list snaps to the next larger step.</td>
         </tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-toggle"/></svg></td>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-toggle"/></svg></td>
           <td data-label="Field">Use the RS232 settings</td>
           <td data-label="Values">on · off</td>
           <td data-label="Default">off</td>
           <td data-label="What it does">Bench mode: the module stops applying its own serial profile and uses whatever is configured on the <code>/rs232</code> page. The module's profile is never overwritten and comes back when the box is cleared.</td>
         </tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-action"/></svg></td>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-action"/></svg></td>
           <td data-label="Field">Restore module profile</td>
           <td data-label="Values">button</td>
           <td data-label="Default">—</td>
@@ -120,19 +122,19 @@
       <h2 id="unikon">3. Unikon</h2>
       <table class="opts">
         <tr><th class="ico"></th><th>Field</th><th>Values</th><th>Default</th><th>What it does</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-toggle"/></svg></td>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-toggle"/></svg></td>
           <td data-label="Field">Official format</td>
           <td data-label="Values">on · off</td>
           <td data-label="Default">off</td>
           <td data-label="What it does">Uses the official band format for the arrivals, as the federation reads them, instead of the clock's raw fields.</td>
         </tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-mail"/></svg></td>
           <td data-label="Field">Loft email</td>
           <td data-label="Values">address</td>
           <td data-label="Default">empty</td>
           <td data-label="What it does">Destination of the loft list mail. Without an address the button does nothing.</td>
         </tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td>
           <td data-label="Field">Line</td>
           <td data-label="Values">fixed</td>
           <td data-label="Default">9600 8N1</td>
@@ -144,35 +146,35 @@
       <p>The wire layer is implemented and covered by tests, but it has not been validated against real Bricon hardware. Test it on a spare module.</p>
       <table class="opts">
         <tr><th class="ico"></th><th>Field</th><th>Values</th><th>Default</th><th>What it does</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Baud</td><td data-label="Values"><code>9600</code> …</td><td data-label="Default">9600</td><td data-label="What it does">Bus speed. The Bricon profile hints 9600 8N2.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Data bits</td><td data-label="Values">7 · 8</td><td data-label="Default">8</td><td data-label="What it does">Frame size on the bus.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Parity</td><td data-label="Values">none · even · odd</td><td data-label="Default">none</td><td data-label="What it does">Frame parity.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Stop bits</td><td data-label="Values">1 · 2</td><td data-label="Default">2</td><td data-label="What it does">Stop bits, per the module profile.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">Country</td><td data-label="Values">code</td><td data-label="Default">—</td><td data-label="What it does">Country prefix used when the module builds band numbers.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">BA</td><td data-label="Values">number</td><td data-label="Default">—</td><td data-label="What it does">Bus address of the loft module.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">Club</td><td data-label="Values">number</td><td data-label="Default">—</td><td data-label="What it does">Club code used by the pigeon lookup.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">Flight</td><td data-label="Values">number</td><td data-label="Default">—</td><td data-label="What it does">Flight code requested with the fancier/pigeon chain.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Baud</td><td data-label="Values"><code>9600</code> …</td><td data-label="Default">9600</td><td data-label="What it does">Bus speed. The Bricon profile hints 9600 8N2.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Data bits</td><td data-label="Values">7 · 8</td><td data-label="Default">8</td><td data-label="What it does">Frame size on the bus.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Parity</td><td data-label="Values">none · even · odd</td><td data-label="Default">none</td><td data-label="What it does">Frame parity.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Stop bits</td><td data-label="Values">1 · 2</td><td data-label="Default">2</td><td data-label="What it does">Stop bits, per the module profile.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Country</td><td data-label="Values">code</td><td data-label="Default">—</td><td data-label="What it does">Country prefix used when the module builds band numbers.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">BA</td><td data-label="Values">number</td><td data-label="Default">—</td><td data-label="What it does">Bus address of the loft module.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Club</td><td data-label="Values">number</td><td data-label="Default">—</td><td data-label="What it does">Club code used by the pigeon lookup.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Flight</td><td data-label="Values">number</td><td data-label="Default">—</td><td data-label="What it does">Flight code requested with the fancier/pigeon chain.</td></tr>
       </table>
 
       <h2 id="buttons">5. Buttons</h2>
       <table class="opts">
         <tr><th class="ico"></th><th>Button</th><th>Where</th><th>What it does</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Button">Save configuration</td><td data-label="Where">bottom of Config</td><td data-label="What it does">Stores the selected clock's fields (enabled, interval and the device-specific ones).</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Button">Refresh</td><td data-label="Where">each tab</td><td data-label="What it does">Re-reads status, arrivals, loft and races of the selected clock.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Button">Poll now</td><td data-label="Where">Arrivals</td><td data-label="What it does">Runs one poll immediately instead of waiting for the interval.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Button">Sync loft</td><td data-label="Where">Arrivals</td><td data-label="What it does">Copies the loft (fancier and pigeons) from the clock.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Button">Sync calendar</td><td data-label="Where">Arrivals</td><td data-label="What it does">Copies the races and their dates from the clock.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Button">Loft email</td><td data-label="Where">Pigeons</td><td data-label="What it does">Unikon only: sends the loft list to the configured address.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Button">Save configuration</td><td data-label="Where">bottom of Config</td><td data-label="What it does">Stores the selected clock's fields (enabled, interval and the device-specific ones).</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Button">Refresh</td><td data-label="Where">each tab</td><td data-label="What it does">Re-reads status, arrivals, loft and races of the selected clock.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Button">Poll now</td><td data-label="Where">Arrivals</td><td data-label="What it does">Runs one poll immediately instead of waiting for the interval.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Button">Sync loft</td><td data-label="Where">Arrivals</td><td data-label="What it does">Copies the loft (fancier and pigeons) from the clock.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Button">Sync calendar</td><td data-label="Where">Arrivals</td><td data-label="What it does">Copies the races and their dates from the clock.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Button">Loft email</td><td data-label="Where">Pigeons</td><td data-label="What it does">Unikon only: sends the loft list to the configured address.</td></tr>
       </table>
 
       <h2 id="tabs">6. The five tabs</h2>
       <table class="opts">
         <tr><th class="ico"></th><th>Tab</th><th>Shows</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Tab">Config</td><td data-label="Shows">Device selector and every field in sections 1 to 4.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Tab">Arrivals</td><td data-label="Shows">Clock state, arrival count, the arrival table (ring, time, race) and the sync/poll actions.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Tab">Pigeons</td><td data-label="Shows">The loft list read from the clock, plus the loft email.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Tab">Race</td><td data-label="Shows">Races stored in the clock, read-only.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Tab">State</td><td data-label="Shows">Every status field the module reports: clock, fancier, race, arrivals, RS232 state and the last poll.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Tab">Config</td><td data-label="Shows">Device selector and every field in sections 1 to 4.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-clock"/></svg></td><td data-label="Tab">Arrivals</td><td data-label="Shows">Clock state, arrival count, the arrival table (ring, time, race) and the sync/poll actions.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-mail"/></svg></td><td data-label="Tab">Pigeons</td><td data-label="Shows">The loft list read from the clock, plus the loft email.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Tab">Race</td><td data-label="Shows">Races stored in the clock, read-only.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Tab">State</td><td data-label="Shows">Every status field the module reports: clock, fancier, race, arrivals, RS232 state and the last poll.</td></tr>
       </table>
       <p>The selected tab and the selected device are remembered in the browser, not on the board.</p>
 

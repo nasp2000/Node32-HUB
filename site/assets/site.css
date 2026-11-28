@@ -393,8 +393,8 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
 }
 .opts td:first-child { color: var(--ink); font-weight: 600; }
 .opts th.ico, .opts td.ico { width: 34px; padding-right: 8px; }
-.opts td.ico { color: var(--ink-2); }
-.opts svg.ic { display: block; width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-top: 1px; overflow: visible; }
+.opts td.ico { color: var(--ink); opacity: .92; }
+.opts svg.ic { display: block; width: 18px; height: 18px; fill: currentColor; stroke: none; margin-top: 2px; }
 .opts td.ico[data-label=""]::before { content: none; }
 .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 .opts td:nth-child(2) { white-space: normal; }

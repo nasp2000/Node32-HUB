@@ -15,11 +15,13 @@
 </head>
 <body>
 <svg class="sprite" aria-hidden="true" focusable="false">
-  <symbol id="i-toggle" viewBox="0 0 16 16"><rect x="1.5" y="4.5" width="13" height="7" rx="3.5"/><circle cx="11" cy="8" r="2.4"/></symbol>
-  <symbol id="i-select" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="13" height="9" rx="1.5"/><path d="M9.5 7l2 2 2-2"/></symbol>
-  <symbol id="i-number" viewBox="0 0 16 16"><path d="M6 2.5v11M10 2.5v11M2.5 6h11M2.5 10h11"/></symbol>
-  <symbol id="i-text" viewBox="0 0 16 16"><path d="M2.5 12.5h11M4 9V3.5h8V9"/></symbol>
-  <symbol id="i-action" viewBox="0 0 16 16"><path d="M3 8h8M8.5 4.5L12 8l-3.5 3.5"/></symbol>
+  <symbol id="i-toggle" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.5 5.5h9a4.5 4.5 0 010 9h-9a4.5 4.5 0 010-9zm9 1.9a2.6 2.6 0 100 5.2 2.6 2.6 0 000-5.2z"/></symbol>
+  <symbol id="i-select" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.5 3.5h15v13h-15zm4.6 5.1l2.9 3 2.9-3 1.5 1.5-4.4 4.5-4.4-4.5z"/></symbol>
+  <symbol id="i-number" viewBox="0 0 20 20"><path d="M3.5 5h2.2v10H3.5zM8.9 5H11v10H8.9zM14.3 5h2.2v10h-2.2z"/></symbol>
+  <symbol id="i-text" viewBox="0 0 20 20"><path d="M3.5 4.5h13v2.7h-5.1V15.5H8.6V7.2H3.5z"/></symbol>
+  <symbol id="i-action" viewBox="0 0 20 20"><path d="M2.5 8.6h8.2V5L17.5 10l-6.8 5v-3.6H2.5z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 20 20"><path d="M2 4.5h16v11H2z"/><path fill="var(--paper)" d="M3.4 6l6.6 4.7L16.6 6v-1l-6.6 4.6L3.4 5z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><path fill="var(--paper)" d="M9 5h1.8v5.4l3.2 2-1 1.6-4-2.5z"/></symbol>
 </svg>
 <a class="skip" href="#main">Skip to content</a>
 <div class="sheet">
@@ -51,13 +53,13 @@
       <p>The SD card (and PSRAM, where the pack uses it) as a file explorer: browse folders, upload, rename, delete, create a folder, sort by name or date and filter by typing.</p>
       <table class="opts">
         <tr><th class="ico"></th><th>Control</th><th>What it does</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Storage selector</td><td data-label="What it does">Switches between SD and PSRAM and reloads the listing at the root of that storage.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">Filter</td><td data-label="What it does">Hides rows as you type, by file name.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Select / Clear</td><td data-label="What it does">Marks or clears every row; the actions below apply to the selection.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Sort</td><td data-label="What it does">Reloads the listing ordered by name or by date.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Back</td><td data-label="What it does">Goes up one folder.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">Delete</td><td data-label="What it does">Asks for confirmation, then removes the selected files.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">New folder / Rename</td><td data-label="What it does">Asks for a name — rename only accepts a single selected file.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Storage selector</td><td data-label="What it does">Switches between SD and PSRAM and reloads the listing at the root of that storage.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">Filter</td><td data-label="What it does">Hides rows as you type, by file name.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Select / Clear</td><td data-label="What it does">Marks or clears every row; the actions below apply to the selection.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Sort</td><td data-label="What it does">Reloads the listing ordered by name or by date.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Back</td><td data-label="What it does">Goes up one folder.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">Delete</td><td data-label="What it does">Asks for confirmation, then removes the selected files.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">New folder / Rename</td><td data-label="What it does">Asks for a name — rename only accepts a single selected file.</td></tr>
       </table>
 
       <h2 id="monitor">Monitor</h2>
@@ -70,13 +72,13 @@
       <p>Who may open the pages, and for how long.</p>
       <table class="opts">
         <tr><th class="ico"></th><th>Field</th><th>Values</th><th>Default</th><th>What it does</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">Max simultaneous clients</td><td data-label="Values">1 to 5</td><td data-label="Default">—</td><td data-label="What it does">Counts distinct client IPs (tabs from the same PC count once). A new IP when full gets HTTP 429.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">Inactivity timeout</td><td data-label="Values">1 to 120 min</td><td data-label="Default">10</td><td data-label="What it does">Drops a session that stops being used.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">Absolute timeout</td><td data-label="Values">5 to 240 min</td><td data-label="Default">20</td><td data-label="What it does">Drops a session even if it is being used.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-toggle"/></svg></td><td data-label="Field">Local pages never expire</td><td data-label="Values">on, off</td><td data-label="Default">off</td><td data-label="What it does">Skips the timeout kick for the local-only pages (charts, monitor, camera). They still count toward the client limit.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-toggle"/></svg></td><td data-label="Field">Require login</td><td data-label="Values">on, off</td><td data-label="Default">on</td><td data-label="What it does">Master switch for HTTP Basic auth. Off means anyone on the network opens the pages.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Admin user and password</td><td data-label="Values">text</td><td data-label="Default">root / root</td><td data-label="What it does">Change them on the first visit. Leaving the password empty keeps the current one.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-toggle"/></svg></td><td data-label="Field">Viewer account</td><td data-label="Values">on, off</td><td data-label="Default">off</td><td data-label="What it does">A second, read-only login for someone who only needs to look.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">Max simultaneous clients</td><td data-label="Values">1 to 5</td><td data-label="Default">—</td><td data-label="What it does">Counts distinct client IPs (tabs from the same PC count once). A new IP when full gets HTTP 429.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">Inactivity timeout</td><td data-label="Values">1 to 120 min</td><td data-label="Default">10</td><td data-label="What it does">Drops a session that stops being used.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">Absolute timeout</td><td data-label="Values">5 to 240 min</td><td data-label="Default">20</td><td data-label="What it does">Drops a session even if it is being used.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-toggle"/></svg></td><td data-label="Field">Local pages never expire</td><td data-label="Values">on, off</td><td data-label="Default">off</td><td data-label="What it does">Skips the timeout kick for the local-only pages (charts, monitor, camera). They still count toward the client limit.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-toggle"/></svg></td><td data-label="Field">Require login</td><td data-label="Values">on, off</td><td data-label="Default">on</td><td data-label="What it does">Master switch for HTTP Basic auth. Off means anyone on the network opens the pages.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Admin user and password</td><td data-label="Values">text</td><td data-label="Default">root / root</td><td data-label="What it does">Change them on the first visit. Leaving the password empty keeps the current one.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-toggle"/></svg></td><td data-label="Field">Viewer account</td><td data-label="Values">on, off</td><td data-label="Default">off</td><td data-label="What it does">A second, read-only login for someone who only needs to look.</td></tr>
       </table>
 
       <h2 id="email">Email</h2>

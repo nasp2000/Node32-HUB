@@ -15,11 +15,13 @@
 </head>
 <body>
 <svg class="sprite" aria-hidden="true" focusable="false">
-  <symbol id="i-toggle" viewBox="0 0 16 16"><rect x="1.5" y="4.5" width="13" height="7" rx="3.5"/><circle cx="11" cy="8" r="2.4"/></symbol>
-  <symbol id="i-select" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="13" height="9" rx="1.5"/><path d="M9.5 7l2 2 2-2"/></symbol>
-  <symbol id="i-number" viewBox="0 0 16 16"><path d="M6 2.5v11M10 2.5v11M2.5 6h11M2.5 10h11"/></symbol>
-  <symbol id="i-text" viewBox="0 0 16 16"><path d="M2.5 12.5h11M4 9V3.5h8V9"/></symbol>
-  <symbol id="i-action" viewBox="0 0 16 16"><path d="M3 8h8M8.5 4.5L12 8l-3.5 3.5"/></symbol>
+  <symbol id="i-toggle" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.5 5.5h9a4.5 4.5 0 010 9h-9a4.5 4.5 0 010-9zm9 1.9a2.6 2.6 0 100 5.2 2.6 2.6 0 000-5.2z"/></symbol>
+  <symbol id="i-select" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.5 3.5h15v13h-15zm4.6 5.1l2.9 3 2.9-3 1.5 1.5-4.4 4.5-4.4-4.5z"/></symbol>
+  <symbol id="i-number" viewBox="0 0 20 20"><path d="M3.5 5h2.2v10H3.5zM8.9 5H11v10H8.9zM14.3 5h2.2v10h-2.2z"/></symbol>
+  <symbol id="i-text" viewBox="0 0 20 20"><path d="M3.5 4.5h13v2.7h-5.1V15.5H8.6V7.2H3.5z"/></symbol>
+  <symbol id="i-action" viewBox="0 0 20 20"><path d="M2.5 8.6h8.2V5L17.5 10l-6.8 5v-3.6H2.5z"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 20 20"><path d="M2 4.5h16v11H2z"/><path fill="var(--paper)" d="M3.4 6l6.6 4.7L16.6 6v-1l-6.6 4.6L3.4 5z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5"/><path fill="var(--paper)" d="M9 5h1.8v5.4l3.2 2-1 1.6-4-2.5z"/></symbol>
 </svg>
 <a class="skip" href="#main">Skip to content</a>
 <div class="sheet">
@@ -46,37 +48,37 @@
       <h2 id="link">1. The USB link</h2>
       <table class="opts">
         <tr><th class="ico"></th><th>Control</th><th>What it does</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-action"/></svg></td><td data-label="Control">USB Host on / off</td><td data-label="What it does">S3 boards only: opens the host port. On the P4 the port is always available and the button is replaced by <b>Reconnect</b>.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Baud</td><td data-label="What it does">Serial speed to the controller. Most GRBL boards answer at 115200.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Reconnect</td><td data-label="What it does">Re-opens the port after the controller was power-cycled.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">USB-CDC state</td><td data-label="What it does">Shows whether the controller answered, and the last error.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-action"/></svg></td><td data-label="Control">USB Host on / off</td><td data-label="What it does">S3 boards only: opens the host port. On the P4 the port is always available and the button is replaced by <b>Reconnect</b>.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Baud</td><td data-label="What it does">Serial speed to the controller. Most GRBL boards answer at 115200.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Reconnect</td><td data-label="What it does">Re-opens the port after the controller was power-cycled.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">USB-CDC state</td><td data-label="What it does">Shows whether the controller answered, and the last error.</td></tr>
       </table>
       <h2 id="job">2. Running a job</h2>
       <table class="opts">
         <tr><th class="ico"></th><th>Control</th><th>What it does</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Jog pad and step</td><td data-label="What it does">Manual moves; the step decides the distance per tap.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Feed override</td><td data-label="What it does">Scales the programmed feed while the job runs.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Pause / Resume / Cancel</td><td data-label="What it does">Pause keeps the position; cancel stops the stream.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">Resume from line</td><td data-label="What it does">After an alarm interrupted a job, restarts at the recorded line — only with the safety box ticked.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">Command box</td><td data-label="What it does">Sends raw G-code or a macro, one line at a time.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Macros</td><td data-label="What it does">Saved snippets for the commands you type most.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Jog pad and step</td><td data-label="What it does">Manual moves; the step decides the distance per tap.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Feed override</td><td data-label="What it does">Scales the programmed feed while the job runs.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Pause / Resume / Cancel</td><td data-label="What it does">Pause keeps the position; cancel stops the stream.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">Resume from line</td><td data-label="What it does">After an alarm interrupted a job, restarts at the recorded line — only with the safety box ticked.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-clock"/></svg></td><td data-label="Control">Command box</td><td data-label="What it does">Sends raw G-code or a macro, one line at a time.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Macros</td><td data-label="What it does">Saved snippets for the commands you type most.</td></tr>
       </table>
       <h2 id="files">3. Files and probing</h2>
       <table class="opts">
         <tr><th class="ico"></th><th>Control</th><th>What it does</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">SD / PSRAM list</td><td data-label="What it does">G-code on the card (up to 50 MB) or in PSRAM; load one and stream it.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Probe Z zero</td><td data-label="What it does">Sets Z zero on contact.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Probe grid</td><td data-label="What it does">Generates the measurement grid for a height map.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">Height map</td><td data-label="What it does">Measures and stores the surface, then applies it while streaming.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">Preview</td><td data-label="What it does">Toolpath, bounds and heatmap, computed in the browser — the board does not draw it.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">SD / PSRAM list</td><td data-label="What it does">G-code on the card (up to 50 MB) or in PSRAM; load one and stream it.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Probe Z zero</td><td data-label="What it does">Sets Z zero on contact.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Probe grid</td><td data-label="What it does">Generates the measurement grid for a height map.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Control">Height map</td><td data-label="What it does">Measures and stores the surface, then applies it while streaming.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">Preview</td><td data-label="What it does">Toolpath, bounds and heatmap, computed in the browser — the board does not draw it.</td></tr>
       </table>
       <h2 id="hardware">4. Hardware</h2>
       <table class="opts">
         <tr><th class="ico"></th><th>Item</th><th>Detail</th></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Item">Board</td><td data-label="Detail">ESP32-P4 with USB Host (native OTG).</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Item">Controller</td><td data-label="Detail">Any GRBL board with a CH340/CH341 USB bridge.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Item">Storage</td><td data-label="Detail">microSD for the file library; PSRAM for streaming.</td></tr>
-        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Item">Laser</td><td data-label="Detail">Diode heads in GRBL laser mode, with power overrides.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Item">Board</td><td data-label="Detail">ESP32-P4 with USB Host (native OTG).</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Item">Controller</td><td data-label="Detail">Any GRBL board with a CH340/CH341 USB bridge.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Item">Storage</td><td data-label="Detail">microSD for the file library; PSRAM for streaming.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Item">Laser</td><td data-label="Detail">Diode heads in GRBL laser mode, with power overrides.</td></tr>
       </table>
 
     </div>
