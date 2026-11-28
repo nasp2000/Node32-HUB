@@ -10,6 +10,8 @@
   --ink-3: #94a09a;
   --rule: #2d3631;
   --frame: #3f4b45;
+  --radius-card: 6px;
+  --radius-img: 3px;
   --rule-soft: #242c27;
   --accent: #f0813f;
   --accent-2: #f5a271;
@@ -292,41 +294,55 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
 }
 .spectable dd { margin: 0; }
 
+/* One treatment for every screenshot: a mounted plate with corner brackets,
+   the caption inside the plate so the image belongs to the page (FreePlots style). */
+
+.strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 26px 0 0; align-items: start; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 30px 0 0; align-items: start; }
 .shot { margin: 34px 0 0; max-width: 560px; }
-.strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 24px 0 0; align-items: start; }
-.pair img {
-  width: 100%;
-  height: auto;
+
+.shot, .pair figure, .strip figure {
+  position: relative;
+  margin: 0;
+  padding: 8px;
   border: 1px solid var(--frame);
-  padding: 5px;
+  border-radius: var(--radius-card);
   background: var(--paper-2);
 }
-/* phone screenshots: small device cards, side by side */
-.strip img {
+
+.shot img, .pair img, .strip img {
+  display: block;
   width: 100%;
+  height: auto;
+  border-radius: var(--radius-img);
+}
+
+.strip img {
   aspect-ratio: 9 / 16;
   max-height: 280px;
   object-fit: cover;
   object-position: top;
-  border: 1px solid var(--frame);
-  padding: 5px;
-  background: var(--paper-2);
 }
-.strip figcaption, .pair figcaption { margin-top: 7px; font: 400 .72rem/1.4 var(--mono); color: var(--ink-3); }
-.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 30px 0 0; align-items: start; }
-/* the browser's default figure margin (1em 40px) was shrinking every cell */
-.strip figure, .pair figure { margin: 0; }
-.shot img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border: 1px solid var(--frame);
-  padding: 5px;
-  background: var(--paper-2);
-}
-.shot figcaption { margin-top: 10px; font: 400 .78rem/1.5 var(--mono); color: var(--ink-3); }
 
-/* ---------- footer ---------- */
+.shot figcaption, .pair figcaption, .strip figcaption {
+  padding: 9px 4px 2px;
+  font: 400 .78rem/1.45 var(--sans);
+  color: var(--ink-3);
+}
+
+/* the detail that makes them sit in the page: two accent brackets */
+.shot::before, .shot::after,
+.pair figure::before, .pair figure::after,
+.strip figure::before, .strip figure::after {
+  content: "";
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border: 0 solid var(--accent);
+  pointer-events: none;
+}
+.shot::before, .pair figure::before, .strip figure::before { top: -3px; left: -3px; border-top-width: 2px; border-left-width: 2px; }
+.shot::after, .pair figure::after, .strip figure::after { bottom: -3px; right: -3px; border-bottom-width: 2px; border-right-width: 2px; }
 
 .foot {
   margin-top: 72px;
