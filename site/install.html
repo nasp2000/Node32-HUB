@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flash a Node32-HUB board — Node32-HUB</title>
+<meta name="description" content="How to flash Node32-HUB firmware: WebFlasher in the browser, esptool over USB, or OTA on a board already on the network.">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="sheet">
+
+  <header class="masthead">
+    <a class="wordmark" href="./">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="./#packs">Packs</a>
+      <a href="install.html">Flash</a>
+      <a href="https://github.com/nasp2000/Node32-HUB">Source</a>
+      <a href="https://github.com/nasp2000/Node32-HUB/releases">Releases</a>
+    </nav>
+  </header>
+
+  <a class="back" href="./">← All packs</a>
+
+  <section class="product-head">
+    <h1>Flash a board</h1>
+    <p>Three ways in, depending on where the board is: a browser over USB, a terminal over USB, or OTA when it is already on the network and running.</p>
+  </section>
+
+  <div class="product-body" id="main">
+    <div>
+
+      <h2>What is in the download</h2>
+      <ul>
+        <li><code>firmware.bin</code> — the application image, OTA-signed. This is the file you upload for a normal update.</li>
+        <li><code>bootloader.bin</code> and <code>partitions.bin</code> — only for a first install or a full reflash.</li>
+        <li><code>flash_command.txt</code> — the exact esptool command for that build, written at build time.</li>
+        <li><code>LICENSE</code>, <code>SBOM.md</code>, <code>THIRD_PARTY_NOTICES</code> — licence material that travels with the binary.</li>
+      </ul>
+
+      <h2>1 · Browser, over USB (recommended for the first flash)</h2>
+      <ol>
+        <li>Open the <a href="https://github.com/nasp2000/webflasher_Node32-HUB">Node32-HUB WebFlasher</a> and start it (<code>start-dual.bat</code> on Windows, or serve the page on port 8765).</li>
+        <li>Connect the board with a USB cable and click <b>Connect</b> — Chrome or Edge, the chip is detected automatically.</li>
+        <li>Pick <b>Update</b> to write only <code>firmware.bin</code> (keeps bootloader, partitions and your configuration) or <b>Full Install</b> for a board that has never had this firmware.</li>
+        <li>Use <b>Select build folder…</b> and point it at the unzipped release folder, so the right files are picked for you.</li>
+        <li>Flash and watch the serial monitor; it prints the boot log and the address the board took.</li>
+      </ol>
+
+      <h2>2 · Terminal, over USB (esptool)</h2>
+      <ol>
+        <li>Install <code>esptool</code>: <code>pip install esptool</code>.</li>
+        <li>Unzip the release and open <code>flash_command.txt</code> — it holds the command for that exact build.</li>
+        <li>Run it from inside the folder. Update only: <code>esptool.py --chip auto write_flash 0x10000 firmware.bin</code>. Full install: the offsets in the file.</li>
+        <li>If the port is busy, close the WebFlasher or the serial monitor first.</li>
+      </ol>
+
+      <h2>3 · OTA, on a board already running</h2>
+      <ol>
+        <li>Open <code>http://&lt;device-ip&gt;/ota</code> (or the mDNS name, e.g. <code>cam-m.local</code>).</li>
+        <li>Upload <code>firmware.bin</code> and let it reboot.</li>
+        <li>The image is verified against the built-in RSA key before boot; a modified binary is rejected. If a board refuses an OTA, flash it over USB once.</li>
+      </ol>
+
+      <h2>After flashing</h2>
+      <ul>
+        <li>The board starts an access point <code>NODE32-HUB</code> (password <code>12345678</code>) — open <code>192.168.4.1</code> and set Wi-Fi. Ethernet boards take a DHCP lease instead.</li>
+        <li>Log in with <code>root</code> / <code>root</code> and change both passwords on the first visit.</li>
+        <li>Pack-specific wiring (DB9 jumpers, sensor inputs, I2S, USB Host) is on each pack page.</li>
+      </ul>
+
+    </div>
+
+    <aside class="aside">
+      <div class="dl">
+        <h2>WebFlasher</h2>
+        <p class="ver">browser · WebSerial · no Python</p>
+        <a class="btn" href="https://github.com/nasp2000/webflasher_Node32-HUB">Open the repository <i>↗</i></a>
+        <p class="note">Chrome or Edge, USB cable. Use it for the first flash; after that prefer OTA from the board's own page.</p>
+      </div>
+
+      <dl class="spectable">
+        <div><dt>Update</dt><dd>firmware.bin</dd></div>
+        <div><dt>First flash</dt><dd>+ bootloader, partitions</dd></div>
+        <div><dt>OTA</dt><dd>/ota</dd></div>
+        <div><dt>AP</dt><dd>NODE32-HUB</dd></div>
+        <div><dt>Login</dt><dd>root / root</dd></div>
+      </dl>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party · LGPL compliance bundle with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+
+</div>
+</body>
+</html>
