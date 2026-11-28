@@ -53,7 +53,7 @@
       <p style="margin:0 0 26px;font-size:.95rem;color:var(--ink-2)">First time here? <a href="install.html">How to flash a board</a> — browser, USB or OTA.</p>
 
       <dl class="facts">
-        <div><dt>Version</dt><dd id="ver">v1.120</dd></div>
+        <div><dt>Version</dt><dd id="ver"><a href="https://github.com/nasp2000/Node32-HUB/releases">v1.120</a></dd></div>
         <div><dt>Updates</dt><dd>USB or OTA</dd></div>
         <div><dt>Signature</dt><dd>RSA-2048</dd></div>
         <div><dt>Licence</dt><dd>MIT + LGPL</dd></div>
@@ -62,9 +62,16 @@
     </aside>
 
     <main id="packs">
+      <div class="filters" role="group" aria-label="Filter packs by board">
+        <button class="chip" type="button" data-board="all" aria-pressed="true">All boards</button>
+        <button class="chip" type="button" data-board="s3" aria-pressed="false">ESP32-S3 N16R8</button>
+        <button class="chip" type="button" data-board="p4" aria-pressed="false">ESP32-P4</button>
+        <button class="chip" type="button" data-board="8di8do" aria-pressed="false">8DI8DO</button>
+      </div>
+
       <ul class="packs">
 
-        <li class="pack">
+        <li class="pack" data-board="s3">
           <h2><a href="packs/cam-m.html">Cam-M</a></h2>
           <p>Camera companion: MJPEG stream, snapshots to SD, AVI recording, timelapse and a motion detector that starts recording on its own.</p>
           <div class="spec">
@@ -78,7 +85,7 @@
           </div>
         </li>
 
-        <li class="pack">
+        <li class="pack" data-board="s3">
           <h2><a href="packs/rambox32.html">Rambox32</a></h2>
           <p>Pigeon-racing timing terminal: reads a Unikon clock over RS232, records arrivals, emails the fancier, and now talks to Bricon loft modules too.</p>
           <div class="spec">
@@ -92,7 +99,7 @@
           </div>
         </li>
 
-        <li class="pack">
+        <li class="pack" data-board="s3">
           <h2><a href="packs/harmonica.html">Harmonica Box</a></h2>
           <p>Internet radio and music streamer: I2S output, MP3/FLAC/OGG/AAC/Opus decoders, UPnP browsing, alarms and station favicons.</p>
           <div class="spec">
@@ -106,7 +113,7 @@
           </div>
         </li>
 
-        <li class="pack">
+        <li class="pack" data-board="p4">
           <h2><a href="packs/gcodesender.html">GcodeSender</a></h2>
           <p>G-code sender for CNC and diode lasers: streams from SD or PSRAM over USB Host to a GRBL controller, with a browser UI that does the preview work locally.</p>
           <div class="spec">
@@ -120,7 +127,7 @@
           </div>
         </li>
 
-        <li class="pack">
+        <li class="pack" data-board="8di8do">
           <h2><a href="packs/node32-oee.html">Node32-OEE</a></h2>
           <p>Production counting and OEE terminal for the Waveshare 8DI8DO: eight monitored inputs, shifts, CSV history, A×P×Q and email reports.</p>
           <div class="spec">
@@ -144,5 +151,24 @@
   </footer>
 
 </div>
+
+<script>
+(function () {
+  var chips = document.querySelectorAll('.filters .chip');
+  var packs = document.querySelectorAll('.pack');
+  function apply(want) {
+    for (var i = 0; i < packs.length; i++) {
+      var tags = (packs[i].getAttribute('data-board') || '').split(/\s+/);
+      packs[i].hidden = want !== 'all' && tags.indexOf(want) === -1;
+    }
+    for (var j = 0; j < chips.length; j++) {
+      chips[j].setAttribute('aria-pressed', chips[j].getAttribute('data-board') === want ? 'true' : 'false');
+    }
+  }
+  for (var k = 0; k < chips.length; k++) {
+    chips[k].addEventListener('click', function () { apply(this.getAttribute('data-board')); });
+  }
+})();
+</script>
 </body>
 </html>

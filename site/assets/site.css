@@ -153,6 +153,27 @@ a:not(.btn):hover { color: var(--accent); }
 .facts dt { color: var(--ink-3); font-size: .82rem; padding-top: 2px; }
 .facts dd { margin: 0; color: var(--ink); text-align: right; }
 
+/* ---------- filters ---------- */
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 26px; }
+
+.chip {
+  padding: 7px 12px;
+  border: 1px solid var(--frame);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-2);
+  font: 500 .84rem/1 var(--sans);
+  cursor: pointer;
+  transition: background .16s cubic-bezier(.2,.7,.3,1), color .16s, border-color .16s;
+}
+.chip:hover { color: var(--ink); border-color: var(--ink-3); }
+.chip[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
 /* ---------- pack rows ---------- */
 
 .packs { margin: 0; padding: 0; list-style: none; }
