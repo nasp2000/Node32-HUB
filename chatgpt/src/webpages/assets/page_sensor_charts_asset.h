@@ -669,6 +669,7 @@ function getMetricMeta(mkey){
 
 // Return the right data source for a given metric key.
 function pickData(mkey){
+  if(mkey.indexOf('tdk_')===0)return tdkData||{};
   if(isRS232Metric(mkey))return cachedDataRS232||{};
   if(isModbusMetric(mkey))return cachedDataModbus||{};
   if(isProximityMetric(mkey))return cachedDataProximity||{};
@@ -889,7 +890,10 @@ var MET={
   pressure:{title:'Atmospheric Pressure', color:'#06b6d4',unit:'hPa',sym:'hPa',lbl:'Pressure'},
   dew:     {title:'Dew Point',            color:'#8b5cf6',unit:'C',  sym:'°C', lbl:'Dew Point'},
   heat:    {title:'Heat Index',           color:'#f59e0b',unit:'C',  sym:'°C', lbl:'Heat Index'},
-  altitude:{title:'Altitude',             color:'#10b981',unit:'m',  sym:'m',  lbl:'Altitude'}
+  altitude:{title:'Altitude',             color:'#10b981',unit:'m',  sym:'m',  lbl:'Altitude'},
+  tdk_v:   {title:'Voltage (TDK)',        color:'#2563eb',unit:'V',  sym:'V',  lbl:'TDK V'},
+  tdk_i:   {title:'Current (TDK)',        color:'#d97706',unit:'A',  sym:'A',  lbl:'TDK A'},
+  tdk_p:   {title:'Power (TDK)',          color:'#059669',unit:'W',  sym:'W',  lbl:'TDK W'}
 };
 
 // Show/hide Y2 selects based on whether dual style is active
@@ -1069,6 +1073,8 @@ function getData(key,d){
   if(key.indexOf('mb_')===0) return d[key]||[];
   // Proximity column: key = 'prox_ch<N>_in|out|ppm'
   if(key.indexOf('prox_ch')===0) return d[key]||[];
+  // TDK-Lambda PSU (own ring, filled by tdkLoad)
+  if(key==='tdk_v'||key==='tdk_i'||key==='tdk_p') return d[key]||[];
   return [];
 }
 
@@ -2542,12 +2548,70 @@ function hideStsLoading(){
 }
 
 // ===== RERENDER (no fetch) =====
+// TDK-Lambda PSU as an automatic chart source: no sensor build and no setup.
+// The module serves [age_s, volts, amps] (oldest first); when the pack compiles
+// it, G1/G2/G3 are pointed at V/A/P and the three charts draw the PSU ring.
+var tdkData={labels:[],timestamps:[],tdk_v:[],tdk_i:[],tdk_p:[],count:0};
+var tdkTimer=null;
+function tdkChartPoints(samples,nowMs){
+  var labels=[],ts=[],v=[],i=[],p=[];
+  for(var k=0;k<samples.length;k++){
+    var s=samples[k]; if(!s||s.length<3)continue;
+    var age=Number(s[0]); if(!isFinite(age))continue;
+    var vv=Number(s[1]),ii=Number(s[2]);
+    if(!isFinite(vv)||!isFinite(ii))continue;
+    var t=nowMs-age*1000,d=new Date(t);
+    labels.push(('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2));
+    ts.push(t); v.push(+vv.toFixed(2)); i.push(+ii.toFixed(3)); p.push(+(vv*ii).toFixed(1));
+  }
+  return {labels:labels,timestamps:ts,v:v,i:i,p:p};
+}
+function tdkAutoConfigure(){
+  var map=[['chart1Type','tdk_v','⚡ Voltage (TDK)','Measured output voltage from the TDK-Lambda module'],
+           ['chart2Type','tdk_i','⚡ Current (TDK)','Measured output current from the TDK-Lambda module'],
+           ['chart3Type','tdk_p','⚡ Power (TDK)','Voltage x current, computed by the page']];
+  for(var k=0;k<map.length;k++){
+    var id=map[k][0],key=map[k][1],sel=document.getElementById(id);
+    if(!sel)continue;
+    if(!sel.querySelector("option[value='"+key+"']")){
+      [['tdk_v','⚡ TDK V'],['tdk_i','⚡ TDK A'],['tdk_p','⚡ TDK W']].forEach(function(o){
+        var op=document.createElement('option');op.value=o[0];op.textContent=o[1];
+        sel.insertBefore(op,sel.firstChild);
+      });
+    }
+    sel.value=key;
+    var title=document.getElementById('ct'+(k+1));
+    if(title)title.innerHTML=map[k][2]+"<span class='tip' title='"+map[k][3]+"'>?</span>";
+  }
+}
+function tdkLoad(){
+  fetch('/api/tdk-lambda-samples?n=240',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){
+    if(!d||!d.success)return;
+    var pts=tdkChartPoints(d.samples||[],Date.now());
+    tdkData.labels=pts.labels;
+    tdkData.timestamps=pts.timestamps;
+    tdkData.tdk_v=pts.v; tdkData.tdk_i=pts.i; tdkData.tdk_p=pts.p;
+    tdkData.count=pts.v.length;
+    if(tdkData.count) rerender();
+  }).catch(function(){});
+}
+function tdkEnable(){
+  if(typeof Chart==='undefined'){   // Chart.js is deferred: retry once it is loaded
+    window.addEventListener('load',function(){tdkEnable();},{once:true});
+    return;
+  }
+  tdkAutoConfigure();
+  tdkLoad();
+  if(!tdkTimer)tdkTimer=setInterval(function(){ if(!document.hidden)tdkLoad(); },30000);
+}
+
 function chartNoSourcesNeeded(caps,rs232Cols){
   if(!caps)return false;
   var hasSensors=!!(caps.sensors||caps.aht20||caps.mq135);
   var hasOther=!!(caps.modbus||caps.proximity);
   var hasRs232=!!(caps.rs232&&rs232Cols>0);
-  return !hasSensors&&!hasOther&&!hasRs232;
+  var hasTdk=!!caps.tdk;
+  return !hasSensors&&!hasOther&&!hasRs232&&!hasTdk;
 }
 function showChartNoSources(msg){
   var box=document.getElementById('chartNoSources');
@@ -2760,6 +2824,8 @@ document.getElementById('proxDailyFile').addEventListener('change',function(){
     });
   }
   fetch('/api/chart-caps',{cache:'no-store'}).then(function(r){return r.json();}).then(function(caps){
+    // The TDK-Lambda PSU is a chart source on its own (no sensor build needed).
+    if(caps.tdk) tdkEnable();
     // Hide SD/Env+Gas Day picker early when neither AHT20 nor MQ135 is compiled.
     if(!caps.sensors){
       var sdCgE=document.getElementById('sdFileCg');

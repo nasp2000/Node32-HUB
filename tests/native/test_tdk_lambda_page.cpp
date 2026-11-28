@@ -187,3 +187,18 @@ TEST_CASE("TDK page: module switch and RS232 defaults are wired") {
     // the switch must start checked (the module ships enabled)
     CHECK(html.find("id='tdkEnabled' checked") != std::string::npos);
 }
+
+TEST_CASE("TDK page: one Save button at the end persists every choice") {
+    const std::string html = page();
+    CHECK(html.find("id='tdkSaveAllBtn'") != std::string::npos);
+    CHECK(html.find("onclick='tdkSaveAll()'") != std::string::npos);
+    CHECK(html.find("function tdkSaveAll()") != std::string::npos);
+    CHECK(html.find("function tdkAllBody()") != std::string::npos);
+    // one POST carries the whole page
+    for (const char* k : {"enabled=", "listen=", "poll=", "poll_s=", "csv=", "csv_every=",
+                          "format=", "mode=", "addr=", "inject=", "limits_enabled=",
+                          "limit_v_min=", "limit_v_max=", "limit_i_max=", "auto_map="}) {
+        INFO(k);
+        CHECK(html.find(k) != std::string::npos);
+    }
+}

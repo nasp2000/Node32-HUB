@@ -37,7 +37,8 @@ const scriptAt = asset.indexOf('<script>', htmlStart);
 const markup = asset.substring(htmlStart, scriptAt);
 
 const CODE = ['_tdkQ', '_tdkEsc', '_tdkT', '_tdkDur', '_tdkAsleep', '_tdkPost', '_tdkFail',
-              'tdkStatus', 'tdkApplyGuard', 'tdkSaveEnabled', 'tdkApplyRs232Defaults']
+              'tdkStatus', 'tdkApplyGuard', 'tdkSaveEnabled', 'tdkApplyRs232Defaults',
+              'tdkProfileBody', 'tdkAllBody']
   .map(function (n) { return extractFn(asset, n); }).join('\n');
 
 function boot(statusData, opts) {
@@ -125,6 +126,31 @@ async function run() {
   await flush(w5); await flush(w5);
   test('cancelling the confirmation writes nothing', function () {
     is(w5.__posts.length, 0, 'no POST on cancel');
+  });
+
+  test('the final Save button sends every choice in one body', function () {
+    const w6 = boot(status());
+    w6.document.querySelector('#tdkEnabled').checked = false;
+    w6.document.querySelector('#tdkListen').checked = true;
+    w6.document.querySelector('#tdkPoll').checked = true;
+    w6.document.querySelector('#tdkPollSec').value = '120';
+    w6.document.querySelector('#tdkCsvOn').checked = true;
+    w6.document.querySelector('#tdkCsvEvery').value = '3';
+    w6.document.querySelector('#tdkFmt').value = 'table';
+    w6.document.querySelector('#tdkMode2').value = 'dvc';
+    w6.document.querySelector('#tdkRateV').value = '30';
+    w6.document.querySelector('#tdkRateI').value = '50';
+    w6.document.querySelector('#tdkAddr').value = '2';
+    w6.document.querySelector('#tdkInject').checked = true;
+    w6.document.querySelector('#tdkLimOn').checked = true;
+    w6.document.querySelector('#tdkLimIMax').value = '1.5';
+    w6.document.querySelector('#tdkAuto').checked = false;
+    const body = w6.tdkAllBody();
+    ['enabled=0','listen=1','poll=1','poll_s=120','csv=1','csv_every=3','format=table',
+     'mode=dvc','rate_v=30','rate_i=50','addr=2','inject=1','limits_enabled=1',
+     'limit_i_max=1.5','auto_map=0'].forEach(function (kv) {
+      ok(body.indexOf(kv) >= 0, 'missing ' + kv + ' in ' + body);
+    });
   });
 
   console.log('\nResults: ' + passed + '/' + (passed + failed) + ' passed, ' + failed + ' failed');

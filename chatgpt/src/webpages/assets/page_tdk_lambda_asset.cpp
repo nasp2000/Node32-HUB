@@ -306,6 +306,11 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
   </div>
 </div>
 
+<div class='tdk-row' style='margin-top:18px'>
+  <button class='btn' id='tdkSaveAllBtn' onclick='tdkSaveAll()' title='Save every choice on this page to the configuration (the individual controls also save when changed)' data-i18n-title='tdkTipSaveAll'>&#128190; Save configuration</button>
+  <span class='tdk-note' id='tdkSaveAllMsg'></span>
+</div>
+
 <script>
 var _tdkCat=[];
 var _tdkTrendSig='';
@@ -692,6 +697,39 @@ function tdkSaveExtras(){
 function tdkSaveAuto(){
   _tdkPost('/api/tdk-lambda-config','auto_map='+(_tdkQ('tdkAuto').checked?'1':'0')).then(function(d){
     _tdkQ('tdkProfMsg').textContent=d.success?'auto mode saved.':'failed.';
+  });
+}
+
+// One button for the whole page, like the standard pages: re-sends every control
+// (the individual ones also autosave, so this is idempotent and covers a field
+// changed without leaving it, e.g. typed then saved from another tab).
+function tdkAllBody(){
+  return 'enabled='+(_tdkQ('tdkEnabled').checked?'1':'0')+
+        '&listen='+(_tdkQ('tdkListen').checked?'1':'0')+
+        (_tdkQ('tdkAllowWrap')&&_tdkQ('tdkAllowWrap').style.display!=='none'
+          ? '&allow_write='+(_tdkQ('tdkAllowW').checked?'1':'0') : '')+
+        '&poll='+(_tdkQ('tdkPoll').checked?'1':'0')+
+        '&poll_s='+encodeURIComponent(_tdkQ('tdkPollSec').value)+
+        '&csv='+(_tdkQ('tdkCsvOn').checked?'1':'0')+
+        '&csv_every='+encodeURIComponent(_tdkQ('tdkCsvEvery').value)+
+        '&format='+encodeURIComponent(_tdkQ('tdkFmt').value)+
+        tdkProfileBody()+
+        '&addr='+encodeURIComponent(_tdkQ('tdkAddr').value)+
+        '&inject='+(_tdkQ('tdkInject').checked?'1':'0')+
+        '&limits_enabled='+(_tdkQ('tdkLimOn').checked?'1':'0')+
+        '&limit_v_min='+encodeURIComponent(_tdkQ('tdkLimVMin').value)+
+        '&limit_v_max='+encodeURIComponent(_tdkQ('tdkLimVMax').value)+
+        '&limit_i_max='+encodeURIComponent(_tdkQ('tdkLimIMax').value)+
+        '&auto_map='+(_tdkQ('tdkAuto').checked?'1':'0');}
+
+function tdkSaveAll(){
+  var b=tdkAllBody();
+  var msg=_tdkQ('tdkSaveAllMsg');
+  _tdkPost('/api/tdk-lambda-config',b).then(function(d){
+    if(!d.success){_tdkFail(d);if(msg)msg.textContent=_tdkT('tdkSaveAllFail','save failed');return;}
+    if(msg)msg.textContent=_tdkT('tdkSaveAllOk','configuration saved');
+    if(window.customAlert)window.customAlert('\u2705 '+_tdkT('tdkSaveAllOk','configuration saved'));
+    tdkLoadCfg();tdkApplyGuard();tdkStatus();
   });
 }
 

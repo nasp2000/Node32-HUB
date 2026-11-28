@@ -31,7 +31,7 @@ function extractFn(src, name) {
   return src.substring(start, end);
 }
 
-const CODE = ['chartNoSourcesNeeded', 'showChartNoSources']
+const CODE = ['chartNoSourcesNeeded', 'showChartNoSources', 'tdkChartPoints']
   .map(function (n) { return extractFn(asset, n); }).join('\n');
 
 function boot() {
@@ -47,6 +47,11 @@ function boot() {
 test('an RS232-only pack with no columns logged today needs the banner', function () {
   const w = boot();
   is(w.chartNoSourcesNeeded({ sensors: false, aht20: false, rs232: true }, 0), true);
+});
+
+test('a compiled TDK-Lambda module is a chart source on its own', function () {
+  const w = boot();
+  is(w.chartNoSourcesNeeded({ sensors: false, rs232: true, tdk: true }, 0), false);
 });
 
 test('RS232 columns logged today are a real source', function () {
@@ -66,6 +71,20 @@ test('compiled sensors, Modbus or proximity are sources even at zero', function 
 test('no caps at all never blocks the page', function () {
   const w = boot();
   is(w.chartNoSourcesNeeded(null, 0), false);
+});
+
+test('TDK samples become chart series with V, A and P', function () {
+  const w = boot();
+  const now = Date.UTC(2026, 10, 28, 12, 0, 0);
+  const pts = w.tdkChartPoints([[120, 600.123, 1.2834], [60, 599.5, 1.27], [0, 600, 1.28]], now);
+  is(pts.v.length, 3, 'three points');
+  is(pts.v[0], 600.12, 'voltage rounded');
+  is(pts.i[0], 1.283, 'current rounded');
+  ok(Math.abs(pts.p[0] - 770.2) < 1.0, 'power = V x A: ' + pts.p[0]);
+  is(pts.timestamps[0], now - 120000, 'age -> epoch');
+  ok(/^\d\d:\d\d$/.test(pts.labels[0]), 'HH:MM label: ' + pts.labels[0]);
+  is(w.tdkChartPoints([], now).v.length, 0, 'empty input');
+  is(w.tdkChartPoints([[1, 'x', 2]], now).v.length, 0, 'non-numeric skipped');
 });
 
 test('the banner is hidden until a reason arrives, then explains itself', function () {

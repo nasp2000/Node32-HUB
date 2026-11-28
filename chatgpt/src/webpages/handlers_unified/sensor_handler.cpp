@@ -192,6 +192,10 @@ void handleChartCapsGet(HttpRequest& req, HttpResponse& res) {
     json += hasModbus ? "true" : "false";
     json += ",\"proximity\":";
     json += hasProximity ? "true" : "false";
+    // The TDK-Lambda module keeps its own sample ring and needs no sensor build:
+    // the charts page draws it as a dedicated source (voltage/current).
+    json += ",\"tdk\":";
+    json += (ENABLE_TDK_LAMBDA == 1) ? "true" : "false";
     json += "}";
     res.sendJson(json);
 }

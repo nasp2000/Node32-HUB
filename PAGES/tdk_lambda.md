@@ -185,6 +185,7 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
 | 🔍 Identify | envia `IDN? REV? SN?` (um a um) e mostra a unidade |
 | 📡 Testar a linha | `POST /api/tdk-lambda-selftest`: o módulo envia `IDN? REV? SN? DVC? MODE?` uma de cada vez e publica o veredicto (`ok` / `partial` / `no reply`) com a lista do que respondeu. Recusa em modo escuta (409) |
 | 🔌 Aplicar defaults RS232 | pede confirmação e `POST /api/tdk-lambda-rs232-defaults`: grava **9600 8N1, sem flow control, timeout 1,5 s, sem inversão, porta activa** na secção RS232 (a mesma que `/rs232` edita), reinicia a UART e volta a ligar o módulo. Fica gravado |
+| 💾 Gravar configuração | no fim da página (qualquer aba): envia **todas** as escolhas num único `POST /api/tdk-lambda-config` (`tdkAllBody()`: enabled, listen/allow-write, poll/intervalo, CSV/formato, perfil, gama, addr, inject, limites, auto-map) e grava a secção. Os controlos individuais também gravam ao mudar; o botão é idempotente e cobre um valor escrito sem sair do campo |
 | ➕ Gravar o detetado | lê `mapUsed/scaleVUsed/scaleIUsed` do status e grava como perfil |
 | Presets do perfil | `GENH600-1.3` (dvc + mapa 0..5), `MV?+MC?` (split), `DVC? em mV/mA` (escala 0,001) — preenchem e gravam |
 | 💾 Gravar perfil | `POST /api/tdk-lambda-config` só com os campos do perfil |
@@ -225,6 +226,14 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
   (3…15 s, **contados desde o envio do pedido** — não desde o último poll, que com o polling
   desligado expirava o pedido manual antes da resposta) e o ciclo volta a tentar no intervalo seguinte
   (*"no reply (timeout) - retrying next interval"* no monitor).
+- **Alertas de inatividade (`/alerts-config`)**: a página de alertas é passiva — não altera
+  poll, CSV nem tendência. Cada resposta do TDK repõe o contador de inatividade (qualquer byte
+  RS232 o faz) e o e-mail leva as últimas linhas do buffer, incluindo os `TX`/`RX` do TDK. Com o
+  poll ligado e a fonte a responder o alerta **nunca dispara**; se a linha morrer, dispara ao fim
+  do tempo configurado — um aviso de "ligação morta" de graça. O timeout tem de ser **maior** que
+  o intervalo de poll (piso de 60 s): 5 min de alerta com poll de 30 min dispara entre leituras.
+  Os **limites V/I do próprio módulo** (aba Live) são outra coisa: ficam no monitor e no badge,
+  não enviam e-mail.
 - **Baud**: o módulo usa a RS232 do pack (`baudrate`, frame e flow da página **RS232**), não uma
   porta própria. Na bancada o Node32 corre a **19200 8N1**; o simulador tem de estar no mesmo baud.
 - **Auto-detecção** (`applyAutoMap`): corre na resposta múltipla do poll e também numa linha

@@ -359,7 +359,17 @@ data reception. It is reset by:
 | Arduino Bridge frames | `arduino_bridge.cpp:119`, `diagnostics_impl.h:684` | **only on boards WITH bridge** |
 | Proximity events (production channels only, scrap excluded) | `proximity_manager.cpp:634` | **only on boards WITHOUT RS232+LPT** (e.g. Waveshare) |
 | Sensor buffer injections | `sensor_helpers_impl.h:66` | **never** (was per-checkbox; now always off so generic sensors can't mask a stop) |
+| TDK-Lambda poll replies (`DVC?`/`MODE?`&hellip;) | RS232 RX path (`loop_impl.h`) — same bytes as any line | **yes** — every reply resets the timer |
+| TDK-Lambda injected line (`inject`) | `snifferInjectLine()` (`diagnostics_impl.h:684`) | **yes** — only while fresh readings arrive (the line stops with the PSU) |
 | Internally generated rows (shift-end/OEE summaries; periodic PROXIMITY status injection) | callers pass `resetInactivity=false` | never — synthetic rows must not mask inactivity (live Waveshare .29 used the default `true` on the 60 s PROXIMITY injection, resetting the timer as long as any counter was >0 → alerts never fired) |
+
+**TDK-Lambda and this page:** configuring alerts does not change the module's poll, CSV
+or trend — the alert engine only reads the timestamp and the shared buffer. Every TDK reply
+counts as activity, so with polling on and the PSU answering the alert never fires; if the
+line goes silent it fires after the configured time (a free "link dead" signal). The e-mail
+carries the recent buffer lines, which include the TDK `TX`/`RX` exchanges. Keep the
+timeout **above** the poll interval (the floor is 60 s): a 5 min alert with a 30 min poll
+would fire between polls.
 
 **Activity-source rule (per board):**
 - **Board WITH RS232/LPT** → RX/LPT is the only production signal; proximity and generic

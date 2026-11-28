@@ -231,7 +231,7 @@ inline void streamHomePageToPrint(Print& out,
                         || (ENABLE_MQ135==1)
                     );
                 if (kHasChartsRoute && configManager.getChartsPageEnabled()) {
-                    out.print(F("<a href='/sensor-charts' target='_blank' class='btn' data-i18n='navCharts' style='background:linear-gradient(135deg,#1e40af,#2563eb);'>&#128200; Data Chart Monitoring</a>"));
+                    out.print(F("<a href='/sensor-charts' target='_blank' class='btn' data-i18n='navCharts' style='background:linear-gradient(135deg,#1e40af,#2563eb);border-color:#ffffff'>&#128200; Data Chart Monitoring</a>"));
                 }
                 if (kHasAnyModule) {
                 out.print(F("</div>"));
