@@ -31,7 +31,7 @@ function extractFn(src, name) {
   return src.substring(start, end);
 }
 
-const CODE = ['chartNoSourcesNeeded', 'showChartNoSources', 'tdkChartPoints']
+const CODE = ['chartNoSourcesNeeded', 'showChartNoSources', 'tdkChartPoints', 'tdkAutoConfigure']
   .map(function (n) { return extractFn(asset, n); }).join('\n');
 
 function boot() {
@@ -71,6 +71,29 @@ test('compiled sensors, Modbus or proximity are sources even at zero', function 
 test('no caps at all never blocks the page', function () {
   const w = boot();
   is(w.chartNoSourcesNeeded(null, 0), false);
+});
+
+test('TDK auto-configures the page in dual line: V on Y, A on Y2', function () {
+  const dom = new JSDOM('<!doctype html><html><body>' +
+    ['chart1Type','chart2Type','chart3Type','chart1Type2','chart2Type2','chart3Type2']
+      .map(function (id) { return "<select id='" + id + "'></select>"; }).join('') +
+    "<select id='chartStyle'><option value='line' selected>line</option><option value='dual'>dual</option></select>" +
+    '</body></html>', { runScripts: 'outside-only' });
+  const w = dom.window;
+  w.syncDualSelectors = function () { w.__sync = true; };
+  w.eval(CODE);
+  w.tdkAutoConfigure();
+  const d = w.document;
+  is(d.getElementById('chart1Type').value, 'tdk_v', 'chart 1 = V');
+  is(d.getElementById('chart1Type2').value, 'tdk_i', 'chart 1 Y2 = A');
+  is(d.getElementById('chart2Type').value, 'tdk_p', 'chart 2 = W');
+  is(d.getElementById('chart3Type').value, 'tdk_i', 'chart 3 = A');
+  is(d.getElementById('chartStyle').value, 'dual', 'dual line style');
+  is(w.__sync, true, 'Y2 selectors refreshed');
+  // all six selects received the TDK options
+  ['chart1Type','chart2Type','chart3Type','chart1Type2','chart2Type2','chart3Type2'].forEach(function (id) {
+    ok(d.getElementById(id).querySelector("option[value='tdk_p']"), id + ' has TDK options');
+  });
 });
 
 test('TDK samples become chart series with V, A and P', function () {

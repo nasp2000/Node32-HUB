@@ -245,9 +245,10 @@ Single `data-i18n` content key: `sensorChartsTitle` (EN `"Local Processing Page"
 When the firmware compiles the TDK-Lambda module, `/api/chart-caps` reports `tdk: true` and the
 page **auto-configures itself** — no sensor build, no RS232 columns, no manual choice:
 
-- G1/G2/G3 are pointed at **TDK V / A / W** and the three charts' titles become
-  *⚡ Voltage (TDK)*, *Current (TDK)*, *Power (TDK)*; the TDK options are inserted at the top of
-  each selector.
+- The page is set to **dual line**: chart 1 plots **V (left axis) + A (right axis)**, chart 2
+  plots **W** and chart 3 keeps **A**, so no metric is left hidden. The TDK options are added to
+  the six selectors (primary + Y2) and chosen after the capability filtering, so the sensor
+  defaults cannot overwrite them. Titles come from the metric metadata (⚡ Voltage/Current/Power).
 - Data comes from the module's own ring (`/api/tdk-lambda-samples?n=240`), not the sensor
   history: `tdkChartPoints(samples, nowMs)` maps `[age_s, V, A]` to labels, epoch timestamps,
   V, A and P (V×A). Refreshes every 30 s while the tab is visible; the Min/Max/Avg/Current

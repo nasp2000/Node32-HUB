@@ -1923,6 +1923,8 @@ async function filterMetricsByCapabilities(){
         Array.from(sel.options).forEach(function(o){if(o.value.indexOf('prox_ch')===0)sel.removeChild(o);});
       });
     }
+    // TDK is a full source: set it last so these defaults cannot overwrite it.
+    if(caps.tdk) tdkAutoConfigure();
   }catch(e){}
 }
 
@@ -2570,23 +2572,25 @@ function tdkChartPoints(samples,nowMs){
   return {labels:labels,timestamps:ts,v:v,i:i,p:p};
 }
 function tdkAutoConfigure(){
-  var map=[['chart1Type','tdk_v','⚡ Voltage (TDK)','Measured output voltage from the TDK-Lambda module'],
-           ['chart2Type','tdk_i','⚡ Current (TDK)','Measured output current from the TDK-Lambda module'],
-           ['chart3Type','tdk_p','⚡ Power (TDK)','Voltage x current, computed by the page']];
-  for(var k=0;k<map.length;k++){
-    var id=map[k][0],key=map[k][1],sel=document.getElementById(id);
-    if(!sel)continue;
-    if(!sel.querySelector("option[value='"+key+"']")){
-      [['tdk_v','⚡ TDK V'],['tdk_i','⚡ TDK A'],['tdk_p','⚡ TDK W']].forEach(function(o){
-        var op=document.createElement('option');op.value=o[0];op.textContent=o[1];
-        sel.insertBefore(op,sel.firstChild);
-      });
-    }
-    sel.value=key;
-    var title=document.getElementById('ct'+(k+1));
-    if(title)title.innerHTML=map[k][2]+"<span class='tip' title='"+map[k][3]+"'>?</span>";
-  }
+  var ids=['chart1Type','chart2Type','chart3Type','chart1Type2','chart2Type2','chart3Type2'];
+  ids.forEach(function(id){
+    var sel=document.getElementById(id); if(!sel)return;
+    if(sel.querySelector("option[value='tdk_v']"))return;
+    [['tdk_v','⚡ TDK V'],['tdk_i','⚡ TDK A'],['tdk_p','⚡ TDK W']].forEach(function(o){
+      var op=document.createElement('option');op.value=o[0];op.textContent=o[1];
+      sel.appendChild(op);
+    });
+  });
+  // Dual line: voltage on Y, current on Y2 in the first chart; power next; a
+  // third chart keeps the current so no metric is hidden.
+  var style=document.getElementById('chartStyle'); if(style)style.value='dual';
+  var set=function(id,key){var el=document.getElementById(id);if(el)el.value=key;};
+  set('chart1Type','tdk_v'); set('chart1Type2','tdk_i');
+  set('chart2Type','tdk_p');
+  set('chart3Type','tdk_i');
+  if(typeof syncDualSelectors==='function') syncDualSelectors();
 }
+
 function tdkLoad(){
   fetch('/api/tdk-lambda-samples?n=240',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){
     if(!d||!d.success)return;
@@ -2603,8 +2607,7 @@ function tdkEnable(){
     window.addEventListener('load',function(){tdkEnable();},{once:true});
     return;
   }
-  tdkAutoConfigure();
-  tdkLoad();
+  tdkLoad();   // the selection itself is set after the capability filtering
   if(!tdkTimer)tdkTimer=setInterval(function(){ if(!document.hidden)tdkLoad(); },30000);
 }
 

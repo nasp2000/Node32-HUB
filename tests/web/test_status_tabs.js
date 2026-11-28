@@ -1,4 +1,4 @@
-// /status page: the four tabs (System · Modules & I/O · Storage · Heap/DRAM).
+// /status page: three tabs (System (incl. storage) · Modules & I/O · Heap/DRAM).
 //
 // The page used to be one long column. The streamed renderer now routes each
 // generated section to a tab by matching the same localized header it printed,
@@ -26,8 +26,8 @@ function decode(lit) {
 
 const src = fs.readFileSync(SRC, 'utf8');
 const a = src.indexOf('var sections=[]');
-// through the three innerHTML assignments, which follow stInitTabs() in the file
-const b = src.indexOf('col3El.innerHTML=htmlCol3;', a) + 'col3El.innerHTML=htmlCol3;'.length;
+// through the innerHTML assignments, which follow stInitTabs() in the file
+const b = src.indexOf('col2El.innerHTML=htmlCol2;', a) + 'col2El.innerHTML=htmlCol2;'.length;
 ok(a > 0 && b > a, 'renderer block not found');
 const BLOCK = decode(src.substring(a, b));
 
@@ -47,7 +47,7 @@ function boot(lines) {
     "<div id='stTabs'></div>" +
     "<div class='status-tab active' id='stTabSys'><div id='col1'></div></div>" +
     "<div class='status-tab' id='stTabIo'><div id='col2'></div></div>" +
-    "<div class='status-tab' id='stTabData'><div id='col3'></div></div>" +
+
     "<div class='status-tab' id='stTabHeap'><div id='heap-section'></div></div>" +
     '</body></html>', { runScripts: 'outside-only' });
   const w = dom.window;
@@ -72,7 +72,6 @@ test('system sections go to the System tab', function () {
   const html = w.document.getElementById('col1').innerHTML;
   ok(html.indexOf('SYSTEM') >= 0 && html.indexOf('CHIP ESP32') >= 0, 'system content');
   is(w.document.getElementById('col2').innerHTML, '', 'modules tab stays empty');
-  is(w.document.getElementById('col3').innerHTML, '', 'storage tab stays empty');
 });
 
 test('module sections go to the Modules tab', function () {
@@ -82,20 +81,21 @@ test('module sections go to the Modules tab', function () {
   is(w.document.getElementById('col1').innerHTML, '', 'system tab stays empty');
 });
 
-test('storage sections go to the Storage tab', function () {
+test('storage sections go to the System tab (no Storage tab)', function () {
   const w = boot(lines('data'));
-  const html = w.document.getElementById('col3').innerHTML;
+  const html = w.document.getElementById('col1').innerHTML;
   ok(html.indexOf('MICRO SD') >= 0 && html.indexOf('FLASH (LittleFS)') >= 0, 'storage content');
-  is(w.document.getElementById('col1').innerHTML, '', 'system tab stays empty');
+  ok(!w.document.getElementById('stTabData'), 'no Storage panel');
+  is(w.document.querySelectorAll('.status-tab-btn').length, 3, 'three tabs');
 });
 
-test('the four tabs are built once and System starts active', function () {
+test('the three tabs are built once and System starts active', function () {
   const w = boot(lines('sys'));
   const btns = w.document.querySelectorAll('.status-tab-btn');
-  is(btns.length, 4, 'tab buttons');
+  is(btns.length, 3, 'tab buttons');
   ok(btns[0].classList.contains('active'), 'first tab active');
   ok(w.document.getElementById('stTabSys').classList.contains('active'), 'system panel visible');
-  ok(!w.document.getElementById('stTabData').classList.contains('active'), 'storage panel hidden');
+  ok(!w.document.getElementById('stTabHeap').classList.contains('active'), 'heap panel hidden');
 });
 
 test('clicking a tab switches the panel and the highlight', function () {
@@ -104,21 +104,17 @@ test('clicking a tab switches the panel and the highlight', function () {
   btns[2].onclick();
   ok(btns[2].classList.contains('active'), 'clicked tab highlighted');
   ok(!btns[0].classList.contains('active'), 'others cleared');
-  ok(w.document.getElementById('stTabData').classList.contains('active'), 'storage visible');
+  ok(w.document.getElementById('stTabHeap').classList.contains('active'), 'heap visible');
   ok(!w.document.getElementById('stTabSys').classList.contains('active'), 'system hidden');
 });
 
-test('the heap analysis lives in its own Heap/DRAM tab, not under Storage', function () {
+test('the heap has its own tab; storage lives in System (no Storage tab)', function () {
   const w = boot(lines('data'));
   const btns = w.document.querySelectorAll('.status-tab-btn');
-  ok(btns[3].textContent.indexOf('Heap') >= 0, 'fourth pill names the heap: ' + btns[3].textContent);
-  ok(w.document.getElementById('stTabData').innerHTML.indexOf('heap-section') < 0, 'heap is not inside Storage');
+  ok(btns[2].textContent.indexOf('Heap') >= 0, 'third pill names the heap: ' + btns[2].textContent);
+  ok(!w.document.getElementById('stTabData'), 'no Storage panel');
   ok(w.document.getElementById('stTabHeap').querySelector('#heap-section'), 'heap panel exists');
-  // Storage keeps only the storage sections.
-  ok(w.document.getElementById('col3').innerHTML.indexOf('MICRO SD') >= 0, 'storage content stays');
-  btns[3].onclick();
-  ok(w.document.getElementById('stTabHeap').classList.contains('active'), 'heap tab opens');
-  ok(!w.document.getElementById('stTabData').classList.contains('active'), 'storage tab closes');
+  ok(w.document.getElementById('col1').innerHTML.indexOf('MICRO SD') >= 0, 'storage content rendered in System');
 });
 
 test('an unknown section is never lost (falls back to Modules)', function () {
@@ -131,7 +127,7 @@ test('a second run does not duplicate the tab bar', function () {
   const fn = new w.Function('L', 'col1El', 'col2El', 'col3El', '_st', 'document', BLOCK);
   fn(lines('sys'), w.document.getElementById('col1'), w.document.getElementById('col2'),
      w.document.getElementById('col3'), st, w.document);
-  is(w.document.querySelectorAll('.status-tab-btn').length, 4, 'still four tabs');
+  is(w.document.querySelectorAll('.status-tab-btn').length, 3, 'still three tabs');
 });
 
 console.log('\n' + passed + '/' + (passed + failed) + ' passed');

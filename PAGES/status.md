@@ -15,10 +15,11 @@
 A single-page **read-only system status** dashboard: device identity, chip/heap/PSRAM/NVS/
 flash/SD storage, network (WiFi + Ethernet), RS232, email/recipients, scheduler, and
 "compiled modules" feature flags. Pulls everything from one **`GET /api/status`** payload
-(`fillSystemStatusJson`) and renders it into **four tabs** — *System* (`#col1`), *Modules & I/O*
-(`#col2` + the "Monitoring" block), *Storage* (`#col3`) and *Heap / DRAM* (`#heap-section`) — so the
-page is no longer one long column. The heap analysis used to sit under *Storage*, which named the
-wrong thing: it is internal RAM, not storage.
+(`fillSystemStatusJson`) and renders it into **three tabs** — *System* (`#col1`, which now also
+carries the storage sections), *Modules & I/O* (`#col2` + the "Monitoring" block) and
+*Heap / DRAM* (`#heap-section`) — so the page is no longer one long column. There is no separate
+*Storage* tab any more (removed 2026-11-28): MICRO SD / FLASH / NVS are part of the system picture,
+and the heap keeps its own tab because it is internal RAM, not storage.
 
 ---
 
@@ -47,11 +48,11 @@ main.page > div.wrap
  ├ [🏠 Home] (data-i18n='btnHome')
  ├ H1 "📊 Status"
  ├ .status-grid
- ├ #stTabs   (4 pills: System · Modules & I/O · Storage · Heap / DRAM; first active)
+ ├ #stTabs   (3 pills: System · Modules & I/O · Heap / DRAM; first active)
  ├ #stTabSys  > #col1   (SYSTEM, CHIP ESP32, RESOURCES, GENERAL SETTINGS, COMPILED MODULES)
  ├ #stTabIo   > #col2   (NETWORK, PRINTER, EMAIL, RS232, RAMBOX, MODBUS, CAN, CAMERA, …)
  │             + .status-monitor > #monitor (destination e-mails, recipients, scheduled commands)
- ├ #stTabData > #col3   (MICRO SD, FLASH/LittleFS, NVS)
+ │             (SYSTEM, CHIP, RESOURCES, GENERAL, COMPILED + MICRO SD, FLASH/LittleFS, NVS)
  └ #stTabHeap > #heap-section ("🧠 Loading..." → totals, bars and the per-module table)
  └ [🔄 Refresh]  (#r, data-i18n='filesBtnRefresh')
 ```
@@ -188,10 +189,10 @@ Timeout/TimeoutActive/TimeoutInactive`, `statusLblFreeEst/SpaceEst`.
 
 The page used to be one long column. Each generated section is routed by its **localized header**
 (`stGroup()` compares `═ <label> ═` with `_st('stSec…')`, so it follows the UI language): SYSTEM,
-CHIP, RESOURCES, GENERAL and COMPILED go to *System*; MICRO SD, FLASH and NVS to *Storage*; every
+CHIP, RESOURCES, GENERAL and COMPILED go to *System*, and so do MICRO SD, FLASH and NVS; every
 other section (and any future one) to *Modules & I/O*, so nothing is ever hidden by a missing rule.
 `stInitTabs()` builds the pill bar once (labels `statusTabSystem` / `statusTabModules` /
-`statusTabStorage` / `statusTabHeap`); clicking switches panels. The heap panel is static markup,
+`statusTabHeap`); clicking switches panels. The heap panel is static markup,
 not a routed section: it belongs to *Heap / DRAM* (`#stTabHeap`), which is why the *Storage* tab no
-longer carries it. Covered by `tests/web/test_status_tabs.js` (8 cases, including "the heap is not
-inside Storage").
+longer carries it. Covered by `tests/web/test_status_tabs.js` (8 cases, including "storage lives in
+System, there is no Storage tab").
