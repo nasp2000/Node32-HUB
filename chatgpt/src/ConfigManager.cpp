@@ -996,6 +996,9 @@ bool ConfigManager::saveToLittleFS() {
     // --- do.json (own file) ---
     if (config.containsKey("do") && config["do"].is<JsonObject>())
         saveStem(STEM_DO, stemPath("do"), config["do"].as<JsonVariantConst>(), "do", 4096);
+    // --- tdklambda.json (own file: the page's saved choices) ---
+    if (config.containsKey("tdklambda") && config["tdklambda"].is<JsonObject>())
+        saveStem(STEM_TDKLAMBDA, stemPath("tdklambda"), config["tdklambda"].as<JsonVariantConst>(), "tdklambda", 4096);
     // --- ftp.json (own file, password masked, real value in NVS cfg_ftp_pwd) ---
     if (config.containsKey("ftp") && config["ftp"].is<JsonObject>()) {
         SpiRamJsonDocument f(4096);
@@ -1244,8 +1247,8 @@ SpiRamJsonDocument smtpEmailDoc(4096);
 
         // Own-file sections: telnet / ethernet / sdcard / debug / access_point / wifi_hybrid / do / ftp
         {
-            const char* secs[] = {"telnet", "ethernet", "sdcard", "debug", "access_point", "wifi_hybrid", "do", "ftp"};
-            for (int si = 0; si < 8; si++) {
+            const char* secs[] = {"telnet", "ethernet", "sdcard", "debug", "access_point", "wifi_hybrid", "do", "ftp", "tdklambda"};
+            for (int si = 0; si < 9; si++) {
                 const char* sec = secs[si];
                 SpiRamJsonDocument d(4096);
                 if (parseJsonFile(stemPath(sec), d, false, sec) && d.is<JsonObject>() && d.as<JsonObject>().size() > 0) {
@@ -1279,6 +1282,7 @@ SpiRamJsonDocument smtpEmailDoc(4096);
             if (strcmp(key, "access_point") == 0) continue;       // own file access_point.json
             if (strcmp(key, "wifi_hybrid") == 0) continue;        // own file wifi_hybrid.json
             if (strcmp(key, "do") == 0) continue;                 // own file do.json
+            if (strcmp(key, "tdklambda") == 0) continue;          // own file tdklambda.json
             if (strcmp(key, "recipients_slots") == 0) { recipDoc["recipients_slots"] = value; continue; }
             if (strcmp(key, "numeric_rules") == 0) { recipDoc["numeric_rules"] = value; continue; }
             if (strcmp(key, "sched_cmd") == 0) { schedDoc["sched_cmd"] = value; continue; }
@@ -2215,7 +2219,7 @@ bool ConfigManager::saveSection(const char* stem) {
         addPage("system", 4096); addPage("usb_server", 4096); addPage("smtp_email", 4096); addPage("alerts", 4096);
         addPage("telnet", 4096); addPage("ethernet", 4096); addPage("sdcard", 4096);
         addPage("debug", 4096); addPage("access_point", 4096); addPage("wifi_hybrid", 4096); addPage("do", 4096);
-        addPage("ftp", 4096);
+        addPage("ftp", 4096); addPage("tdklambda", 4096);
         addPage("sensor_config", 4096); addPage("sensor_mq135", 4096); addPage("sensor_hx711", 4096);
         addPage("sensor_ina226", 4096); addPage("sensor_sound", 4096); addPage("sensor_max31865", 4096);
         addPage("sensor_proximity", 4096); addPage("sensor_prox_counters", 4096);
@@ -2245,6 +2249,7 @@ bool ConfigManager::saveSection(const char* stem) {
         else if (strcmp(s, "wifi_hybrid") == 0) idx = STEM_WIFI_HYBRID;
         else if (strcmp(s, "do") == 0)          idx = STEM_DO;
         else if (strcmp(s, "ftp") == 0)         idx = STEM_FTP;
+        else if (strcmp(s, "tdklambda") == 0)   idx = STEM_TDKLAMBDA;
         else if (strcmp(s, "recipients") == 0)  idx = STEM_RECIPIENTS;
         else if (strcmp(s, "schedule") == 0)    idx = STEM_SCHEDULE;
         else if (strcmp(s, "modbus") == 0)      idx = STEM_MODBUS;
@@ -2297,7 +2302,7 @@ bool ConfigManager::saveSection(const char* stem) {
                 strcmp(key, "telnet") != 0 && strcmp(key, "ethernet") != 0 &&
                 strcmp(key, "sdcard") != 0 && strcmp(key, "debug") != 0 &&
                 strcmp(key, "access_point") != 0 && strcmp(key, "wifi_hybrid") != 0 &&
-                strcmp(key, "do") != 0 && strcmp(key, "ftp") != 0 &&
+                strcmp(key, "do") != 0 && strcmp(key, "ftp") != 0 && strcmp(key, "tdklambda") != 0 &&
                 strcmp(key, "recipients_slots") != 0 && strcmp(key, "numeric_rules") != 0 &&
                 strcmp(key, "sched_cmd") != 0 && strcmp(key, "sched_dt") != 0 &&
                 strcmp(key, "sched_cmd_active") != 0 && strcmp(key, "sched_dt_active") != 0 &&
@@ -2309,6 +2314,9 @@ bool ConfigManager::saveSection(const char* stem) {
         if (root.containsKey("web") && root["web"].containsKey("password") && root["web"]["password"].as<String>().length() > 0) root["web"]["password"] = "********";
         if (root.containsKey("access_point") && root["access_point"].containsKey("password") && root["access_point"]["password"].as<String>().length() > 0) root["access_point"]["password"] = "********";
         ok = writeJsonAtomic(stemPath("core"), doc.as<JsonVariantConst>(), "core", 10240);
+    } else if (strcmp(stem, "tdklambda") == 0) {
+        if (config.containsKey("tdklambda") && config["tdklambda"].is<JsonObject>())
+            ok = writeJsonAtomic(stemPath("tdklambda"), config["tdklambda"].as<JsonVariantConst>(), "tdklambda", 4096);
     } else if (strcmp(stem, "system") == 0) {
         SpiRamJsonDocument sysDoc(8192);
         JsonObject root = sysDoc.to<JsonObject>();

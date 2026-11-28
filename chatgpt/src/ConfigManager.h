@@ -331,6 +331,7 @@ public:
         STEM_WIFI_HYBRID,
         STEM_DO,
         STEM_FTP,
+        STEM_TDKLAMBDA,
         STEM_COUNT
     };
     uint32_t stemHash[STEM_COUNT] = {0};
