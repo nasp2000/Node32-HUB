@@ -2611,6 +2611,10 @@ function tdkLoad(){
       if(tdkData.retry<=6){setTimeout(tdkLoad,700);return;}
     }
     tdkData.retry=0;
+    // The page's own refresh resets a metric with no data in its cache to the
+    // first sensor key ('temp'); re-apply the TDK selection when that happened.
+    var s1=document.getElementById('chart1Type');
+    if(s1&&s1.value.indexOf('tdk_')!==0) tdkAutoConfigure();
     rerender();
   }).catch(function(){});
 }
@@ -2620,7 +2624,14 @@ function tdkEnable(){
     return;
   }
   tdkLoad();   // the selection itself is set after the capability filtering
-  if(!tdkTimer)tdkTimer=setInterval(function(){ if(!document.hidden)tdkLoad(); },30000);
+  // Draw once more after the page's own init has created chart1..3: the first
+  // fetch can finish before window.load, and its rerender then has no charts.
+  if(!tdkData.afterLoad){
+    tdkData.afterLoad=true;
+    if(document.readyState==='complete'){ setTimeout(tdkLoad,1200); }
+    else { window.addEventListener('load',function(){ setTimeout(tdkLoad,1200); },{once:true}); }
+  }
+  if(!tdkTimer)tdkTimer=setInterval(function(){ if(!document.hidden)tdkLoad(); },10000);
 }
 
 function chartNoSourcesNeeded(caps,rs232Cols){
