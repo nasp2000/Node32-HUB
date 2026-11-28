@@ -39,7 +39,7 @@ const scriptAt = asset.indexOf('<script>', htmlStart);
 const markup = asset.substring(htmlStart, scriptAt);
 
 const CODE = ['_tdkQ', '_tdkEsc', '_tdkT', '_tdkDur', '_tdkAsleep', '_tdkPost',
-              'tdkStatus', 'tdkSelfTest', 'tdkProfileBody']
+              'tdkStatus', 'tdkApplyGuard', 'tdkSelfTest', 'tdkProfileBody']
   .map(function (n) { return extractFn(asset, n); }).join('\n')
   + '\nvar _tdkTestTimer=null;\n';
 
