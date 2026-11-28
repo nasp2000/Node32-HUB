@@ -151,6 +151,7 @@ jobs:
               "pack": v["pack"],
               "flags": v["flags"],
               "repo": v["repo"],
+              "slug": v.get("slug", key.lower()),
               "tag": f"{version}{v.get('tag_suffix', '')}",
               "title": f"{v['product']} {version}{v.get('title_suffix', '')}",
               "version": version,
@@ -169,7 +170,7 @@ jobs:
       - name: Preflight target access (fail fast on missing/expired token)
         if: ${{ !inputs.dry_run }}
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ steps.target.outputs.repo }}
           TAG: ${{ steps.target.outputs.tag }}
           OVERWRITE: ${{ inputs.overwrite }}
@@ -179,12 +180,12 @@ jobs:
             exit 1
           fi
           if ! perms=$(gh api "repos/$REPO" --jq '.permissions.push // "unknown"' 2>&1); then
-            echo "::error::RELEASE_TOKEN cannot access $REPO: $perms"
+            echo "::error::cannot access $REPO: $perms"
             exit 1
           fi
           case "$perms" in
             true)  echo ">>> token OK for $REPO (write access)" ;;
-            false) echo "::error::RELEASE_TOKEN has no write access to $REPO (needs Contents: Read and write)."
+            false) echo "::error::no write access to $REPO (the workflow needs contents: write)."
                    exit 1 ;;
             *)     echo "::warning::could not verify write access to $REPO; the publish step will confirm." ;;
           esac
@@ -232,10 +233,14 @@ jobs:
 
       - name: Package release zip
         id: package
+        env:
+          SLUG: ${{ steps.target.outputs.slug }}
         run: |
           ZIP=$(python chatgpt/scripts/make_release_zip.py \
                   --env "${{ steps.target.outputs.env }}" \
                   --pack "${{ steps.target.outputs.pack }}" --print-path)
+          mv "$ZIP" "$(dirname "$ZIP")/${SLUG}_$(basename "$ZIP")"
+          ZIP="$(dirname "$ZIP")/${SLUG}_$(basename "$ZIP")"
           echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
           ls -lh "$ZIP"
           if unzip -l "$ZIP" | grep -q 'ota_private.pem'; then
@@ -296,7 +301,7 @@ jobs:
 
       - name: Generate release notes
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}   # gh release list -> notes base
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}   # gh release list -> notes base
           VARIANT: ${{ inputs.variant }}
           VERSION: ${{ steps.target.outputs.version }}
           SINCE: ${{ inputs.since }}
@@ -325,7 +330,7 @@ jobs:
       - name: Publish release
         if: ${{ !inputs.dry_run }}
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ steps.target.outputs.repo }}
           TAG: ${{ steps.target.outputs.tag }}
           TITLE: ${{ steps.target.outputs.title }}

@@ -30,15 +30,22 @@ The firmware is organized around a **pack-based module system**, where each "pac
 
 ## Releases
 
-Pre-built firmware binaries are published in dedicated per-board repositories, each with setup guides and usage instructions.
+Pre-built firmware is published **in this repository**, one release per pack: the tag names the
+pack (`v1.120-cam-s3`, `v1.120-rambox`, …) and every release carries the flashable build folder
+plus a separate `_third-party.zip` with the LGPL sources and relinkable objects.
 
-| Repository | Description |
-|---|---|
-| [**GcodeSender**](https://github.com/nasp2000/GcodeSender) | G-code sender for ESP32-P4 (USB Host + heatmap, web UI, SD/PSRAM). |
-| [**Rambox32**](https://github.com/nasp2000/Rambox32) | Pigeon-racing timing terminal N16R8 (RS232/Unikon, email alerts, OLED). |
-| [**Harmonica-BOX**](https://github.com/nasp2000/Harmonica-BOX) | Internet radio and music streaming (I2S, UPnP, alarm clock). |
-| [**Cam-M**](https://github.com/nasp2000/Cam-M) | Camera companion board (MJPEG stream, snapshots, AVI/motion). |
-| [**Node32-OEE**](https://github.com/nasp2000/Node32-OEE) | Production counting & OEE terminal (8DI8DO, shifts + CSV, A×P×Q, email). |
+| Pack | Board | What it does | Download |
+|---|---|---|---|
+| **Cam-M** | ESP32-S3 N16R8 | Camera companion (MJPEG stream, snapshots, AVI/motion). | [releases](https://github.com/nasp2000/Node32-HUB/releases?q=cam-s3) |
+| **Rambox32** | ESP32-S3 N16R8 | Pigeon-racing timing terminal (RS232/Unikon, email alerts, OLED). | [releases](https://github.com/nasp2000/Node32-HUB/releases?q=rambox) |
+| **Harmonica Box** | ESP32-S3 N16R8 | Internet radio and music streaming (I2S, UPnP, alarm clock). | [releases](https://github.com/nasp2000/Node32-HUB/releases?q=radio) |
+| **GcodeSender** | ESP32-P4 | G-code sender (USB Host + heatmap, web UI, SD/PSRAM). | [releases](https://github.com/nasp2000/Node32-HUB/releases?q=p4cnc) |
+| **Node32-OEE** | ESP32-S3 N16R8 | Production counting & OEE terminal (8DI8DO, shifts + CSV, A×P×Q, email). | [Node32-OEE](https://github.com/nasp2000/Node32-OEE) (published by hand) |
+
+Each build folder contains `firmware.bin` (OTA-signed), `bootloader.bin`, `partitions.bin`,
+`flash_command.txt` and the licence notices; flash over USB (WebFlasher/esptool) or upload
+`firmware.bin` at `http://<device-ip>/ota`. Sources for any release are the commit recorded in
+its notes ([`RELEASES.md`](RELEASES.md)).
 
 ## License
 

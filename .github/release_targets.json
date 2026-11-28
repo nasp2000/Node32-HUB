@@ -1,14 +1,14 @@
 {
-  "_comment": "Release targets: variant -> existing GitHub repo. Only variants listed in .github/workflows/release.yml -> inputs.variant.options can be dispatched; entries here that are commented out there are prepared but disabled. A target repo may host several variants (Cam-M: S3 + P4, GcodeSender: P4 + S3) — each variant needs its own tag_suffix so tags/assets do not collide. Deliberately NOT release targets: Node32-OEE (pack WAVESHARE, published by hand) and S3 Touch7 (pack S3_TOUCH7, still too vanilla).",
+  "_comment": "Release targets: variant -> repo. Since v1.120 every pack is published as its own release in THIS repo (nasp2000/Node32-HUB), one release per variant and version, so the tag carries the pack: vX.YYY-<slug>. Only variants listed in .github/workflows/release.yml -> inputs.variant.options can be dispatched. Deliberately NOT release targets: Node32-OEE (pack WAVESHARE, published by hand) and S3 Touch7 (pack S3_TOUCH7, still too vanilla).",
   "variants": {
     "CAM_S3": {
-      "repo": "nasp2000/Cam-M",
+      "repo": "nasp2000/Node32-HUB",
       "product": "Cam-M",
       "variant": "ESP32-S3 N16R8",
       "env": "n16r8",
       "pack": "CAM",
       "flags": "-DSELECTED_PACK=PACK_CAM -DTARGET_BOARD_S3_CAM=1",
-      "tag_suffix": "",
+      "tag_suffix": "-cam-s3",
       "title_suffix": "",
       "scopes": [
         "cam",
@@ -23,16 +23,17 @@
         "chatgpt/src/interfaces/ICameraController.h",
         "chatgpt/src/webpages/**/*camera*",
         "PAGES/camera.md"
-      ]
+      ],
+      "slug": "cam-s3"
     },
     "CAM_P4": {
-      "repo": "nasp2000/Cam-M",
+      "repo": "nasp2000/Node32-HUB",
       "product": "Cam-M",
       "variant": "ESP32-P4",
       "env": "esp32p4cam",
       "pack": "CAM_P4",
       "flags": "-DSELECTED_PACK=PACK_CAM_P4",
-      "tag_suffix": "-p4",
+      "tag_suffix": "-cam-p4",
       "title_suffix": " (ESP32-P4)",
       "scopes": [
         "cam",
@@ -47,16 +48,17 @@
         "chatgpt/src/interfaces/ICameraController.h",
         "chatgpt/src/webpages/**/*camera*",
         "PAGES/camera.md"
-      ]
+      ],
+      "slug": "cam-p4"
     },
     "RAMBOX": {
-      "repo": "nasp2000/Rambox32",
+      "repo": "nasp2000/Node32-HUB",
       "product": "Rambox32",
       "variant": "ESP32-S3 N16R8",
       "env": "n16r8",
       "pack": "RAMBOX",
       "flags": "-DSELECTED_PACK=PACK_RAMBOX",
-      "tag_suffix": "",
+      "tag_suffix": "-rambox",
       "title_suffix": "",
       "scopes": [
         "rambox",
@@ -79,16 +81,17 @@
         "PAGES/rs232.md",
         "PAGES/bricon.md",
         "PAGES/lpt_db25.md"
-      ]
+      ],
+      "slug": "rambox"
     },
     "RADIO": {
-      "repo": "nasp2000/Harmonica-BOX",
+      "repo": "nasp2000/Node32-HUB",
       "product": "Harmonica Box",
       "variant": "ESP32-S3 N16R8",
       "env": "n16r8",
       "pack": "RADIO",
       "flags": "-DSELECTED_PACK=PACK_RADIO",
-      "tag_suffix": "",
+      "tag_suffix": "-radio",
       "title_suffix": "",
       "scopes": [
         "radio",
@@ -108,16 +111,17 @@
         "chatgpt/src/icy_*",
         "chatgpt/src/webpages/**/*radio*",
         "PAGES/radio_ui.md"
-      ]
+      ],
+      "slug": "radio"
     },
     "P4_CNC": {
-      "repo": "nasp2000/GcodeSender",
+      "repo": "nasp2000/Node32-HUB",
       "product": "GcodeSender",
       "variant": "ESP32-P4",
       "env": "esp32p4",
       "pack": "P4_CNC",
       "flags": "-DSELECTED_PACK=PACK_P4_CNC",
-      "tag_suffix": "",
+      "tag_suffix": "-p4cnc",
       "title_suffix": "",
       "scopes": [
         "grbl",
@@ -134,16 +138,17 @@
         "chatgpt/src/webpages/**/*gcode*",
         "PAGES/grbl_controller.md",
         "PAGES/ipg_laser.md"
-      ]
+      ],
+      "slug": "p4cnc"
     },
     "S3_CNC": {
-      "repo": "nasp2000/GcodeSender",
+      "repo": "nasp2000/Node32-HUB",
       "product": "GcodeSender S3",
       "variant": "ESP32-S3 N16R8",
       "env": "n16r8",
       "pack": "S3_CNC",
       "flags": "-DSELECTED_PACK=PACK_S3_CNC",
-      "tag_suffix": "-s3",
+      "tag_suffix": "-s3cnc",
       "title_suffix": " (ESP32-S3)",
       "scopes": [
         "grbl",
@@ -158,7 +163,8 @@
         "chatgpt/src/usb_*",
         "chatgpt/src/webpages/**/*gcode*",
         "PAGES/grbl_controller.md"
-      ]
+      ],
+      "slug": "s3cnc"
     }
   }
 }
