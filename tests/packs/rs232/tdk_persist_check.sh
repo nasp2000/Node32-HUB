@@ -86,12 +86,17 @@ import json,sys;d=json.load(sys.stdin);print(len([e for e in d.get('entries',[])
 
 echo "== 4. CSV: header on a new file, rotation when the format changes =="
 curl -s -m 10 $A -X POST -H "Content-Type: application/x-www-form-urlencoded" --data "format=table" "http://$N/api/tdk-lambda-config" >/dev/null 2>&1 || true
+# one sample in the new shape, then write it out
+curl -s -m 10 $A -X POST -H "Content-Type: application/x-www-form-urlencoded" --data "cmd=DVC%3F" "http://$N/api/tdk-lambda-send" >/dev/null
+sleep 4
 curl -s -m 15 $A -X POST "http://$N/api/tdk-lambda-csv-flush" >/dev/null
 sleep 1
 curl -s -m 15 $A "http://$N/api/tdk-lambda-csv" -o /tmp/opencode/tdk_csv_table.csv
 head -1 /tmp/opencode/tdk_csv_table.csv | grep -q '^timestamp,' \
   && pass "table CSV starts with its header" || fail "table CSV without header"
 curl -s -m 10 $A -X POST -H "Content-Type: application/x-www-form-urlencoded" --data "format=sensor" "http://$N/api/tdk-lambda-config" >/dev/null 2>&1 || true
+curl -s -m 10 $A -X POST -H "Content-Type: application/x-www-form-urlencoded" --data "cmd=DVC%3F" "http://$N/api/tdk-lambda-send" >/dev/null
+sleep 4
 curl -s -m 15 $A -X POST "http://$N/api/tdk-lambda-csv-flush" >/dev/null
 sleep 1
 curl -s -m 15 $A "http://$N/api/tdk-lambda-csv" -o /tmp/opencode/tdk_csv_sensor.csv

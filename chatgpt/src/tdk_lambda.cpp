@@ -627,9 +627,11 @@ void handleLine(char* line) {
 }
 
 bool tdkCsvFlushPending() {
-    if (s_csvPending.isEmpty()) return true;
     const String path = csvPathNow();
+    // The rotation does not need a pending row: a manual flush right after a
+    // format switch must already move the old file away.
     rotateCsvIfFormatChanged(path);
+    if (s_csvPending.isEmpty()) return true;
     if (sdcardShouldUseSD()) {
         if (appendBlockSd(path, s_csvPending)) {
             for (size_t i = 0; i < s_csvPending.length(); ++i) if (s_csvPending[i] == '\n') s_csvRows++;
