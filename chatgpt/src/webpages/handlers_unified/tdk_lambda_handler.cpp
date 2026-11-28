@@ -413,9 +413,9 @@ void handleTdkLambdaConfigPost(HttpRequest& req, HttpResponse& res) {
     }
 
     // Persist now: every control on this page is a saved choice, and a reboot
-    // right after a click must keep it (the deferred save lost the switch and
-    // the profile when the page was tested with an immediate restart).
-    configManager.saveSection("tdklambda");
+    // right after a click must keep it. The tdklambda section has no file of its
+    // own (it travels inside core.json), so saving "core" is what writes it.
+    configManager.saveSection("core");
 
     String j;
     j.reserve(160);
