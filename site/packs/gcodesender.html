@@ -38,11 +38,11 @@
         <li><b>Local preview</b> — the toolpath, bounds and a job heatmap are computed in the browser; the board only sends bytes.</li>
         <li><b>Laser and spindle</b> — power/speed overrides and laser mode for diode heads.</li>
         <li><b>Recovery</b> — resume after a stop, error reporting from the controller, dockable panels.</li>
-      <figure class="shot">
-        <img src="../assets/img/gcodesender/job.png" alt="GcodeSender with a loaded G-code job: toolpath preview, bounds and run controls" loading="lazy">
-        <figcaption>A job loaded: toolpath, bounds, feed and the run controls.</figcaption>
-      </figure>
       </ul>
+      <div class="pair">
+        <figure><img src="../assets/img/gcodesender/job.png" alt="GcodeSender with a loaded G-code job: toolpath preview, bounds and run controls" loading="lazy"><figcaption>A job loaded: toolpath, bounds, feed</figcaption></figure>
+        <figure><img src="../assets/img/gcodesender/files.png" alt="GcodeSender file explorer listing G-code files on the SD card" loading="lazy"><figcaption>Files on the SD card</figcaption></figure>
+      </div>
 
       <h2>Install</h2>
       <ol>
@@ -65,10 +65,10 @@
         <figcaption>The control panel in motion: preview, workspace, console and the USB-CDC link.</figcaption>
       </figure>
 
-      <div class="pair">
-        <figure><img src="../assets/img/gcodesender/board.jpg" alt="ESP32-P4 board with the USB Host port used to reach the controller" loading="lazy"><figcaption>USB Host port on the P4</figcaption></figure>
-        <figure><img src="../assets/img/gcodesender/files.png" alt="GcodeSender file explorer listing G-code files on the SD card" loading="lazy"><figcaption>Files on the SD card</figcaption></figure>
-      </div>
+      <figure class="shot">
+        <img src="../assets/img/gcodesender/board.jpg" alt="ESP32-P4 board with the USB Host port used to reach the controller" loading="lazy">
+        <figcaption>The P4's USB Host port is what reaches the controller — no PC in between.</figcaption>
+      </figure>
     </div>
 
     <aside class="aside">
