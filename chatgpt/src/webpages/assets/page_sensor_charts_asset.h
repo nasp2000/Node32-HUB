@@ -928,7 +928,7 @@ var DPAIR={
 };
 
 // Chart title emojis
-var EMOJI={temp:'🌡️',humidity:'💧',pressure:'🌊',dew:'💦',heat:'🔥',altitude:'⛰️'};
+var EMOJI={temp:'🌡️',humidity:'💧',pressure:'🌊',dew:'💦',heat:'🔥',altitude:'⛰️',tdk_v:'⚡',tdk_i:'⚡',tdk_p:'⚡'};
 
 // Extra slot metadata loaded at init from /api/sensor-slots
 var extraSlotsMeta = [];  // Array of {slot, enabled, name, label, unit, scale}
@@ -2395,7 +2395,10 @@ function getTip(key){
     pressure:'Atmospheric pressure measured by BMP280. Sea-level corrected.',
     dew:'Dew point measured/calculated from temperature and humidity',
     heat:'Heat index measured/calculated (above 27°C)',
-    altitude:'Estimated altitude based on atmospheric pressure'
+    altitude:'Estimated altitude based on atmospheric pressure',
+    tdk_v:'Measured output voltage from the TDK-Lambda module (its own poll ring)',
+    tdk_i:'Measured output current from the TDK-Lambda module',
+    tdk_p:'Voltage x current, computed by the page from the TDK ring'
   };
   // Extra sensor slot: return slot label + unit from metadata
   if(key.indexOf('extra_')===0){
