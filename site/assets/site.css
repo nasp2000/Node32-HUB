@@ -330,6 +330,10 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
   color: var(--ink-3);
 }
 
+/* every screenshot opens its full-size file in the browser */
+a.zoom { display: block; cursor: zoom-in; }
+a.zoom:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
 /* the detail that makes them sit in the page: two accent brackets */
 .shot::before, .shot::after,
 .pair figure::before, .pair figure::after,
