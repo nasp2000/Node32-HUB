@@ -4,10 +4,11 @@
 > button/input, client logic, API endpoints, persistence and the firmware scheduler.
 > Written for both humans and AI agents.
 
-> Screenshot: `desktop/commands.png` (1440 × 1283, live **HomeE32** board `.24` — the
-> Waveshare pack compiles `/commands` out (404), so the interval page comes from the pack
-> that has it; 10 empty slots, Save All + Add Command). The hint line under the Information
-> card is still hardcoded PT, `BACKLOG.md` CMD-9. Index and proof in `desktop/README.md`).
+> Screenshot: `desktop/commands.png` (1440 × 940, live **HomeE32** board `.24`, 2026-11-28 —
+> the Waveshare pack compiles `/commands` out (404), so the interval page comes from the pack
+> that has it; **3 empty rows** + Save All + Add Command, Information card full width and
+> left-aligned). The hint line is translated since the 2026-11-28 pass; index and proof in
+> `desktop/README.md`.
 
 > Screenshot (date & time): `desktop/commands_datetime.png` (1440 × 1054, live Waveshare
 > 8DI8DO board `.29` — Daily Restart with the two fixed `SYS: REBOOT` lines and three
@@ -58,7 +59,7 @@ main.page > div.wrap
  ├ ℹ️ Informação card (cmdsRecurrentDesc info box)
  ├ 📋 Comandos Recorrentes card
  │  └ table.cmd#sched_cmd_body (columns: # | Tipo | Comando | Intervalo | Unid | Dias | Template | Ativo | 💾)
- │    rows added client-side (10 on load, max 20)
+ │    rows added client-side (3 on load, max 30; ➕ Add Command appends)
  └ [💾 Save All]  (#cmd_save_all)
 ```
 
@@ -77,7 +78,7 @@ main.page > div.wrap
  │  └ table#reboot_daily_body  (2 rows: # | Hora (time input) | Ativo (select) | 💾)
  ├ 📅 Comandos Agendados card
  │  └ table.sdt#sched_dt_body  (columns: # | Tipo | Comando | Data | Hora | Diário | Template | Ativo | 💾)
- │    rows added client-side (10 on load, max 20)
+ │    rows added client-side (3 on load, max 16; ➕ Add Command appends)
  └ [💾 Save All]  (#sched_dt_save_all)
 ```
 
@@ -124,8 +125,9 @@ slot (2 slots).
 Both pages use an identical inline IIFE pattern (`PAGE_COMMANDS_JS`,
 `PAGE_COMMANDS_DATETIME_JS`):
 
-- **`init()`** — if table empty, create **10 rows** (`MAX=20`, no add-row button);
-  `attachSaveAll()`; `loadAll()`.
+- **`init()`** — if table empty, create **3 rows** (interval page `MAX=30`, datetime `MAX=16`);
+  `attachSaveAll()` wires Save All **and the ➕ Add Command button**; `loadAll()`. A saved
+  command in a slot above the default rows grows the table to it instead of being hidden.
 - **`loadAll()`/`la()`** — per row `GET /api/scheduled-command-slot?i=` /
   `/api/scheduled-datetime-slot?i=`; then `GET /api/rs232-templates` to populate the
   template `<select>` (preserving `data-cur`). Sets type/command/interval/unit/days/
