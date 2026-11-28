@@ -2588,6 +2588,11 @@ function tdkAutoConfigure(){
   set('chart1Type','tdk_v'); set('chart1Type2','tdk_i');
   set('chart2Type','tdk_p');
   set('chart3Type','tdk_i');
+  // Titles follow the source (rerender() does not relabel them itself).
+  var titles=[['ct1','⚡ Voltage & Current (TDK)','Voltage on the left axis, current on the right, from the TDK-Lambda module'],
+              ['ct2','⚡ Power (TDK)','Voltage x current, computed by the page from the module ring'],
+              ['ct3','⚡ Current (TDK)','Measured output current from the TDK-Lambda module']];
+  titles.forEach(function(x){var el=document.getElementById(x[0]);if(el)el.innerHTML=x[1]+"<span class='tip' title='"+x[2]+"'>?</span>";});
   if(typeof syncDualSelectors==='function') syncDualSelectors();
 }
 
@@ -2599,7 +2604,14 @@ function tdkLoad(){
     tdkData.timestamps=pts.timestamps;
     tdkData.tdk_v=pts.v; tdkData.tdk_i=pts.i; tdkData.tdk_p=pts.p;
     tdkData.count=pts.v.length;
-    if(tdkData.count) rerender();
+    if(!tdkData.count) return;
+    // The first fetch may land before window.load creates the three charts.
+    if(typeof chart1==='undefined'||(!chart1&&!chart2&&!chart3)){
+      tdkData.retry=(tdkData.retry||0)+1;
+      if(tdkData.retry<=6){setTimeout(tdkLoad,700);return;}
+    }
+    tdkData.retry=0;
+    rerender();
   }).catch(function(){});
 }
 function tdkEnable(){
