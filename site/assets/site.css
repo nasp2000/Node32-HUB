@@ -383,7 +383,7 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
   color: var(--ink-2);
   font-size: .92rem;
 }
-.opts td:first-child { color: var(--ink); font-weight: 600; white-space: nowrap; }
+.opts td:first-child { color: var(--ink); font-weight: 600; }
 .opts td:nth-child(2) { white-space: normal; }
 .opts td code { white-space: nowrap; font-size: .84em; }
 .opts tr:last-child td { border-bottom: 0; }
@@ -508,6 +508,15 @@ a.zoom:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .rail { position: static; }
   .product-body { grid-template-columns: 1fr; gap: 32px; }
   .aside { order: -1; position: static; }
+  .opts td:nth-child(2) { white-space: normal; }
+  .opts, .opts tbody, .opts tr, .opts td { display: block; width: 100%; }
+  .opts th { display: none; }
+  .opts tr { padding: 12px 0 14px; border-bottom: 1px dotted var(--rule-soft); }
+  .opts td { border: 0; padding: 2px 0; }
+  .opts td:first-child { font-size: 1rem; margin-bottom: 5px; }
+  .opts td::before { content: attr(data-label) ": "; color: var(--ink-3); }
+  .opts td:first-child::before, .opts td[data-label="What it does"]::before { content: none; }
+
 }
 
 @media (max-width: 620px) {
@@ -519,14 +528,6 @@ a.zoom:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .actions { grid-column: 1; grid-row: auto; flex-direction: row; margin-top: 14px; min-width: 0; }
   .actions .btn { flex: 1; justify-content: center; }
   .spectable div { grid-template-columns: 84px 1fr; }
-  .opts td:nth-child(2) { white-space: normal; }
-  .opts, .opts tbody, .opts tr, .opts td { display: block; width: 100%; }
-  .opts th { display: none; }
-  .opts tr { padding: 12px 0 14px; border-bottom: 1px dotted var(--rule-soft); }
-  .opts td { border: 0; padding: 2px 0; }
-  .opts td:first-child { font-size: 1rem; margin-bottom: 5px; }
-  .opts td::before { content: attr(data-label) ": "; color: var(--ink-3); }
-  .opts td:first-child::before, .opts td[data-label="What it does"]::before { content: none; }
   .strip { grid-template-columns: repeat(3, 1fr); }
   .strip img { width: 100%; height: auto; aspect-ratio: 9 / 16; }
   .pair { grid-template-columns: 1fr; }
