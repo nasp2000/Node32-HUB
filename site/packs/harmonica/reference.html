@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harmonica Box — every setting — Node32-HUB</title>
+<meta name="description" content="Every Harmonica Box control: playback, sources, playlists, favourites, UPnP, alarms and equaliser.">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Harmonica Box — every setting">
+<meta property="og:description" content="Every Harmonica Box control: playback, sources, playlists, favourites, UPnP, alarms and equaliser.">
+<meta property="og:url" content="https://nasp2000.github.io/Node32-HUB/packs/harmonica/reference.html">
+<meta property="og:image" content="https://nasp2000.github.io/Node32-HUB/assets/og.png">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="sheet">
+
+  <header class="masthead">
+    <a class="wordmark" href="../../">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="../../#packs">Packs</a>
+      <a href="../../install.html">Flash</a>
+      <a href="https://github.com/nasp2000/Node32-HUB">Source</a>
+      <a href="https://github.com/nasp2000/Node32-HUB/releases">Releases</a>
+    </nav>
+  </header>
+
+  <a class="back" href="../harmonica.html">← Harmonica Box</a>
+
+  <section class="product-head">
+    <h1>Every setting</h1>
+    <p>The player has one screen and a handful of panels. This page lists what each control does.</p>
+  </section>
+
+  <div class="product-body" id="main">
+    <div>
+      <h2 id="transport">1. Transport</h2>
+      <table class="opts">
+        <tr><th>Control</th><th>What it does</th></tr>
+        <tr><td data-label="Control">Play / Pause</td><td data-label="What it does">Starts or stops the current item; the label follows the state.</td></tr>
+        <tr><td data-label="Control">Previous / Stop / Next</td><td data-label="What it does">Moves through the current list: stations, recent, favourites, SD library or UPnP.</td></tr>
+        <tr><td data-label="Control">Volume</td><td data-label="What it does">Slider and ± buttons; the change is applied immediately and survives a reboot.</td></tr>
+        <tr><td data-label="Control">Seek</td><td data-label="What it does">SD files only — live streams cannot be scrubbed.</td></tr>
+        <tr><td data-label="Control">Shuffle / Repeat</td><td data-label="What it does">Repeat one or repeat all; shuffle applies to the active list.</td></tr>
+        <tr><td data-label="Control">Sleep</td><td data-label="What it does">Stops playback after the chosen time.</td></tr>
+        <tr><td data-label="Control">Equaliser</td><td data-label="What it does">Gain bands applied to the decoded audio.</td></tr>
+      </table>
+      <h2 id="sources">2. Where the audio comes from</h2>
+      <table class="opts">
+        <tr><th>Source</th><th>What it does</th></tr>
+        <tr><td data-label="Source">Stream URL</td><td data-label="What it does">Play any MP3/AAC stream URL you paste in.</td></tr>
+        <tr><td data-label="Source">Discover</td><td data-label="What it does">Station search by name, genre and country, with paging.</td></tr>
+        <tr><td data-label="Source">SD library</td><td data-label="What it does">MP3 files in <code>/library</code>, browsable by folder with search; queue ordered or random.</td></tr>
+        <tr><td data-label="Source">PSRAM</td><td data-label="What it does">Fallback when there is no card; contents are lost on reboot.</td></tr>
+        <tr><td data-label="Source">Favourites</td><td data-label="What it does">Save the current station and play it with one tap.</td></tr>
+        <tr><td data-label="Source">Playlists</td><td data-label="What it does">Named lists saved on the SD as <code>.m3u</code>, so they open in other players too.</td></tr>
+        <tr><td data-label="Source">UPnP / DLNA</td><td data-label="What it does">Browse a media server on the network and queue from it.</td></tr>
+        <tr><td data-label="Source">Resume</td><td data-label="What it does">On boot, either nothing, the last item, or the last playlist.</td></tr>
+      </table>
+      <h2 id="alarms">3. Alarms</h2>
+      <p>The agenda plays a station at a time of day, with a volume ramp instead of a jump scare.</p>
+      <table class="opts">
+        <tr><th>Field</th><th>Values</th><th>What it does</th></tr>
+        <tr><td data-label="Field">Days</td><td data-label="Values">one or more weekdays</td><td data-label="What it does">Which days the slot fires.</td></tr>
+        <tr><td data-label="Field">Time</td><td data-label="Values">HH:MM</td><td data-label="What it does">Start of the slot.</td></tr>
+        <tr><td data-label="Field">Station</td><td data-label="Values">any saved station</td><td data-label="What it does">What plays.</td></tr>
+        <tr><td data-label="Field">Enabled</td><td data-label="Values">on · off</td><td data-label="What it does">Keeps the slot without deleting it.</td></tr>
+      </table>
+      <h2 id="hardware">4. Hardware</h2>
+      <table class="opts">
+        <tr><th>Item</th><th>Detail</th></tr>
+        <tr><td data-label="Item">Board</td><td data-label="Detail">ESP32-S3 N16R8 — PSRAM buffers the stream.</td></tr>
+        <tr><td data-label="Item">Output</td><td data-label="Detail">I2S to a UDA1334A DAC, line out to an amplifier.</td></tr>
+        <tr><td data-label="Item">Storage</td><td data-label="Detail">microSD for the library and the playlists.</td></tr>
+        <tr><td data-label="Item">Network</td><td data-label="Detail">Wi-Fi, or Ethernet on boards that have it.</td></tr>
+      </table>
+      <h2 id="trouble">5. If it does not work</h2>
+      <table class="opts">
+        <tr><th>Symptom</th><th>Check</th></tr>
+        <tr><td data-label="Symptom">Silence with a stream playing</td><td data-label="Check">I2S wiring and the DAC's own power; check the volume is not muted and the output is set to I2S.</td></tr>
+        <tr><td data-label="Symptom">Streams stall after a few seconds</td><td data-label="Check">The station's bitrate against the buffer: prefer 128 kbps MP3 on a weak link.</td></tr>
+        <tr><td data-label="Symptom">No SD library</td><td data-label="Check">The card and the <code>/library</code> folder; PSRAM fallback only holds what you upload.</td></tr>
+        <tr><td data-label="Symptom">UPnP finds nothing</td><td data-label="Check">The server must be on the same subnet and advertising SSDP; some servers need a restart.</td></tr>
+      </table>
+
+    </div>
+
+    <aside class="aside">
+      <div class="dl">
+        <h2>Harmonica Box</h2>
+        <p class="ver">ESP32-S3 N16R8, firmware v1.120</p>
+        <a class="btn" href="../harmonica.html">Back to the pack</a>
+        <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=radio" style="margin-top:8px">Download</a>
+        <p class="note">Hardware, screenshots and install steps are on the pack page.</p>
+        <p class="note" style="margin-top:12px"><a href="../../common/reference.html"><b>Shared pages →</b></a><br>Status, files, monitor, network, access, email and OTA are the same on every pack.</p>
+      </div>
+
+      <ul class="toc">
+        <li><a href="#transport">1. Transport</a></li>
+        <li><a href="#sources">2. Where the audio comes from</a></li>
+        <li><a href="#alarms">3. Alarms</a></li>
+        <li><a href="#hardware">4. Hardware</a></li>
+        <li><a href="#trouble">5. If it does not work</a></li>
+
+      </ul>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party · LGPL compliance bundle with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

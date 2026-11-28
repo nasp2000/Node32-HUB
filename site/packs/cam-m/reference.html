@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cam-M — every setting — Node32-HUB</title>
+<meta name="description" content="Every Cam-M setting: resolution, quality, frame rate, picture controls, recording, motion detection and boot modes.">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Cam-M — every setting">
+<meta property="og:description" content="Every Cam-M setting: resolution, quality, frame rate, picture controls, recording, motion detection and boot modes.">
+<meta property="og:url" content="https://nasp2000.github.io/Node32-HUB/packs/cam-m/reference.html">
+<meta property="og:image" content="https://nasp2000.github.io/Node32-HUB/assets/og.png">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="sheet">
+
+  <header class="masthead">
+    <a class="wordmark" href="../../">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="../../#packs">Packs</a>
+      <a href="../../install.html">Flash</a>
+      <a href="https://github.com/nasp2000/Node32-HUB">Source</a>
+      <a href="https://github.com/nasp2000/Node32-HUB/releases">Releases</a>
+    </nav>
+  </header>
+
+  <a class="back" href="../cam-m.html">← Cam-M</a>
+
+  <section class="product-head">
+    <h1>Every setting</h1>
+    <p>What each field on the camera page does, the values it accepts and what happens when you leave it alone. Five tabs: <b>Cam</b>, <b>Pic</b>, <b>Rec</b>, <b>Vis</b> (P4 only) and <b>Mot</b>.</p>
+  </section>
+
+  <div class="product-body" id="main">
+    <div>
+      <h2 id="capture">1. Capture</h2>
+      <p>Frame size, compression and exposure on the <b>Cam</b> tab.</p>
+      <table class="opts">
+        <tr><th>Field</th><th>Values</th><th>Default</th><th>What it does</th></tr>
+        <tr><td data-label="Field">Resolution</td><td data-label="Values">320×240 to 1920×1080, plus 2048×1536 and 2592×1944</td><td data-label="Default">800×600</td><td data-label="What it does">Frame size. Options above the sensor's maximum are disabled; larger frames cost PSRAM and drop the frame rate.</td></tr>
+        <tr><td data-label="Field">Quality</td><td data-label="Values">4 to 63</td><td data-label="Default">20</td><td data-label="What it does">JPEG quality — lower is better and bigger.</td></tr>
+        <tr><td data-label="Field">FPS</td><td data-label="Values">1 to 30</td><td data-label="Default">12</td><td data-label="What it does">Frames per second. The maximum depends on the frame size and the sensor, and is clamped when you exceed it.</td></tr>
+        <tr><td data-label="Field">Gain ceiling</td><td data-label="Values">2× to 128×</td><td data-label="Default">—</td><td data-label="What it does">How far the sensor may raise gain in low light. High values brighten the image and add noise.</td></tr>
+        <tr><td data-label="Field">Special effect</td><td data-label="Values">None · Negative · Grayscale · Red · Green · Blue · Sepia</td><td data-label="Default">None</td><td data-label="What it does">Colour effect applied in the sensor.</td></tr>
+        <tr><td data-label="Field">White balance</td><td data-label="Values">Auto · Sunny · Cloudy · Office · Home</td><td data-label="Default">Auto</td><td data-label="What it does">Fixed white balance presets; Auto follows the scene.</td></tr>
+      </table>
+      <h2 id="picture">2. Picture</h2>
+      <p>Brightness, contrast and the manual exposure controls on the <b>Pic</b> tab.</p>
+      <table class="opts">
+        <tr><th>Field</th><th>Values</th><th>Default</th><th>What it does</th></tr>
+        <tr><td data-label="Field">Brightness / Contrast / Saturation</td><td data-label="Values">−2 to +2</td><td data-label="Default">0</td><td data-label="What it does">Sensor-side adjustments, applied before compression.</td></tr>
+        <tr><td data-label="Field">AE level</td><td data-label="Values">−2 to +2</td><td data-label="Default">0</td><td data-label="What it does">Exposure bias when auto exposure is on.</td></tr>
+        <tr><td data-label="Field">Manual gain</td><td data-label="Values">0 to 30</td><td data-label="Default">—</td><td data-label="What it does">Only used when AGC is off; shown as 1× to 31×.</td></tr>
+        <tr><td data-label="Field">Manual exposure</td><td data-label="Values">0 to 1200</td><td data-label="Default">—</td><td data-label="What it does">Only used when AEC is off.</td></tr>
+        <tr><td data-label="Field">Mirror / Flip / AWB / AEC / AGC / Lens correction</td><td data-label="Values">on · off</td><td data-label="Default">AWB, AEC, AGC on</td><td data-label="What it does">Per-block switches. Turning AGC or AEC off hands control to the manual fields above.</td></tr>
+      </table>
+      <h2 id="recording">3. Recording</h2>
+      <p>The <b>Rec</b> tab holds everything that writes to the SD card.</p>
+      <table class="opts">
+        <tr><th>Field</th><th>Values</th><th>Default</th><th>What it does</th></tr>
+        <tr><td data-label="Field">DashCam</td><td data-label="Values">1 to 30 min, 0 = off</td><td data-label="Default">off</td><td data-label="What it does">Rotates the recording every N minutes so the card never fills with one file.</td></tr>
+        <tr><td data-label="Field">Timelapse</td><td data-label="Values">0 to 600 s, 0 = off</td><td data-label="Default">off</td><td data-label="What it does">One frame every N seconds, written into a 10 fps AVI.</td></tr>
+        <tr><td data-label="Field">Boot mode</td><td data-label="Values">Off · Photo · Video · Motion · Timelapse</td><td data-label="Default">Off</td><td data-label="What it does">What the camera starts doing by itself after a power cycle.</td></tr>
+        <tr><td data-label="Field">Codec (P4 only)</td><td data-label="Values">MJPEG (.avi) · H.264 (.264)</td><td data-label="Default">MJPEG</td><td data-label="What it does">Hidden on the S3. H.264 records smaller files but the frame size and rate are capped.</td></tr>
+        <tr><td data-label="Field">H.264 bitrate</td><td data-label="Values">1 to 8 Mbps</td><td data-label="Default">4</td><td data-label="What it does">Only when H.264 is selected; the estimate line shows the cost in MB per minute.</td></tr>
+        <tr><td data-label="Field">H.264 container</td><td data-label="Values">Raw (.264) · AVI (.avi)</td><td data-label="Default">Raw</td><td data-label="What it does">AVI is easier to open, raw is what most editors want for the encoder output.</td></tr>
+      </table>
+      <h2 id="motion">4. Motion</h2>
+      <p>The <b>Mot</b> tab: a grayscale difference on a 40×30 grid, with the action being record or photo.</p>
+      <table class="opts">
+        <tr><th>Field</th><th>Values</th><th>Default</th><th>What it does</th></tr>
+        <tr><td data-label="Field">Motion detection</td><td data-label="Values">on · off</td><td data-label="Default">off</td><td data-label="What it does">Master switch for the detector.</td></tr>
+        <tr><td data-label="Field">Sensitivity</td><td data-label="Values">1 to 100</td><td data-label="Default">—</td><td data-label="What it does">How much change counts as movement. High values trigger on noise.</td></tr>
+        <tr><td data-label="Field">Confirm frames</td><td data-label="Values">1 to 20</td><td data-label="Default">—</td><td data-label="What it does">How many consecutive frames must show change before it triggers.</td></tr>
+        <tr><td data-label="Field">Stop frames</td><td data-label="Values">2 to 30</td><td data-label="Default">—</td><td data-label="What it does">How many quiet frames end the recording.</td></tr>
+        <tr><td data-label="Field">Post-record</td><td data-label="Values">0 to 30 s</td><td data-label="Default">—</td><td data-label="What it does">Keeps recording after the movement stops.</td></tr>
+        <tr><td data-label="Field">Cooldown</td><td data-label="Values">0 to 120 s, 0 = off</td><td data-label="Default">off</td><td data-label="What it does">Quiet period after a trigger, so one event does not become ten files.</td></tr>
+      </table>
+      <h2 id="tabs">5. The tabs</h2>
+      <table class="opts">
+        <tr><th>Tab</th><th>Shows</th></tr>
+        <tr><td data-label="Tab">Cam</td><td data-label="Shows">Live view, frame size, quality, rate, gain, white balance.</td></tr>
+        <tr><td data-label="Tab">Pic</td><td data-label="Shows">Brightness, contrast, saturation, exposure and the sensor switches.</td></tr>
+        <tr><td data-label="Tab">Rec</td><td data-label="Shows">DashCam, timelapse, boot mode, codec and bitrate.</td></tr>
+        <tr><td data-label="Tab">Vis (P4 only)</td><td data-label="Shows">Vision mode, threshold and the burst plan.</td></tr>
+        <tr><td data-label="Tab">Mot</td><td data-label="Shows">The motion detector and its action.</td></tr>
+      </table>
+      <h2 id="trouble">6. If it does not work</h2>
+      <table class="opts">
+        <tr><th>Symptom</th><th>Check</th></tr>
+        <tr><td data-label="Symptom">Stream stutters</td><td data-label="Check">Lower the frame size or the frame rate; two viewers at 1080p is already the limit.</td></tr>
+        <tr><td data-label="Symptom">Recording stops after a while</td><td data-label="Check">The SD card: check free space and speed. Video is staged until NTP sets the clock, so an unset clock means no dated folders.</td></tr>
+        <tr><td data-label="Symptom">Motion never triggers</td><td data-label="Check">Sensitivity too low or the region of interest excludes the movement; confirm frames too high for the actual movement.</td></tr>
+        <tr><td data-label="Symptom">Image washed out at night</td><td data-label="Check">White balance fixed to a daylight preset, or manual exposure left engaged.</td></tr>
+        <tr><td data-label="Symptom">OTA refused</td><td data-label="Check">The image must match the chip and be signed. Flash over USB once.</td></tr>
+      </table>
+
+    </div>
+
+    <aside class="aside">
+      <div class="dl">
+        <h2>Cam-M</h2>
+        <p class="ver">ESP32-S3 N16R8, firmware v1.120</p>
+        <a class="btn" href="../cam-m.html">Back to the pack</a>
+        <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=cam-s3" style="margin-top:8px">Download</a>
+        <p class="note">Wiring, screenshots and install steps are on the pack page.</p>
+        <p class="note" style="margin-top:12px"><a href="../../common/reference.html"><b>Shared pages →</b></a><br>Status, files, monitor, network, access, email and OTA are the same on every pack.</p>
+      </div>
+
+      <ul class="toc">
+        <li><a href="#capture">1. Capture</a></li>
+        <li><a href="#picture">2. Picture</a></li>
+        <li><a href="#recording">3. Recording</a></li>
+        <li><a href="#motion">4. Motion</a></li>
+        <li><a href="#tabs">5. The tabs</a></li>
+        <li><a href="#trouble">6. If it does not work</a></li>
+
+      </ul>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party · LGPL compliance bundle with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+
+</div>
+</body>
+</html>
