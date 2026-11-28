@@ -104,7 +104,7 @@ test('TDK samples become chart series with V, A and P', function () {
   is(pts.v[0], 600.12, 'voltage rounded');
   is(pts.i[0], 1.283, 'current rounded');
   ok(Math.abs(pts.p[0] - 770.2) < 1.0, 'power = V x A: ' + pts.p[0]);
-  is(pts.timestamps[0], now - 120000, 'age -> epoch');
+  is(pts.timestamps[0], Math.floor((now - 120000) / 1000), 'age -> epoch seconds');
   ok(/^\d\d:\d\d$/.test(pts.labels[0]), 'HH:MM label: ' + pts.labels[0]);
   is(w.tdkChartPoints([], now).v.length, 0, 'empty input');
   is(w.tdkChartPoints([[1, 'x', 2]], now).v.length, 0, 'non-numeric skipped');

@@ -2567,7 +2567,9 @@ function tdkChartPoints(samples,nowMs){
     if(!isFinite(vv)||!isFinite(ii))continue;
     var t=nowMs-age*1000,d=new Date(t);
     labels.push(('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2));
-    ts.push(t); v.push(+vv.toFixed(2)); i.push(+ii.toFixed(3)); p.push(+(vv*ii).toFixed(1));
+    // The page's timestamps are epoch SECONDS (fmtTs multiplies by 1000).
+    ts.push(Math.floor(t/1000));
+    v.push(+vv.toFixed(2)); i.push(+ii.toFixed(3)); p.push(+(vv*ii).toFixed(1));
   }
   return {labels:labels,timestamps:ts,v:v,i:i,p:p};
 }
@@ -2586,8 +2588,8 @@ function tdkAutoConfigure(){
   var style=document.getElementById('chartStyle'); if(style)style.value='dual';
   var set=function(id,key){var el=document.getElementById(id);if(el)el.value=key;};
   set('chart1Type','tdk_v'); set('chart1Type2','tdk_i');
-  set('chart2Type','tdk_p');
-  set('chart3Type','tdk_i');
+  set('chart2Type','tdk_p'); set('chart2Type2','tdk_i');
+  set('chart3Type','tdk_i'); set('chart3Type2','tdk_v');
   // Titles follow the source (rerender() does not relabel them itself).
   var titles=[['ct1','⚡ Voltage & Current (TDK)','Voltage on the left axis, current on the right, from the TDK-Lambda module'],
               ['ct2','⚡ Power (TDK)','Voltage x current, computed by the page from the module ring'],
