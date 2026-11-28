@@ -330,6 +330,34 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
   color: var(--ink-3);
 }
 
+/* callout: a bordered note that belongs to the page, no side bar */
+.callout {
+  margin: 30px 0 0;
+  padding: 18px 20px;
+  border: 1px solid var(--frame);
+  border-radius: var(--radius-card);
+  background: var(--paper-2);
+}
+.callout h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 640;
+  letter-spacing: -.01em;
+  color: var(--ink);
+}
+.callout p { margin: 0 0 14px; color: var(--ink-2); max-width: 58ch; }
+.callout b { color: var(--ink); font-weight: 640; }
+.callout table { width: 100%; border-collapse: collapse; font: 400 .8rem/1.5 var(--mono); }
+.callout th {
+  text-align: left;
+  padding: 0 12px 6px 0;
+  color: var(--ink-3);
+  font: 400 .78rem/1.4 var(--sans);
+  border-bottom: 1px solid var(--rule);
+}
+.callout td { padding: 6px 12px 6px 0; color: var(--ink); border-bottom: 1px dotted var(--rule-soft); }
+.callout tr:last-child td { border-bottom: 0; }
+
 /* every screenshot opens its full-size file in the browser */
 a.zoom { display: block; cursor: zoom-in; }
 a.zoom:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }

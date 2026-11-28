@@ -53,6 +53,20 @@
         <li>On the RAMBOX page choose the timing module and wire the DB9 as below.</li>
       </ol>
 
+      <div class="callout">
+        <h3>DB9: pin 9 must be jumpered to pin 5</h3>
+        <p>Without that jumper inside the connector the Unikon clock never answers — it is the first thing to check when the page shows no data.</p>
+        <table>
+          <tr><th>ESP32-S3</th><th>MAX3232</th><th>DB9 (Unikon)</th></tr>
+          <tr><td>GPIO16, UART2 RX</td><td>R1OUT</td><td>—</td></tr>
+          <tr><td>GPIO17, UART2 TX</td><td>T1IN</td><td>—</td></tr>
+          <tr><td>—</td><td>T1OUT</td><td>pin 2, TX</td></tr>
+          <tr><td>—</td><td>R1IN</td><td>pin 3, RX</td></tr>
+          <tr><td>GND</td><td>GND</td><td>pin 5, GND</td></tr>
+          <tr><td>—</td><td>—</td><td>pin 9 jumpered to pin 5</td></tr>
+        </table>
+      </div>
+
       <figure class="shot">
         <a class="zoom" href="../assets/img/rambox32/email.png" target="_blank" rel="noopener" title="Rambox32 email settings with SMTP server, recipient and test button (opens full size)"><img src="../assets/img/rambox32/email.png" alt="Rambox32 email settings with SMTP server, recipient and test button" loading="lazy"></a>
         <figcaption>Email settings: SMTP account, recipients and a test send.</figcaption>
@@ -62,7 +76,7 @@
       <ul>
         <li><b>Board</b> — ESP32-S3 N16R8.</li>
         <li><b>RS232</b> — MAX3232 transceiver on UART2 (GPIO16 RX, GPIO17 TX), 9600 8N1.</li>
-        <li><b>DB9</b> — pin 9 to pin 5 must be jumpered or the clock stays silent.</li>
+        <li><b>DB9</b> — the Unikon cable, with the jumper described above.</li>
         <li><b>Optional</b> — SSD1306 OLED for local status.</li>
       </ul>
 
