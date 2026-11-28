@@ -302,11 +302,11 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
 .spectable dd { margin: 0; }
 
 .shot { margin: 40px 0 0; }
-.strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 34px 0 0; align-items: start; }
-.strip img, .pair img { width: 100%; height: auto; border: 1px solid var(--rule); background: #0d100f; }
-/* phone screenshots: cap the height so a long page reads as a device card, not a column */
-.strip img { aspect-ratio: 9 / 17; object-fit: cover; object-position: top; max-height: 420px; }
-.strip figcaption, .pair figcaption { margin-top: 8px; font: 400 .74rem/1.45 var(--mono); color: var(--ink-3); }
+.strip { display: grid; grid-template-columns: repeat(3, 132px); gap: 14px; margin: 26px 0 0; align-items: start; }
+.pair img { width: 100%; height: auto; border: 1px solid var(--rule); background: #0d100f; }
+/* phone screenshots: small device cards, side by side */
+.strip img { width: 132px; height: 234px; object-fit: cover; object-position: top; border: 1px solid var(--rule); background: #0d100f; }
+.strip figcaption, .pair figcaption { margin-top: 6px; font: 400 .7rem/1.4 var(--mono); color: var(--ink-3); }
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin: 34px 0 0; align-items: start; }
 .shot img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); background: #0d100f; }
 .shot figcaption { margin-top: 10px; font: 400 .78rem/1.5 var(--mono); color: var(--ink-3); }
@@ -358,6 +358,7 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
   .actions { grid-column: 1; grid-row: auto; flex-direction: row; margin-top: 14px; min-width: 0; }
   .actions .btn { flex: 1; justify-content: center; }
   .spectable div { grid-template-columns: 84px 1fr; }
-  .strip { grid-template-columns: 1fr 1fr; }
+  .strip { grid-template-columns: repeat(3, 1fr); }
+  .strip img { width: 100%; height: auto; aspect-ratio: 9 / 16; }
   .pair { grid-template-columns: 1fr; }
 }
