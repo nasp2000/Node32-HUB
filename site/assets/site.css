@@ -337,13 +337,21 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
 .shot img, .pair img, .strip img {
   display: block;
   width: 100%;
-  height: auto;
   border-radius: var(--radius-img);
+  background: #0d100f;
+}
+/* one ratio for every landscape shot: nothing can dominate the page */
+.shot img, .pair img {
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  object-position: top center;
+  max-height: 400px;
 }
 
 .strip img {
   aspect-ratio: 9 / 16;
   max-height: 280px;
+  height: auto;
   object-fit: cover;
   object-position: top;
 }
