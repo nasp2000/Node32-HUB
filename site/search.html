@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search — Node32-HUB</title>
+<meta name="description" content="Search every setting of every Node32-HUB pack: field, value, section.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="sheet">
+
+  <header class="masthead">
+    <a class="wordmark" href="./">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="./#packs">Packs</a>
+      <a href="install.html">Flash</a>
+      <a href="releases.html">Releases</a>
+      <a href="search.html" aria-current="page">Search</a>
+    </nav>
+  </header>
+
+  <section class="product-head">
+    <h1>Search</h1>
+    <p>Every field of every pack, in one place — the reference tables indexed. Try <code>debounce</code>, <code>baud</code>, <code>OEE</code> or <code>white balance</code>.</p>
+  </section>
+
+  <div class="product-body" id="main">
+    <div>
+      <label class="srch">
+        <span class="srch__label">What are you looking for?</span>
+        <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="field, value or section…" autofocus>
+      </label>
+
+      <p id="hint" class="srch__hint">Type at least two letters. Results link straight to the row.</p>
+
+      <ul id="out" class="results"></ul>
+    </div>
+
+    <aside class="aside">
+      <div class="dl">
+        <h2>Reference pages</h2>
+        <p class="ver">one per pack</p>
+        <a class="btn" href="packs/cam-m/reference.html">Cam-M</a>
+        <a class="btn btn--ghost" href="packs/rambox32/reference.html" style="margin-top:8px">Rambox32</a>
+        <a class="btn btn--ghost" href="packs/harmonica/reference.html" style="margin-top:8px">Harmonica Box</a>
+        <a class="btn btn--ghost" href="packs/gcodesender/reference.html" style="margin-top:8px">GcodeSender</a>
+        <a class="btn btn--ghost" href="packs/node32-oee/reference.html" style="margin-top:8px">Node32-OEE</a>
+        <a class="btn btn--ghost" href="common/reference.html" style="margin-top:8px">Shared pages</a>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party · LGPL compliance bundle with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  var input = document.getElementById('q');
+  var out = document.getElementById('out');
+  var hint = document.getElementById('hint');
+  var index = [];
+
+  fetch('search-index.json', { cache: 'no-store' })
+    .then(function (r) { return r.json(); })
+    .then(function (data) { index = data; })
+    .catch(function () { hint.textContent = 'The index could not be loaded.'; });
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  function render(term) {
+    out.innerHTML = '';
+    if (term.length < 2) {
+      hint.textContent = 'Type at least two letters. Results link straight to the row.';
+      return;
+    }
+    var hits = index.filter(function (e) {
+      return (e.pack + ' ' + e.section + ' ' + e.field + ' ' + e.values).toLowerCase().indexOf(term) !== -1;
+    }).slice(0, 40);
+
+    hint.textContent = hits.length ? hits.length + ' result' + (hits.length === 1 ? '' : 's') : 'Nothing matches that.';
+
+    hits.forEach(function (e) {
+      var li = document.createElement('li');
+      li.className = 'result';
+      li.innerHTML = '<a href="' + e.url + '">' +
+        '<span class="result__field">' + esc(e.field) + '</span>' +
+        '<span class="result__meta">' + esc(e.pack) + ' · ' + esc(e.section) + '</span>' +
+        '<span class="result__values">' + esc(e.values) + '</span>' +
+        '</a>';
+      out.appendChild(li);
+    });
+  }
+
+  input.addEventListener('input', function () { render(this.value.trim().toLowerCase()); });
+
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      input.focus();
+      input.select();
+    }
+  });
+})();
+</script>
+</body>
+</html>

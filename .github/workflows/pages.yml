@@ -1,14 +1,18 @@
 name: Site
 
-# Publishes site/ to the gh-pages branch (GitHub Pages serves that branch).
-# No build step: the pages are static HTML/CSS.
+# Builds site/ into a publishable tree (versions from the releases, releases page,
+# search index, sitemap, WebP) and pushes it to the gh-pages branch, which is what
+# GitHub Pages serves.
 
 on:
   push:
     branches: [main]
     paths:
       - "site/**"
+      - ".github/release_targets.json"
       - ".github/workflows/pages.yml"
+  release:
+    types: [published, edited, deleted]
   workflow_dispatch:
 
 permissions:
@@ -23,12 +27,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Publish site/ to gh-pages
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Build the site
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python site/scripts/build_site.py --out _site
+
+      - name: Publish to gh-pages
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd site
+          cd _site
           git init -q -b gh-pages
           git add -A
           git -c user.name="github-actions" -c user.email="actions@github.com" \

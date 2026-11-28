@@ -545,3 +545,45 @@ a.zoom:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .strip img { width: 100%; height: auto; aspect-ratio: 9 / 16; }
   .pair { grid-template-columns: 1fr; }
 }
+
+/* ---------- search ---------- */
+
+.srch { display: block; margin: 0 0 10px; }
+.srch__label { display: block; font-size: .9rem; color: var(--ink-3); margin-bottom: 8px; }
+.srch input {
+  width: 100%;
+  padding: 13px 15px;
+  border: 1px solid var(--frame);
+  border-radius: var(--radius-card);
+  background: var(--paper-2);
+  color: var(--ink);
+  font: 400 1.05rem/1.3 var(--sans);
+}
+.srch input::placeholder { color: var(--ink-3); }
+.srch__hint { color: var(--ink-3); font-size: .88rem; margin: 0 0 22px; }
+
+.results { list-style: none; margin: 0; padding: 0; }
+.result { border-top: 1px solid var(--rule); }
+.result:last-child { border-bottom: 1px solid var(--rule); }
+.result a { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 2px 16px; padding: 13px 0; text-decoration: none; }
+.result__field { color: var(--ink); font-weight: 620; }
+.result__meta { color: var(--ink-3); font-size: .84rem; grid-column: 2; text-align: right; }
+.result__values { color: var(--ink-2); font: 400 .84rem/1.45 var(--mono); grid-column: 1 / -1; overflow-wrap: anywhere; }
+.result a:hover .result__field { color: var(--accent); text-decoration: underline; }
+
+/* ---------- print: the reference pages end up on a bench ---------- */
+
+@media print {
+  :root { --paper: #fff; --ink: #111; --ink-2: #333; --ink-3: #555; --rule: #bbb; --rule-soft: #ddd; --frame: #999; --paper-2: #f4f4f4; }
+  html, body { background: #fff !important; }
+  body { font-size: 10.5pt; }
+  .masthead nav, .refstrip, .actions, .aside .dl, .foot, .skip, a.zoom { display: none !important; }
+  .sheet { max-width: none; padding: 0; }
+  .product-body { display: block; }
+  .aside { position: static; }
+  .toc { display: none; }
+  .opts th { display: table-cell !important; }
+  .opts tr { break-inside: avoid; }
+  table { page-break-inside: auto; }
+  a { color: #111; text-decoration: none; }
+}
