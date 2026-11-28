@@ -19,10 +19,11 @@
 
 * { box-sizing: border-box; }
 
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; overflow-x: clip; }
 
 body {
   margin: 0;
+  overflow-x: clip;
   background:
     radial-gradient(circle at 1px 1px, rgba(238, 241, 236, .085) 1px, transparent 0) 0 0 / 24px 24px,
     var(--paper);
@@ -80,9 +81,7 @@ a:not(.btn):hover { color: var(--accent); }
 .masthead nav {
   display: flex;
   gap: 22px;
-  font: 500 .82rem/1 var(--mono);
-  text-transform: uppercase;
-  letter-spacing: .06em;
+  font: 500 .92rem/1 var(--sans);
 }
 .masthead nav a { color: var(--ink-2); text-decoration: none; }
 .masthead nav a:hover { color: var(--accent); }
@@ -120,12 +119,9 @@ a:not(.btn):hover { color: var(--accent); }
 .rail { align-self: start; position: sticky; top: 28px; }
 .rail h2 {
   margin: 0 0 14px;
-  font-size: .78rem;
-  font-weight: 600;
-  font-family: var(--mono);
-  letter-spacing: .09em;
-  text-transform: uppercase;
-  color: var(--ink-3);
+  font-size: .95rem;
+  font-weight: 620;
+  color: var(--ink-2);
 }
 .rail ol { margin: 0 0 30px; padding: 0; list-style: none; counter-reset: pick; }
 .rail li {
@@ -151,7 +147,7 @@ a:not(.btn):hover { color: var(--accent); }
   border-bottom: 1px dotted var(--rule-soft);
   font-size: .88rem;
 }
-.facts dt { color: var(--ink-3); font-family: var(--mono); font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; padding-top: 3px; }
+.facts dt { color: var(--ink-3); font-size: .82rem; padding-top: 2px; }
 .facts dd { margin: 0; color: var(--ink); text-align: right; }
 
 /* ---------- pack rows ---------- */
@@ -228,9 +224,7 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
 .back {
   display: inline-block;
   margin: 40px 0 28px;
-  font: 500 .8rem/1 var(--mono);
-  letter-spacing: .07em;
-  text-transform: uppercase;
+  font: 500 .9rem/1 var(--sans);
   text-decoration: none;
   color: var(--ink-3);
 }
@@ -254,12 +248,10 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
 }
 .product-body h2 {
   margin: 44px 0 14px;
-  font-size: 1.02rem;
-  font-family: var(--mono);
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  font-weight: 600;
-  color: var(--ink-3);
+  font-size: 1.15rem;
+  font-weight: 640;
+  letter-spacing: -.01em;
+  color: var(--ink);
 }
 .product-body h2:first-child { margin-top: 0; }
 
@@ -294,20 +286,18 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
   font-size: .9rem;
 }
 .spectable dt {
-  font: 400 .72rem/1.6 var(--mono);
-  text-transform: uppercase;
-  letter-spacing: .06em;
+  font: 400 .8rem/1.7 var(--sans);
   color: var(--ink-3);
 }
 .spectable dd { margin: 0; }
 
-.shot { margin: 40px 0 0; }
-.strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 24px 0 0; align-items: start; }
+.shot { margin: 34px 0 0; max-width: 560px; }
+.strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 24px 0 0; align-items: start; }
 .pair img { width: 100%; height: auto; border: 1px solid var(--rule); background: #0d100f; }
 /* phone screenshots: small device cards, side by side */
-.strip img { width: 100%; height: auto; aspect-ratio: 9 / 16; object-fit: cover; object-position: top; border: 1px solid var(--rule); background: #0d100f; }
+.strip img { width: 100%; aspect-ratio: 9 / 16; max-height: 280px; object-fit: cover; object-position: top; border: 1px solid var(--rule); background: #0d100f; }
 .strip figcaption, .pair figcaption { margin-top: 7px; font: 400 .72rem/1.4 var(--mono); color: var(--ink-3); }
-.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 30px 0 0; align-items: start; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 30px 0 0; align-items: start; }
 /* the browser's default figure margin (1em 40px) was shrinking every cell */
 .strip figure, .pair figure { margin: 0; }
 .shot img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); background: #0d100f; }

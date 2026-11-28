@@ -39,7 +39,7 @@
         <li><code>LICENSE</code>, <code>SBOM.md</code>, <code>THIRD_PARTY_NOTICES</code> — licence material that travels with the binary.</li>
       </ul>
 
-      <h2>1 · Browser, over USB (recommended for the first flash)</h2>
+      <h2>1, Browser, over USB (recommended for the first flash)</h2>
       <ol>
         <li>Open the <a href="https://github.com/nasp2000/webflasher_Node32-HUB">Node32-HUB WebFlasher</a> and start it (<code>start-dual.bat</code> on Windows, or serve the page on port 8765).</li>
         <li>Connect the board with a USB cable and click <b>Connect</b> — Chrome or Edge, the chip is detected automatically.</li>
@@ -48,7 +48,7 @@
         <li>Flash and watch the serial monitor; it prints the boot log and the address the board took.</li>
       </ol>
 
-      <h2>2 · Terminal, over USB (esptool)</h2>
+      <h2>2, Terminal, over USB (esptool)</h2>
       <ol>
         <li>Install <code>esptool</code>: <code>pip install esptool</code>.</li>
         <li>Unzip the release and open <code>flash_command.txt</code> — it holds the command for that exact build.</li>
@@ -56,7 +56,7 @@
         <li>If the port is busy, close the WebFlasher or the serial monitor first.</li>
       </ol>
 
-      <h2>3 · OTA, on a board already running</h2>
+      <h2>3, OTA, on a board already running</h2>
       <ol>
         <li>Open <code>http://&lt;device-ip&gt;/ota</code> (or the mDNS name, e.g. <code>cam-m.local</code>).</li>
         <li>Upload <code>firmware.bin</code> and let it reboot.</li>
@@ -75,8 +75,8 @@
     <aside class="aside">
       <div class="dl">
         <h2>WebFlasher</h2>
-        <p class="ver">browser · WebSerial · no Python</p>
-        <a class="btn" href="https://github.com/nasp2000/webflasher_Node32-HUB">Open the repository <i>↗</i></a>
+        <p class="ver">browser, WebSerial, no Python</p>
+        <a class="btn" href="https://github.com/nasp2000/webflasher_Node32-HUB">Open the repository</a>
         <p class="note">Chrome or Edge, USB cable. Use it for the first flash; after that prefer OTA from the board's own page.</p>
       </div>
 
@@ -91,7 +91,7 @@
   </div>
 
   <footer class="foot">
-    <span>MIT first-party · LGPL compliance bundle with every release</span>
+    <span>MIT first-party, LGPL compliance bundle with every release</span>
     <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
   </footer>
 
