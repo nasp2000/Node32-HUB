@@ -607,7 +607,6 @@ static bool handleEmailDay(const String& cmdLine, const String& upperCmd) {
                 snprintf(_sl, sizeof(_sl), "/sensor_history/%04d-%02d-%02d", yy, mo, dd);
                 extern SensorConfigManager sensorConfigManager;
                 sensorConfigManager.getHistory().periodicFlushToSD(sensorConfigManager.getConfig());
-                extern std::vector<String> storageListFiles(const String&);
                 if (!storageListFiles(String(_sl)).empty()) {
                     extern void emailDayQueueSource(const String&, const String&, const String&);
                     emailDayQueueSource(String(_sl), subject, body);
