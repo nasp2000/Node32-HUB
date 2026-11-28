@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Node32-OEE — Node32-HUB</title>
+<meta name="description" content="Node32-OEE firmware for the Waveshare 8DI8DO: production counting, OEE A×P×Q, shifts, CSV history and email reports over Ethernet.">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="sheet">
+
+  <header class="masthead">
+    <a class="wordmark" href="../">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="../#packs">Packs</a>
+      <a href="https://github.com/nasp2000/Node32-HUB">Source</a>
+      <a href="https://github.com/nasp2000/Node32-HUB/releases">Releases</a>
+    </nav>
+  </header>
+
+  <a class="back" href="../">← All packs</a>
+
+  <section class="product-head">
+    <h1>Node32-OEE</h1>
+    <p>Production counting on an industrial board: eight inputs watch the machines, the page turns that into OEE, and the shift report leaves by email without a server in the middle.</p>
+  </section>
+
+  <div class="product-body" id="main">
+    <div>
+
+      <h2>What it does</h2>
+      <ul>
+        <li><b>Eight monitored inputs</b> — inductive proximity sensors on the 8DI8DO, per-channel debounce, counts kept across reboots.</li>
+        <li><b>OEE A×P×Q</b> — availability, performance and quality computed from the shift window, not from a spreadsheet.</li>
+        <li><b>Shifts</b> — day-aligned or custom windows, with per-shift targets and a goal-vs-actual dashboard.</li>
+        <li><b>Inactivity alerts</b> — email when a machine stops producing for longer than the configured time.</li>
+        <li><b>CSV history</b> — daily files on SD, served from the page; the same data goes into the email report.</li>
+        <li><b>Ethernet</b> — wired PoE, no Wi-Fi, no mDNS; the board sits in the cabinet with the machine.</li>
+      </ul>
+
+      <h2>Install</h2>
+      <ol>
+        <li>Flash <code>firmware.bin</code> over USB, or update an existing unit at <code>/ota</code>.</li>
+        <li>Plug the Ethernet cable; the board takes a DHCP lease (or set a static address).</li>
+        <li>Open the IP shown on the serial monitor, log in as <code>root</code> / <code>root</code> and change both passwords.</li>
+        <li>Configure the sensors, the shift window and SMTP on the Proximity and Email pages.</li>
+      </ol>
+
+      <h2>Hardware</h2>
+      <ul>
+        <li><b>Board</b> — Waveshare ESP32-S3 8DI8DO (PoE). Other boards are locked out at compile time.</li>
+        <li><b>Inputs</b> — 8 isolated digital inputs for proximity sensors or dry contacts.</li>
+        <li><b>Outputs</b> — 8 relays, driven from the same page.</li>
+        <li><b>Storage</b> — microSD for the CSV history and the daily files.</li>
+      </ul>
+
+      <figure class="shot">
+        <img src="../assets/img/node32-oee.png" alt="The Node32-OEE dashboard with shift OEE, availability, performance, quality and machine counts" loading="lazy">
+        <figcaption>Dashboard: OEE A×P×Q for the current shift, per-machine counts and the goal.</figcaption>
+      </figure>
+
+    </div>
+
+    <aside class="aside">
+      <div class="dl">
+        <h2>Download v1.120</h2>
+        <p class="ver">ESP32-S3 8DI8DO · OTA-signed</p>
+        <a class="btn" href="https://github.com/nasp2000/Node32-HUB/releases?q=oee">Firmware + flash files <i>↓</i></a>
+        <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=oee" style="margin-top:8px">Compliance bundle</a>
+        <p class="note">The board runs on Ethernet only; OTA is reachable on the wired address.</p>
+      </div>
+
+      <dl class="spectable">
+        <div><dt>Board</dt><dd>Waveshare 8DI8DO</dd></div>
+        <div><dt>Network</dt><dd>Ethernet · PoE</dd></div>
+        <div><dt>Inputs</dt><dd>8 digital</dd></div>
+        <div><dt>Outputs</dt><dd>8 relays</dd></div>
+        <div><dt>Metric</dt><dd>OEE A×P×Q</dd></div>
+        <div><dt>History</dt><dd>CSV on SD</dd></div>
+      </dl>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party · LGPL compliance bundle with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -39,10 +39,10 @@ plus a separate `_third-party.zip` with the LGPL sources and relinkable objects.
 | Pack | Board | What it does | Download |
 |---|---|---|---|
 | [**Cam-M**](https://nasp2000.github.io/Node32-HUB/packs/cam-m.html) | ESP32-S3 N16R8 | Camera companion (MJPEG stream, snapshots, AVI/motion). | [releases](https://github.com/nasp2000/Node32-HUB/releases?q=cam-s3) |
-| [**Rambox32**](https://nasp2000.github.io/Node32-HUB/packs/rambox32.html) | ESP32-S3 N16R8 | Pigeon-racing timing terminal (RS232/Unikon, email alerts, OLED). | [releases](https://github.com/nasp2000/Node32-HUB/releases?q=rambox) |
+| [**Rambox32**](https://nasp2000.github.io/Node32-HUB/packs/rambox32.html) | ESP32-S3 N16R8 | Pigeon-racing timing terminal (RS232: Unikon + Bricon, email alerts, OLED). | [releases](https://github.com/nasp2000/Node32-HUB/releases?q=rambox) |
 | [**Harmonica Box**](https://nasp2000.github.io/Node32-HUB/packs/harmonica.html) | ESP32-S3 N16R8 | Internet radio and music streaming (I2S, UPnP, alarm clock). | [releases](https://github.com/nasp2000/Node32-HUB/releases?q=radio) |
 | [**GcodeSender**](https://nasp2000.github.io/Node32-HUB/packs/gcodesender.html) | ESP32-P4 | G-code sender (USB Host + heatmap, web UI, SD/PSRAM). | [releases](https://github.com/nasp2000/Node32-HUB/releases?q=p4cnc) |
-| **Node32-OEE** | ESP32-S3 N16R8 | Production counting & OEE terminal (8DI8DO, shifts + CSV, A×P×Q, email). | [Node32-OEE](https://github.com/nasp2000/Node32-OEE) (published by hand) |
+| [**Node32-OEE**](https://nasp2000.github.io/Node32-HUB/packs/node32-oee.html) | ESP32-S3 8DI8DO | Production counting & OEE terminal (8DI8DO, shifts + CSV, A×P×Q, email). | [releases](https://github.com/nasp2000/Node32-HUB/releases?q=oee) |
 
 Each build folder contains `firmware.bin` (OTA-signed), `bootloader.bin`, `partitions.bin`,
 `flash_command.txt` and the licence notices; flash over USB (WebFlasher/esptool) or upload

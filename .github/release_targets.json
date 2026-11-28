@@ -1,5 +1,5 @@
 {
-  "_comment": "Release targets: variant -> repo. Since v1.120 every pack is published as its own release in THIS repo (nasp2000/Node32-HUB), one release per variant and version, so the tag carries the pack: vX.YYY-<slug>. Only variants listed in .github/workflows/release.yml -> inputs.variant.options can be dispatched. Deliberately NOT release targets: Node32-OEE (pack WAVESHARE, published by hand) and S3 Touch7 (pack S3_TOUCH7, still too vanilla).",
+  "_comment": "Release targets: variant -> repo. Every pack is published as its own release in THIS repo (nasp2000/Node32-HUB), tag vX.YYY-<slug>. Only variants listed in .github/workflows/release.yml -> inputs.variant.options can be dispatched. Not release targets: S3 Touch7 (pack S3_TOUCH7, still too vanilla).",
   "variants": {
     "CAM_S3": {
       "repo": "nasp2000/Node32-HUB",
@@ -165,6 +165,37 @@
         "PAGES/grbl_controller.md"
       ],
       "slug": "s3cnc"
+    },
+    "OEE": {
+      "repo": "nasp2000/Node32-HUB",
+      "product": "Node32-OEE",
+      "variant": "ESP32-S3 8DI8DO",
+      "env": "waveshare_8di8do",
+      "pack": "WAVESHARE",
+      "slug": "oee",
+      "flags": "-DSELECTED_PACK=PACK_WAVESHARE",
+      "tag_suffix": "-oee",
+      "title_suffix": "",
+      "scopes": [
+        "oee",
+        "proximity",
+        "shifts",
+        "production",
+        "waveshare",
+        "8di8do",
+        "inactivity"
+      ],
+      "paths": [
+        "chatgpt/packs/pack_waveshare.h",
+        "chatgpt/src/sensors/proximity_*",
+        "chatgpt/src/chatgpt/src/oee*",
+        "chatgpt/src/oee_*",
+        "chatgpt/src/webpages/**/*proximity*",
+        "chatgpt/src/webpages/**/*oee*",
+        "PAGES/proximity_dashboard.md",
+        "PAGES/proximity_sensors.md",
+        "PAGES/inactivity_alerts.md"
+      ]
     }
   }
 }

@@ -51,7 +51,7 @@ account, no app.
 ## Capabilities and Constraints
 
 - Five packs have prebuilt releases (Cam-M S3, Rambox32, Harmonica Box,
-  GcodeSender P4). Others exist in the repository without a public build.
+  GcodeSender P4, Node32-OEE). Others exist in the repository without a public build.
 - Two variants of one product can share a repository and differ only by board
   (Cam-M: ESP32-S3 now, ESP32-P4 later; GcodeSender: P4 and S3).
 - One global firmware version; each pack gets its own release tag
