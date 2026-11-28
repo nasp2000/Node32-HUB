@@ -79,6 +79,7 @@ body{font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Noto Sans','Ubuntu',
   box-shadow:0 4px 32px rgba(59,130,246,.35),0 2px 10px rgba(0,0,0,.5);
 }
 .banner::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#1e40af,#3b82f6,#93c5fd,#3b82f6,#1e40af);background-size:200% 100%;animation:bannerShine 3s linear infinite}
+.no-sources{margin:12px 0;padding:12px 14px;border:2px solid var(--banner-border);border-left:4px solid #f59e0b;border-radius:8px;background:var(--banner-bg);color:var(--txt);font-size:13px;line-height:1.5}
 @keyframes bannerShine{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .banner h1{font-size:clamp(17px,3.5vw,26px);font-weight:800;color:var(--txt);letter-spacing:1px;text-shadow:0 2px 12px rgba(59,130,246,.5)}
 .banner p{font-size:clamp(10px,1.4vw,12px);color:var(--acc);margin-top:4px;font-weight:600;letter-spacing:.4px;opacity:.9}
@@ -361,6 +362,12 @@ canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
 <div class='banner'>
   <h1>📊 Monitoring Charts</h1>
   <p data-i18n='sensorChartsTitle'>Page with local processing</p>
+</div>
+
+<!-- Shown when this firmware has no chartable source at all (see chartNoSourcesNeeded) -->
+<div id='chartNoSources' class='no-sources' style='display:none'>
+  <b data-i18n='chartNoSourcesTitle'>No chart sources on this device</b>
+  <div id='chartNoSourcesMsg' style='margin-top:4px'></div>
 </div>
 
 <!-- ===== CONTROL BAR (2 rows) ===== -->
@@ -2535,6 +2542,20 @@ function hideStsLoading(){
 }
 
 // ===== RERENDER (no fetch) =====
+function chartNoSourcesNeeded(caps,rs232Cols){
+  if(!caps)return false;
+  var hasSensors=!!(caps.sensors||caps.aht20||caps.mq135);
+  var hasOther=!!(caps.modbus||caps.proximity);
+  var hasRs232=!!(caps.rs232&&rs232Cols>0);
+  return !hasSensors&&!hasOther&&!hasRs232;
+}
+function showChartNoSources(msg){
+  var box=document.getElementById('chartNoSources');
+  if(!box)return;
+  var m=document.getElementById('chartNoSourcesMsg');
+  if(m&&msg)m.textContent=msg;
+  box.style.display='';
+}
 function rerender(){
   var k1=document.getElementById('chart1Type').value;
   var k2=document.getElementById('chart2Type').value;
@@ -2749,8 +2770,19 @@ document.getElementById('proxDailyFile').addEventListener('change',function(){
       removeSensorOpts();
       if(caps.rs232){
         fetch('/api/rs232-cols',{cache:'no-store'}).then(function(r2){return r2.json();}).then(function(d){
-          addRS232Opts(d&&d.cols>0?d.cols:8,d&&d.col_names?d.col_names:null);
-        }).catch(function(){addRS232Opts(8,null);});
+          var cols=(d&&d.cols)?d.cols:0;
+          if(cols>0){
+            addRS232Opts(cols,d&&d.col_names?d.col_names:null);
+          }else if(chartNoSourcesNeeded(caps,0)){
+            showChartNoSources('RS232 charting is compiled, but no columns were logged for today. Configure the RS232 chart columns (or SD logging) on /rs232; module pages keep their own trend (e.g. /tdk-lambda).');
+          }
+        }).catch(function(){
+          if(chartNoSourcesNeeded(caps,0)){
+            showChartNoSources('RS232 charting is compiled, but today has no columns logged.');
+          }
+        });
+      }else if(chartNoSourcesNeeded(caps,0)){
+        showChartNoSources('No temperature/humidity sensors are compiled in this firmware, and RS232 charting is off.');
       }
     }
     if(!caps.modbus){

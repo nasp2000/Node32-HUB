@@ -63,7 +63,7 @@ main.page > div.wrap
  │  └ button #btn_send
  └ 📊 RX Buffer Content card
     ├ #rx_buffer_desc  ("Real-time view of received data (last 100 lines)")
-    └ pre #rx_text      (monospace, max-height auto-sized to line count)
+    └ pre #rx_text      (monospace, left-aligned, max-height auto-sized to line count)
 ```
 
 Every visible text is a **`data-i18n` / `data-i18n-html` / `data-i18n-placeholder`**

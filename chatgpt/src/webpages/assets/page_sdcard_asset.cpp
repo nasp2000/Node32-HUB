@@ -1,48 +1,5 @@
 #include "page_sdcard_asset.h"
 
-const char SDCARD_COMMANDS_SECTION[] PROGMEM = R"HTML(
-        <!-- 📦 Section 3: EMAILDAY Commands -->
-        <div style='margin-top:20px;border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a'>
-          <h2 style='margin-top:0;font-size:18px;color:#60a5fa' data-i18n='sdCommandsTitle'>⌨️ Commands:</h2>
-          <div style='margin-bottom:12px;padding:8px 12px;background:#064e3b;border-left:4px solid #10b981;border-radius:4px;font-size:12px;color:#d1fae5' data-i18n='sdCommandsHint'>
-            💡 These commands are for use on the command sending pages, sending the command to the system.
-          </div>
-          <div style='background:#1e3a8a;border-left:4px solid #3b82f6;padding:12px;margin:12px 0;font-size:13px;color:#e0e7ff;border-radius:4px'>
-            <div style='display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap'>
-              <div style='flex:1;min-width:180px'>
-                <strong style='color:#60a5fa'>📧 EMAILDAY</strong> — <span data-i18n='sdCmdEmaildayDesc'>Sends current day files by email</span>
-                <div style='margin-top:4px;color:#cbd5e1;font-size:12px'>Example: <code style='background:#0f172a;padding:2px 6px;border-radius:3px;color:#38bdf8'>emailday</code></div>
-              </div>
-              <div style='flex:1;min-width:180px'>
-                <strong style='color:#60a5fa'>📅 EMAILDAY [date]</strong> — <span data-i18n='sdCmdEmaildayDateDesc'>Sends files from specific date</span>
-                <div style='margin-top:4px;color:#cbd5e1;font-size:12px'>Example: <code style='background:#0f172a;padding:2px 6px;border-radius:3px;color:#38bdf8'>emailday 29-12-2025</code></div>
-              </div>
-            </div>
-            <div style='display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid #2d4a8a'>
-              <div style='flex:1;min-width:180px'>
-                <strong style='color:#a78bfa'>📋 LOGDAY</strong> — <span data-i18n='sdCmdLogdayDesc'>Sends current day log by email</span>
-                <div style='margin-top:4px;color:#cbd5e1;font-size:12px'>Example: <code style='background:#0f172a;padding:2px 6px;border-radius:3px;color:#38bdf8'>logday</code></div>
-              </div>
-              <div style='flex:1;min-width:180px'>
-                <strong style='color:#a78bfa'>📋 LOGDAY [date]</strong> — <span data-i18n='sdCmdLogdayDateDesc'>Sends log from specific date</span>
-                <div style='margin-top:4px;color:#cbd5e1;font-size:12px'>Example: <code style='background:#0f172a;padding:2px 6px;border-radius:3px;color:#38bdf8'>logday 28-02-2026</code></div>
-              </div>
-            </div>
-            <div style='display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px solid #2d4a8a'>
-              <div style='flex:1;min-width:180px'>
-                <strong style='color:#34d399'>🌡️ SENSORDAY</strong> — <span data-i18n='sdCmdSensordayDesc'>Sends today's sensor history by email</span>
-                <div style='margin-top:4px;color:#cbd5e1;font-size:12px'>Example: <code style='background:#0f172a;padding:2px 6px;border-radius:3px;color:#38bdf8'>sensorday</code></div>
-              </div>
-              <div style='flex:1;min-width:180px'>
-                <strong style='color:#34d399'>🌡️ SENSORDAY [date]</strong> — <span data-i18n='sdCmdSensordayDateDesc'>Sends sensor history from specific date</span>
-                <div style='margin-top:4px;color:#cbd5e1;font-size:12px'>Example: <code style='background:#0f172a;padding:2px 6px;border-radius:3px;color:#38bdf8'>sensorday 01-03-2026</code></div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-)HTML";
-
 const char PAGE_SDCARD[] PROGMEM = R"HTML(
 <div class='page sdcard'>
  <div class='wrap'>

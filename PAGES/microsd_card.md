@@ -5,7 +5,8 @@
 > and the firmware storage engine. Written for both humans and AI agents.
 
 > Screenshot: `desktop/sdcard.png` (1440 × 1690, live Waveshare 8DI8DO board — SD mounted
-> with 11.8 MB used, buffer/cleanup selects and the EMAILDAY/LOGDAY/SENSORDAY command hints;
+> with 11.8 MB used and the buffer/cleanup selects (the EMAILDAY/LOGDAY/SENSORDAY
+> examples live on `/recipients`, not here);
 > index and proof in `desktop/README.md`).
 
 ---
@@ -55,16 +56,15 @@ main.page.sdcard > div.wrap
   ├ "🗑️ Auto Cleanup" card (always active — no on/off toggle)
   │  ├ table: #sd_cleanup_threshold | #sd_keep_days
   │  └ note: "cleanup always on: above the limit the oldest goes whatever its age; below the limit only older than keep_days; /config is never deleted"
- ├ "⌨️ Commands" card (`SDCARD_COMMANDS_SECTION`, rendered since SD-3)
- │  ├ hint: the commands are typed on the command-sending pages
- │  └ EMAILDAY / EMAILDAY [date] · LOGDAY / LOGDAY [date] · SENSORDAY / SENSORDAY [date] with examples
  ├ [💾 Save]  (#sd_save)
  ├ #sd_config_msg   (result line under the button)
  └ footer JS: <script src='/auto.js'> + init call
 ```
 
 The body is composed by `streamSdcardPageBody()` (`renderers/sdcard_page_body.h`):
-settings sections → commands card → Save block. A native test renders it and pins
+settings sections → Save block. The day-command card that used to sit in between was
+removed on request (2026-11-28) — its examples are recipient commands and live on
+`/recipients`. A native test renders the body and pins
 the order and the ids auto.js needs (`test_sdcard_page_body.cpp`).
 
 ---
@@ -333,7 +333,7 @@ and `sdGettingStatus` (initial "Getting status..." cell), `sdUnmountConfirm`
 |---|---|---|---|
 | 1 | **Save no longer wipes fields not exposed on this page.** `saveConfig()` now preserves and re-sends `structured`, `email_from_sd`, `max_size_mb`, `emailday_extra_emails` (cached from `GET /api/sdcard-config`), so a save here no longer erases EMAILDAY extra emails or resets those settings. | High | **fixed** (auto.js + client) |
 | 2 | **Dead duplicate `initSdcardPage()`** — shadowed by the auto.js version, undefined helpers, wrong endpoint. **Fixed:** removed with the inline script (5.8 KB); the renderer's footer call still uses the auto.js version, and `test_sdcard_page_body.cpp` asserts no `<script>`/`bindClick`/`apiGet`/`apiPost` remains in the body. | Medium | fixed |
-| 3 | **Commands card never rendered.** `SDCARD_COMMANDS_SECTION` (EMAILDAY/LOGDAY/SENSORDAY help) is defined but not printed by the renderer — users can't see it here. | Medium | open |
+| 3 | **Commands card never rendered.** `SDCARD_COMMANDS_SECTION` (EMAILDAY/LOGDAY/SENSORDAY help) was defined but not printed. It was later rendered, then **removed for good on 2026-11-28**: those are e-mail recipient commands and the examples stay on `/recipients` only. The asset constant and its 8 i18n keys are gone; a native test asserts `/sdcard` no longer carries it. | Medium | **closed (by design)** |
 | 4 | **`#sd_msg` element missing + dead `j.disabled` branch.** **Fixed:** the feedback element is back under the mount/unmount/refresh buttons and `/api/sd-status` carries `disabled` (no SD backend, or data saving off). Proven by `test_sdcard_feedback.js` (mount/unmount feedback lands in `#sd_msg`; `disabled:true` renders "SD disabled") and the native flag/markup cases. | Low | fixed |
 | 5 | **PT runtime fallbacks in auto.js + server fixed.** Runtime fallbacks and server codes/messages are now English (`No SD data`, `Mounted`, `Configuration saved!`, `invalid_flush_interval`, `Config saved`, `Mount started in background`, `Counter reset`). | Low | **fixed** |
 | 6 | **`keep_days` "∞" semantics.** The option is back as default (0 = infinity): no age limit — files stay until usage crosses the threshold, then the oldest goes whatever its age to hold it. With 30/90/180/360, older files also go below threshold. | Medium | **fixed** |

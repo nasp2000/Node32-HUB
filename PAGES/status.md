@@ -15,9 +15,10 @@
 A single-page **read-only system status** dashboard: device identity, chip/heap/PSRAM/NVS/
 flash/SD storage, network (WiFi + Ethernet), RS232, email/recipients, scheduler, and
 "compiled modules" feature flags. Pulls everything from one **`GET /api/status`** payload
-(`fillSystemStatusJson`) and renders it into **three tabs** — *System* (`#col1`), *Modules & I/O*
-(`#col2` + the "Monitoring" block) and *Storage* (`#col3` + the heap analysis) — so the page is no
-longer one long column.
+(`fillSystemStatusJson`) and renders it into **four tabs** — *System* (`#col1`), *Modules & I/O*
+(`#col2` + the "Monitoring" block), *Storage* (`#col3`) and *Heap / DRAM* (`#heap-section`) — so the
+page is no longer one long column. The heap analysis used to sit under *Storage*, which named the
+wrong thing: it is internal RAM, not storage.
 
 ---
 
@@ -46,15 +47,12 @@ main.page > div.wrap
  ├ [🏠 Home] (data-i18n='btnHome')
  ├ H1 "📊 Status"
  ├ .status-grid
- ├ #stTabs   (3 pills: System · Modules & I/O · Storage; first active)
+ ├ #stTabs   (4 pills: System · Modules & I/O · Storage · Heap / DRAM; first active)
  ├ #stTabSys  > #col1   (SYSTEM, CHIP ESP32, RESOURCES, GENERAL SETTINGS, COMPILED MODULES)
  ├ #stTabIo   > #col2   (NETWORK, PRINTER, EMAIL, RS232, RAMBOX, MODBUS, CAN, CAMERA, …)
- │             + Monitoring (destination e-mails, recipients, scheduled commands)
- └ #stTabData > #col3   (MICRO SD, FLASH/LittleFS, NVS) + Internal Heap Analysis
- ├ #heap-section ("🧠 Loading..." → heap/PSRAM/Flash/NVS bars + counts)
- ├ .status-monitor
- │  ├ H2 "📊 Monitoring"
- │  └ #monitor (email/recipients/scheduler summary)
+ │             + .status-monitor > #monitor (destination e-mails, recipients, scheduled commands)
+ ├ #stTabData > #col3   (MICRO SD, FLASH/LittleFS, NVS)
+ └ #stTabHeap > #heap-section ("🧠 Loading..." → totals, bars and the per-module table)
  └ [🔄 Refresh]  (#r, data-i18n='filesBtnRefresh')
 ```
 
@@ -193,4 +191,7 @@ The page used to be one long column. Each generated section is routed by its **l
 CHIP, RESOURCES, GENERAL and COMPILED go to *System*; MICRO SD, FLASH and NVS to *Storage*; every
 other section (and any future one) to *Modules & I/O*, so nothing is ever hidden by a missing rule.
 `stInitTabs()` builds the pill bar once (labels `statusTabSystem` / `statusTabModules` /
-`statusTabStorage`); clicking switches panels. Covered by `tests/web/test_status_tabs.js` (7 cases).
+`statusTabStorage` / `statusTabHeap`); clicking switches panels. The heap panel is static markup,
+not a routed section: it belongs to *Heap / DRAM* (`#stTabHeap`), which is why the *Storage* tab no
+longer carries it. Covered by `tests/web/test_status_tabs.js` (8 cases, including "the heap is not
+inside Storage").

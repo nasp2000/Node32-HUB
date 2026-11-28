@@ -46,28 +46,23 @@ size_t countOf(const std::string& hay, const std::string& needle) {
 
 } // namespace
 
-TEST_CASE("SD-3: the commands card is rendered, once, before the Save button") {
+TEST_CASE("SD-3 (rev. 2026-11-28): the day-command card is no longer on /sdcard") {
+    // The card documented EMAILDAY/LOGDAY/SENSORDAY, which are e-mail recipient
+    // commands. On request it was removed here; /recipients keeps the examples
+    // inside its "Day Command Sends" block (renderer fragments, not this page).
     const std::string html = body();
-    CHECK(html.find("data-i18n='sdCommandsTitle'") != std::string::npos);
-    CHECK(html.find("EMAILDAY") != std::string::npos);
-    CHECK(html.find("LOGDAY") != std::string::npos);
-    CHECK(html.find("SENSORDAY") != std::string::npos);
-    // the examples the card documents
-    CHECK(html.find("emailday 29-12-2025") != std::string::npos);
-    CHECK(html.find("logday 28-02-2026") != std::string::npos);
-    CHECK(html.find("sensorday 01-03-2026") != std::string::npos);
+    CHECK(html.find("data-i18n='sdCommandsTitle'") == std::string::npos);
+    CHECK(html.find("EMAILDAY") == std::string::npos);
+    CHECK(html.find("LOGDAY") == std::string::npos);
+    CHECK(html.find("SENSORDAY") == std::string::npos);
+    CHECK(html.find("emailday 29-12-2025") == std::string::npos);
 
-    CHECK(countOf(html, "data-i18n='sdCommandsTitle'") == 1);   // exactly one card
-
-    // order: settings -> commands -> save
+    // settings still flow straight into the Save block
     const size_t settings = html.find("data-i18n='sdSavingTitle'");
-    const size_t commands = html.find("data-i18n='sdCommandsTitle'");
     const size_t save = html.find("id='sd_save'");
     CHECK(settings != std::string::npos);
-    CHECK(commands != std::string::npos);
     CHECK(save != std::string::npos);
-    CHECK(settings < commands);
-    CHECK(commands < save);
+    CHECK(settings < save);
 }
 
 TEST_CASE("SD-2: the dead inline init is gone and no script ships in the body") {
@@ -104,11 +99,8 @@ TEST_CASE("the body is well formed at the seams") {
     // copied prefix/suffix keep the wrapper open across the three assets
     CHECK(html.find("<div class='page sdcard'>") != std::string::npos);
     CHECK(html.find("</div>") != std::string::npos);
-    // the commands card is a complete block (opens and closes with the section div)
-    const size_t commands = html.find("data-i18n='sdCommandsTitle'");
-    const size_t save = html.find("id='sd_save'");
-    CHECK(html.find("<!-- 📦 Section 3: EMAILDAY Commands -->") != std::string::npos);
-    CHECK(commands < save);
+    // the removed day-command card left no fragment behind
+    CHECK(html.find("<!-- 📦 Section 3: EMAILDAY Commands -->") == std::string::npos);
     // nothing from the mobile wizard or another page leaked in
     CHECK(html.find("id='gm'") == std::string::npos);
 }

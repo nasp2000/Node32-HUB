@@ -239,3 +239,19 @@ Single `data-i18n` content key: `sensorChartsTitle` (EN `"Local Processing Page"
 - **MQ-135**: R0 passou a ser calibrado em ar limpo na board (ver histórico do pack) — a página
   mostra `R0 (Ohm)`; `scale` dos slots extra é factor de precisão do armazenamento
   (`valor/scale`), não multiplicador de exibição.
+
+## No sources (2026-11-28)
+
+A pack can compile this page without any chartable source (RS232-only builds, no
+sensors/Modbus/proximity, and no RS232 columns logged for today). The page used to render
+blank canvases and `--` stats with no explanation. It now shows a **"No chart sources on
+this device"** banner with the concrete reason:
+
+- no sensors and RS232 charting off → says which is missing;
+- RS232 charting compiled but `cols: 0` for today → points at the RS232 chart columns / SD
+  logging, and notes that module pages keep their own trend (e.g. `/tdk-lambda`);
+- RS232 columns > 0 → no banner (the selects are filled from the real columns only; the old
+  fallback added 8 phantom columns, which made the page look configured while empty).
+
+`chartNoSourcesNeeded(caps, rs232Cols)` is pure and covered by
+`tests/web/test_charts_sources.js` (6 cases).

@@ -55,6 +55,12 @@ div[style*='border:2px solid'][style*='border-radius:8px'][style*='background:#0
 div[style*='border:2px solid'][style*='border-radius:8px'][style*='background:#0f172a'] td{
   text-align:left;
 }
+/* Logs and code are left-aligned even inside a centred section box: the box
+   centring made the RX buffer (a <pre>) read as a wall of centred lines. */
+div[style*='border:2px solid'][style*='border-radius:8px'][style*='background:#0f172a'] pre,
+div[style*='border:2px solid'][style*='border-radius:8px'][style*='background:#0f172a'] textarea{
+  text-align:left;
+}
 .menu{display:flex;flex-direction:column;gap:8px;margin:12px 0;align-items:center}
 .actions{display:flex;flex-direction:column;gap:6px;align-items:center;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9999;background:transparent;padding:0;border-radius:0;box-shadow:none}
 .actions.nav-inicio{position:static;top:auto;left:auto;transform:none;width:100%;flex-direction:row;justify-content:center}

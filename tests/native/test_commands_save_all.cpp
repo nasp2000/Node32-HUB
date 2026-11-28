@@ -111,3 +111,30 @@ TEST_CASE("a per-row save still reports its own result") {
     CHECK(dt.find("cmdsError") != std::string::npos);
     CHECK(dt.find("cmdsNetError") != std::string::npos);
 }
+
+TEST_CASE("interval page: three default rows, the button grows, saved slots are shown") {
+    const std::string js = intervalJs();
+    // Three empty rows like /commands-by-datetime and /recipients.
+    const bool three = js.find("for(var i=0;i<3;i++) addRow();") != std::string::npos;
+    const bool ten   = js.find("for(var i=0;i<10;i++) addRow();") != std::string::npos;
+    CHECK(three);
+    CHECK_FALSE(ten);
+    // The Add Command button exists and respects MAX.
+    const bool addBtn = js.find("getElementById('add_cmd')") != std::string::npos;
+    const bool maxMsg = js.find("cmdsMaxRows") != std::string::npos;
+    CHECK(addBtn);
+    CHECK(maxMsg);
+    // A saved command in a slot above the default rows still renders.
+    const std::string app = slice(js, "function applySlot(j){", "function loadAll(){");
+    REQUIRE_MESSAGE(!app.empty(), "applySlot body not found");
+    const bool grows = app.find("while(currentCount < i)") != std::string::npos;
+    CHECK(grows);
+}
+
+TEST_CASE("interval page: the information box spans the column and is left-aligned") {
+    const std::string html = std::string(PAGE_COMMANDS_JS) + std::string(PAGE_COMMANDS_HTML);
+    const bool wide  = html.find(".cmd-info{width:100%!important") != std::string::npos;
+    const bool left  = html.find(".cmd-info,.cmd-info *{text-align:left!important}") != std::string::npos;
+    CHECK(wide);
+    CHECK(left);
+}
