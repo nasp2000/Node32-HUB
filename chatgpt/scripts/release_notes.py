@@ -265,38 +265,34 @@ def render(key, variant, version, since, extra_notes, include_non_conventional=F
 
     head_sha = _git("rev-parse", "--short", "HEAD").strip() or "?"
     version = version or read_version() or "unreleased"
-    title = f"{variant['product']} **{version}** — {variant['variant']}"
 
-    lines = [title, ""]
-    if not grouped:
-        lines.append("_No pack-specific changes since the previous release._")
+    # Short and generic on purpose: at most five one-line items, no sections.
+    items = []
+    for ctype, section_title in SECTIONS + [(None, OTHER)]:
+        for item in grouped.get(section_title, []):
+            short = item.split(";")[0]
+            short = re.sub(r"\s*\(no fw bump\)\s*", "", short).strip(" .")
+            if len(short) > 88:
+                short = short[:85].rstrip(" ,.") + "…"
+            if short and short.lower() not in [i.lower() for i in items]:
+                items.append(short)
+            if len(items) >= 5:
+                break
+        if len(items) >= 5:
+            break
+
+    lines = [f"{variant['product']} **{version}** — {variant['variant']}", ""]
+    if items:
+        lines.extend(f"- {i}" for i in items)
     else:
-        for ctype, section_title in SECTIONS:
-            items = grouped.get(section_title)
-            if not items:
-                continue
-            lines.append(f"### {section_title}")
-            lines.extend(f"- {item}" for item in items)
-            lines.append("")
-        items = grouped.get(OTHER)
-        if items:
-            lines.append(f"### {OTHER}")
-            lines.extend(f"- {item}" for item in items)
-            lines.append("")
-
-    if omitted:
-        lines.append(f"_{omitted} commit(s) without a conventional English subject were omitted._")
-        lines.append("")
+        lines.append("- Release build.")
+    lines.append("")
 
     if extra_notes:
         lines.extend([extra_notes.strip(), ""])
 
-    base = since or last_release_tag(key) or "(start of history)"
     lines.append("---")
-    lines.append(
-        f"_Pack `{variant['pack']}` · {variant['variant']} · built from `{head_sha}` "
-        f"on {date.today().isoformat()} · changes since {base}._"
-    )
+    lines.append(f"_Firmware + compliance bundle attached · built from `{head_sha}`._")
     return "\n".join(lines) + "\n"
 
 

@@ -129,6 +129,15 @@ Every page asset MUST open the shared shell, as in `page_ipg_laser_asset.cpp`:
 - Upgrade safety: `tests/hw/test_ota_upgrade.sh snapshot` (before) / `verify` (after) / `full --ota <bin>` checks that config + alert/OEE/shift schema survives an OTA from the previous version. Run it when the config schema changed.
 - `validate_version.py`, `validate_third_party.py` also run automatically as `pio run` pre-scripts.
 
+## Release notes (MANDATORY — short and generic)
+- Every release body is **at most five one-line items**, no `### Features/Fixes` sections, no
+  commit chatter, no technical detail. One generic sentence per change is the ceiling.
+- Keep the footer `_Firmware + compliance bundle attached · built from \`<sha>\`._` — the
+  next release reads that commit as its notes base.
+- `chatgpt/scripts/release_notes.py` enforces the shape (truncates each item, caps at five,
+  drops `(no fw bump)`); do not hand-write long notes on top of it.
+- The site (`site/packs/*.html`) carries the detail; the release is a changelog line.
+
 ## Third-party licensing / compliance (MANDATORY on dependency or platform change)
 - First-party code is **MIT** (`LICENSE`). The firmware **statically links LGPL-2.1/3.0** (arduino-esp32 core, AsyncTCP, ESPAsyncWebServer, CircularBuffer) plus MIT/BSD/Apache-2.0 libraries. LGPL requires shipping the library **source + relinkable objects + license texts**; MIT/BSD/Apache require their copyright/license notices. Nothing goes inside the `.bin` — the compliance material travels with the build folder.
 - **Source of truth:** `SBOM.md` + `THIRD_PARTY_NOTICES` (library versions + licenses) and the generated `chatgpt/build/third-party/` bundle (git-ignored). The public release repo `REPOS/Node32-HUB/` keeps synced copies of `SBOM.md` + `THIRD_PARTY_NOTICES`.
