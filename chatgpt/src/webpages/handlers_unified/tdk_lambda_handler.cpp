@@ -412,6 +412,11 @@ void handleTdkLambdaConfigPost(HttpRequest& req, HttpResponse& res) {
         }
     }
 
+    // Persist now: every control on this page is a saved choice, and a reboot
+    // right after a click must keep it (the deferred save lost the switch and
+    // the profile when the page was tested with an immediate restart).
+    configManager.saveSection("tdklambda");
+
     String j;
     j.reserve(160);
     j += F("{\"success\":true");
