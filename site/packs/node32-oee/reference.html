@@ -14,6 +14,13 @@
 <meta property="og:image" content="https://nasp2000.github.io/Node32-HUB/assets/og.png">
 </head>
 <body>
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-toggle" viewBox="0 0 16 16"><rect x="1.5" y="4.5" width="13" height="7" rx="3.5"/><circle cx="11" cy="8" r="2.4"/></symbol>
+  <symbol id="i-select" viewBox="0 0 16 16"><rect x="1.5" y="3.5" width="13" height="9" rx="1.5"/><path d="M9.5 7l2 2 2-2"/></symbol>
+  <symbol id="i-number" viewBox="0 0 16 16"><path d="M6 2.5v11M10 2.5v11M2.5 6h11M2.5 10h11"/></symbol>
+  <symbol id="i-text" viewBox="0 0 16 16"><path d="M2.5 12.5h11M4 9V3.5h8V9"/></symbol>
+  <symbol id="i-action" viewBox="0 0 16 16"><path d="M3 8h8M8.5 4.5L12 8l-3.5 3.5"/></symbol>
+</svg>
 <a class="skip" href="#main">Skip to content</a>
 <div class="sheet">
 
@@ -39,45 +46,45 @@
       <h2 id="channels">1. Channels</h2>
       <p>Each of the eight channels is configured independently on the <b>Config</b> tab.</p>
       <table class="opts">
-        <tr><th>Field</th><th>Values</th><th>What it does</th></tr>
-        <tr><td data-label="Field">Name</td><td data-label="Values">text, up to 31 characters</td><td data-label="What it does">Label shown in the tables and in the emails.</td></tr>
-        <tr><td data-label="Field">Mode</td><td data-label="Values">Counter · Presence · Speed</td><td data-label="What it does">Counter counts pulses; Presence reports a state (running/stopped); Speed reports a rate.</td></tr>
-        <tr><td data-label="Field">GPIO IN / IN2 / OUT</td><td data-label="Values">pin number</td><td data-label="What it does">Hidden on the 8DI8DO, where the pins are fixed. Anything you change needs a reboot.</td></tr>
-        <tr><td data-label="Field">Debounce</td><td data-label="Values">0 to 65535 ms</td><td data-label="What it does">Ignores pulses shorter than this. 20 to 100 ms covers most sensors.</td></tr>
-        <tr><td data-label="Field">Goal</td><td data-label="Values">0 or more, 0 = unlimited</td><td data-label="What it does">After N pulses the relay stops firing until Reset.</td></tr>
-        <tr><td data-label="Field">DO delay / duration</td><td data-label="Values">0 to 65535 ms</td><td data-label="What it does">Delay between the pulse and the relay, and how long the relay stays on. Zero duration means no output.</td></tr>
-        <tr><td data-label="Field">Multiplier / Divider</td><td data-label="Values">1 to 9999 each</td><td data-label="What it does">Scales counts into parts: <code>parts = counts × multiplier ÷ divider</code>. Remainders carry over so slow rates never lose counts.</td></tr>
-        <tr><td data-label="Field">Only GPIO IN</td><td data-label="Values">on · off</td><td data-label="What it does">Passive mode: disables the relay and the goal for that channel.</td></tr>
-        <tr><td data-label="Field">Gate</td><td data-label="Values">any input, or none</td><td data-label="What it does">The presence channel that gates availability in OEE.</td></tr>
-        <tr><td data-label="Field">Scrap</td><td data-label="Values">any input, or none</td><td data-label="What it does">Pulses here are subtracted from quality, and never reset the inactivity timer.</td></tr>
-        <tr><td data-label="Field">Relay DO</td><td data-label="Values">none or DO1 to DO8</td><td data-label="What it does">Which relay a channel drives (assignments are named separately).</td></tr>
+        <tr><th class="ico"></th><th>Field</th><th>Values</th><th>What it does</th></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Name</td><td data-label="Values">text, up to 31 characters</td><td data-label="What it does">Label shown in the tables and in the emails.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Mode</td><td data-label="Values">Counter · Presence · Speed</td><td data-label="What it does">Counter counts pulses; Presence reports a state (running/stopped); Speed reports a rate.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">GPIO IN / IN2 / OUT</td><td data-label="Values">pin number</td><td data-label="What it does">Hidden on the 8DI8DO, where the pins are fixed. Anything you change needs a reboot.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">Debounce</td><td data-label="Values">0 to 65535 ms</td><td data-label="What it does">Ignores pulses shorter than this. 20 to 100 ms covers most sensors.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Goal</td><td data-label="Values">0 or more, 0 = unlimited</td><td data-label="What it does">After N pulses the relay stops firing until Reset.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">DO delay / duration</td><td data-label="Values">0 to 65535 ms</td><td data-label="What it does">Delay between the pulse and the relay, and how long the relay stays on. Zero duration means no output.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">Multiplier / Divider</td><td data-label="Values">1 to 9999 each</td><td data-label="What it does">Scales counts into parts: <code>parts = counts × multiplier ÷ divider</code>. Remainders carry over so slow rates never lose counts.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-toggle"/></svg></td><td data-label="Field">Only GPIO IN</td><td data-label="Values">on · off</td><td data-label="What it does">Passive mode: disables the relay and the goal for that channel.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Gate</td><td data-label="Values">any input, or none</td><td data-label="What it does">The presence channel that gates availability in OEE.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Scrap</td><td data-label="Values">any input, or none</td><td data-label="What it does">Pulses here are subtracted from quality, and never reset the inactivity timer.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Relay DO</td><td data-label="Values">none or DO1 to DO8</td><td data-label="What it does">Which relay a channel drives (assignments are named separately).</td></tr>
       </table>
       <h2 id="oee">2. OEE</h2>
       <p>Availability, performance and quality are computed over the shift window, not from a spreadsheet.</p>
       <table class="opts">
-        <tr><th>Field</th><th>Values</th><th>What it does</th></tr>
-        <tr><td data-label="Field">Shift window</td><td data-label="Values">start and end time</td><td data-label="What it does">The period the numbers refer to; day-aligned or custom.</td></tr>
-        <tr><td data-label="Field">Target</td><td data-label="Values">parts per shift</td><td data-label="What it does">Goal line drawn on the dashboard and used by the goal-vs-actual panel.</td></tr>
-        <tr><td data-label="Field">Availability</td><td data-label="Values">computed</td><td data-label="What it does">Planned time minus stops, gated by the presence channel if one is assigned.</td></tr>
-        <tr><td data-label="Field">Performance</td><td data-label="Values">computed</td><td data-label="What it does">Actual count against the ideal rate for the window.</td></tr>
-        <tr><td data-label="Field">Quality</td><td data-label="Values">computed</td><td data-label="What it does">Produced minus scrap.</td></tr>
+        <tr><th class="ico"></th><th>Field</th><th>Values</th><th>What it does</th></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Shift window</td><td data-label="Values">start and end time</td><td data-label="What it does">The period the numbers refer to; day-aligned or custom.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Target</td><td data-label="Values">parts per shift</td><td data-label="What it does">Goal line drawn on the dashboard and used by the goal-vs-actual panel.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Availability</td><td data-label="Values">computed</td><td data-label="What it does">Planned time minus stops, gated by the presence channel if one is assigned.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Performance</td><td data-label="Values">computed</td><td data-label="What it does">Actual count against the ideal rate for the window.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Quality</td><td data-label="Values">computed</td><td data-label="What it does">Produced minus scrap.</td></tr>
       </table>
       <h2 id="tabs">3. The tabs</h2>
       <table class="opts">
-        <tr><th>Tab</th><th>Shows</th></tr>
-        <tr><td data-label="Tab">Status</td><td data-label="Shows">Per-channel mode, counts, cycle, quantity per minute, state and last event.</td></tr>
-        <tr><td data-label="Tab">Config</td><td data-label="Shows">Everything in section 1, plus the relay naming and the global options.</td></tr>
-        <tr><td data-label="Tab">Shifts</td><td data-label="Shows">Shift definitions and targets.</td></tr>
-        <tr><td data-label="Tab">Shiftday</td><td data-label="Shows">Which shift applies to which day.</td></tr>
-        <tr><td data-label="Tab">OEE</td><td data-label="Shows">A×P×Q for the current window, the per-hour bars and the goal line.</td></tr>
+        <tr><th class="ico"></th><th>Tab</th><th>Shows</th></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Tab">Status</td><td data-label="Shows">Per-channel mode, counts, cycle, quantity per minute, state and last event.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Tab">Config</td><td data-label="Shows">Everything in section 1, plus the relay naming and the global options.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Tab">Shifts</td><td data-label="Shows">Shift definitions and targets.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Tab">Shiftday</td><td data-label="Shows">Which shift applies to which day.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Tab">OEE</td><td data-label="Shows">A×P×Q for the current window, the per-hour bars and the goal line.</td></tr>
       </table>
       <h2 id="alerts">4. Alerts and history</h2>
       <table class="opts">
-        <tr><th>Item</th><th>What it does</th></tr>
-        <tr><td data-label="Item">Inactivity alert</td><td data-label="What it does">Emails when a machine stops producing for longer than the configured time.</td></tr>
-        <tr><td data-label="Item">CSV history</td><td data-label="What it does">One file per day on the SD, served from the Files page.</td></tr>
-        <tr><td data-label="Item">Shift report</td><td data-label="What it does">The same numbers as the CSV, sent by email at the end of the window.</td></tr>
-        <tr><td data-label="Item">Daily reboot</td><td data-label="What it does">Optional; keeps a long-running cabinet fresh without anyone on site.</td></tr>
+        <tr><th class="ico"></th><th>Item</th><th>What it does</th></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Item">Inactivity alert</td><td data-label="What it does">Emails when a machine stops producing for longer than the configured time.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Item">CSV history</td><td data-label="What it does">One file per day on the SD, served from the Files page.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Item">Shift report</td><td data-label="What it does">The same numbers as the CSV, sent by email at the end of the window.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Item">Daily reboot</td><td data-label="What it does">Optional; keeps a long-running cabinet fresh without anyone on site.</td></tr>
       </table>
 
     </div>
