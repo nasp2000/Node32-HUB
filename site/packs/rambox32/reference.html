@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rambox32 — every setting — Node32-HUB</title>
-<meta name="description" content="Reference for every Rambox32 option: module selection, clock polling, Unikon and Bricon fields, buttons, tabs, line settings and troubleshooting.">
+<meta name="description" content="Reference for every Rambox32 option: module selection, clock polling, Unikon and Bricon fields, buttons, tabs and line settings.">
 <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../../assets/site.css">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Rambox32 — every setting">
-<meta property="og:description" content="Module selection, clock polling, Unikon and Bricon fields, buttons, tabs and troubleshooting.">
+<meta property="og:description" content="Module selection, clock polling, Unikon and Bricon fields, buttons and tabs.">
 <meta property="og:url" content="https://nasp2000.github.io/Node32-HUB/packs/rambox32/reference.html">
 <meta property="og:image" content="https://nasp2000.github.io/Node32-HUB/assets/og.png">
 </head>
@@ -68,6 +68,7 @@
           </svg>
         </div>
 
+      </div>
       <h2 id="module">1. Which clock are you talking to</h2>
       <p>One module at a time. Enabling one disables the other, and the RS232 profile switches with it.</p>
       <table class="opts">
@@ -172,16 +173,6 @@
       <p>Arrival mails and the loft mail use the shared SMTP account. Without a working account, arrivals are only visible on this page.</p>
       <p>The account, the recipients and the test send are the same on every pack — see <a href="../../common/reference.html#email">Email</a> in the shared reference.</p>
 
-      <h2 id="trouble">8. If it does not work</h2>
-      <table class="opts">
-        <tr><th>Symptom</th><th>Check</th></tr>
-        <tr><td data-label="Symptom">No data at all, badge stays idle</td><td data-label="Check">The DB9 jumper: pin 9 to pin 5, continuity with a multimeter. This is the most common cause.</td></tr>
-        <tr><td data-label="Symptom">Data appears but the ring numbers are wrong</td><td data-label="Check">RX and TX swapped: pin 2 of the DB9 is the clock's TX and must reach the MAX3232's R1IN.</td></tr>
-        <tr><td data-label="Symptom">Status works, arrivals stay empty</td><td data-label="Check">Wrong module selected, or the clock is not enabled; check the badge.</td></tr>
-        <tr><td data-label="Symptom">Emails do not arrive</td><td data-label="Check">SMTP account on <code>/email</code>, then send a test from that page.</td></tr>
-        <tr><td data-label="Symptom">Bricon answers nothing</td><td data-label="Check">Expected on some modules: the driver is experimental. Confirm baud and stop bits against the module and report what the monitor shows.</td></tr>
-      </table>
-
     </div>
 
     <aside class="aside">
@@ -203,7 +194,6 @@
         <li><a href="#buttons">5. Buttons</a></li>
         <li><a href="#tabs">6. The five tabs</a></li>
         <li><a href="#email">7. Email</a></li>
-        <li><a href="#trouble">8. If it does not work</a></li>
       </ul>
     </aside>
   </div>
