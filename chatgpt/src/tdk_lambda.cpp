@@ -118,7 +118,7 @@ TdkValues     s_values = {false, 0, 0, 0, 0, 0, 0, "--", false, 0};
 uint32_t      s_lastRxMs = 0;
 char          s_lastCmd[32] = {0};
 char          s_lastLine[96] = {0};
-char          s_idn[40] = {0};
+char          s_idn[64] = {0};
 char          s_rev[16] = {0};
 char          s_sn[24] = {0};
 char          s_lastError[8] = {0};
@@ -794,8 +794,10 @@ TdkStatus tdkLambdaGetStatus() {
     st.selfTestTotal = kSelfTestCount;
     uint8_t okCount = 0;
     for (uint8_t i = 0; i < kSelfTestCount; ++i) if (s_selfTestAnswered[i]) okCount++;
-    st.selfTestOk = okCount;
-    st.selfTestFail = (uint8_t)(kSelfTestCount - okCount);
+    // Before the first test there is no result: report 0/0, not "all failed".
+    const bool ran = s_selfTestVerdict[0] != '\0';
+    st.selfTestOk = ran ? okCount : 0;
+    st.selfTestFail = ran ? (uint8_t)(kSelfTestCount - okCount) : 0;
     strncpy(st.selfTestVerdict, s_selfTestVerdict, sizeof(st.selfTestVerdict) - 1);
     strncpy(st.selfTestDetail, s_selfTestDetail, sizeof(st.selfTestDetail) - 1);
     return st;

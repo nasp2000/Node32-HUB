@@ -80,7 +80,7 @@ struct TdkStatus {
     float    scaleVUsed;
     float    scaleIUsed;
     char     lastLine[96];
-    char     idn[40];        // IDN? reply (model)
+    char     idn[64];        // IDN? reply (model, vendor, serial: real units are longer than the simulator)
     char     rev[16];        // REV? reply (firmware)
     char     sn[24];         // SN? reply (serial)
     char     lastError[8];   // last C0x/E0x seen
