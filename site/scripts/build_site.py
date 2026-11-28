@@ -235,6 +235,70 @@ def build_search_index(tree, variants):
     return len(entries)
 
 
+def write_changes_pages(tree, variants, releases):
+    """One changelog page per pack, from the release notes GitHub already holds."""
+    written = 0
+    for slug, meta in variants.items():
+        mine = [r for r in releases if (r.get("tag_name") or "").endswith(f"-{slug}") and not r.get("draft")]
+        if not mine:
+            continue
+        mine.sort(key=lambda r: version_key(r.get("tag_name", "")), reverse=True)
+        page = meta.get("page", slug)
+        out_dir = os.path.join(tree, "packs", page)
+        if not os.path.isdir(out_dir):
+            continue
+        entries = []
+        for rel in mine[:8]:
+            tag = rel.get("tag_name", "")
+            version = tag[: -len(slug) - 1] if tag.endswith(f"-{slug}") else tag
+            date = (rel.get("published_at") or "")[:10]
+            body = (rel.get("body") or "").strip()
+            body = re.sub(r"^#+\s*", "", body, flags=re.M)
+            body = body.replace("---", "").strip()
+            # the first line of every release body repeats the product and version
+            lines = [l for l in body.splitlines() if l.strip()]
+            if lines and ("**v" in lines[0] or lines[0].startswith(meta.get("product", ""))):
+                lines = lines[1:]
+            body = "\n".join(lines)
+            html_body = "".join(
+                f"<p>{re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', line.lstrip('- ').strip())}</p>"
+                for line in body.splitlines() if line.strip() and not line.startswith("_")
+            )
+            entries.append(
+                f'      <h2 id="{tag}">{version}</h2>\n'
+                f'      <p style="color:var(--ink-3);font-size:.86rem;margin:0 0 8px">{date} · '
+                f'<a href="https://github.com/{REPO}/releases/tag/{tag}">release</a></p>\n'
+                f"      <div style=\"max-width:62ch\">{html_body}</div>\n"
+            )
+        html = CHANGES_PAGE.format(
+            base=BASE_URL, page=page, product=meta.get("product", page),
+            board=meta.get("variant", ""), entries="\n".join(entries),
+        )
+        open(os.path.join(out_dir, "changes.html"), "w", encoding="utf-8").write(html)
+        written += 1
+    return written
+
+
+def link_changes(tree, variants):
+    """A 'What changed' button in the download panel of every pack page."""
+    n = 0
+    for slug, meta in variants.items():
+        page = meta.get("page", slug)
+        path = os.path.join(tree, "packs", f"{page}.html")
+        if not os.path.isfile(path):
+            continue
+        s = open(path, encoding="utf-8").read()
+        if "changes.html" in s:
+            continue
+        marker = '<p class="note">'
+        if marker in s:
+            s = s.replace(marker,
+                          f'<a class="btn btn--ghost" href="{page}/changes.html" style="margin-top:8px">What changed</a>\n        ' + marker, 1)
+            open(path, "w", encoding="utf-8").write(s)
+            n += 1
+    return n
+
+
 def add_canonical(tree):
     """Every page declares its own URL; index.html is the root."""
     n = 0
@@ -253,6 +317,62 @@ def add_canonical(tree):
             open(path, "w", encoding="utf-8").write(s)
             n += 1
     return n
+
+
+CHANGES_PAGE = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{product} — what changed — Node32-HUB</title>
+<meta name="description" content="Release history of {product}: what changed in each version.">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<link rel="canonical" href="{base}/packs/{page}/changes.html">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="sheet">
+  <header class="masthead">
+    <a class="wordmark" href="../../">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="../../#packs">Packs</a>
+      <a href="../../install.html">Flash</a>
+      <a href="../../releases.html">Releases</a>
+      <a href="../../search.html">Search</a>
+    </nav>
+  </header>
+
+  <a class="back" href="../{page}.html">← {product}</a>
+
+  <section class="product-head">
+    <h1>What changed</h1>
+    <p>One entry per release, newest first. Each version links to the tag that still carries its build.</p>
+  </section>
+
+  <div class="product-body" id="main">
+    <div>
+{entries}
+    </div>
+
+    <aside class="aside">
+      <div class="dl">
+        <h2>{product}</h2>
+        <p class="ver">{board}</p>
+        <a class="btn" href="../{page}.html">Back to the pack</a>
+        <a class="btn btn--ghost" href="reference.html" style="margin-top:8px">Every setting</a>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party · LGPL compliance bundle with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+</div>
+</body>
+</html>
+"""
 
 
 def write_sitemap(tree):
@@ -357,6 +477,8 @@ def main():
     n_ver = rewrite_versions(out, data)
     n_rel = write_releases_page(out, variants, data)
     n_idx = build_search_index(out, variants)
+    n_changes = write_changes_pages(out, variants, releases) if releases else 0
+    n_links = link_changes(out, variants) if releases else 0
     n_canon = add_canonical(out)
     n_pages = write_sitemap(out)
     n_webp = make_webp(out)
@@ -365,6 +487,7 @@ def main():
     log(f">>> versions refreshed in {n_ver} pages")
     log(f">>> releases.html: {n_rel} packs ({len(data)} with a release)")
     log(f">>> search index: {n_idx} entries")
+    log(f">>> changelog: {n_changes} pages, {n_links} pack pages linked")
     log(f">>> canonical: {n_canon} pages; sitemap: {n_pages} pages, robots.txt")
     log(f">>> webp: {n_webp} images, {n_wrap} pages wrapped in <picture>")
     log(f">>> site built in {out}")
