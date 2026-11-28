@@ -354,3 +354,14 @@ TEST_CASE("tdkIsSingleNumber: only a lone measurement is ambiguous in listen mod
     CHECK_FALSE(tdkIsSingleNumber(""));
     CHECK_FALSE(tdkIsSingleNumber(nullptr));
 }
+
+TEST_CASE("tdkReplyExpired: the clock starts at the request, not at the last poll") {
+    // A manual query queued long after the last poll must get its full window.
+    CHECK_FALSE(tdkReplyExpired(100000UL, 100000UL, 15000UL));
+    CHECK_FALSE(tdkReplyExpired(114000UL, 100000UL, 15000UL));
+    CHECK(tdkReplyExpired(116000UL, 100000UL, 15000UL));
+    // Wraparound of millis() stays sane: sent at 4294960000, i.e. 7296 ms
+    // before the counter rolls over.
+    CHECK(tdkReplyExpired(8000UL, 4294960000UL, 15000UL));    // 15296 ms
+    CHECK_FALSE(tdkReplyExpired(6000UL, 4294960000UL, 15000UL)); // 13296 ms
+}

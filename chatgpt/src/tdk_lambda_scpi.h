@@ -288,6 +288,14 @@ inline uint32_t tdkReplyTimeoutMs(uint32_t pollMs) {
     return t;
 }
 
+// Has a request been waiting too long? Measured from when it was queued, never
+// from the last poll: with polling paused, a stale poll stamp used to expire a
+// manual query the instant it was sent, dropping a reply that arrived a moment
+// later (bench: MODE? lost, mode stayed "--").
+inline bool tdkReplyExpired(uint32_t nowMs, uint32_t sentMs, uint32_t timeoutMs) {
+    return (uint32_t)(nowMs - sentMs) > timeoutMs;
+}
+
 // Window aggregator: one CSV row can cover several polls. A single 1-minute
 // sample hides a spike; min/max inside the window shows it, and the energy is
 // integrated with the rectangle rule between samples (Wh).

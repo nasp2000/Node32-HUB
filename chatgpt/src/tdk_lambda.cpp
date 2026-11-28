@@ -151,6 +151,7 @@ void pushSample() {
     }
 }
 PendingQuery  s_pending = P_NONE;
+uint32_t      s_pendingSinceMs = 0;      // when the pending request was queued
 char          s_pendingCmd[16] = {0};
 
 bool          s_polling = true;
@@ -679,6 +680,7 @@ bool tdkLambdaSend(const String& command) {
     s_pending = (PendingQuery)tdkPendingForSend(upper, s_cmdV, s_cmdI, s_cmdState);
     strncpy(s_lastCmd, upper, sizeof(s_lastCmd) - 1);
     s_lastCmd[sizeof(s_lastCmd) - 1] = '\0';
+    s_pendingSinceMs = millis();
     pushLog("TX", cmd.c_str());
     return enqueueRS232Command(cmd, String(), String("TDK"), String("rs232"));
 }
@@ -701,7 +703,11 @@ void tdkLambdaUpdate() {
     // A request without a reply must not wedge the poller: on a silent line the
     // cycle would stop at the first command and never send another one (measured
     // on the bench: a single TX per boot). Drop it and retry next interval.
-    if (!s_listen && s_pending != P_NONE && (now - s_lastPollMs) > tdkReplyTimeoutMs(s_pollMs)) {
+    // The clock starts when the request is queued, not at the last poll: with
+    // polling paused the old stamp is already past the timeout, so every manual
+    // query was expired before its reply could arrive.
+    if (!s_listen && s_pending != P_NONE &&
+        tdkReplyExpired(now, s_pendingSinceMs, tdkReplyTimeoutMs(s_pollMs))) {
         s_pending = P_NONE;
         s_pollStep = 0;
         s_lastPollMs = now;
