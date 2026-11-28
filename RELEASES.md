@@ -13,7 +13,7 @@ Releases live **in this repository**, one per pack and version. The tag carries 
 | v1.120 | Rambox32 | `v1.120-rambox` | `f1a5b4a` | 2026-11-28 |
 | v1.120 | Harmonica Box | `v1.120-radio` | `f1a5b4a` | 2026-11-28 |
 | v1.120 | GcodeSender (ESP32-P4) | `v1.120-p4cnc` | `f1a5b4a` | 2026-11-28 |
-| v1.120 | Node32-OEE (ESP32-S3 8DI8DO) | `v1.120-oee` | — | pending |
+| v1.120 | Node32-OEE (ESP32-S3 8DI8DO) | `v1.120-oee` | `5c3fb39` | 2026-11-28 |
 
 Each release has two assets:
 
