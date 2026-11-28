@@ -351,10 +351,14 @@ void handleTdkLambdaConfigPost(HttpRequest& req, HttpResponse& res) {
     const String pollSec = tdkFormValue(req.body, "poll_s");
     const String csvS    = tdkFormValue(req.body, "csv");
     const String fmtS    = tdkFormValue(req.body, "format");
-    const bool poll = tdkTruthy(pollS);
+    // A partial POST must not reset what it does not mention: saving only the
+    // format used to switch polling and CSV off (empty string is falsy).
+    const bool poll = pollS.length() ? tdkTruthy(pollS) : configManager.getTdkLambdaPoll();
     const int  sec  = pollSec.length() ? pollSec.toInt() : configManager.getTdkLambdaPollSec();
-    const bool csv  = tdkTruthy(csvS);
-    const String fmt = (fmtS == "table") ? String("table") : String("sensor");
+    const bool csv  = csvS.length() ? tdkTruthy(csvS) : configManager.getTdkLambdaCsv();
+    const String fmt = fmtS.length()
+        ? ((fmtS == "table") ? String("table") : String("sensor"))
+        : (configManager.getTdkLambdaCsvFormat() ? String("sensor") : String("table"));
     const String everyS = tdkFormValue(req.body, "csv_every");
     if (everyS.length()) {
         int n = everyS.toInt();
