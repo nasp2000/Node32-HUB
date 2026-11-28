@@ -288,10 +288,14 @@ def make_webp(tree):
                 continue
             webp = os.path.splitext(src)[0] + ".webp"
             if not os.path.isfile(webp):
-                r = subprocess.run(
-                    ["ffmpeg", "-v", "error", "-y", "-i", src, "-quality", "82", webp],
-                    capture_output=True, text=True, check=False,
-                )
+                try:
+                    r = subprocess.run(
+                        ["ffmpeg", "-v", "error", "-y", "-i", src, "-quality", "82", webp],
+                        capture_output=True, text=True, check=False,
+                    )
+                except OSError:
+                    log("WARNING: ffmpeg not found — WebP twins skipped")
+                    return 0
                 if r.returncode != 0:
                     continue
             done += 1

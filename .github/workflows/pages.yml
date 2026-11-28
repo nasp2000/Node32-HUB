@@ -32,6 +32,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install ffmpeg (WebP twins)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
       - name: Build the site
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
