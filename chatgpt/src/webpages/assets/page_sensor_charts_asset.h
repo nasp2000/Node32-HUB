@@ -2598,6 +2598,19 @@ function tdkAutoConfigure(){
   if(typeof syncDualSelectors==='function') syncDualSelectors();
 }
 
+// Update the three charts in place (no destroy): a full rerender every tick
+// cleared the canvases for a frame and the screenshot could catch that gap.
+function tdkPaint(){
+  var k1=document.getElementById('chart1Type').value;
+  if(!window.chart1||!chart1||k1.indexOf('tdk_')!==0){ rerender(); return; }
+  var k2=document.getElementById('chart2Type').value;
+  var k3=document.getElementById('chart3Type').value;
+  updChart(chart1,getMetricAdapter(k1,true),1);
+  updChart(chart2,getMetricAdapter(k2,true),2);
+  updChart(chart3,getMetricAdapter(k3,true),3);
+  [chart1,chart2,chart3].forEach(function(c){if(c)c.update('none');});
+}
+
 function tdkLoad(){
   fetch('/api/tdk-lambda-samples?n=240',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(d){
     if(!d||!d.success)return;
@@ -2617,7 +2630,7 @@ function tdkLoad(){
     // first sensor key ('temp'); re-apply the TDK selection when that happened.
     var s1=document.getElementById('chart1Type');
     if(s1&&s1.value.indexOf('tdk_')!==0) tdkAutoConfigure();
-    rerender();
+    tdkPaint();
   }).catch(function(){});
 }
 function tdkEnable(){
