@@ -226,6 +226,23 @@ inline bool tdkIsSingleNumber(const char* s) {
     return *end == '\0';
 }
 
+// CSV header (first line of a new day file). The sensor-style row carries its
+// keys, so its header is a comment ("#") with the same order; the table header
+// names the columns. Both start with the timestamp.
+inline const char* tdkCsvHeader(bool sensorFormat) {
+    return sensorFormat
+        ? "# timestamp, vout, vmin, vmax, iout, imin, imax, power, wh, n, vset, iset, ovp, uvl, mode, out"
+        : "timestamp,v_meas,v_set,i_meas,i_set,p_w,ovp,uvl,mode,out,samples,v_min,v_max,i_min,i_max,wh";
+}
+
+// Which format does an existing day file carry? Used to rotate instead of mixing
+// two layouts when the CSV format is switched mid-day.
+inline bool tdkCsvFileIsTable(const char* firstLine) {
+    if (!firstLine) return false;
+    while (*firstLine == ' ' || *firstLine == '\t') ++firstLine;
+    return strncmp(firstLine, "timestamp,", 10) == 0;
+}
+
 // First-contact verdict for the line test: nothing answered means the line is
 // dead or at the wrong baud; a bulk reply plus every query is a healthy link.
 inline const char* tdkSelfTestVerdict(uint8_t answered, uint8_t total, bool dvcOk) {

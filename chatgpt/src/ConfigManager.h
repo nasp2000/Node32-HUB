@@ -1374,6 +1374,18 @@ public:
         markDirtyAndScheduleSave();
         return true;
     }
+    // Module switch (page toggle). Persisted: a disabled module does no poll, no
+    // CSV and no SCPI after a reboot either.
+    bool getTdkLambdaEnabled() {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].containsKey("enabled")) return true;
+        return config["tdklambda"]["enabled"].as<bool>();
+    }
+    bool setTdkLambdaEnabled(bool on) {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].is<JsonObject>()) config["tdklambda"].to<JsonObject>();
+        config["tdklambda"]["enabled"] = on;
+        markDirtyAndScheduleSave();
+        return true;
+    }
     // Unit rating (GENH600-1.3 = 600 V / 1.3 A). Used by the layout detection to
     // reject impossible readings; a wrong rating never stops plain reading.
     bool setTdkLambdaRates(float v, float i) {

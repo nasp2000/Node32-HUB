@@ -25,6 +25,7 @@ void registerTdkLambdaRoutes(AsyncWebServer& server, const WebRouteContext& cont
     registerApiRoute("POST", "/api/tdk-lambda-config",     handleTdkLambdaConfigPost);
     registerApiRoute("POST", "/api/tdk-lambda-csv-flush",  handleTdkLambdaCsvFlushPost);
     registerApiRoute("POST", "/api/tdk-lambda-selftest",   handleTdkLambdaSelfTestPost);
+    registerApiRoute("POST", "/api/tdk-lambda-rs232-defaults", handleTdkLambdaRs232DefaultsPost);
 
 #if ENABLE_TDK_LAMBDA == 1
     registerPageGet("/tdk-lambda", [&context](AsyncWebServerRequest* request) {

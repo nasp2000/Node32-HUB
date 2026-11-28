@@ -506,6 +506,7 @@ void ConfigManager::ensureAllFieldsExist() {
         config["tdklambda"]["scale_i"]   = 1.0;
         config["tdklambda"]["off_v"]     = 0.0;
         config["tdklambda"]["off_i"]     = 0.0;
+        config["tdklambda"]["enabled"]   = true;    // page switch: off = no poll/CSV/SCPI
         config["tdklambda"]["auto_map"]  = true;    // auto-detect the reply layout
         config["tdklambda"]["listen"]    = false;   // true = never transmit (PLC owns the line)
         config["tdklambda"]["allow_write"] = false; // true = accept PV/PC/OUT/OVP...

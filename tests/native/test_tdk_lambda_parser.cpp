@@ -365,3 +365,23 @@ TEST_CASE("tdkReplyExpired: the clock starts at the request, not at the last pol
     CHECK(tdkReplyExpired(8000UL, 4294960000UL, 15000UL));    // 15296 ms
     CHECK_FALSE(tdkReplyExpired(6000UL, 4294960000UL, 15000UL)); // 13296 ms
 }
+
+TEST_CASE("CSV headers: the timestamp comes first, the sensor header is a comment") {
+    const char* t = tdkCsvHeader(false);   // table
+    CHECK(strncmp(t, "timestamp,", 10) == 0);
+    CHECK(strstr(t, "v_min") != nullptr);
+    CHECK(strstr(t, "wh") != nullptr);
+    const char* s = tdkCsvHeader(true);    // sensor key/value
+    CHECK(s[0] == '#');
+    CHECK(strstr(s, "timestamp") != nullptr);
+    CHECK(strstr(s, "vout") != nullptr);
+    CHECK(strstr(s, "mode") != nullptr);
+}
+
+TEST_CASE("tdkCsvFileIsTable: what layout does the day file already have") {
+    CHECK(tdkCsvFileIsTable("timestamp,v_meas,v_set"));
+    CHECK(tdkCsvFileIsTable("  timestamp, v_meas"));
+    CHECK_FALSE(tdkCsvFileIsTable("2026-11-28 00:01:08, vout, 600.00"));
+    CHECK_FALSE(tdkCsvFileIsTable("# timestamp, vout, 600.00"));
+    CHECK_FALSE(tdkCsvFileIsTable(nullptr));
+}

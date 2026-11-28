@@ -102,6 +102,9 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
       <button class='btn' id='tdkTestBtn' onclick='tdkSelfTest()' title='Sends IDN?, REV?, SN?, DVC? and MODE? one at a time and reports what answered: line ok, partial or no reply' data-i18n-title='tdkTipTestLine'>&#128225; Test the line</button>
       <span class='tdk-note' id='tdkTestMsg'></span>
     </div>
+    <div class='tdk-row'>
+      <label class='tdk-note' title='Turn the module off without recompiling: no poll, no CSV and no commands. The choice is saved and survives a reboot.' data-i18n-title='tdkTipEnabled'><input type='checkbox' id='tdkEnabled' checked onchange='tdkSaveEnabled()'> <b>Module enabled</b> &mdash; poll, CSV and SCPI</label>
+    </div>
   </div>
 
   <div class='section-box'>
@@ -151,6 +154,7 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
     <div class='tdk-row tdk-checks'>
       <label class='tdk-note' title='Never transmit: only copies what the PLC sends, which is safe on a shared line' data-i18n-title='tdkTipListen'><input type='checkbox' id='tdkListen' onchange='tdkSaveSafety()'> <b>Listen mode</b> &mdash; never transmit</label>
       <label class='tdk-note' id='tdkAllowWrap' style='display:none' title='Allow setpoint commands such as PV, PC, OUT and OVP; off means queries only' data-i18n-title='tdkTipAllowW'><input type='checkbox' id='tdkAllowW' onchange='tdkAskAllowWrite(this)'> Allow writes (PV / PC / OUT / OVP&hellip;)</label>
+      <button class='btn' onclick='tdkApplyRs232Defaults()' title='Write 9600 8N1, no flow control and a 1.5 s timeout to the RS232 settings, then restart the port. Saved.' data-i18n-title='tdkTipRs232Defaults'>&#128268; Apply RS232 defaults (9600 8N1)</button>
     </div>
     <div class='tdk-note' id='tdkGuardMsg'></div>
     <div id='tdkWriteExamples' class='tdk-write' style='display:none'>
@@ -332,7 +336,12 @@ function tdkStatus(){
     if(!d.success){_tdkQ('tdkStatus').innerHTML='<span class="tdk-badge off">module disabled</span> '+_tdkEsc(d.message||'');return;}
     var st=d.status||{}, v=d.values||{};
     var linkOk=!st.polling||!st.lastRxAgeMs||(st.lastRxAgeMs < (st.pollIntervalMs*3));
-    var b='<span class="tdk-badge ok">module active</span> ';
+    var men=(st.enabled!==false);
+    // Keep the switch and the console in step with the server (saved choice).
+    var enCb=_tdkQ('tdkEnabled');
+    if(enCb) enCb.checked=men;
+    tdkApplyGuard();   // keep the console in step with the saved switch
+    var b='<span class="tdk-badge '+(men?'ok':'off')+'">'+(men?'module active':'module off')+'</span> ';
     b+='<span class="tdk-badge '+(st.listen?'warn':'ok')+'">'+(st.listen?'listen':'master')+'</span> ';
     b+='<span class="tdk-badge '+(linkOk?'ok':'warn')+'">'+(linkOk?'link ok':'no data')+'</span> ';
     b+='<span class="tdk-badge '+(st.polling?'ok':'off')+'">polling '+(st.polling?'on':'off')+'</span> ';
@@ -530,6 +539,26 @@ function tdkIdentify(){
   next();
 }
 
+function tdkSaveEnabled(){
+  var on=_tdkQ('tdkEnabled').checked?'1':'0';
+  _tdkPost('/api/tdk-lambda-config','enabled='+on).then(function(d){
+    if(!d.success){_tdkFail(d);}
+    tdkApplyGuard();
+    tdkStatus();
+  });
+}
+
+function tdkApplyRs232Defaults(){
+  var msg=_tdkT('tdkConfirmRs232Defaults','Write 9600 8N1, no flow control and a 1.5 s timeout to the RS232 settings and restart the port?');
+  var run=function(){
+    _tdkPost('/api/tdk-lambda-rs232-defaults','').then(function(d){
+      if(window.customAlert){window.customAlert(d.success?('✅ '+(d.message||'RS232 defaults applied')):('❌ '+(d.message||'failed')));}
+      tdkStatus();
+    });
+  };
+  if(window.customConfirm){window.customConfirm(msg,function(ok){if(ok)run();});}else{run();}
+}
+
 var _tdkTestTimer=null;
 function tdkSelfTest(){
   if(_tdkTestTimer){clearInterval(_tdkTestTimer);_tdkTestTimer=null;}
@@ -589,6 +618,7 @@ function tdkLoadCfg(){
       _tdkQ('tdkLimVMax').value=d.limits.v_max||0;
       _tdkQ('tdkLimIMax').value=d.limits.i_max||0;
     }
+    _tdkQ('tdkEnabled').checked=(d.enabled!==false);
     _tdkQ('tdkListen').checked=!!d.listen;
     var wrap=_tdkQ('tdkAllowWrap');
     if(wrap){wrap.style.display=d.ro?'none':''; if(!d.ro){wrap.style.display='flex';}}
@@ -618,18 +648,21 @@ function tdkAskAllowWrite(el){
   if(window.customConfirm){ window.customConfirm(msg,apply); } else { apply(true); }
 }
 function tdkApplyGuard(){
+  var enabled=(_tdkQ('tdkEnabled')?_tdkQ('tdkEnabled').checked:true);
   var listen=_tdkQ('tdkListen').checked;
   var w=_tdkQ('tdkAllowW'), wrap=_tdkQ('tdkAllowWrap');
   var capable=!!(w&&wrap&&wrap.style.display!=='none');
-  _tdkQ('tdkCmd').disabled=listen;
-  _tdkQ('tdkSendBtn').disabled=listen;
+  _tdkQ('tdkCmd').disabled=(listen||!enabled);
+  _tdkQ('tdkSendBtn').disabled=(listen||!enabled);
   var ex=_tdkQ('tdkWriteExamples');
   if(ex){ex.style.display=(!listen&&capable&&w.checked)?'':'none';}
-  _tdkQ('tdkGuardMsg').textContent=listen
+  _tdkQ('tdkGuardMsg').textContent=!enabled
+    ? _tdkT('tdkGuardDisabled','Module off: no poll, no CSV, no commands. Turn it back on above.')
+    : (listen
     ? _tdkT('tdkGuardListen','TX disabled: only what passes on the line is read.')
     : (!capable ? _tdkT('tdkGuardReadOnly','Read-only module: only queries are sent (poll + receive).')
                 : (w.checked ? _tdkT('tdkGuardWriteOn','Write enabled: PV/PC/OUT/OVP can change the supply.')
-                             : _tdkT('tdkGuardAllowList','Read-only commands (allow-list).')));
+                             : _tdkT('tdkGuardAllowList','Read-only commands (allow-list).'))));
 }
 
 function tdkSaveSafety(){

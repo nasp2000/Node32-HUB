@@ -11,5 +11,6 @@ void handleTdkLambdaConfigGet(HttpRequest& req, HttpResponse& res);
 void handleTdkLambdaConfigPost(HttpRequest& req, HttpResponse& res);
 void handleTdkLambdaCsvFlushPost(HttpRequest& req, HttpResponse& res);
 void handleTdkLambdaSelfTestPost(HttpRequest& req, HttpResponse& res);
+void handleTdkLambdaRs232DefaultsPost(HttpRequest& req, HttpResponse& res);
 void handleTdkLambdaSamplesGet(HttpRequest& req, HttpResponse& res);
 void handleTdkLambdaCsvGet(HttpRequest& req, HttpResponse& res);

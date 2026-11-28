@@ -175,6 +175,7 @@ char          s_cmdI[16]   = "MC?";         // split mode only
 char          s_cmdState[16] = "MODE?";     // CV/CC/OFF
 uint8_t       s_map[6]     = {0, 1, 2, 3, 4, 5};
 float         s_scaleV = 1.0f, s_scaleI = 1.0f, s_offV = 0.0f, s_offI = 0.0f;
+bool          s_enabled = true;          // module switch (page); false = idle
 bool          s_autoMap = true;          // adopt the layout found in a real reply
 bool          s_listen = false;          // passive listener: never transmit
 uint8_t       s_addr = 0;                // multi-drop address (0 = none)
@@ -214,6 +215,7 @@ void tdkLogSys(const char* text) {
 }
 
 bool          s_csvSensorFmt = true;   // default: sensor-style key/value (see PAGES/tdk_lambda.md)
+bool          s_csvFmtDirty = false;    // format changed: rotate the day file, never mix layouts
 uint32_t      s_csvRows = 0;
 
 String        s_csvPending;          // LittleFS rows buffered until the window
@@ -313,14 +315,52 @@ unsigned long csvWindowMs() {
 }
 
 void csvHeader(File& f) {
-    // Table format only: the sensor-style line carries its own keys, so a
-    // header row would be redundant (the sensors write no header either).
-    if (!s_csvSensorFmt && f.size() == 0) {
+    if (f.size() != 0) return;
+    // First line of a new file: the timestamp plus what each column is. The
+    // sensor-style row is key/value, so its header is a "#" comment (the report
+    // tool and a spreadsheet both skip it).
+    if (s_csvSensorFmt) {
+        f.println(tdkCsvHeader(true));
+    } else {
         // v2: the row is a window (csv_every polls) — averages plus the min/max
         // inside the window and its energy, so a spike cannot hide between rows.
-        f.println(F("timestamp,v_meas,v_set,i_meas,i_set,p_w,ovp,uvl,mode,out,"
-                    "samples,v_min,v_max,i_min,i_max,wh"));
+        f.println(tdkCsvHeader(false));
     }
+}
+
+// Switching format mid-day used to append rows of the new shape to the old
+// file: two layouts in one CSV. Rename the old file and start a fresh one.
+void rotateCsvIfFormatChanged(const String& path) {
+    if (!s_csvFmtDirty) return;
+    s_csvFmtDirty = false;
+    const bool sd = sdcardShouldUseSD();
+    const bool exists = sd ? SD_MMC.exists(path.c_str()) : LittleFS.exists(path.c_str());
+    if (!exists) return;
+    char head[48] = {0};
+    size_t got = 0;
+    if (sd) {
+        File f = SD_MMC.open(path.c_str(), FILE_READ);
+        if (f) { got = f.read((uint8_t*)head, sizeof(head) - 1); f.close(); }
+    } else {
+        File f = LittleFS.open(path.c_str(), "r");
+        if (f) { got = f.read((uint8_t*)head, sizeof(head) - 1); f.close(); }
+    }
+    if (!got) return;
+    head[got] = '\0';
+    const bool fileIsTable = tdkCsvFileIsTable(head);
+    if (fileIsTable == !s_csvSensorFmt) return;    // already the same shape
+    String target = path;
+    target.replace(".csv", String(fileIsTable ? "_table" : "_sensor") + ".csv");
+    for (int n = 2; n <= 9; ++n) {
+        const bool tExists = sd ? SD_MMC.exists(target.c_str()) : LittleFS.exists(target.c_str());
+        if (!tExists) break;
+        target = path;
+        target.replace(".csv", String(fileIsTable ? "_table" : "_sensor") + "_" + String(n) + ".csv");
+    }
+    const bool ok = sd ? SD_MMC.rename(path.c_str(), target.c_str())
+                       : LittleFS.rename(path.c_str(), target.c_str());
+    tdkLogSys(ok ? "CSV format changed: previous file kept with a format suffix"
+                 : "CSV format changed: could not rotate the previous file");
 }
 
 bool appendBlockSd(const String& path, const String& rows) {
@@ -589,6 +629,7 @@ void handleLine(char* line) {
 bool tdkCsvFlushPending() {
     if (s_csvPending.isEmpty()) return true;
     const String path = csvPathNow();
+    rotateCsvIfFormatChanged(path);
     if (sdcardShouldUseSD()) {
         if (appendBlockSd(path, s_csvPending)) {
             for (size_t i = 0; i < s_csvPending.length(); ++i) if (s_csvPending[i] == '\n') s_csvRows++;
@@ -627,6 +668,7 @@ void tdkLambdaBegin() {
     s_limitIMax = configManager.getTdkLambdaLimitIMax();
     s_rateV = configManager.getTdkLambdaRateV();
     s_rateI = configManager.getTdkLambdaRateI();
+    s_enabled = configManager.getTdkLambdaEnabled();
     s_csvSensorFmt = configManager.getTdkLambdaCsvFormat();
     s_csvEvery = (uint16_t)configManager.getTdkLambdaCsvEvery();
     s_agg.clear(millis());
@@ -647,6 +689,7 @@ void tdkLambdaBegin() {
 }
 
 void tdkLambdaOnRxByte(char c) {
+    if (!s_enabled) return;   // module off: the rest of the RS232 pipeline is untouched
     // Non-destructive copy: loop_impl.h keeps feeding the normal RS232 pipeline.
     if (c == '\n') return;
     if (c == '\r') {
@@ -664,6 +707,7 @@ bool tdkLambdaSend(const String& command) {
     String cmd = command;
     cmd.trim();
     if (cmd.isEmpty()) return false;
+    if (!s_enabled) return false; // module off: nothing leaves the port
     if (s_listen) return false;   // passive listener: never transmit
 #if ENABLE_RS232!=1
     // The module has no UART of its own: it talks through the pack's RS232 port.
@@ -686,6 +730,7 @@ bool tdkLambdaSend(const String& command) {
 }
 
 void tdkLambdaUpdate() {
+    if (!s_enabled) return;   // off: no poll, no CSV window, no line test
     const uint32_t now = millis();
 
     // First-contact line test: one query at a time, 4 s per step at most.
@@ -753,9 +798,9 @@ void tdkLambdaClearLog() {
 
 TdkStatus tdkLambdaGetStatus() {
     TdkStatus st = {};
-    st.enabled = true;
-    st.polling = s_polling;
-    st.csvEnabled = s_csvEnabled;
+    st.enabled = s_enabled;
+    st.polling = s_polling && s_enabled;
+    st.csvEnabled = s_csvEnabled && s_enabled;
     st.csvSensorFormat = s_csvSensorFmt;
     st.pollIntervalMs = s_pollMs;
     st.lastRxAgeMs = (s_lastRxMs == 0) ? 0 : (millis() - s_lastRxMs);
@@ -945,6 +990,21 @@ void tdkLambdaSetAutoMap(bool enabled) {
     if (!enabled) s_autoNote[0] = '\0';
 }
 
+void tdkLambdaSetEnabled(bool enabled) {
+    if (s_enabled == enabled) return;
+    s_enabled = enabled;
+    if (!enabled) {
+        s_selfTestActive = false;
+        s_pending = P_NONE;
+        s_pollStep = 0;
+        if (s_csvPending.length() > 0) (void)tdkCsvFlushNow();   // don't leave rows in RAM
+        tdkLogSys("module disabled (no poll, no CSV, no SCPI)");
+    } else {
+        s_lastPollMs = millis();   // full interval before the first poll
+        tdkLogSys("module enabled");
+    }
+}
+
 void tdkLambdaSetRates(float rateV, float rateI) {
     if (rateV > 0.0f) s_rateV = rateV;
     if (rateI > 0.0f) s_rateI = rateI;
@@ -968,6 +1028,7 @@ bool tdkLambdaStartSelfTest() {
 }
 
 void tdkLambdaSetCsvFormat(bool sensorFormat) {
+    if (s_csvSensorFmt != sensorFormat) s_csvFmtDirty = true;
     s_csvSensorFmt = sensorFormat;
     if (s_csvPending.length() > 0) tdkLambdaCsvFlushNow();  // never mix formats in one file
 }

@@ -17,6 +17,13 @@ extern ConfigManager configManager;
 #include "../../tdk_lambda.h"
 #include "../../sdcard.h"
 #include "../../littlefs_manager.h"
+#if ENABLE_RS232 == 1
+#include "../../web_shared_logic.h"        // rs232_* runtime globals + RS232_BAUDRATES
+#include "../../system_status_payload.h"   // rs232_data_bits / parity / stop_bits
+#include "../../commands.h"                 // setRS232BaudrateByIndex()
+void applyRS232Config();                   // re-reads the globals and restarts the UART
+extern int rs232_read_timeout_ms;
+#endif
 #include <esp_heap_caps.h>
 #include <esp_task_wdt.h>
 
@@ -88,7 +95,8 @@ void handleTdkLambdaStatusGet(HttpRequest& req, HttpResponse& res) {
     String j;
     j.reserve(1400);
     j += F("{\"success\":true,\"status\":{");
-    j += F("\"polling\":");           j += st.polling ? F("true") : F("false");
+    j += F("\"enabled\":");           j += st.enabled ? F("true") : F("false");
+    j += F(",\"polling\":");          j += st.polling ? F("true") : F("false");
     j += F(",\"csvEnabled\":");       j += st.csvEnabled ? F("true") : F("false");
     j += F(",\"csvSensorFormat\":");  j += st.csvSensorFormat ? F("true") : F("false");
     j += F(",\"autoMap\":");          j += st.autoMap ? F("true") : F("false");
@@ -250,6 +258,7 @@ void handleTdkLambdaConfigGet(HttpRequest& req, HttpResponse& res) {
     String j;
     j.reserve(768);
     j += F("{\"success\":true");
+    j += F(",\"enabled\":");     j += configManager.getTdkLambdaEnabled() ? F("true") : F("false");
     j += F(",\"poll\":");        j += configManager.getTdkLambdaPoll() ? F("true") : F("false");
     j += F(",\"poll_s\":");      j += String(configManager.getTdkLambdaPollSec());
     j += F(",\"csv_every\":");   j += String(configManager.getTdkLambdaCsvEvery());
@@ -327,6 +336,14 @@ void handleTdkLambdaConfigPost(HttpRequest& req, HttpResponse& res) {
         const bool autoOn = tdkTruthy(autoS);
         configManager.setTdkLambdaAutoMap(autoOn);
         tdkLambdaSetAutoMap(autoOn);
+    }
+
+    // --- module switch -----------------------------------------------------
+    const String enabledS = tdkFormValue(req.body, "enabled");
+    if (enabledS.length()) {
+        const bool on = tdkTruthy(enabledS);
+        configManager.setTdkLambdaEnabled(on);
+        tdkLambdaSetEnabled(on);
     }
 
     // --- polling / CSV -----------------------------------------------------
@@ -573,6 +590,54 @@ void handleTdkLambdaSelfTestPost(HttpRequest& req, HttpResponse& res) {
         return;
     }
     res.sendJson(F("{\"success\":true,\"running\":true}"));
+#else
+    res.code = 503;
+    res.sendJson(F("{\"success\":false,\"message\":\"module disabled\"}"));
+#endif
+}
+
+void handleTdkLambdaRs232DefaultsPost(HttpRequest& req, HttpResponse& res) {
+    (void)req;
+#if ENABLE_TDK_LAMBDA == 1
+#if ENABLE_RS232 == 1
+    // The link the module documents for a Genesys: 9600 8N1, no flow control,
+    // 1.5 s read timeout, pins not inverted. Written to the RS232 section (the
+    // same one /rs232 edits) and applied to the live port immediately.
+    configManager.setRs232BaudrateIndex(3);        // 9600 in RS232_BAUDRATES
+    configManager.setRs232DataBits(8);
+    configManager.setRs232Parity("none");
+    configManager.setRs232StopBits(1);
+    configManager.setRs232UseXonXoff(false);
+    configManager.setRs232ReadTimeoutMs(1500);
+    configManager.setRs232InvertPins(false);
+    configManager.setRs232Enabled(true);
+
+    rs232_baudrate_index = 3;
+    rs232_data_bits = 8;
+    rs232_parity = "none";
+    rs232_stop_bits = 1;
+    rs232_read_timeout_ms = 1500;
+    rs232_enabled = true;
+    rs232_invert_pins = false;
+    setRS232BaudrateByIndex(3);
+    applyRS232Config();
+    configManager.markDirtyAndScheduleSave();
+    const bool saved = configManager.saveSection("rs232");
+    tdkLambdaSetEnabled(true);                     // the link only makes sense on
+
+    String j;
+    j.reserve(200);
+    j += F("{\"success\":true");
+    j += F(",\"saved\":");   j += saved ? F("true") : F("false");
+    j += F(",\"baudrate\":"); j += String(rs232_baudrate);
+    j += F(",\"frame\":\"8N1\",\"flow\":\"off\",\"timeout_ms\":1500");
+    j += F(",\"message\":\"RS232 set to 9600 8N1, no flow, 1.5 s (saved)\""); 
+    j += F("}");
+    res.sendJson(j);
+#else
+    res.code = 409;
+    res.sendJson(F("{\"success\":false,\"message\":\"this pack has no RS232 port\"}"));
+#endif
 #else
     res.code = 503;
     res.sendJson(F("{\"success\":false,\"message\":\"module disabled\"}"));

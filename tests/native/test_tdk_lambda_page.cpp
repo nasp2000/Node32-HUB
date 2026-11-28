@@ -175,3 +175,15 @@ TEST_CASE("TDK page: line test and unit rating are wired") {
     CHECK(html.find("tdkListenIgnored") != std::string::npos);
     CHECK(html.find("st.unattributed") != std::string::npos);
 }
+
+TEST_CASE("TDK page: module switch and RS232 defaults are wired") {
+    const std::string html = page();
+    CHECK(html.find("id='tdkEnabled'") != std::string::npos);
+    CHECK(html.find("function tdkSaveEnabled()") != std::string::npos);
+    CHECK(html.find("/api/tdk-lambda-rs232-defaults") != std::string::npos);
+    CHECK(html.find("function tdkApplyRs232Defaults()") != std::string::npos);
+    CHECK(html.find("tdkConfirmRs232Defaults") != std::string::npos);
+    CHECK(html.find("tdkGuardDisabled") != std::string::npos);
+    // the switch must start checked (the module ships enabled)
+    CHECK(html.find("id='tdkEnabled' checked") != std::string::npos);
+}

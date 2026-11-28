@@ -44,11 +44,12 @@ Endpoints (todos registados uma vez, servidos nas duas interfaces):
 | GET | `/api/tdk-lambda-status` | `status{…}` + `values{…}` |
 | GET | `/api/tdk-lambda-commands` | catálogo (`cmd,group,usage,desc,reply,notes`) |
 | GET | `/api/tdk-lambda-log` | últimas 32 linhas (`dir,ageMs,text`) |
-| GET | `/api/tdk-lambda-config` | `{poll,poll_s,csv_every,csv,format,mode,cmd_v,cmd_i,cmd_state,map,scale_v,scale_i,off_v,off_i,rate_v,rate_i,auto_map,listen,allow_write}` |
+| GET | `/api/tdk-lambda-config` | `{enabled,poll,poll_s,csv_every,csv,format,mode,cmd_v,cmd_i,cmd_state,map,scale_v,scale_i,off_v,off_i,rate_v,rate_i,auto_map,listen,allow_write}` |
 | GET | `/api/tdk-lambda-config` extras | `addr`, `inject`, `limits{enabled,v_min,v_max,i_max}` |
 | GET | `/api/tdk-lambda-samples?n=` | `{samples:[[age_s,volts,amps],…]}` — ring em RAM, ≤**240** pontos (`n` limitado a 240) |
 | GET | `/api/tdk-lambda-csv` | ficheiro do dia (`text/csv`, até **1 MB**); descarrega o buffer primeiro, lê para **PSRAM** (nunca um `String` grande no heap) e, se cortar, corta em fim de linha e avisa no monitor |
 | POST | `/api/tdk-lambda-send` | corpo `cmd=…` → `{success,message}` |
+| POST | `/api/tdk-lambda-rs232-defaults` | aplica e grava a ligação documentada (9600 8N1, flow off, 1,5 s) na RS232 do pack e reinicia a porta (`409` num pack sem RS232) |
 | POST | `/api/tdk-lambda-selftest` | arranca o **teste de linha** (`IDN? REV? SN? DVC? MODE?`, uma de cada vez) → `{success,running}`; `409` em modo escuta ou com um teste a correr |
 | POST | `/api/tdk-lambda-clear` | limpa o log |
 | POST | `/api/tdk-lambda-config` | `poll=0|1&poll_s=60..3600&csv_every=1..60&csv=0|1&format=sensor|table` |
@@ -153,7 +154,8 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
 
 | Input | ID | Notas |
 |---|---|---|
-| Comando | `tdkCmd` | livre; max 32 caracteres (o handler corta); desactivado em modo escuta |
+| Módulo activo | `tdkEnabled` | liga/desliga o módulo **sem recompilar**: desligado não há poll, nem linhas de CSV, nem comandos (a porta RS232 continua a servir o resto do pack). A escolha é **gravada** (`tdklambda.enabled`) e sobrevive a um reboot |
+| Comando | `tdkCmd` | livre; max 32 caracteres (o handler corta); desactivado em modo escuta ou com o módulo desligado |
 | Modo escuta | `tdkListen` | **não transmite nada** (poll parado, `send` devolve 409, teste de linha recusado) — para quando o PLC é mestre. Um **valor solto** (`599.99`, resposta do PLC a `MV?`/`MC?`) não é atribuível a V ou I e é **ignorado** — não se inventa a grandeza. O contador sobe em `status.unattributed` (badge na página) e o monitor avisa no máximo 1×/min. Linhas multi-campo (`DVC?`) são lidas normalmente |
 | Permitir escrita | `tdkAllowW` | **desligado por omissão**. Ligar pede uma **segunda confirmação** (diálogo com exemplos do que pode ser escrito: `PV 600`, `PC 1.30`, `OUT 1/0`, `OVP 660`, `UVL 300`, `SAV`…); cancelar desliga a caixa e não grava nada. Desligado, só passa a **allow-list de leitura** (`MV? MC? DVC? STT? STAT? FLT? MODE? OUT? IDN? …`); `PV/PC/OUT/OVP/RMT/SAV/G*` → 403. Aplica-se também ao **perfil de poll**: `cmd_v`/`cmd_i`/`cmd_state` que não terminem em `?` são recusados e o módulo volta a `DVC?`/`MC?`/`MODE?`, com aviso no monitor |
 | Filtro do catálogo | `tdkSearch` | filtra por comando/grupo/descrição/notas |
@@ -182,6 +184,7 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
 | `usar` (na tabela) | copia o `usage` do catálogo para o input |
 | 🔍 Identify | envia `IDN? REV? SN?` (um a um) e mostra a unidade |
 | 📡 Testar a linha | `POST /api/tdk-lambda-selftest`: o módulo envia `IDN? REV? SN? DVC? MODE?` uma de cada vez e publica o veredicto (`ok` / `partial` / `no reply`) com a lista do que respondeu. Recusa em modo escuta (409) |
+| 🔌 Aplicar defaults RS232 | pede confirmação e `POST /api/tdk-lambda-rs232-defaults`: grava **9600 8N1, sem flow control, timeout 1,5 s, sem inversão, porta activa** na secção RS232 (a mesma que `/rs232` edita), reinicia a UART e volta a ligar o módulo. Fica gravado |
 | ➕ Gravar o detetado | lê `mapUsed/scaleVUsed/scaleIUsed` do status e grava como perfil |
 | Presets do perfil | `GENH600-1.3` (dvc + mapa 0..5), `MV?+MC?` (split), `DVC? em mV/mA` (escala 0,001) — preenchem e gravam |
 | 💾 Gravar perfil | `POST /api/tdk-lambda-config` só com os campos do perfil |
@@ -235,20 +238,24 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
 
 | Dado | Onde |
 |---|---|
+| `enabled` | mesmo doc: **interruptor do módulo** (default `true`) — desligado não faz poll/CSV/SCPI após reboot |
 | `poll`, `poll_s`, `csv`, `csv_format` | doc de config, secção `tdklambda` (defaults em `ensureAllFieldsExist`, leitura com fallback seguro) |
 | **perfil da fonte** | mesma secção: `mode`, `cmd_v`, `cmd_i`, `cmd_state`, `map`, `scale_v`, `scale_i`, `off_v`, `off_i` — gravado por unidade e aplicado no boot (`tdkLambdaApplyProfile`) |
 | CSV | `/<sistema>/TDK_DD-MM-AAAA.csv` — **SD** quando `sdcardShouldUseSD()`, senão **LittleFS no mesmo caminho** (root dinâmico `/<sys>/` já coberto por `flash_fallback_cleanup.h`) |
 | Log TX/RX | RAM (32 linhas); o histórico completo vive no pipeline RS232 (`/monitor`, `.chart`, CSV de texto) |
 
-**Dois formatos** (`csv_format` na config, default `sensor`):
+**Dois formatos** (`csv_format` na config, default `sensor`). **Ambos começam com o
+timestamp completo (`AAAA-MM-DD HH:MM:SS`)** e ambos têm **cabeçalho na primeira linha** de um
+ficheiro novo:
 
-| Formato | Linha gravada |
-|---|---|
-| `sensor` (default) | `2026-11-26 10:00:00, vout, 599.99, vset, 600.00, iout, 0.500, iset, 1.300, power, 300.00, ovp, 660.0, uvl, 0.0, mode, CV, out, ON` — mesma forma chave/valor dos sensores de temperatura (`SensorConfigManager::formatCSV`), sem linha de cabeçalho |
-| `table` | cabeçalho `timestamp,v_meas,v_set,i_meas,i_set,p_w,ovp,uvl,mode,out` + uma linha por amostra |
+| Formato | Primeira linha | Linha de dados |
+|---|---|---|
+| `sensor` (default) | `# timestamp, vout, vmin, vmax, iout, imin, imax, power, wh, n, vset, iset, ovp, uvl, mode, out` (comentário: a linha é chave/valor, igual aos sensores de temperatura — `SensorConfigManager::formatCSV`) | `2026-11-28 10:00:00, vout, 599.99, vmin, 599.90, vmax, 600.10, …, mode, CV, out, ON` |
+| `table` | `timestamp,v_meas,v_set,i_meas,i_set,p_w,ovp,uvl,mode,out,samples,v_min,v_max,i_min,i_max,wh` | `2026-11-28 10:00:00,599.99,600.00,0.500,1.300,300.00,660.0,0.0,CV,1,1,599.99,599.99,0.500,0.500,0.0833` |
 
-Ao mudar de formato com linhas em buffer (LittleFS), o buffer é gravado primeiro — nunca
-se misturam os dois formatos no mesmo ficheiro.
+Trocar de formato a meio do dia **não mistura** os dois no mesmo ficheiro: o ficheiro do dia é
+renomeado com o sufixo do formato que tinha (`TDK_28-11-2026_sensor.csv` / `…_table.csv`) e o novo
+começa de zero com o seu cabeçalho. O `tdk_csv_report.py` ignora as linhas `#`.
 
 ## 8b. Gráfico (decisão de desenho)
 

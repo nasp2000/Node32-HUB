@@ -15,7 +15,8 @@ Usage
 Reads both CSV schemas:
   v1  timestamp,v_meas,v_set,i_meas,i_set,p_w,ovp,uvl,mode,out
   v2  ... ,samples,v_min,v_max,i_min,i_max,wh        (csv_every > 1, or new firmware)
-and the sensor style ("2026-11-27 14:03:00, vout, 600.22, vmin, ...").
+and the sensor style ("2026-11-27 14:03:00, vout, 600.22, vmin, ..."),
+with or without the "#" header line the firmware writes on a new day file.
 
 Exit codes: 0 ok, 1 unreadable/no rows, 2 selftest failure.
 """
@@ -81,7 +82,10 @@ def _sensor_record(line):
 def load(path):
     """Returns (records, schema) where schema is 'v1', 'v2' or 'sensor'."""
     with open(path, encoding="utf-8", errors="replace") as fh:
-        lines = [ln.rstrip("\n") for ln in fh if ln.strip()]
+        # A new day file starts with a header: "# timestamp, vout, ..." for the
+        # sensor style, "timestamp,..." for the table style. Comments are skipped.
+        lines = [ln.rstrip("\n") for ln in fh
+                 if ln.strip() and not ln.lstrip().startswith("#")]
     if not lines:
         return [], "empty"
 
@@ -440,6 +444,21 @@ def selftest():
     assert len(rows2) == 5, len(rows2)
     st2 = analyse(rows2)
     assert abs(st2["kwh"] - 0.050) < 0.005, st2["kwh"]
+
+    # sensor style with the "#" header the firmware now writes on a new file
+    path3 = os.path.join(tmp, "TDK_sensor_hdr.csv")
+    with open(path3, "w", encoding="utf-8") as fh:
+        fh.write("# timestamp, vout, vmin, vmax, iout, imin, imax, power, wh, n, "
+                 "vset, iset, ovp, uvl, mode, out\n")
+        for k in range(5):
+            ts = (t + dt.timedelta(minutes=k)).strftime("%Y-%m-%d %H:%M:%S")
+            fh.write("%s, vout, 600.00, vmin, 599.90, vmax, 600.10, iout, 1.000, "
+                     "imin, 0.990, imax, 1.010, power, 600.00, wh, 10.000, n, 1, "
+                     "vset, 600.00, iset, 1.300, ovp, 660.0, uvl, 0.0, mode, CV, out, ON\n" % ts)
+    rows3, schema3 = load(path3)
+    assert schema3 == "sensor", schema3
+    assert len(rows3) == 5, len(rows3)
+    assert abs(analyse(rows3)["kwh"] - 0.050) < 0.005
     print("selftest OK — v2/v1/sensor parsed, energy/CC/limit/transition/SVG checks pass")
     return 0
 

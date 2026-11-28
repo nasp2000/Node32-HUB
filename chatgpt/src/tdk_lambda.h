@@ -135,6 +135,9 @@ void tdkLambdaSetCsvEvery(uint16_t polls);   // one CSV row per N polls
 void tdkLambdaSetCsv(bool enabled);
 void tdkLambdaSetCsvFormat(bool sensorFormat);
 void tdkLambdaSetAutoMap(bool enabled);
+// Module switch: false stops the poll, the CSV rows and every transmission (the
+// port keeps working for the rest of the pack). Persisted by ConfigManager.
+void tdkLambdaSetEnabled(bool enabled);
 void tdkLambdaSetRates(float rateV, float rateI);
 // Sends IDN?, REV?, SN?, DVC?, MODE? one at a time and reports which answered.
 // Refuses while listening (no TX) or when a test is already running.
