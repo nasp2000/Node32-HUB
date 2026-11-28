@@ -213,6 +213,27 @@ inline TdkPending tdkPendingForSend(const char* upperCommand,
     return TDK_P_OTHER;
 }
 
+// A line that is exactly one number ("599.99"). In listen mode it cannot be
+// attributed to V or I (the query that produced it is on the master's TX line,
+// which we do not see), so it must not be guessed.
+inline bool tdkIsSingleNumber(const char* s) {
+    if (!s) return false;
+    char* end = nullptr;
+    const float v = strtof(s, &end);
+    (void)v;
+    if (end == s) return false;
+    while (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n') ++end;
+    return *end == '\0';
+}
+
+// First-contact verdict for the line test: nothing answered means the line is
+// dead or at the wrong baud; a bulk reply plus every query is a healthy link.
+inline const char* tdkSelfTestVerdict(uint8_t answered, uint8_t total, bool dvcOk) {
+    if (total == 0 || answered == 0) return "no reply";
+    if (dvcOk && answered == total) return "ok";
+    return "partial";
+}
+
 // ── Field mapping + CSV row (pure, host-tested) ───────────────────────────
 // Apply the profile map (indexes into the reply), then scale/offset. This is
 // what turns a DVC? line into the six values the module reports.

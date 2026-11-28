@@ -100,6 +100,17 @@ struct TdkStatus {
     uint32_t sessionLimitMs;    // time with I at the setpoint
     uint32_t sessionOffMs;      // time with the output off
     uint32_t cvccTransitions;   // CV <-> CC changes
+    float    rateV;             // unit rating used by the layout detection
+    float    rateI;
+    uint16_t unattributed;      // listen mode: single values ignored (no way to tell V from I)
+    // First-contact line test (button "Test the line").
+    bool     selfTestActive;
+    uint8_t  selfTestStep;      // 0..5 (done)
+    uint8_t  selfTestTotal;     // number of queries in the test
+    uint8_t  selfTestOk;
+    uint8_t  selfTestFail;
+    char     selfTestVerdict[12];  // "" | "ok" | "partial" | "no reply"
+    char     selfTestDetail[96];   // "IDN? ok · REV? ok · ..."
 };
 
 void tdkLambdaBegin();
@@ -124,6 +135,10 @@ void tdkLambdaSetCsvEvery(uint16_t polls);   // one CSV row per N polls
 void tdkLambdaSetCsv(bool enabled);
 void tdkLambdaSetCsvFormat(bool sensorFormat);
 void tdkLambdaSetAutoMap(bool enabled);
+void tdkLambdaSetRates(float rateV, float rateI);
+// Sends IDN?, REV?, SN?, DVC?, MODE? one at a time and reports which answered.
+// Refuses while listening (no TX) or when a test is already running.
+bool tdkLambdaStartSelfTest();
 void tdkLambdaSetListen(bool listen);
 void tdkLambdaSetAddress(uint8_t address);
 void tdkLambdaSetInject(bool enabled);

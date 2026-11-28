@@ -151,3 +151,27 @@ TEST_CASE("TDK page: no native alert, API answers read d.success") {
     // No arrow functions (old ESP32 browser builds).
     CHECK(html.find("=>") == std::string::npos);
 }
+
+TEST_CASE("TDK page: line test and unit rating are wired") {
+    const std::string html = page();
+    // First-contact test: the button starts a server-side sequence and the result
+    // is rendered from status.selfTest (never from the button handler).
+    CHECK(html.find("id='tdkTestBtn'") != std::string::npos);
+    CHECK(html.find("onclick='tdkSelfTest()'") != std::string::npos);
+    CHECK(html.find("id='tdkTestMsg'") != std::string::npos);
+    CHECK(html.find("/api/tdk-lambda-selftest") != std::string::npos);
+    CHECK(html.find("st.selfTest") != std::string::npos);
+    CHECK(html.find("tdkTestRunning") != std::string::npos);
+    CHECK(html.find("tdkTestOk") != std::string::npos);
+    CHECK(html.find("tdkTestPartial") != std::string::npos);
+    CHECK(html.find("tdkTestNoReply") != std::string::npos);
+    // Unit rating travels with the profile and is loaded from the config.
+    CHECK(html.find("id='tdkRateV'") != std::string::npos);
+    CHECK(html.find("id='tdkRateI'") != std::string::npos);
+    CHECK(html.find("&rate_v=") != std::string::npos);
+    CHECK(html.find("&rate_i=") != std::string::npos);
+    CHECK(html.find("rate_v!==undefined") != std::string::npos);
+    // Listen mode: unattributed single values are surfaced, not guessed.
+    CHECK(html.find("tdkListenIgnored") != std::string::npos);
+    CHECK(html.find("st.unattributed") != std::string::npos);
+}

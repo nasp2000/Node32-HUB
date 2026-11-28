@@ -216,4 +216,29 @@ print(len([e for e in d['entries'] if e['dir']=='TX']))")
 [ "${TX:-0}" -ge 10 ] && { echo "  OK   poller keeps sending"; KA=$((KA+1)); } || { echo "  FAIL poller stalled"; KF=$((KF+1)); }
 
 echo
+echo "== 12. line test (IDN? REV? SN? DVC? MODE?) =="
+curl -s -m 10 $A -X POST "http://$N/api/tdk-lambda-selftest"; echo
+RES=""
+for i in $(seq 1 40); do
+  LINE=$(curl -s -m 5 $A "http://$N/api/tdk-lambda-status" | python3 -c "
+import sys,json
+raw=sys.stdin.buffer.read().decode('utf-8','replace');t=json.loads(raw)['status']['selfTest']
+print(('running' if t['running'] else t['result'])+'|'+t['detail'])")
+  case "$LINE" in running*) sleep 1 ;; *) RES="$LINE"; break ;; esac
+done
+echo "  ${RES}"
+[ "${RES%%|*}" = "ok" ] && { echo "  OK   line test verdict ok"; KA=$((KA+1)); } || { echo "  FAIL line test ${RES%%|*}"; KF=$((KF+1)); }
+case "$RES" in *"DVC? ok"*) echo "  OK   DVC? answered"; KA=$((KA+1));; *) echo "  FAIL DVC? not answered"; KF=$((KF+1));; esac
+
+echo
+echo "== 13. unit rating travels with the profile =="
+cfg "rate_v=600&rate_i=1.3"; sleep 1
+curl -s -m 8 $A "http://$N/api/tdk-lambda-config" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+ok = abs(float(d.get('rate_v',0))-600)<0.01 and abs(float(d.get('rate_i',0))-1.3)<0.001
+print(('  \033[32mOK\033[0m   rate_v=%s rate_i=%s' if ok else '  \033[31mFAIL\033[0m rate_v=%s rate_i=%s') % (d.get('rate_v'),d.get('rate_i')))
+raise SystemExit(0 if ok else 1)" && KA=$((KA+1)) || KF=$((KF+1))
+
+echo
 echo "================ $KA ok, $KF failed ================"

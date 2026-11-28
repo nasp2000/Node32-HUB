@@ -1374,6 +1374,15 @@ public:
         markDirtyAndScheduleSave();
         return true;
     }
+    // Unit rating (GENH600-1.3 = 600 V / 1.3 A). Used by the layout detection to
+    // reject impossible readings; a wrong rating never stops plain reading.
+    bool setTdkLambdaRates(float v, float i) {
+        if (!config.containsKey("tdklambda") || !config["tdklambda"].is<JsonObject>()) config["tdklambda"].to<JsonObject>();
+        if (v > 0.0f) config["tdklambda"]["rate_v"] = v;
+        if (i > 0.0f) config["tdklambda"]["rate_i"] = i;
+        markDirtyAndScheduleSave();
+        return true;
+    }
     String getTdkLambdaMode()     { return _tdkStr("mode", "dvc"); }
     String getTdkLambdaCmdV()     { return _tdkStr("cmd_v", "DVC?"); }
     String getTdkLambdaCmdI()     { return _tdkStr("cmd_i", "MC?"); }

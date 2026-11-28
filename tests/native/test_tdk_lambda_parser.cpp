@@ -332,3 +332,25 @@ TEST_CASE("tdkMapPlausible: keeps the layout when only ripple separates the pair
     const float swap[6] = {1.30f, 1.28f, 600.09f, 599.96f, 660.0f, 0.0f};
     CHECK_FALSE(tdkMapPlausible(swap, 6, id, 1.0f, 1.0f, 600.0f, 1.3f));
 }
+
+TEST_CASE("tdkSelfTestVerdict: ok only when the bulk reply and every query came back") {
+    CHECK(std::string(tdkSelfTestVerdict(0, 5, false)) == "no reply");
+    CHECK(std::string(tdkSelfTestVerdict(0, 0, false)) == "no reply");
+    CHECK(std::string(tdkSelfTestVerdict(5, 5, true)) == "ok");
+    // The bulk read is the one that matters: without it, never "ok".
+    CHECK(std::string(tdkSelfTestVerdict(5, 5, false)) == "partial");
+    CHECK(std::string(tdkSelfTestVerdict(4, 5, true)) == "partial");
+    CHECK(std::string(tdkSelfTestVerdict(3, 5, false)) == "partial");
+}
+
+TEST_CASE("tdkIsSingleNumber: only a lone measurement is ambiguous in listen mode") {
+    CHECK(tdkIsSingleNumber("599.99"));
+    CHECK(tdkIsSingleNumber("  12.5  "));
+    CHECK(tdkIsSingleNumber("-1.2"));
+    CHECK_FALSE(tdkIsSingleNumber("599.99,600.00"));   // DVC? -> attributable
+    CHECK_FALSE(tdkIsSingleNumber("CV"));
+    CHECK_FALSE(tdkIsSingleNumber("12 V"));
+    CHECK_FALSE(tdkIsSingleNumber("2026/01/01"));     // DATE?, not a measurement
+    CHECK_FALSE(tdkIsSingleNumber(""));
+    CHECK_FALSE(tdkIsSingleNumber(nullptr));
+}

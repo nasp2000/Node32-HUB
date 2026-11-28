@@ -189,6 +189,21 @@ char          s_alertText[64] = {0};
 uint32_t      s_alertSinceMs = 0;
 float         s_rateV = 600.0f, s_rateI = 1.3f;
 char          s_autoNote[64] = {0};      // last automatic adjustment (for the page)
+uint16_t      s_unattributed = 0;        // listen mode: single values ignored
+uint32_t      s_unattributedLogMs = 0;
+
+// ── first-contact line test ────────────────────────────────────────────────
+// One query at a time, only queries, never while listen mode is on. It fills the
+// same values the page shows, so a pass means the real poll will work too.
+static const char* const kSelfTestCmds[] = {"IDN?", "REV?", "SN?", "DVC?", "MODE?"};
+static const uint8_t kSelfTestCount = sizeof(kSelfTestCmds) / sizeof(kSelfTestCmds[0]);
+bool          s_selfTestActive = false;
+uint8_t       s_selfTestStep = 0;        // steps already sent
+bool          s_selfTestAnswered[kSelfTestCount] = {false};
+uint32_t      s_selfTestSentMs = 0;
+uint32_t      s_selfTestRxMark = 0;
+char          s_selfTestVerdict[12] = {0};
+char          s_selfTestDetail[96] = {0};
 
 void pushLog(const char* dir, const char* text);   // defined below
 void tdkLogSys(const char* text) {
@@ -420,6 +435,58 @@ void applyAutoMap(const float* f, uint8_t n) {
     tdkLogSys((String(F("perfil ajustado automaticamente: ")) + String(why)).c_str());
 }
 
+// Did the step that was just sent get its own reply? Identity steps compare the
+// string (a cached value from an earlier read is still a valid answer for the
+// link); DVC? needs four fields; MODE? needs a mode other than the default.
+bool selfTestStepAnswered(uint8_t step) {
+    if (s_lastRxMs == s_selfTestRxMark) return false;   // nothing arrived
+    switch (step) {
+        case 0: return s_idn[0] != '\0';
+        case 1: return s_rev[0] != '\0';
+        case 2: return s_sn[0] != '\0';
+        case 3: { float f[16]; return tdkParseFloats(s_lastLine, f, 16) >= 4; }
+        case 4: return strcmp(s_values.mode, "--") != 0;
+        default: return false;
+    }
+}
+
+void selfTestFinish() {
+    uint8_t answered = 0;
+    for (uint8_t i = 0; i < kSelfTestCount; ++i) if (s_selfTestAnswered[i]) answered++;
+    const char* verdict = tdkSelfTestVerdict(answered, kSelfTestCount, s_selfTestAnswered[3]);
+    snprintf(s_selfTestVerdict, sizeof(s_selfTestVerdict), "%s", verdict);
+    char detail[sizeof(s_selfTestDetail)] = {0};
+    for (uint8_t i = 0; i < kSelfTestCount; ++i) {
+        if (i) strncat(detail, " | ", sizeof(detail) - strlen(detail) - 1);
+        strncat(detail, kSelfTestCmds[i], sizeof(detail) - strlen(detail) - 1);
+        strncat(detail, s_selfTestAnswered[i] ? " ok" : " no reply",
+                sizeof(detail) - strlen(detail) - 1);
+    }
+    snprintf(s_selfTestDetail, sizeof(s_selfTestDetail), "%s", detail);
+    s_selfTestActive = false;
+    char msg[128];
+    snprintf(msg, sizeof(msg), "line test: %s (%u/%u) %s",
+             verdict, (unsigned)answered, (unsigned)kSelfTestCount, detail);
+    tdkLogSys(msg);
+}
+
+// Called with the slot free: records the previous step and sends the next one
+// (or finishes when there is no next).
+void selfTestAdvance(bool previousAnswered) {
+    if (s_selfTestStep > 0) {
+        const uint8_t prev = (uint8_t)(s_selfTestStep - 1);
+        s_selfTestAnswered[prev] = previousAnswered && selfTestStepAnswered(prev);
+    }
+    if (s_selfTestStep >= kSelfTestCount) { selfTestFinish(); return; }
+    const uint8_t step = s_selfTestStep;
+    s_selfTestRxMark = s_lastRxMs;
+    s_selfTestSentMs = millis();
+    s_selfTestStep++;
+    if (!tdkLambdaSend(String(kSelfTestCmds[step]))) {
+        s_selfTestAnswered[step] = false;   // could not queue: next tick moves on
+    }
+}
+
 // ── RX parsing ─────────────────────────────────────────────────────────────
 void handleLine(char* line) {
     while (*line == ' ' || *line == '\t') ++line;
@@ -494,6 +561,15 @@ void handleLine(char* line) {
             // Listener mode: a multi-field line arrives without us asking it.
             float f[16];
             const uint8_t n = tdkParseFloats(line, f, 16);
+            if (s_listen && n == 1 && tdkIsSingleNumber(line)) {
+                // A lone number is a reply to MV? or MC? on the master's TX line,
+                // which we cannot see: guessing V or I would invent data.
+                if (s_unattributed < 0xFFFF) s_unattributed++;
+                if (s_unattributedLogMs == 0 || (millis() - s_unattributedLogMs) > 60000UL) {
+                    s_unattributedLogMs = millis();
+                    tdkLogSys("listen: single value ignored (cannot tell V from I) - use DVC? on the master");
+                }
+            }
             if (n >= 4) {
                 applyAutoMap(f, n);
                 tdkApplyMap(f, n, s_map, s_scaleV, s_scaleI, s_offV, s_offI,
@@ -610,6 +686,18 @@ bool tdkLambdaSend(const String& command) {
 void tdkLambdaUpdate() {
     const uint32_t now = millis();
 
+    // First-contact line test: one query at a time, 4 s per step at most.
+    if (s_selfTestActive) {
+        if (s_pending != P_NONE) {
+            if ((now - s_selfTestSentMs) > 4000UL) {
+                s_pending = P_NONE;             // free the slot for the next step
+                selfTestAdvance(false);
+            }
+        } else if ((now - s_selfTestSentMs) >= 300UL) {
+            selfTestAdvance(true);
+        }
+    }
+
     // A request without a reply must not wedge the poller: on a silent line the
     // cycle would stop at the first command and never send another one (measured
     // on the bench: a single TX per boot). Drop it and retry next interval.
@@ -621,7 +709,8 @@ void tdkLambdaUpdate() {
     }
 
     // Poll cycle: DVC? -> MODE? -> OUT? then wait the configured interval.
-    if (!s_listen && s_polling && s_pending == P_NONE && (now - s_lastPollMs) >= s_pollMs) {
+    if (!s_listen && !s_selfTestActive && s_polling && s_pending == P_NONE &&
+        (now - s_lastPollMs) >= s_pollMs) {
         // Profile-driven cycle:
         //   dvc   -> <query>            then <state>
         //   split -> <V query>, <I query> then <state>
@@ -697,6 +786,18 @@ TdkStatus tdkLambdaGetStatus() {
     st.sessionLimitMs = s_session.limMs;
     st.sessionOffMs = s_session.offMs;
     st.cvccTransitions = s_session.transitions;
+    st.rateV = s_rateV;
+    st.rateI = s_rateI;
+    st.unattributed = s_unattributed;
+    st.selfTestActive = s_selfTestActive;
+    st.selfTestStep = s_selfTestStep;
+    st.selfTestTotal = kSelfTestCount;
+    uint8_t okCount = 0;
+    for (uint8_t i = 0; i < kSelfTestCount; ++i) if (s_selfTestAnswered[i]) okCount++;
+    st.selfTestOk = okCount;
+    st.selfTestFail = (uint8_t)(kSelfTestCount - okCount);
+    strncpy(st.selfTestVerdict, s_selfTestVerdict, sizeof(st.selfTestVerdict) - 1);
+    strncpy(st.selfTestDetail, s_selfTestDetail, sizeof(st.selfTestDetail) - 1);
     return st;
 }
 
@@ -824,6 +925,7 @@ void tdkLambdaSetLimits(float vMin, float vMax, float iMax, bool enabled) {
 void tdkLambdaSetListen(bool listen) {
     s_listen = listen;
     if (listen) {
+        if (s_selfTestActive) { s_selfTestActive = false; s_pending = P_NONE; }
         tdkLogSys("modo escuta: TX desactivado (o mestre da linha e o PLC)");
     } else {
         tdkLogSys("modo mestre: o hub passa a perguntar");
@@ -833,6 +935,28 @@ void tdkLambdaSetListen(bool listen) {
 void tdkLambdaSetAutoMap(bool enabled) {
     s_autoMap = enabled;
     if (!enabled) s_autoNote[0] = '\0';
+}
+
+void tdkLambdaSetRates(float rateV, float rateI) {
+    if (rateV > 0.0f) s_rateV = rateV;
+    if (rateI > 0.0f) s_rateI = rateI;
+}
+
+bool tdkLambdaStartSelfTest() {
+    if (s_listen) {
+        tdkLogSys("line test refused: listen mode never transmits");
+        return false;
+    }
+    if (s_selfTestActive) return false;
+    s_selfTestActive = true;
+    s_selfTestStep = 0;
+    for (uint8_t i = 0; i < kSelfTestCount; ++i) s_selfTestAnswered[i] = false;
+    s_selfTestSentMs = millis();
+    s_selfTestRxMark = s_lastRxMs;
+    s_selfTestVerdict[0] = '\0';
+    s_selfTestDetail[0] = '\0';
+    tdkLogSys("line test started: IDN? REV? SN? DVC? MODE?");
+    return true;
 }
 
 void tdkLambdaSetCsvFormat(bool sensorFormat) {

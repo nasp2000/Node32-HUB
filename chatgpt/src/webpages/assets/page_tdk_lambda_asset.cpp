@@ -99,6 +99,8 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
     </div>
     <div class='tdk-row'>
       <button class='btn' onclick='tdkIdentify()' title='Sends IDN?, REV? and SN? to read the unit identity' data-i18n-title='tdkTipIdentify'>&#128269; Identify (IDN? REV? SN?)</button>
+      <button class='btn' id='tdkTestBtn' onclick='tdkSelfTest()' title='Sends IDN?, REV?, SN?, DVC? and MODE? one at a time and reports what answered: line ok, partial or no reply' data-i18n-title='tdkTipTestLine'>&#128225; Test the line</button>
+      <span class='tdk-note' id='tdkTestMsg'></span>
     </div>
   </div>
 
@@ -260,6 +262,8 @@ Every command and reply also appears in the <a href='/monitor' title='Open the S
       <label class='tdk-field' title='Multiplier applied to the current field' data-i18n-title='tdkTipSi'>Scale I<input id='tdkSi' value='1'></label>
       <label class='tdk-field' title='Value added to the voltage after scaling' data-i18n-title='tdkTipOv'>Offset V<input id='tdkOv' value='0'></label>
       <label class='tdk-field' title='Value added to the current after scaling' data-i18n-title='tdkTipOi'>Offset I<input id='tdkOi' value='0'></label>
+      <label class='tdk-field' title='Unit rated voltage (e.g. 600 on a GENH600); used to validate the profile detection' data-i18n-title='tdkTipRateV'>Rated V<input id='tdkRateV' type='number' min='0.1' step='any' value='600'></label>
+      <label class='tdk-field' title='Unit rated current (e.g. 1.3 on a GENH600); used to validate the profile detection' data-i18n-title='tdkTipRateI'>Rated I<input id='tdkRateI' type='number' min='0.001' step='any' value='1.3'></label>
       <label class='tdk-field' title='Multi-drop address prefix for supplies on an addressed bus; 0 means none' data-i18n-title='tdkTipAddr'>Addr (0 = off)<input id='tdkAddr' value='0'></label>
     </div>
     <div class='tdk-row' style='margin-top:10px'>
@@ -333,6 +337,7 @@ function tdkStatus(){
     b+='<span class="tdk-badge '+(linkOk?'ok':'warn')+'">'+(linkOk?'link ok':'no data')+'</span> ';
     b+='<span class="tdk-badge '+(st.polling?'ok':'off')+'">polling '+(st.polling?'on':'off')+'</span> ';
     b+='<span class="tdk-badge '+(st.csvEnabled?'ok':'off')+'">csv '+(st.csvEnabled?'on':'off')+'</span> ';
+    if(st.listen && st.unattributed){b+='<span class="tdk-badge warn">'+st.unattributed+' '+_tdkEsc(_tdkT('tdkListenIgnored','single values ignored (cannot tell V from I)'))+'</span> ';}
     if(st.lastError){b+='<span class="tdk-badge err">error '+_tdkEsc(st.lastError)+'</span> ';}
     if(st.alertActive){b+='<span class="tdk-badge err">ALERT '+_tdkEsc(st.alertText)+'</span> ';}
     _tdkQ('tdkAlert').innerHTML=st.alertActive?'<span class="tdk-badge err">'+_tdkEsc(st.alertText)+'</span>':'';
@@ -354,6 +359,20 @@ function tdkStatus(){
     _tdkQ('tdkOut').innerHTML='<span class="tdk-badge '+(v.outOn?'ok':'off')+'">'+(v.outOn?'ON':'OFF')+'</span>';
     _tdkQ('tdkOvp').textContent=(v.valid?v.ovp.toFixed(1):'--')+' / '+(v.valid?v.uvl.toFixed(1):'--');
     _tdkQ('tdkLast').textContent=st.lastLine||'--';
+    var tst=st.selfTest||{};
+    var tmsg=_tdkQ('tdkTestMsg'), tbtn=_tdkQ('tdkTestBtn');
+    if(tbtn){tbtn.disabled=!!tst.running;}
+    if(tmsg){
+      if(tst.running){
+        tmsg.innerHTML='<span class="tdk-badge warn">'+_tdkEsc(_tdkT('tdkTestRunning','testing the line…'))+' '+(tst.step||0)+'/'+(tst.steps||5)+'</span>';
+      }else if(tst.result){
+        var tcls=(tst.result==='ok')?'ok':((tst.result==='partial')?'warn':'err');
+        var ttxt=(tst.result==='ok')?_tdkT('tdkTestOk','line OK')
+                :((tst.result==='partial')?_tdkT('tdkTestPartial','line partial — see the list')
+                                          :_tdkT('tdkTestNoReply','no reply — check baud, cable and remote mode'));
+        tmsg.innerHTML='<span class="tdk-badge '+tcls+'">'+_tdkEsc(ttxt)+'</span> '+_tdkEsc(tst.detail||'');
+      }else{tmsg.textContent='';}
+    }
     _tdkQ('tdkIdn').textContent=st.idn||'--';
     _tdkQ('tdkRev').textContent=st.rev||'--';
     _tdkQ('tdkSn').textContent=st.sn||'--';
@@ -511,6 +530,28 @@ function tdkIdentify(){
   next();
 }
 
+var _tdkTestTimer=null;
+function tdkSelfTest(){
+  if(_tdkTestTimer){clearInterval(_tdkTestTimer);_tdkTestTimer=null;}
+  var msg=_tdkQ('tdkTestMsg'), btn=_tdkQ('tdkTestBtn');
+  if(btn){btn.disabled=true;}
+  if(msg){msg.textContent=_tdkT('tdkTestRunning','testing the line…');}
+  _tdkPost('/api/tdk-lambda-selftest','').then(function(d){
+    if(!d.success){if(btn){btn.disabled=false;}if(msg){msg.textContent=d.message||'failed';}return;}
+    var tries=0;
+    _tdkTestTimer=setInterval(function(){
+      tries++;
+      tdkStatus();
+      fetch('/api/tdk-lambda-status',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+        var t=(j.status&&j.status.selfTest)||{};
+        if(t.running && tries<40){return;}
+        clearInterval(_tdkTestTimer);_tdkTestTimer=null;
+        tdkLog();tdkStatus();
+      }).catch(function(){});
+    },800);
+  });
+}
+
 function tdkClear(){_tdkPost('/api/tdk-lambda-clear','').then(function(){tdkLog();tdkStatus();});}
 
 function tdkCsvFlush(){
@@ -537,6 +578,8 @@ function tdkLoadCfg(){
     _tdkQ('tdkSi').value=(d.scale_i!==undefined?d.scale_i:1);
     _tdkQ('tdkOv').value=(d.off_v!==undefined?d.off_v:0);
     _tdkQ('tdkOi').value=(d.off_i!==undefined?d.off_i:0);
+    _tdkQ('tdkRateV').value=(d.rate_v!==undefined?d.rate_v:600);
+    _tdkQ('tdkRateI').value=(d.rate_i!==undefined?d.rate_i:1.3);
     _tdkQ('tdkAuto').checked=(d.auto_map!==false);
     _tdkQ('tdkAddr').value=(d.addr!==undefined?d.addr:0);
     _tdkQ('tdkInject').checked=!!d.inject;
@@ -640,7 +683,9 @@ function tdkProfileBody(){
          '&scale_v='+encodeURIComponent(_tdkQ('tdkSv').value)+
          '&scale_i='+encodeURIComponent(_tdkQ('tdkSi').value)+
          '&off_v='+encodeURIComponent(_tdkQ('tdkOv').value)+
-         '&off_i='+encodeURIComponent(_tdkQ('tdkOi').value);
+         '&off_i='+encodeURIComponent(_tdkQ('tdkOi').value)+
+         '&rate_v='+encodeURIComponent(_tdkQ('tdkRateV').value)+
+         '&rate_i='+encodeURIComponent(_tdkQ('tdkRateI').value);
 }
 
 function tdkSaveProfile(){

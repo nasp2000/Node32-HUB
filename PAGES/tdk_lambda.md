@@ -44,11 +44,12 @@ Endpoints (todos registados uma vez, servidos nas duas interfaces):
 | GET | `/api/tdk-lambda-status` | `status{…}` + `values{…}` |
 | GET | `/api/tdk-lambda-commands` | catálogo (`cmd,group,usage,desc,reply,notes`) |
 | GET | `/api/tdk-lambda-log` | últimas 32 linhas (`dir,ageMs,text`) |
-| GET | `/api/tdk-lambda-config` | `{poll,poll_s,csv_every,csv,format,mode,cmd_v,cmd_i,cmd_state,map,scale_v,scale_i,off_v,off_i,auto_map,listen,allow_write}` |
+| GET | `/api/tdk-lambda-config` | `{poll,poll_s,csv_every,csv,format,mode,cmd_v,cmd_i,cmd_state,map,scale_v,scale_i,off_v,off_i,rate_v,rate_i,auto_map,listen,allow_write}` |
 | GET | `/api/tdk-lambda-config` extras | `addr`, `inject`, `limits{enabled,v_min,v_max,i_max}` |
 | GET | `/api/tdk-lambda-samples?n=` | `{samples:[[age_s,volts,amps],…]}` — ring em RAM, ≤**240** pontos (`n` limitado a 240) |
 | GET | `/api/tdk-lambda-csv` | ficheiro do dia (`text/csv`, até **1 MB**); descarrega o buffer primeiro, lê para **PSRAM** (nunca um `String` grande no heap) e, se cortar, corta em fim de linha e avisa no monitor |
 | POST | `/api/tdk-lambda-send` | corpo `cmd=…` → `{success,message}` |
+| POST | `/api/tdk-lambda-selftest` | arranca o **teste de linha** (`IDN? REV? SN? DVC? MODE?`, uma de cada vez) → `{success,running}`; `409` em modo escuta ou com um teste a correr |
 | POST | `/api/tdk-lambda-clear` | limpa o log |
 | POST | `/api/tdk-lambda-config` | `poll=0|1&poll_s=60..3600&csv_every=1..60&csv=0|1&format=sensor|table` |
 | POST | `/api/tdk-lambda-csv-flush` | força a gravação das linhas em buffer (LittleFS) |
@@ -153,7 +154,7 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
 | Input | ID | Notas |
 |---|---|---|
 | Comando | `tdkCmd` | livre; max 32 caracteres (o handler corta); desactivado em modo escuta |
-| Modo escuta | `tdkListen` | **não transmite nada** (poll parado, `send` devolve 409) — para quando o PLC é mestre |
+| Modo escuta | `tdkListen` | **não transmite nada** (poll parado, `send` devolve 409, teste de linha recusado) — para quando o PLC é mestre. Um **valor solto** (`599.99`, resposta do PLC a `MV?`/`MC?`) não é atribuível a V ou I e é **ignorado** — não se inventa a grandeza. O contador sobe em `status.unattributed` (badge na página) e o monitor avisa no máximo 1×/min. Linhas multi-campo (`DVC?`) são lidas normalmente |
 | Permitir escrita | `tdkAllowW` | **desligado por omissão**. Ligar pede uma **segunda confirmação** (diálogo com exemplos do que pode ser escrito: `PV 600`, `PC 1.30`, `OUT 1/0`, `OVP 660`, `UVL 300`, `SAV`…); cancelar desliga a caixa e não grava nada. Desligado, só passa a **allow-list de leitura** (`MV? MC? DVC? STT? STAT? FLT? MODE? OUT? IDN? …`); `PV/PC/OUT/OVP/RMT/SAV/G*` → 403. Aplica-se também ao **perfil de poll**: `cmd_v`/`cmd_i`/`cmd_state` que não terminem em `?` são recusados e o módulo volta a `DVC?`/`MC?`/`MODE?`, com aviso no monitor |
 | Filtro do catálogo | `tdkSearch` | filtra por comando/grupo/descrição/notas |
 | Polling | `tdkPoll` | checkbox; grava na hora (`POST /api/tdk-lambda-config`) |
@@ -165,6 +166,7 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
 | Perguntas | `tdkCmdV` `tdkCmdI` `tdkCmdSt` | comandos a enviar no ciclo de poll |
 | Mapa de campos | `tdkMap` | índices (0-based) de V medida, V set, I medida, I set, OVP, UVL na resposta |
 | Escalas/offsets | `tdkSv` `tdkSi` `tdkOv` `tdkOi` | aplicados depois do mapa (mV/mA → V/A, calibração) |
+| Gama da fonte | `tdkRateV` `tdkRateI` | tensão/corrente nominais (600 / 1,3 por omissão). Só servem para a auto-detecção validar a resposta — nunca limitam a leitura |
 | Auto-detecção | `tdkAuto` | liga/desliga; **só corrige em runtime, nunca grava** o perfil |
 | ➕ Gravar o detetado | botão | copia o mapa/escalas em uso para o perfil gravado (passa a manual fixo) |
 
@@ -178,6 +180,8 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
 | 🗑 Limpar registo | `POST /api/tdk-lambda-clear` |
 | 💾 Gravar agora | `POST /api/tdk-lambda-csv-flush` |
 | `usar` (na tabela) | copia o `usage` do catálogo para o input |
+| 🔍 Identify | envia `IDN? REV? SN?` (um a um) e mostra a unidade |
+| 📡 Testar a linha | `POST /api/tdk-lambda-selftest`: o módulo envia `IDN? REV? SN? DVC? MODE?` uma de cada vez e publica o veredicto (`ok` / `partial` / `no reply`) com a lista do que respondeu. Recusa em modo escuta (409) |
 | ➕ Gravar o detetado | lê `mapUsed/scaleVUsed/scaleIUsed` do status e grava como perfil |
 | Presets do perfil | `GENH600-1.3` (dvc + mapa 0..5), `MV?+MC?` (split), `DVC? em mV/mA` (escala 0,001) — preenchem e gravam |
 | 💾 Gravar perfil | `POST /api/tdk-lambda-config` só com os campos do perfil |
@@ -187,6 +191,7 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
 ## 6. Client logic
 
 - `tdkStatus()` a cada **5 s**: `GET /api/tdk-lambda-status` → badges + 8 cartões de valores;
+  durante o teste de linha corre também a cada **0,8 s** (até 40 leituras) só para acompanhar o veredicto.
   `values.valid=false` mostra `--` (nunca 0, para não parecer leitura real).
 - `tdkLog()` a cada **3 s**: `GET /api/tdk-lambda-log` → `pre#tdkLog` (auto-scroll).
 - `tdkLoadCfg()` no arranque: preenche os três controlos de CSV/polling.
@@ -197,8 +202,12 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
 
 ## 7. Server API — comportamento
 
-- `status`: inclui `lastLine`, `lastCommand`, `csvPath`, `csvOnSd`, `csvRows`, `lastRxAgeMs`.
+- `status`: inclui `lastLine`, `lastCommand`, `csvPath`, `csvOnSd`, `csvRows`, `lastRxAgeMs`,
+  `rateV`, `rateI`, `unattributed` e `selfTest{running,step,steps,ok,fail,result,detail}`.
   `values`: `vMeas,vSet,iMeas,iSet,ovp,uvl,mode,outOn,valid`.
+- `selftest`: máquina de estados no módulo (uma pergunta por vez, só queries, 4 s por passo).
+  `ok` exige a leitura múltipla (`DVC?`) **e** todas as perguntas; nada respondido = `no reply`.
+  Corre fora do ciclo de poll (o poll fica suspenso enquanto o teste dura) e recusa em escuta.
 - `send`: **recusa em modo escuta** (409) e recusa comandos fora da allow-list
   quando `allow_write` está off (403). O poll do perfil é a única via que não passa pelo `send`:
   por isso `tdkLambdaApplyProfile()` valida as três queries (têm de terminar em `?`) quando a

@@ -611,7 +611,11 @@ TDK_SEED = r"""
     // window cadence + session counters (CSV tab)
     csvEvery: 6, csvRowMs: 360000, aggCount: 3,
     sessionWh: 1240.5, sessionCcMs: 900000, sessionLimitMs: 1200000,
-    sessionOffMs: 3660000, cvccTransitions: 4
+    sessionOffMs: 3660000, cvccTransitions: 4,
+    rateV: 600, rateI: 1.3, unattributed: 0,
+    // last line test: healthy link, every query answered
+    selfTest: { running: false, step: 5, steps: 5, ok: 5, fail: 0, result: 'ok',
+                detail: 'IDN? ok | REV? ok | SN? ok | DVC? ok | MODE? ok' }
   };
   var values = { valid: true, vMeas: 600.0, vSet: 600.0, iMeas: 1.302, iSet: 1.4,
                  ovp: 660.0, uvl: 0.0, mode: 'CV', outOn: true, lastUpdateMs: 0 };
@@ -638,6 +642,7 @@ TDK_SEED = r"""
     '/api/tdk-lambda-config': { success: true, poll: true, poll_s: 60, csv: true,
       format: 'sensor', mode: 'dvc', cmd_v: 'DVC?', cmd_i: 'MC?', cmd_state: 'MODE?',
       map: '0,1,2,3,4,5', scale_v: 1, scale_i: 1, off_v: 0, off_i: 0,
+      rate_v: 600, rate_i: 1.3,
       auto_map: true, addr: 0, inject: true, csv_every: 6,
       limits: { enabled: true, v_min: 590, v_max: 610, i_max: 1.35 },
       listen: false, allow_write: false, ro: false },

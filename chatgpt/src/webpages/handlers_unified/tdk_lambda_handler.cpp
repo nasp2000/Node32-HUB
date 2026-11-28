@@ -115,6 +115,17 @@ void handleTdkLambdaStatusGet(HttpRequest& req, HttpResponse& res) {
     j += F(",\"sessionLimitMs\":");  j += String(st.sessionLimitMs);
     j += F(",\"sessionOffMs\":");    j += String(st.sessionOffMs);
     j += F(",\"cvccTransitions\":"); j += String(st.cvccTransitions);
+    j += F(",\"rateV\":");           j += String(st.rateV, 2);
+    j += F(",\"rateI\":");           j += String(st.rateI, 3);
+    j += F(",\"unattributed\":");    j += String(st.unattributed);
+    j += F(",\"selfTest\":{\"running\":"); j += st.selfTestActive ? F("true") : F("false");
+    j += F(",\"step\":");   j += String((unsigned)st.selfTestStep);
+    j += F(",\"steps\":");  j += String((unsigned)st.selfTestTotal);
+    j += F(",\"ok\":");     j += String((unsigned)st.selfTestOk);
+    j += F(",\"fail\":");   j += String((unsigned)st.selfTestFail);
+    j += F(",\"result\":\""); j += tdkJsonEscape(st.selfTestVerdict); j += '"';
+    j += F(",\"detail\":\""); j += tdkJsonEscape(st.selfTestDetail); j += '"';
+    j += F("}");
     j += F(",\"lastCommand\":\"");    j += tdkJsonEscape(st.lastCommand); j += '"';
     j += F(",\"lastLine\":\"");       j += tdkJsonEscape(st.lastLine);    j += '"';
     j += F(",\"profileMode\":\"");    j += tdkJsonEscape(st.profileMode); j += '"';
@@ -263,6 +274,8 @@ void handleTdkLambdaConfigGet(HttpRequest& req, HttpResponse& res) {
     j += F(",\"scale_i\":");     j += String(configManager.getTdkLambdaScaleI(), 4);
     j += F(",\"off_v\":");       j += String(configManager.getTdkLambdaOffV(), 4);
     j += F(",\"off_i\":");       j += String(configManager.getTdkLambdaOffI(), 4);
+    j += F(",\"rate_v\":");      j += String(configManager.getTdkLambdaRateV(), 2);
+    j += F(",\"rate_i\":");      j += String(configManager.getTdkLambdaRateI(), 3);
     j += F(",\"limits\":{");
     j += F("\"enabled\":");      j += configManager.getTdkLambdaLimitsEnabled() ? F("true") : F("false");
     j += F(",\"v_min\":");       j += String(configManager.getTdkLambdaLimitVMin(), 2);
@@ -364,6 +377,18 @@ void handleTdkLambdaConfigPost(HttpRequest& req, HttpResponse& res) {
         configManager.setTdkLambdaProfile(mode, cmdV, cmdI, cmdS, map, fsv, fsi, fov, foi);
         tdkLambdaApplyProfile(mode.c_str(), cmdV.c_str(), cmdI.c_str(), cmdS.c_str(),
                               map.c_str(), fsv, fsi, fov, foi);
+    }
+
+    // --- unit rating (used by the layout detection, never to clamp readings) --
+    const String rateVS = tdkFormValue(req.body, "rate_v");
+    const String rateIS = tdkFormValue(req.body, "rate_i");
+    if (rateVS.length() || rateIS.length()) {
+        const float rv = rateVS.length() ? rateVS.toFloat() : configManager.getTdkLambdaRateV();
+        const float ri = rateIS.length() ? rateIS.toFloat() : configManager.getTdkLambdaRateI();
+        if (rv > 0.0f && rv <= 2000.0f && ri > 0.0f && ri <= 5000.0f) {
+            configManager.setTdkLambdaRates(rv, ri);
+            tdkLambdaSetRates(rv, ri);
+        }
     }
 
     String j;
@@ -528,6 +553,26 @@ void handleTdkLambdaCsvGet(HttpRequest& req, HttpResponse& res) {
     res.binaryData = buf;
     res.binaryLen = got;
     res.freeFn = [](const uint8_t* p) { heap_caps_free((void*)p); };
+#else
+    res.code = 503;
+    res.sendJson(F("{\"success\":false,\"message\":\"module disabled\"}"));
+#endif
+}
+
+void handleTdkLambdaSelfTestPost(HttpRequest& req, HttpResponse& res) {
+    (void)req;
+#if ENABLE_TDK_LAMBDA == 1
+    if (configManager.getTdkLambdaListen()) {
+        res.code = 409;
+        res.sendJson(F("{\"success\":false,\"message\":\"listen mode: the line test needs TX\"}"));
+        return;
+    }
+    if (!tdkLambdaStartSelfTest()) {
+        res.code = 409;
+        res.sendJson(F("{\"success\":false,\"message\":\"a line test is already running\"}"));
+        return;
+    }
+    res.sendJson(F("{\"success\":true,\"running\":true}"));
 #else
     res.code = 503;
     res.sendJson(F("{\"success\":false,\"message\":\"module disabled\"}"));
