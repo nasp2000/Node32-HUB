@@ -333,15 +333,30 @@ void csvHeader(File& f) {
 void rotateCsvIfFormatChanged(const String& path) {
     if (!s_csvFmtDirty) return;
     s_csvFmtDirty = false;
+#if ENABLE_SDCARD==1 || ENABLE_FILESYSTEM==1
+    // SD_MMC only exists when the SD pipeline is compiled; the RS232 pack runs
+    // the LittleFS mirror alone (same rule as appendBlockSd/appendRowsFlash).
+#if ENABLE_SDCARD==1
     const bool sd = sdcardShouldUseSD();
-    const bool exists = sd ? SD_MMC.exists(path.c_str()) : LittleFS.exists(path.c_str());
-    if (!exists) return;
+#else
+    const bool sd = false;
+#endif
+    auto fileExists = [&](const String& p) -> bool {
+#if ENABLE_SDCARD==1
+        if (sd) return SD_MMC.exists(p.c_str());
+#endif
+        return LittleFS.exists(p.c_str());
+    };
+    if (!fileExists(path)) return;
     char head[48] = {0};
     size_t got = 0;
+#if ENABLE_SDCARD==1
     if (sd) {
         File f = SD_MMC.open(path.c_str(), FILE_READ);
         if (f) { got = f.read((uint8_t*)head, sizeof(head) - 1); f.close(); }
-    } else {
+    } else
+#endif
+    {
         File f = LittleFS.open(path.c_str(), "r");
         if (f) { got = f.read((uint8_t*)head, sizeof(head) - 1); f.close(); }
     }
@@ -349,18 +364,23 @@ void rotateCsvIfFormatChanged(const String& path) {
     head[got] = '\0';
     const bool fileIsTable = tdkCsvFileIsTable(head);
     if (fileIsTable == !s_csvSensorFmt) return;    // already the same shape
+    const String tag = fileIsTable ? "_table" : "_sensor";
     String target = path;
-    target.replace(".csv", String(fileIsTable ? "_table" : "_sensor") + ".csv");
+    target.replace(".csv", tag + ".csv");
     for (int n = 2; n <= 9; ++n) {
-        const bool tExists = sd ? SD_MMC.exists(target.c_str()) : LittleFS.exists(target.c_str());
-        if (!tExists) break;
+        if (!fileExists(target)) break;
         target = path;
-        target.replace(".csv", String(fileIsTable ? "_table" : "_sensor") + "_" + String(n) + ".csv");
+        target.replace(".csv", tag + "_" + String(n) + ".csv");
     }
+#if ENABLE_SDCARD==1
     const bool ok = sd ? SD_MMC.rename(path.c_str(), target.c_str())
                        : LittleFS.rename(path.c_str(), target.c_str());
+#else
+    const bool ok = LittleFS.rename(path.c_str(), target.c_str());
+#endif
     tdkLogSys(ok ? "CSV format changed: previous file kept with a format suffix"
                  : "CSV format changed: could not rotate the previous file");
+#endif
 }
 
 bool appendBlockSd(const String& path, const String& rows) {
@@ -1002,7 +1022,7 @@ void tdkLambdaSetEnabled(bool enabled) {
         s_selfTestActive = false;
         s_pending = P_NONE;
         s_pollStep = 0;
-        if (s_csvPending.length() > 0) (void)tdkCsvFlushNow();   // don't leave rows in RAM
+        if (s_csvPending.length() > 0) (void)tdkLambdaCsvFlushNow();   // don't leave rows in RAM
         tdkLogSys("module disabled (no poll, no CSV, no SCPI)");
     } else {
         s_lastPollMs = millis();   // full interval before the first poll
@@ -1037,7 +1057,7 @@ void tdkLambdaSetCsvFormat(bool sensorFormat) {
     // The rows already in the buffer were formatted for the OLD shape: write
     // them before switching, or they would land under the new header. The next
     // row sees s_csvFmtDirty and rotates the day file instead of mixing.
-    if (s_csvPending.length() > 0) (void)tdkCsvFlushNow();
+    if (s_csvPending.length() > 0) (void)tdkLambdaCsvFlushNow();
     s_csvSensorFmt = sensorFormat;
     s_csvFmtDirty = true;
 }
