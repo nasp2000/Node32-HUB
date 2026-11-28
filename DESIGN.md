@@ -4,8 +4,9 @@
 
 ## World
 
-**Service manual, not storefront.** The site is a field document for hardware: paper
-ground with a drafting dot grid, ink typography, hairline rules instead of boxes.
+**Service manual, not storefront.** The site is a field document for hardware, set
+dark by default (a bench screen at night, a laptop next to the machine): ink ground
+with a drafting dot grid, light typography, hairline rules instead of boxes.
 Data (board, bus, version) is set in monospace because it *is* measurement; prose is
 never set in mono. Depth comes from rules and spacing, never from shadows.
 
@@ -13,14 +14,14 @@ never set in mono. Depth comes from rules and spacing, never from shadows.
 
 | Token | Value | Use |
 |---|---|---|
-| `--paper` | `#f1f3ef` | page ground |
-| `--paper-2` | `#e7ebe5` | inline code, ghost hover |
-| `--ink` | `#111614` | body and headings, primary button ground |
-| `--ink-2` | `#4b5a55` | secondary text, spec line |
-| `--ink-3` | `#5b6a64` | labels, captions (≥4.5:1 on paper) |
-| `--rule` | `#c6d0ca` | section rules |
-| `--accent` | `#a4431e` | links, list numbers, primary hover |
-| `--ok` | `#2c6b4a` | "released" state |
+| `--paper` | `#121614` | page ground |
+| `--paper-2` | `#1b211d` | inline code, download block, ghost hover |
+| `--ink` | `#eef1ec` | body, headings, primary button ground |
+| `--ink-2` | `#b6c0ba` | secondary text, spec line |
+| `--ink-3` | `#94a09a` | labels, captions (≥4.5:1 on ground) |
+| `--rule` | `#2d3631` | section rules |
+| `--accent` | `#f0813f` | links, list numbers, hover |
+| `--ok` | `#62c08d` | "released" state |
 
 One accent, one state colour. No gradients on text, no glass, no coloured halos.
 

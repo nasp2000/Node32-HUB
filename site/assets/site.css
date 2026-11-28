@@ -2,16 +2,17 @@
    One sheet, no build step. Paper ground, ink type, mono only for measurements. */
 
 :root {
-  --paper: #f1f3ef;
-  --paper-2: #e7ebe5;
-  --ink: #111614;
-  --ink-2: #4b5a55;
-  --ink-3: #5b6a64;
-  --rule: #c6d0ca;
-  --rule-soft: #dbe2dd;
-  --accent: #a4431e;
-  --accent-2: #8a3817;
-  --ok: #2c6b4a;
+  color-scheme: dark;
+  --paper: #121614;      /* ground */
+  --paper-2: #1b211d;    /* raised: code chips, ghost hover */
+  --ink: #eef1ec;        /* text */
+  --ink-2: #b6c0ba;
+  --ink-3: #94a09a;
+  --rule: #2d3631;
+  --rule-soft: #242c27;
+  --accent: #f0813f;
+  --accent-2: #f5a271;
+  --ok: #62c08d;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -23,7 +24,7 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   background:
-    radial-gradient(circle at 1px 1px, rgba(17, 22, 20, .085) 1px, transparent 0) 0 0 / 24px 24px,
+    radial-gradient(circle at 1px 1px, rgba(238, 241, 236, .085) 1px, transparent 0) 0 0 / 24px 24px,
     var(--paper);
   color: var(--ink);
   font: 400 17px/1.6 var(--sans);
@@ -215,7 +216,7 @@ a:not(.btn):hover { color: var(--accent); }
   transition: background .18s cubic-bezier(.2, .7, .3, 1), border-color .18s, color .18s;
 }
 .btn:hover { background: var(--accent); border-color: var(--accent); color: var(--paper); }
-.btn--ghost { background: transparent; color: var(--ink); border-color: #b3beb8; }
+.btn--ghost { background: transparent; color: var(--ink); border-color: #3a453f; }
 .btn--ghost:hover { background: var(--paper-2); border-color: var(--ink); color: var(--ink); }
 .btn i { font-style: normal; font-family: var(--mono); opacity: .9; }
 /* the global a:hover must never repaint a button's label on its dark ground */
@@ -277,7 +278,7 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
 
 .aside { align-self: start; }
 
-.dl { border: 1px solid var(--ink); padding: 20px; background: #f6f7f4; }
+.dl { border: 1px solid var(--ink); padding: 20px; background: var(--paper-2); }
 .dl h2 { margin: 0 0 6px; font-size: 1.05rem; letter-spacing: -.01em; text-transform: none; font-family: var(--sans); color: var(--ink); font-weight: 640; }
 .dl .ver { font: 400 .78rem/1.5 var(--mono); color: var(--ink-3); margin: 0 0 16px; }
 .dl .btn { width: 100%; }
@@ -301,7 +302,7 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
 .spectable dd { margin: 0; }
 
 .shot { margin: 40px 0 0; }
-.shot img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); }
+.shot img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); background: #0d100f; }
 .shot figcaption { margin-top: 10px; font: 400 .78rem/1.5 var(--mono); color: var(--ink-3); }
 
 /* ---------- footer ---------- */
