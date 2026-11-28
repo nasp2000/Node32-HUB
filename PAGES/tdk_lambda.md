@@ -219,7 +219,8 @@ primeiro parágrafo de cada secção tem `title=…` com o texto em inglês e `d
   lida como um único float: só `vMeas` mudava e a auto-detecção nunca via os seis campos (medição
   na bancada: resposta `swap` dava `vMeas=1.30`, resposta em mV/mA dava `vMeas=599940` com escala 1).
 - **Sem resposta não trava**: um pedido sem resposta é libertado ao fim de `tdkReplyTimeoutMs()`
-  (3…15 s) e o ciclo volta a tentar no intervalo seguinte
+  (3…15 s, **contados desde o envio do pedido** — não desde o último poll, que com o polling
+  desligado expirava o pedido manual antes da resposta) e o ciclo volta a tentar no intervalo seguinte
   (*"no reply (timeout) - retrying next interval"* no monitor).
 - **Baud**: o módulo usa a RS232 do pack (`baudrate`, frame e flow da página **RS232**), não uma
   porta própria. Na bancada o Node32 corre a **19200 8N1**; o simulador tem de estar no mesmo baud.
