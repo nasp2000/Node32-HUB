@@ -15,7 +15,5 @@ void handleOeeAlertConfigGet(HttpRequest& req, HttpResponse& res);
 #endif
 void handleEmaildayExtraEmailsGet(HttpRequest& req, HttpResponse& res);
 void handleEmaildayExtraEmailsPost(HttpRequest& req, HttpResponse& res);
-void handleSensordayExtraEmailsGet(HttpRequest& req, HttpResponse& res);
-void handleSensordayExtraEmailsPost(HttpRequest& req, HttpResponse& res);
 void handleLogdayExtraEmailsGet(HttpRequest& req, HttpResponse& res);
 void handleLogdayExtraEmailsPost(HttpRequest& req, HttpResponse& res);

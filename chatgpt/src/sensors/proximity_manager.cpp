@@ -1667,7 +1667,7 @@ static void _proxWriteCSVRow(const char* type, int8_t shiftNum,
                                time_t nowOverride) {
 #if ENABLE_SDCARD==1
     // Dual sink: SD card when mounted, else LittleFS /oee mirror (same bytes,
-    // same layout — see flash_fallback_store.h). Readers and EMAILDAY/SENSORDAY
+    // same layout — see flash_fallback_store.h). Readers and EMAILDAY
     // resolve both transparently.
     const bool useFlash = !sdcardShouldUseSD();
     // Shift-boundary rows (shift_end/shift_boundary) pass the pre-boundary

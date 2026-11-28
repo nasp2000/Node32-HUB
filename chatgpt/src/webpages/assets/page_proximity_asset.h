@@ -185,7 +185,7 @@ static const char PROXIMITY_PAGE[] PROGMEM = R"rawliteral(
     <!-- SHIFTDAY email recipients -->
   </div>
   <div data-prox-tab='shiftday' style='margin-top:20px;border:2px solid #3b82f6;border-radius:8px;padding:20px;background:#0f172a'>
-    <h2 style='margin-top:0;font-size:18px;color:#60a5fa' data-i18n='proxShiftdayTitle'>⌨️ SHIFTDAY Command</h2>
+    <h2 style='margin-top:0;font-size:18px;color:#60a5fa' data-i18n='proxShiftdayTitle'>⌨️ Shift-day report emails</h2>
     <div style='margin-bottom:12px;padding:8px 12px;background:#064e3b;border-left:4px solid #10b981;border-radius:4px;font-size:12px;color:#d1fae5' data-i18n='proxShiftdayHint'>
       💡 Use this command on the Scheduled Commands pages to send the shift CSV by email.
     </div>

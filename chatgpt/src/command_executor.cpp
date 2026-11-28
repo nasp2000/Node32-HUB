@@ -584,6 +584,35 @@ static bool handleEmailDay(const String& cmdLine, const String& upperCmd) {
             dayReportTrackManual(cmdLine);
             bool started = startEmailDayAsync(folderPath, subject, body);
             if (started) {
+#if ENABLE_AHT20_BMP280==1 && ENABLE_SENSOR_CONFIG_PAGE==1
+                // Universal EMAILDAY: the day's sensor history is written under
+                // /sensor_history/YYYY-MM-DD (another root). Queue that folder
+                // for the same command; the watchdog sends it as soon as the
+                // first message is done, with the same subject and recipients.
+                int dd = 0, mo = 0, yy = 0;
+                if (dateParam.length() >= 8) {
+                    int d1 = dateParam.indexOf('-');
+                    int d2 = dateParam.lastIndexOf('-');
+                    if (d1 > 0 && d2 > d1) {
+                        dd = dateParam.substring(0, d1).toInt();
+                        mo = dateParam.substring(d1 + 1, d2).toInt();
+                        yy = dateParam.substring(d2 + 1).toInt();
+                    }
+                }
+                if (!(dd >= 1 && dd <= 31 && mo >= 1 && mo <= 12 && yy >= 2000)) {
+                    time_t _n = time(nullptr); struct tm _ti; localtime_r(&_n, &_ti);
+                    dd = _ti.tm_mday; mo = _ti.tm_mon + 1; yy = _ti.tm_year + 1900;
+                }
+                char _sl[40];
+                snprintf(_sl, sizeof(_sl), "/sensor_history/%04d-%02d-%02d", yy, mo, dd);
+                extern SensorConfigManager sensorConfigManager;
+                sensorConfigManager.getHistory().periodicFlushToSD(sensorConfigManager.getConfig());
+                extern std::vector<String> storageListFiles(const String&);
+                if (!storageListFiles(String(_sl)).empty()) {
+                    extern void emailDayQueueSource(const String&, const String&, const String&);
+                    emailDayQueueSource(String(_sl), subject, body);
+                }
+#endif
                 sendVirtualMessage(String(F("EMAILDAY: iniciado em background")), COMMAND_RESPONSE);
             } else {
                 sendVirtualMessage(String(F("EMAILDAY: nao foi possivel iniciar (ja em curso?)")), ERROR);
@@ -667,272 +696,7 @@ folderPath = String(F("/logs/log_")) + dateLabel;
     return true;
 }
 
-#if ENABLE_AHT20_BMP280==1 && ENABLE_SENSOR_CONFIG_PAGE==1
-// T23 — SensorDay in ShiftEnd style: min/avg/max summary + 24 ASCII bars of
-// temperature (min-max scale of hourly averages), humidity inline when
-// available. Reads the daily CSV /sensor_history/<YYYY-MM-DD>/<YYYY-MM-DD>.csv
-// (SD first, then the LittleFS mirror on the same path), line by line,
-// without loading the whole file. Returns "" when there is no valid temperature;
-// the caller falls back to the legacy body (only "data attached") for the email.
-static String sensorDaySummaryPrefix(const String& folderPath, const String& dateLabel, bool usingSD) {
-    SensorDayParser par;
-    sensorDayParserInit(&par);
-    auto feedLine = [&](const String& ln) {
-        if (ln.length() > 0 && ln.length() < 512) {
-            sensorDayParserFeed(&par, std::string(ln.c_str()));
-        }
-    };
-    String csvFile = folderPath + "/" + dateLabel + ".csv";
-#if ENABLE_SDCARD==1
-    if (usingSD && SD_MMC.exists(csvFile.c_str())) {
-        File f = SD_MMC.open(csvFile.c_str(), FILE_READ);
-        if (f) {
-            int guard = 0;
-            while (f.available() && guard++ < 3000) feedLine(f.readStringUntil('\n'));
-            f.close();
-        }
-    }
-#endif
-    if (!sensorDayParserHasData(&par) && littlefsBegin() && littlefsMounted()) {
-#if ENABLE_FILESYSTEM==1
-        // Serialized under lfsMutex (same crash guard, exists() included —
-        // stat is the observed crash path); legacy body on contention.
-        extern bool lfsMutexLock(TickType_t timeoutTicks);
-        extern void lfsMutexUnlock();
-        if (lfsMutexLock(pdMS_TO_TICKS(5000))) {
-        if (LittleFS.exists(csvFile.c_str())) {
-#endif
-        sensorDayParserInit(&par);
-        File f = LittleFS.open(csvFile.c_str(), "r");
-        if (f) {
-            int guard = 0;
-            while (f.available() && guard++ < 3000) feedLine(f.readStringUntil('\n'));
-            f.close();
-        }
-#if ENABLE_FILESYSTEM==1
-        }
-            lfsMutexUnlock();
-        }
-#endif
-    }
-    if (!sensorDayParserHasData(&par)) return String("");
-    std::string b = sensorDayParserBody(&par, std::string(dateLabel.c_str()));
-    if (b.empty()) return String("");
-    return String(b.c_str());
-}
-static bool handleSensorDay(const String& cmdLine, const String& upperCmd) {
-    (void)upperCmd;
-    String dateParam = "";
-    int spaceIdx = cmdLine.indexOf(' ');
-    if (spaceIdx > 0 && cmdLine.length() > spaceIdx + 1) {
-        dateParam = cmdLine.substring(spaceIdx + 1);
-        dateParam.trim();
-    }
-    if (!storageIsAvailable()) {
-        sendVirtualMessage(String(F("SENSORDAY: no storage available (SD or PSRAM).")), ERROR);
-    } else if (!isEmailConfiguredAndWifiConnected()) {
-        sendVirtualMessage(String(F("SENSORDAY: email nao configurado ou WiFi desligado.")), ERROR);
-    } else {
-        String folderPath = "";
-        String dateLabel = "";
-        if (dateParam.length() > 0) {
-            int dash1 = dateParam.indexOf('-');
-            int dash2 = dateParam.lastIndexOf('-');
-            if (dash1 > 0 && dash2 > dash1) {
-                int day = dateParam.substring(0, dash1).toInt();
-                int month = dateParam.substring(dash1 + 1, dash2).toInt();
-                int year = dateParam.substring(dash2 + 1).toInt();
-                if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 2000 && year <= 2099) {
-                    char dayStr[16];
-                    snprintf(dayStr, sizeof(dayStr), "%04d-%02d-%02d", year, month, day);
-                    dateLabel = String(dayStr);
-                    folderPath = String(F("/sensor_history/")) + dateLabel;
-                } else {
-                    sendVirtualMessage(String(F("SENSORDAY: data invalida. Use DD-MM-YYYY")), ERROR);
-                }
-            } else {
-                sendVirtualMessage(String(F("SENSORDAY: formato invalido. Use DD-MM-YYYY")), ERROR);
-            }
-        } else {
-            time_t now = time(nullptr);
-            struct tm timeinfo;
-            localtime_r(&now, &timeinfo);
-            char dayStr[16];
-            strftime(dayStr, sizeof(dayStr), "%Y-%m-%d", &timeinfo);
-            dateLabel = String(dayStr);
-            folderPath = String(F("/sensor_history/")) + dateLabel;
-        }
-        if (folderPath.length() > 0) {
-            extern SensorConfigManager sensorConfigManager;
-            sensorConfigManager.getHistory().periodicFlushToSD(sensorConfigManager.getConfig());
-            bool usingPsramSensor = (currentStorageMode == STORAGE_MODE_PSRAM);
-            if (usingPsramSensor) {
-                // Explicit dates work via the Flash mirror (/sensor_history/<date>
-                // or /oee/PROXIMITY_<DD-MM-YYYY>.csv); otherwise today's folder.
-                bool flashHasDate = false;
-                if (littlefsBegin() && littlefsMounted()) {
-                    String shPath = String("/sensor_history/") + dateLabel;
-                    if (LittleFS.exists(shPath.c_str())) {
-                        flashHasDate = true;
-                    } else {
-                        int dash1 = dateLabel.indexOf('-');
-                        int dash2 = dateLabel.lastIndexOf('-');
-                        if (dash1 == 4 && dash2 == 7) {
-                            String br = dateLabel.substring(8, 10) + "-" + dateLabel.substring(5, 7) +
-                                        "-" + dateLabel.substring(0, 4);
-                            String oeePath = String("/oee/PROXIMITY_") + br + ".csv";
-                            if (LittleFS.exists(oeePath.c_str())) flashHasDate = true;
-                        }
-                    }
-                }
-                if (!flashHasDate) {
-                    folderPath = storageGetTodayFolder();
-                    if (folderPath.length() == 0) {
-                        sendVirtualMessage(String(F("SENSORDAY: pasta PSRAM nao disponivel.")), ERROR);
-                        return true;
-                    }
-                    sendVirtualMessage(String(F("SENSORDAY: modo PSRAM - pasta de hoje (dados combinados).")), WARN);
-                } else {
-                    sendVirtualMessage(String(F("SENSORDAY: Flash mirror mode for ")) + dateLabel, INFO);
-                }
-            }
-            bool usingSD = (currentStorageMode == STORAGE_MODE_SD && sdcardIsMounted());
-            // Order: SD first, then the merged no-SD tiers (PSRAM hot + Flash
-            // /sensor_history mirror + /oee daily). Explicit dates work without
-            // SD via the Flash mirror (PSRAM only ever holds today).
-            bool folderHasData = false;
-#if ENABLE_SDCARD==1
-            if (usingSD && SD_MMC.exists(folderPath.c_str())) folderHasData = true;
-#endif
-            if (!folderHasData && !storageListFiles(folderPath).empty()) folderHasData = true;
-            if (!folderHasData) {
-                sendVirtualMessage(String(F("SENSORDAY: folder not found: ")) + folderPath, ERROR);
-            } else {
-                extern String getCurrentTriggeredEmailFrequencyLabel();
-                String subject = String(F("- ")) + buildEmailTitlePrefix() + String(F(" - SensorDay ")) + dateLabel;
-                String footer = buildEmailInfoTable(
-                              L(activeLang->emailDataAttached),
-                              "", "", "", getCurrentTriggeredEmailFrequencyLabel(), "", "", "");
-                // T23: body in ShiftEnd style from /sensor_history; fallback
-                // RAM (exportDayCSV) when the file has no valid temperature.
-                // Streaming (1 line at a time) — without tripling the CSV in RAM.
-                String prefix = sensorDaySummaryPrefix(folderPath, dateLabel, usingSD);
-                if (!prefix.length()) {
-                    extern SensorConfigManager sensorConfigManager;
-                    String csvData = sensorConfigManager.getHistory().exportDayCSV(dateLabel, sensorConfigManager.getConfig());
-                    if (csvData.length() > 0 && csvData.length() < 60000) {
-                        SensorDayParser par;
-                        sensorDayParserInit(&par);
-                        const char* raw = csvData.c_str();
-                        size_t total = csvData.length();
-                        size_t ls = 0;
-                        int guard = 0;
-                        for (size_t i = 0; i <= total && guard++ < 3000; i++) {
-                            if (i == total || raw[i] == '\n') {
-                                size_t len = i - ls;
-                                if (len > 0 && raw[i - 1] == '\r') len--;
-                                if (len > 0 && len < 512) {
-                                    sensorDayParserFeed(&par, std::string(raw + ls, len));
-                                }
-                                ls = i + 1;
-                            }
-                        }
-                        csvData = String();
-                        std::string b = sensorDayParserBody(&par, std::string(dateLabel.c_str()));
-                        if (!b.empty()) prefix = String(b.c_str());
-                    }
-                }
-                String body = prefix + footer;
-                extern bool startEmailDayAsync(const String &folderPath, const String &subject, const String &body);
-                extern String emailDayCmdExtra;
-                emailDayCmdExtra = configManager.getSensordayExtraEmails();
-                dayReportTrackManual(cmdLine);
-                bool started = startEmailDayAsync(folderPath, subject, body);
-                if (started) {
-                    sendVirtualMessage(String(F("SENSORDAY: iniciado em background (")) + folderPath + String(F(")")), COMMAND_RESPONSE);
-                } else {
-                    sendVirtualMessage(String(F("SENSORDAY: nao foi possivel iniciar (ja em curso?)")), ERROR);
-                }
-            }
-        }
-    }
-    return true;
-}
-#endif // ENABLE_AHT20_BMP280 && ENABLE_SENSOR_CONFIG_PAGE
 
-#if ENABLE_SDCARD==1 && ENABLE_PROXIMITY==1
-// Day-boundary alignment shared with the proximity CSV writer (proximity_shift_config.cpp):
-// SHIFTDAY must open the SAME shift-aligned daily folder that _proxWriteCSVRow creates.
-extern uint8_t proximityShiftDayAlignedDate(time_t now, struct tm* out);
-static bool handleShiftDay(const String& cmdLine, const String& upperCmd) {
-    (void)upperCmd;
-    String dateParam = "";
-    int spaceIdx = cmdLine.indexOf(' ');
-    if (spaceIdx > 0 && cmdLine.length() > spaceIdx + 1) {
-        dateParam = cmdLine.substring(spaceIdx + 1);
-        dateParam.trim();
-    }
-    if (!storageIsAvailable()) {
-        sendVirtualMessage(String(F("SHIFTDAY: no storage available (SD or PSRAM).")), ERROR);
-    } else if (!isEmailConfiguredAndWifiConnected()) {
-        sendVirtualMessage(String(F("SHIFTDAY: email not configured or WiFi disabled.")), ERROR);
-    } else {
-        String csvPath = "";
-        String dateLabel = "";
-        String sdName = configManager.getSdcardName();
-        if (sdName.isEmpty()) sdName = F("SD_LOG");
-        if (dateParam.length() > 0) {
-            int dash1 = dateParam.indexOf('-');
-            int dash2 = dateParam.lastIndexOf('-');
-            if (dash1 > 0 && dash2 > dash1) {
-                int day = dateParam.substring(0, dash1).toInt();
-                int month = dateParam.substring(dash1 + 1, dash2).toInt();
-                int year = dateParam.substring(dash2 + 1).toInt();
-                if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 2000 && year <= 2099) {
-                    char dayStr[16];
-                    snprintf(dayStr, sizeof(dayStr), "%02d-%02d-%04d", day, month, year);
-                    dateLabel = String(dayStr);
-                    csvPath = sd_layout::dayFile(sdName, "PROXIMITY", dateLabel, "csv");
-                } else {
-                    sendVirtualMessage(String(F("SHIFTDAY: data invalida. Use DD-MM-YYYY")), ERROR);
-                }
-            } else {
-                sendVirtualMessage(String(F("SHIFTDAY: formato invalido. Use DD-MM-YYYY")), ERROR);
-            }
-        } else {
-            time_t now = time(nullptr);
-            struct tm timeinfo;
-            proximityShiftDayAlignedDate(now, &timeinfo);
-            char dayStr[16];
-            snprintf(dayStr, sizeof(dayStr), "%02d-%02d-%04d",
-                     timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900);
-            dateLabel = String(dayStr);
-            csvPath = sd_layout::dayFile(sdName, "PROXIMITY", dateLabel, "csv");
-        }
-        if (csvPath.length() > 0) {
-            bool usingSD = (currentStorageMode == STORAGE_MODE_SD && sdcardIsMounted());
-            if (usingSD && !SD_MMC.exists(csvPath.c_str())) {
-                sendVirtualMessage(String(F("SHIFTDAY: CSV not found: ")) + csvPath, ERROR);
-            } else {
-                extern String getCurrentTriggeredEmailFrequencyLabel();
-                String subject = String(F("- ")) + buildEmailTitlePrefix() + String(F(" - ShiftDay ")) + dateLabel;
-                String body = buildEmailInfoTable(
-                              L(activeLang->emailDataAttached),
-                              "", "", "", getCurrentTriggeredEmailFrequencyLabel(), "", "", "");
-                extern bool startEmailDayAsync(const String &csvPath, const String &subject, const String &body);
-                dayReportTrackManual(cmdLine);
-                bool started = startEmailDayAsync(csvPath, subject, body);
-                if (started) {
-                    sendVirtualMessage(String(F("SHIFTDAY: iniciado em background (")) + csvPath + String(F(")")), COMMAND_RESPONSE);
-                } else {
-                    sendVirtualMessage(String(F("SHIFTDAY: nao foi possivel iniciar (ja em curso?)")), ERROR);
-                }
-            }
-        }
-    }
-    return true;
-}
-#endif // ENABLE_SDCARD && ENABLE_PROXIMITY
 #endif // ENABLE_SMTP
 
 #if ENABLE_MODBUS==1
@@ -1231,10 +995,8 @@ void CommandRegistry::begin() {
     add("EMAILDAY",  handleEmailDay,  CMD_PREFIX);
     add("LOGDAY",    handleLogDay,    CMD_PREFIX);
 #if ENABLE_AHT20_BMP280==1 && ENABLE_SENSOR_CONFIG_PAGE==1
-    add("SENSORDAY", handleSensorDay, CMD_PREFIX);
 #endif
 #if ENABLE_SDCARD==1 && ENABLE_PROXIMITY==1
-    add("SHIFTDAY",  handleShiftDay,  CMD_PREFIX);
 #endif
 #endif
 

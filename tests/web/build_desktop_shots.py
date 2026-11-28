@@ -239,7 +239,6 @@ RECIPIENTS_SEED = r"""
     '/api/config': { success: true },
     '/api/emailday-extra-emails': { status: 'ok' },
     '/api/logday-extra-emails': { status: 'ok' },
-    '/api/sensorday-extra-emails': { status: 'ok' }
   };
 })();
 </script>

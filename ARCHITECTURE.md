@@ -192,7 +192,7 @@ flat 256 KB on flash — same content, rotation needs differ), blobs
    ms-fast); loop writers (journal, sensor/OEE/bulk/chart flushes, T24, log
    flush, cleanup) take it with short timeout and SKIP on contention (data
    stays queued for the next window). Readers on the email path (chart APIs,
-   SENSORDAY summary) also hold it. Interactive files-page ops are still
+   sensor-day summary) also hold it. Interactive files-page ops are still
    best-effort (follow-up). The wait is sliced (200 ms) with
    `esp_task_wdt_reset()` between attempts, and the mutex is published
    race-free via an atomic CAS (`src/lfs_mutex_guard.h`, covered by
@@ -205,7 +205,7 @@ flat 256 KB on flash — same content, rotation needs differ), blobs
    `assert(esp_task_stack_is_sane_cache_disabled())`, i.e. `esp_ptr_in_dram(sp)`
    — **false for an external stack** — so the first flash read/write from such
    a task panics (`assert → abort`; decoded with `addr2line` on the n16r8 ELF,
-   live .24 2026-10-15). That panic was the real reason SENSORDAY emails never
+   live .24 2026-10-15). That panic was the real reason the sensor-day emails never
    left the board: `emailQueueProc` had a 32 KB `MALLOC_CAP_SPIRAM` stack and
    the SD→LittleFS parity made it read the flash mirror (no SD). The email
    tasks now allocate their stacks **internal** (`MALLOC_CAP_INTERNAL` in

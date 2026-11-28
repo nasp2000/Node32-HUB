@@ -116,8 +116,12 @@ extern String emailDayCmdExtra;  // Set by caller before startEmailDayAsync to i
 bool startEmailDayAsync(const String &folderPath, const String &subject, const String &body);
 // Safe cleanup for a stuck/dead EMAILDAY send (never kills a live task).
 void emailDayForceCleanup(const char* reason);
-// Watchdog: call from the main loop; releases sends stuck past EMAILDAY_STUCK_MS.
+// Watchdog: call from the main loop; releases sends stuck past EMAILDAY_STUCK_MS
+// and starts the queued extra source of a universal EMAILDAY (sensor history).
 void emailDayWatchdogTick();
+// Queue one extra folder/file for the same EMAILDAY command (sent right after
+// the main folder finishes, same subject/body/recipients).
+void emailDayQueueSource(const String& spec, const String& subject, const String& body);
 #endif
 
 #endif // RUNTIME_EMAIL_H

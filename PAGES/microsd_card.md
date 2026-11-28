@@ -5,8 +5,8 @@
 > and the firmware storage engine. Written for both humans and AI agents.
 
 > Screenshot: `desktop/sdcard.png` (1440 × 1690, live Waveshare 8DI8DO board — SD mounted
-> with 11.8 MB used and the buffer/cleanup selects (the EMAILDAY/LOGDAY/SENSORDAY
-> examples live on `/recipients`, not here);
+> with 11.8 MB used and the buffer/cleanup selects (the EMAILDAY/LOGDAY recipient
+> lists live on `/recipients`, not here);
 > index and proof in `desktop/README.md`).
 
 ---
@@ -207,14 +207,14 @@ Config section **`sdcard`** in the global config document, saved atomically via
   "sdcard": {
     "enabled": true, "flush_interval": "30m", "format": "csv",
     "structured": true, "email_send": true, "email_from_sd": true,
-    "emailday_extra_emails": "", "sensorday_extra_emails": "", "logday_extra_emails": "",
+    "emailday_extra_emails": "", "logday_extra_emails": "",
     "auto_cleanup": true, "cleanup_threshold": 80, "keep_days": 0
   }
 }
 ```
 
 Defaults created in `ensureAllFieldsExist()` (`ConfigManager.cpp:120-136`). Note that
-`emailday_extra_emails`/`sensorday_extra_emails`/`logday_extra_emails` live **in the sdcard
+`emailday_extra_emails`/`logday_extra_emails` live **in the sdcard
 section** but are edited on the **Recipients** page (Day Commands tab) — so a save from this
 page can clobber them — but the SD-1 fix preserves them across saves. `keep_days` defaults
 to ∞ (0): no age limit — files stay until usage crosses the threshold, then the oldest
@@ -275,7 +275,7 @@ but are no longer written).
   hits; `/oee` + `/sensor_history` never overlap and always merge). Day-email
   senders (SMTP + Google: listing, streaming, partial ranges, scan queue) and the
   charts/OEE pages (`chartHistoryReadSensorJson`, shift-history, hourly breakdown)
-  all resolve the three tiers. EMAILDAY/SENSORDAY accept explicit dates without SD
+  all resolve the three tiers. EMAILDAY accepts an explicit date without SD
   via the Flash mirror (VFS only ever holds today).
 - **Flash LittleFS mirror (no-SD only)** — `log.cpp:mirrorLogToLittleFS()`: event log +
   30min buffer flush are mirrored best-effort to `/logs/...` on LittleFS (primary stays

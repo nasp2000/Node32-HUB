@@ -1866,8 +1866,10 @@ bool enviarEmailComAnexosSD(const String &folderPath, const String &subject, con
         return false;
     }
     
-    // Throttling: check if 60s passed since last EMAILDAY
-    if (lastEmailDayTime != 0 && (now - lastEmailDayTime) < EMAILDAY_COOLDOWN_MS) {
+    // Throttling: check if 60s passed since last EMAILDAY. A chained source
+    // (universal EMAILDAY: sensor history after the day folder) skips it.
+    extern bool emailDayChainedSend;
+    if (!emailDayChainedSend && lastEmailDayTime != 0 && (now - lastEmailDayTime) < EMAILDAY_COOLDOWN_MS) {
         unsigned long remaining = (EMAILDAY_COOLDOWN_MS - (now - lastEmailDayTime)) / 1000;
         sendVirtualMessage(buildMessage("⚠️ EMAILDAY throttled. Wait %lu seconds.", remaining), WARN);
         isEmailSendingActive = false; // Release flag before returning
@@ -1875,6 +1877,7 @@ bool enviarEmailComAnexosSD(const String &folderPath, const String &subject, con
         esp_task_wdt_delete(NULL); // Remove from watchdog
         return false;
     }
+    emailDayChainedSend = false;   // consumed: the next send throttles normally
     
     // Initial checks
     if (!isEmailConfiguredAndWifiConnected()) {

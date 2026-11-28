@@ -13,7 +13,7 @@ function ok(v, m) { if (!v) throw new Error(m || 'assertion failed'); }
 function verbOf(line) {
   var t = String(line || '').replace(/^[ \t]+/, '');
   var verb = t.split(/[ \t]/)[0].toUpperCase();
-  if (verb === 'EMAILDAY' || verb === 'LOGDAY' || verb === 'SENSORDAY' || verb === 'SHIFTDAY') return verb;
+  if (verb === 'EMAILDAY' || verb === 'LOGDAY') return verb;
   return null;
 }
 
@@ -53,8 +53,8 @@ test('verb detection: 4 commands, any case', function() {
   is(verbOf('emailday'), 'EMAILDAY');
   is(verbOf('EMAILDAY 29-12-2025'), 'EMAILDAY');
   is(verbOf('  logday'), 'LOGDAY');
-  is(verbOf('SensorDay 01-03-2026'), 'SENSORDAY');
-  is(verbOf('shiftday 28-03-2026'), 'SHIFTDAY');
+  is(verbOf('SensorDay 01-03-2026'), null);
+  is(verbOf('shiftday 28-03-2026'), null);
 });
 
 test('verb detection rejects others', function() {

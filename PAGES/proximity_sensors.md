@@ -21,7 +21,7 @@ proximity sensors, encoders or relays. Per channel it provides:
 - **COUNTER** mode — pulse counting (Count IN / Count OUT), with optional relay pulse output;
 - **PRESENCE** mode — live ON/OFF detection only;
 - **SPEED** mode — pulses-per-minute + cycle time between pulses;
-- **Shift management** — automatic shift transitions, CSV reports to SD, SHIFTDAY email command;
+- **Shift management** — automatic shift transitions, CSV reports to SD, automatic shift-day e-mail;
 - **OEE** (Elapsed-based — user spec 2026-09) — Availability × Performance × Quality per channel.
 
 ---
@@ -65,7 +65,7 @@ main.page > div.wrap
  ├ TAB Config      — field-help, cfg table #cb,
  │                   [TCA9554] Relay DO names block (#do-names-block, 8DI8DO only)
  ├ TAB Shifts      — enable/auto-reset checkboxes, shifts/day select, time slots
- ├ TAB Shiftday    — SHIFTDAY command help, destination emails, Send Test Email
+ ├ TAB Shiftday    — shift-day report e-mails, Send Test Email
  ├ TAB OEE         — status table #oee-sb (A/P/Q/OEE + Running + Stopped + Scrap) + Reset All, formulas ref, params table #oee-cb
   └ Footer          — "Show: N channels" select (#visCh) + [💾 Save]
 ```
@@ -129,7 +129,7 @@ table but the rows stay in the help; Mult./Gate/Scrap/Relay-DO rows added).
 | Shifts per day | `shnsl` | select 1/2/3 (default 3) → re-renders slot editors |
 | Shift start times | `sh_h<j>` / `sh_m<j>` | hour 0–23 : minute 0–59, `j = 0…nSlots-1` |
 | Planned stops (use + start/end) | `pst_use<k>` + `pst_sh/sm/eh/em<k>` | 4 fixed rows (`k = 0…3`); only checked rows are sent as `shift.stops:[{sh,sm,eh,em}]`; unchecked rows never reach the server |
-| SHIFTDAY emails | `shiftday-emails` | comma-separated recipients for SHIFTDAY CSV email |
+| Shift-day emails | `shiftday-emails` | comma-separated recipients for the shift-day CSV e-mail |
 | Visible channels | `visCh` | select 1–8, persisted in `localStorage['prox_visCh']`; filters rows in Status + Config tables |
 | Relay DO names (TCA9554) | `doName0…doName7` | text max 16, block visible only when expander present |
 
@@ -195,7 +195,7 @@ Handlers: `handlers_unified/proximity_handler.cpp`. All JSON; errors use
 | `/api/proximity/reset-total?ch=` | POST | reset lifetime totals |
 | `/api/proximity/oee` | GET | computed A/P/Q/OEE per channel, shift window + day-so-far window (`day_oee/day_a/day_p/day_q` + `day_run/day_planned/day_elapsed` for the donut, see §9) |
 | `/api/proximity/oee-reset?ch=` | POST | clear OEE baselines for channel |
-| `/api/proximity/test-email` | POST | send SHIFTDAY-style test email (checks: recipients configured, email+WIFI ok, storage ok, NTP synced, today's SD folder exists) — when the FTP cycle holds the SD exclusivity mutex answers `sd_busy` fast instead of interleaving |
+| `/api/proximity/test-email` | POST | send a shift-day test email (checks: recipients configured, email+WIFI ok, storage ok, NTP synced, today's SD folder exists) — when the FTP cycle holds the SD exclusivity mutex answers `sd_busy` fast instead of interleaving |
 | `/api/proximity/shift-history?days=` | GET | reads SD CSVs (`days` 1–30, default 7), last 20 `shift_end` rows per day — per-day SD access is short-mutex-guarded; answers `{"error":"sd_busy"}` during the FTP cycle |
 | `/api/proximity/events` | GET | **stub — returns empty structure** (findings) |
 | `/api/proximity-chart-files/-cols/-data` | GET | merged chart data for charts page (needs `getChartsPageEnabled()` + `ENABLE_PROXIMITY_CHARTS`): persisted `.chart` file (SD, or identical-path LittleFS mirror) + volatile 1-min PSRAM ring tail (~30 min, always on, no configuration), one stride budget over the union — always minute-fresh on either backend. The ring tail is bounded by `untilTs` = end of the requested day, so the live samples never leak into a PAST date's series (that leak made the dashboard delta chain jump across the gap and paint ~235k into one hour) |
@@ -495,7 +495,7 @@ Order at boot: `_proxRtcRestore()` → else `loadProximityCounters()` → (power
     6 TASK_WDT, 7 WDT, 8 DEEPSLEEP, 9 BROWNOUT, 10 SDIO), emitted once on the first
     synced tick even when idle. Readers parse fixed columns from the LEFT, so old
     3-col files keep working and `boot` rows are skipped like any non-tick row
-  - reading: auto shift-end email, the `SHIFTDAY` command (no date arg) and the
+  - reading: auto shift-end email and the
     `POST /api/proximity/test-email` button (fixes "Today's proximity folder not
     found on SD" when the aligned date differs from the calendar date)
   - `sdcard.cpp` (`sdcardWriteData`, `sdcardGetTodayFolder`) for the Waveshare

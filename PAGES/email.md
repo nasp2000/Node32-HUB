@@ -199,3 +199,23 @@ All `data-i18n` keys verified present in both `lang_en_ui.h` and `lang_pt_ui.h`.
 | Async test task | `chatgpt/src/runtime_email.cpp:798` (`startEmailTestAsync`) |
 | Config GET/POST (section=email) | `config_handler.cpp:143,206` |
 | Persistence | `ConfigManager.cpp` stem `SMTP_EMAIL`; NVS `cfg_smtp_pwd` (`ConfigManager.h:134`) |
+
+## Universal `EMAILDAY` (2026-11-28)
+
+`SENSORDAY` and `SHIFTDAY` were removed; **EMAILDAY is the only day-report command**
+(`LOGDAY` stays separate on purpose — it sends the device log, not data). One command now
+gathers the whole day:
+
+- **Data folder** `/<sys>/`: every file directly under it whose name contains the date
+  (e.g. `TDK_28-11-2026.csv`, `PROXIMITY_28-11-2026.csv`) **and** one level of date-matching
+  subfolders (`RS232_…`, `DATA_…`, …). SD first, then PSRAM, then the LittleFS mirror — the
+  same path and the same rule on every tier.
+- **Sensor history** (`/sensor_history/YYYY-MM-DD/`): when the pack compiles the sensor stack,
+  the command queues that folder and the watchdog sends it right after the first message, with
+  the same subject, body and recipients (the old SENSORDAY content). On PSRAM-only units the
+  combined day folder already holds the data, so nothing extra is queued.
+- **Recipients**: the EMAILDAY extras (`emailday_extra_emails`). A legacy
+  `sensorday_extra_emails` value is merged into it once at boot and the old key is dropped; the
+  automatic shift-end sensor report also uses this list now.
+- **No fallback command**: a stored `SENSORDAY`/`SHIFTDAY` slot is not retried by the day-report
+  journal (only EMAILDAY/LOGDAY are recognised).

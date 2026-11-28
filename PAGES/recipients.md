@@ -19,7 +19,7 @@
 Define **who receives emails when the data stream matches a rule**. Each rule (slot) has a
 keyword/threshold matcher, a comparison operator, a recipient list, an alert-frequency cap
 and an on/off switch. The page also holds the global **"don't copy the sender"** option and
-the **Day Command** destination lists (`EMAILDAY` / `LOGDAY` / `SENSORDAY`).
+the **Day Command** destination lists (`EMAILDAY` / `LOGDAY`).
 
 ---
 
@@ -56,7 +56,7 @@ The renderer assembles the page from 7 PROGMEM fragments with server-side value 
     [0] "✉️ Email Sender"  — 🚫 don't copy sender checkbox
     [1] "📋 How to Configure a Rule"  — keyword formats + operators help
     [2] "📋 Recipients List" — rules table #rec_body + [💾 Save All]
-    [3] "📨 Day Command Sends" — EMAILDAY/LOGDAY/SENSORDAY inputs + [💾 Save Sends]
+    [3] "📨 Day Command Sends" — EMAILDAY/LOGDAY inputs + [💾 Save Sends]
 ```
 
 - The table uses `table-layout:fixed`, `min-width:700px` → 950 px; horizontal scroll on
@@ -107,7 +107,6 @@ with `freq:0` renders as 0 and is saved back as 0 (RECIP-5).
 |---|---|---|---|
 | EMAILDAY extra emails | `day_emailday_emails` | `POST /api/emailday-extra-emails` | `sdcard` section |
 | LOGDAY extra emails | `day_logday_emails` | `POST /api/logday-extra-emails` | `sdcard` section |
-| SENSORDAY extra emails | `day_sensorday_emails` | `POST /api/sensorday-extra-emails` | `sdcard` section |
 
 Values are **prefilled server-side** by the renderer (`getEmaildayExtraEmails()` etc.),
 not fetched.
@@ -123,7 +122,7 @@ not fetched.
 | 🗑️ per-row | `button[data-del='<i>']` → `removeRow(i)` | confirm → rebuild table without that slot (contiguous indices) + `preload()` |
 | ➕ Add Rule | `#add_rule` → `addRow()` | appends a new row up to `MAX=50`; alert at the cap |
 | 💾 Save All | `#save_all` → `saveAll()` | posts one row at a time (`postSlot(i)`, 120 ms apart); stops at the first failure and reports it once; silent on full success (RECIP-4) |
-| 💾 Save Sends | `#save_day_emails` (inline IIFE) | posts the 3 day-command email fields in parallel (`POST /api/{emailday,logday,sensorday}-extra-emails`), waits for all 3 |
+| 💾 Save Sends | `#save_day_emails` (inline IIFE) | posts the 2 day-command email fields in parallel (`POST /api/{emailday,logday}-extra-emails`), waits for both |
 
 ---
 
@@ -179,7 +178,6 @@ WiFi: `handlers_unified/recipients_handler.cpp` (+ page-level `GET /api/recipien
 | `/api/recipients?limit&offset|page` | GET | paged list `{total,offset,limit,items:[{name,op,emails,freq,active}]}` — same slot shape as `/api/recipient-slots` (`recipient_slot_json.h`, RECIP-6) |
 | `/api/emailday-extra-emails` | GET/POST | `{emails}` → `setEmaildayExtraEmails` + `saveSection("sdcard")` |
 | `/api/logday-extra-emails` | GET/POST | `{emails}` → `setLogdayExtraEmails` + `saveSection("sdcard")` |
-| `/api/sensorday-extra-emails` | GET/POST | `{emails}` → `setSensordayExtraEmails` + `saveSection("sdcard")` |
 | `/api/config` | POST | global config; `email_dont_copy_sender` handled at `config_handler.cpp:364` under section `recipients` |
 
 Validation style: server is lenient (clamps/truncates, unknown op → `I`); errors are
@@ -192,7 +190,7 @@ Validation style: server is lenient (clamps/truncates, unknown op → `I`); erro
 | File / section | Content | Writer |
 |---|---|---|
 | `/config/recipients.json` (stem `recipients`, 4 KB) | `recipients_slots` array `{name,op,emails,freq,enabled}` + derived `numeric_rules` (legacy compat) | `updateRecipientSlotWithFreq` → `rebuildRecipientsDerivedFromSlots` → `saveSection("recipients")` |
-| `sdcard` section (part of `/config/sdcard.json`) | `emailday_extra_emails`, `logday_extra_emails`, `sensorday_extra_emails` | day-command POST handlers |
+| `sdcard` section (part of `/config/sdcard.json`) | `emailday_extra_emails`, `logday_extra_emails` | day-command POST handlers |
 | `email` section | `email_dont_copy_sender` | `/api/config` POST (`config_handler.cpp:364`) |
 
 `recipDoc` (`SpiRamJsonDocument(4096)`, `ConfigManager.h:49`) holds slots in RAM.
@@ -203,7 +201,7 @@ Validation style: server is lenient (clamps/truncates, unknown op → `I`); erro
 `freq` is clamped to `0..86400` on write; `0` = always.
 
 > Cross-page note: saving the **microSD page** (`/sdcard`) currently wipes
-> `emailday_extra_emails`/`logday_extra_emails`/`sensorday_extra_emails` back to empty —
+> `emailday_extra_emails`/`logday_extra_emails` back to empty —
 > see `PAGES/microsd_card.md` finding SD-1 (they live in the `sdcard` section).
 
 ---
@@ -227,7 +225,8 @@ Validation style: server is lenient (clamps/truncates, unknown op → `I`); erro
   `copySenderEnabled = (!sdCardActive && !configManager.getEmailDontCopySender())` — when
   SD saving is active or dont-copy is on, the sender is not copied on emails.
 - **Day commands** — `command_executor.cpp:550` merges `getEmaildayExtraEmails()` into the
-  EMAILDAY recipient set (LOGDAY/SENSORDAY analogous).
+  EMAILDAY recipient set (LOGDAY analogous). A legacy `sensorday_extra_emails` value is
+  merged into `emailday_extra_emails` once at boot and the old key is dropped.
 
 ---
 

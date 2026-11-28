@@ -2,7 +2,7 @@
 #include "doctest.h"
 
 // Compile the REAL production dedupe helper — the exact guard shipped in
-// startEmailDayAsync (single funnel for EMAILDAY/LOGDAY/SENSORDAY/SHIFTDAY).
+// startEmailDayAsync (single funnel for EMAILDAY/LOGDAY).
 #include "Arduino.h"
 #include "email_day_dedupe.h"
 

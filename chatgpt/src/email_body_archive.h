@@ -8,7 +8,7 @@
 //   /{sys}/<tipo>_<YYYY-MM-DD>_<HH-MM>.txt   (hora de envio)
 //   SD quando (sdMode && mounted), senao o mesmo path no LittleFS.
 //
-// Tipos: EMAILDAY, LOGDAY, SENSORDAY, SHIFTDAY, SHIFTEND, STREAM,
+// Tipos: EMAILDAY, LOGDAY, SHIFTEND, STREAM,
 //        INACTIVITY, ALARM, TEST, UNIKON, EMAIL (fallback).
 
 #include <cctype>

@@ -79,8 +79,6 @@ void registerConfigRoutes(AsyncWebServer& server, const WebRouteContext& context
     registerApiRoute("POST", "/api/recipient-slot",            handleRecipientSlotPost);
     registerApiRoute("GET",  "/api/emailday-extra-emails",     handleEmaildayExtraEmailsGet);
     registerApiRoute("POST", "/api/emailday-extra-emails",     handleEmaildayExtraEmailsPost);
-    registerApiRoute("GET",  "/api/sensorday-extra-emails",    handleSensordayExtraEmailsGet);
-    registerApiRoute("POST", "/api/sensorday-extra-emails",    handleSensordayExtraEmailsPost);
     registerApiRoute("GET",  "/api/logday-extra-emails",      handleLogdayExtraEmailsGet);
     registerApiRoute("POST", "/api/logday-extra-emails",      handleLogdayExtraEmailsPost);
     registerRecipientRoutes(server, context);

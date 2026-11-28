@@ -21,15 +21,16 @@ static dayrep::Entry makeEntry(int slot, int dayKey, long sched, int st, int att
     return e;
 }
 
-TEST_CASE("isDayReportCommand accepts the 4 verbs, any case, with date") {
+TEST_CASE("isDayReportCommand accepts EMAILDAY/LOGDAY, any case, with date") {
     char verb[12];
     CHECK(dayrep::isDayReportCommand("emailday", verb, sizeof(verb)));
     CHECK(strcmp(verb, "EMAILDAY") == 0);
     CHECK(dayrep::isDayReportCommand("EMAILDAY 29-12-2025", verb, sizeof(verb)));
     CHECK(dayrep::isDayReportCommand("  logday", verb, sizeof(verb)));
     CHECK(strcmp(verb, "LOGDAY") == 0);
-    CHECK(dayrep::isDayReportCommand("SensorDay 01-03-2026", verb, sizeof(verb)));
-    CHECK(dayrep::isDayReportCommand("shiftday 28-03-2026", verb, sizeof(verb)));
+    // SENSORDAY/SHIFTDAY were removed: their old journal entries must not retry.
+    CHECK_FALSE(dayrep::isDayReportCommand("SensorDay 01-03-2026", verb, sizeof(verb)));
+    CHECK_FALSE(dayrep::isDayReportCommand("shiftday 28-03-2026", verb, sizeof(verb)));
 }
 
 TEST_CASE("isDayReportCommand rejects non-day commands") {

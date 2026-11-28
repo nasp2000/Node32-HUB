@@ -803,7 +803,7 @@ struct SensorHistory {
 #endif
         return written > 0;
 #else
-        // No SD: delegate to PSRAM VFS so SENSORDAY can email current session data.
+        // No SD: delegate to PSRAM VFS so EMAILDAY can email the current session data.
         return periodicFlushToPSRAM(cfg);
 #endif
     }
@@ -1250,7 +1250,7 @@ struct SensorHistory {
     // Build a complete CSV string for a given date (YYYY-MM-DD) from the in-RAM ring buffer.
     // Header + data rows, same column order as periodicFlushToSD().
     // Only includes columns enabled in cfg. No filesystem access — safe to call at any time.
-    // Used by SENSORDAY to send sensor data via email when SD is absent.
+    // Used by EMAILDAY to send sensor data when SD is absent.
     String exportDayCSV(const String &dateId, const SensorConfig &cfg) const {
         if (!buffer || count == 0) return "";
 

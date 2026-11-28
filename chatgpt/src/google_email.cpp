@@ -882,7 +882,7 @@ bool googleEmailSendEmailDay(const String &folderPath, const String &subject,
         }
     }
 
-    // Single-file pre-probe (explicit path, e.g. SHIFTDAY csvPath): resolve on
+    // Single-file pre-probe (explicit path, e.g. a day-file csv): resolve on
     // the first tier holding it. The SD probe below handles the mounted case;
     // VFS/Flash are covered here. Sets fileMode to skip folder listing.
     bool emaildayFileMode = false;
@@ -1088,7 +1088,7 @@ bool googleEmailSendEmailDay(const String &folderPath, const String &subject,
                 ? fi.fullPath : actualFolderPath + "/" + fi.name;
             String attachmentName = fi.name + ".part" + String(part + 1);
             
-            // Get recipients (command-specific extras + SHIFTDAY addresses pre-merged into shiftEmails)
+            // Get recipients (command-specific extras + shift-day addresses pre-merged into shiftEmails)
             String dest = configManager.getEmailDestination();
             String extra = shiftEmails;
             String allRecipients = googleEmailBuildRecipients(dest, extra);
@@ -1132,7 +1132,7 @@ bool googleEmailSendEmailDay(const String &folderPath, const String &subject,
             batchSubject += " (" + String(batchNum + 1) + "/" + String(batches.size()) + ")";
         }
         
-        // Get recipients (command-specific extras + SHIFTDAY addresses pre-merged into shiftEmails)
+        // Get recipients (command-specific extras + shift-day addresses pre-merged into shiftEmails)
         String dest = configManager.getEmailDestination();
         String extra = shiftEmails;
         String allRecipients = googleEmailBuildRecipients(dest, extra);

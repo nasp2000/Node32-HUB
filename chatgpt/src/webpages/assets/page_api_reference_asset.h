@@ -119,8 +119,6 @@ a.r:hover{color:#a5f3fc;border-bottom-color:#a5f3fc}
 <tr><td><span class="m p">POST</span></td><td class="r">/api/inactivity-alert-config</td><td class="ds" data-i18n='apiRefDescAInactivityAlertConfig'>Inactivity alert configuration</td></tr>
 <tr><td><span class="m g">GET</span></td><td class="r">/api/emailday-extra-emails</td><td class="ds" data-i18n='apiRefDescAEmaildayExtraEmails'>Extra recipients for the SD daily report</td></tr>
 <tr><td><span class="m p">POST</span></td><td class="r">/api/emailday-extra-emails</td><td class="ds" data-i18n='apiRefDescAEmaildayExtraEmails02'>Saves extra recipients for the SD daily report</td></tr>
-<tr><td><span class="m g">GET</span></td><td class="r">/api/sensorday-extra-emails</td><td class="ds" data-i18n='apiRefDescASensordayExtraEmails'>Extra recipients for the sensors daily report</td></tr>
-<tr><td><span class="m p">POST</span></td><td class="r">/api/sensorday-extra-emails</td><td class="ds" data-i18n='apiRefDescASensordayExtraEmails02'>Saves extra recipients for the sensors daily report</td></tr>
 <tr><td><span class="m g">GET</span></td><td class="r">/api/logday-extra-emails</td><td class="ds" data-i18n='apiRefDescALogdayExtraEmails'>Extra recipients for the logs daily report</td></tr>
 <tr><td><span class="m p">POST</span></td><td class="r">/api/logday-extra-emails</td><td class="ds" data-i18n='apiRefDescALogdayExtraEmails02'>Saves extra recipients for the logs daily report</td></tr>
 </table></div>

@@ -220,7 +220,7 @@ void processLine(const String &line, unsigned long currentMillis) {
                     if (csvData.length() > 0) {
                         String subject = String(F("\xF0\x9F\x8C\xA1\xEF\xB8\x8F SensorDay ")) + sysName + String(F(" ")) + dateStr + String(F(" [RAM]"));
                         String recipients = configManager.getEmailDestination();
-                        String sdExtra = configManager.getSensordayExtraEmails();
+                        String sdExtra = configManager.getEmaildayExtraEmails();
                         if (sdExtra.length() > 0) recipients = recipients.length() > 0 ? recipients + "," + sdExtra : sdExtra;
                         sendVirtualMessage(buildMessage("❌ SENSORDAY: RAM buffer -> %u lines, sending...", (unsigned)csvData.length()), INFO);
                         // T23: resumo estilo ShiftEnd a partir do CSV em RAM, mantendo o
@@ -318,7 +318,7 @@ void processLine(const String &line, unsigned long currentMillis) {
                                      L(activeLang->emailDataAttached),
                                      "", "", "", getCurrentTriggeredEmailFrequencyLabel(), "", "", "");
                     sendVirtualMessage(buildMessage("❌ SENSORDAY: Sending folder %s...", sensorFolder), INFO);
-                    emailDayCmdExtra = configManager.getSensordayExtraEmails();
+                    emailDayCmdExtra = configManager.getEmaildayExtraEmails();
                     if (!startEmailDayAsync(String(sensorFolder), subject, body)) {
                         sendVirtualMessage(F("❌ SENSORDAY: Failed to start email task"), ERROR);
                     }
@@ -341,7 +341,7 @@ void processLine(const String &line, unsigned long currentMillis) {
                 if (csvData.length() > 0) {
                     String subject = String(F("\xF0\x9F\x8C\xA1\xEF\xB8\x8F SensorDay ")) + sysName + String(F(" ")) + dateStr + String(F(" [RAM]"));
                     String recipients = configManager.getEmailDestination();
-                    String sdExtra = configManager.getSensordayExtraEmails();
+                    String sdExtra = configManager.getEmaildayExtraEmails();
                     if (sdExtra.length() > 0) recipients = recipients.length() > 0 ? recipients + "," + sdExtra : sdExtra;
                     sendVirtualMessage(buildMessage("❌ SENSORDAY: RAM buffer -> %u lines, sending...", (unsigned)csvData.length()), INFO);
                     // T23: resumo estilo ShiftEnd antes do despejo inline.

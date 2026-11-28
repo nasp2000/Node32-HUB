@@ -3495,25 +3495,6 @@ static void ethernetHandleLogdayExtraEmailsPost(EthernetClient& client, const St
     ethernetBootstrapSendResponse(client, "200 OK", "application/json", String(F("{\"status\":\"ok\",\"msg\":\"Emails guardados\"}")));
 }
 
-static void ethernetHandleSensordayExtraEmailsGet(EthernetClient& client) {
-    String json = String(F("{\"status\":\"ok\",\"emails\":\""))
-        + ethernetJsonEscapeActive(configManager.getSensordayExtraEmails())
-        + String(F("\"}"));
-    ethernetBootstrapSendResponse(client, "200 OK", "application/json", json);
-}
-
-static void ethernetHandleSensordayExtraEmailsPost(EthernetClient& client, const String& body) {
-    String emails = ethernetGetRequestValue(body, "emails");
-    emails.trim();
-    configManager.setSensordayExtraEmails(emails);
-    configManager.markDirtyAndScheduleSave();
-    if (!configManager.saveSection("sdcard")) {
-        ethernetBootstrapSendResponse(client, "500 Internal Server Error", "application/json", String(String(F("{\"success\":false,\"message\":\"")) + L(activeLang->apiErrSaveExtraEmails) + F("\",\"status\":\"err\",\"msg\":\"save\"}")));
-        return;
-    }
-    ethernetBootstrapSendResponse(client, "200 OK", "application/json", String(F("{\"status\":\"ok\",\"msg\":\"Emails guardados\"}")));
-}
-
 static void ethernetHandleRs232ColsGet(EthernetClient& client, const String& query) {
     if (!configManager.getChartsPageEnabled()) {
         ethernetBootstrapSendResponse(client, "404 Not Found", "application/json", String(F("{\"error\":\"charts disabled\"}")));

@@ -38,7 +38,6 @@ size_t streamRecipientsPageToPrint(Print& out) {
     { String v = configManager.getLogdayExtraEmails(); out.print(v); n += v.length(); }
     out.print(FPSTR(PAGE_RECIPIENTS_DAY_CMDS_C));
     n += strlen_P(PAGE_RECIPIENTS_DAY_CMDS_C);
-    { String v = configManager.getSensordayExtraEmails(); out.print(v); n += v.length(); }
     out.print(FPSTR(PAGE_RECIPIENTS_DAY_CMDS_D));
     n += strlen_P(PAGE_RECIPIENTS_DAY_CMDS_D);
 

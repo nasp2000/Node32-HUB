@@ -417,25 +417,6 @@ void handleEmaildayExtraEmailsPost(HttpRequest& req, HttpResponse& res) {
     res.sendJson(F("{\"status\":\"ok\"}"));
 }
 
-void handleSensordayExtraEmailsGet(HttpRequest& req, HttpResponse& res) {
-    (void)req;
-    String emails = configManager.getSensordayExtraEmails();
-    String escaped = sharedWebJsonEscape(emails);
-    res.sendJson(String(F("{\"status\":\"ok\",\"emails\":\"")) + escaped + "\"}");
-}
-
-void handleSensordayExtraEmailsPost(HttpRequest& req, HttpResponse& res) {
-    String emails = getParam(req.body.length() ? req.body : req.query, "emails");
-    emails.trim();
-    configManager.setSensordayExtraEmails(emails);
-    configManager.markDirtyAndScheduleSave();
-    if (!configManager.saveSection("sdcard")) {
-        res.send(500, "application/json", String(F("{\"success\":false,\"message\":\"")) + L(activeLang->apiErrSaveExtraEmails) + F("\",\"status\":\"err\",\"msg\":\"save\"}"));
-        return;
-    }
-    res.sendJson(F("{\"status\":\"ok\"}"));
-}
-
 void handleLogdayExtraEmailsGet(HttpRequest& req, HttpResponse& res) {
     (void)req;
     String emails = configManager.getLogdayExtraEmails();
@@ -460,8 +441,6 @@ void handleRecipientSlotGet(HttpRequest& req, HttpResponse& res) { (void)req; re
 void handleRecipientSlotPost(HttpRequest& req, HttpResponse& res) { (void)req; res.send(404, "application/json", F("{\"error\":\"Recipients not enabled\"}")); }
 void handleEmaildayExtraEmailsGet(HttpRequest& req, HttpResponse& res) { (void)req; res.send(404, "application/json", F("{\"error\":\"Recipients not enabled\"}")); }
 void handleEmaildayExtraEmailsPost(HttpRequest& req, HttpResponse& res) { (void)req; res.send(404, "application/json", F("{\"error\":\"Recipients not enabled\"}")); }
-void handleSensordayExtraEmailsGet(HttpRequest& req, HttpResponse& res) { (void)req; res.send(404, "application/json", F("{\"error\":\"Recipients not enabled\"}")); }
-void handleSensordayExtraEmailsPost(HttpRequest& req, HttpResponse& res) { (void)req; res.send(404, "application/json", F("{\"error\":\"Recipients not enabled\"}")); }
 void handleLogdayExtraEmailsGet(HttpRequest& req, HttpResponse& res) { (void)req; res.send(404, "application/json", F("{\"error\":\"Recipients not enabled\"}")); }
 void handleLogdayExtraEmailsPost(HttpRequest& req, HttpResponse& res) { (void)req; res.send(404, "application/json", F("{\"error\":\"Recipients not enabled\"}")); }
 #endif

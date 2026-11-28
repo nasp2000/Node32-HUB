@@ -192,7 +192,6 @@ config["email"]["subject"] = PACK_EMAIL_SUBJECT;
     config["sdcard"]["email_send"] = true;
     config["sdcard"]["email_from_sd"] = true;
     config["sdcard"]["emailday_extra_emails"] = "";
-    config["sdcard"]["sensorday_extra_emails"] = "";
     config["sdcard"]["logday_extra_emails"] = "";
     config["sdcard"]["auto_cleanup"] = true;
     _cache_sd_auto_cleanup = true;
@@ -547,7 +546,19 @@ void ConfigManager::ensureAllFieldsExist() {
     if (!config["sdcard"].containsKey("email_from_sd")) config["sdcard"]["email_from_sd"] = true;
     if (!config["sdcard"].containsKey("max_size_mb")) config["sdcard"]["max_size_mb"] = 4;
     if (!config["sdcard"].containsKey("emailday_extra_emails")) config["sdcard"]["emailday_extra_emails"] = "";
-    if (!config["sdcard"].containsKey("sensorday_extra_emails")) config["sdcard"]["sensorday_extra_emails"] = "";
+    // Legacy SENSORDAY recipients merged into EMAILDAY (the command was removed;
+    // the automatic shift-end report now uses the EMAILDAY list).
+    if (config["sdcard"].containsKey("sensorday_extra_emails")) {
+        String legacy = config["sdcard"]["sensorday_extra_emails"].as<String>();
+        if (legacy.length() > 0) {
+            String cur = config["sdcard"]["emailday_extra_emails"] | "";
+            if (cur.length() == 0) cur = legacy;
+            else if (cur.indexOf(legacy) < 0) cur += "," + legacy;
+            config["sdcard"]["emailday_extra_emails"] = cur;
+            markDirtyAndScheduleSave();
+        }
+        config["sdcard"].remove("sensorday_extra_emails");
+    }
     if (!config["sdcard"].containsKey("logday_extra_emails")) config["sdcard"]["logday_extra_emails"] = "";
     if (!config["sdcard"].containsKey("auto_cleanup")) config["sdcard"]["auto_cleanup"] = true;
     if (!config["sdcard"].containsKey("cleanup_threshold")) config["sdcard"]["cleanup_threshold"] = 80;

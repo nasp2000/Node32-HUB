@@ -1441,7 +1441,34 @@ void emailDayForceCleanup(const char* reason) {
 
 // Watchdog: call from the main loop. If a send runs past EMAILDAY_STUCK_MS it
 // can never complete normally (SMTP timeouts bound every phase), so release it.
+// ── Universal EMAILDAY: extra source chain ─────────────────────────────────
+// The day-root listing already covers every file directly under /{sys}/ with the
+// date (TDK/PROXIMITY day files) and one level of date-matching subfolders. The
+// sensor history lives in another root (/sensor_history/<date>), so the command
+// queues it here and the watchdog starts it as soon as the first send is idle.
+static String s_dayChainSpec, s_dayChainSubject, s_dayChainBody;
+bool emailDayChainedSend = false;   // bypass the 180 s cooldown for the chain
+
+void emailDayQueueSource(const String& spec, const String& subject, const String& body) {
+    if (spec.isEmpty()) return;
+    s_dayChainSpec = spec;
+    s_dayChainSubject = subject;
+    s_dayChainBody = body;
+}
+
 void emailDayWatchdogTick() {
+    if (!emailDayInProgress && s_dayChainSpec.length() > 0) {
+        String spec = s_dayChainSpec, subj = s_dayChainSubject, body = s_dayChainBody;
+        s_dayChainSpec = "";
+        emailDayCmdExtra = configManager.getEmaildayExtraEmails();
+        emailDayChainedSend = true;
+        if (!startEmailDayAsync(spec, subj, body)) {
+            emailDayChainedSend = false;
+            // Do not spin: the funnel refuses duplicates/throttled sends; drop it
+            // and say so (the user can run EMAILDAY again).
+            sendVirtualMessage(String(F("EMAILDAY: extra source skipped: ")) + spec, WARN);
+        }
+    }
     if (!emailDayInProgress) return;
     if (emailDayStartMs == 0) return;
     if (millis() - emailDayStartMs >= EMAILDAY_STUCK_MS) {

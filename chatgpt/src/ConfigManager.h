@@ -1604,15 +1604,6 @@ public:
         markDirtyAndScheduleSave();
     }
 
-    String getSensordayExtraEmails() {
-        if (!config.containsKey("sdcard") || !config["sdcard"].containsKey("sensorday_extra_emails")) return String("");
-        return config["sdcard"]["sensorday_extra_emails"].as<String>();
-    }
-    void setSensordayExtraEmails(const String &value) {
-        if (!config.containsKey("sdcard")) config["sdcard"] = JsonObject();
-        config["sdcard"]["sensorday_extra_emails"] = value;
-        markDirtyAndScheduleSave();
-    }
 
     String getLogdayExtraEmails() {
         if (!config.containsKey("sdcard") || !config["sdcard"].containsKey("logday_extra_emails")) return String("");

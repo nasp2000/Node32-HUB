@@ -1,5 +1,5 @@
 #pragma once
-// Day-report fallback journal (EMAILDAY / LOGDAY / SENSORDAY / SHIFTDAY).
+// Day-report fallback journal (EMAILDAY / LOGDAY).
 //
 // Problem: sched_dt marks a daily slot as done even when the email fails,
 // and the 3 immediate attempts in emailDayTask do not survive reboot/panic.
@@ -41,7 +41,7 @@ enum Status {
 
 struct Entry {
     int slot;              // sched_dt slot 1..16, or 0 for manual
-    char cmd[12];          // EMAILDAY / LOGDAY / SENSORDAY / SHIFTDAY (upper)
+    char cmd[12];          // EMAILDAY / LOGDAY (upper)
     char cmdLine[64];      // full command line for re-dispatch (e.g. "emailday 29-12-2025")
     int dayKey;            // YYYYMMDD of the scheduled day
     long schedEpoch;       // epoch when originally scheduled
@@ -61,7 +61,7 @@ inline void entryInit(Entry& e) {
     e.lastTryEpoch = 0;
 }
 
-// Case-insensitive prefix match for the 4 day-report commands.
+// Case-insensitive prefix match for the day-report commands.
 // Accepts "emailday", "EMAILDAY 29-12-2025", "  logday", etc.
 // Returns true and copies the canonical upper-case verb into outCmd (if given).
 inline bool isDayReportCommand(const char* line, char* outCmd, unsigned outSize) {
@@ -77,8 +77,6 @@ inline bool isDayReportCommand(const char* line, char* outCmd, unsigned outSize)
     const char* match = NULL;
     if (strcmp(verb, "EMAILDAY") == 0) match = "EMAILDAY";
     else if (strcmp(verb, "LOGDAY") == 0) match = "LOGDAY";
-    else if (strcmp(verb, "SENSORDAY") == 0) match = "SENSORDAY";
-    else if (strcmp(verb, "SHIFTDAY") == 0) match = "SHIFTDAY";
     if (!match) return false;
     if (outCmd && outSize > 0) {
         unsigned i = 0;
