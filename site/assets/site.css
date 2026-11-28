@@ -351,6 +351,17 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
   color: var(--ink-3);
 }
 
+/* alert callout: same plate, accent edge and title */
+.callout--alert {
+  border-color: var(--accent);
+  border-width: 2px;
+}
+.callout--alert h3 { color: var(--accent-2); }
+.callout--alert .diagram { margin: 16px 0 18px; }
+.callout--alert .diagram svg { display: block; width: 100%; max-width: 420px; height: auto; }
+.callout .steps { margin: 0; padding-left: 20px; color: var(--ink-2); }
+.callout .steps li { margin-bottom: 6px; }
+
 /* callout: a bordered note that belongs to the page, no side bar */
 .callout {
   margin: 30px 0 0;
