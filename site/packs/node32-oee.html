@@ -47,36 +47,26 @@
         <li><b>CSV history</b> — daily files on SD, served from the page; the same data goes into the email report.</li>
         <li><b>Ethernet</b> — wired PoE, no Wi-Fi, no mDNS; the board sits in the cabinet with the machine.</li>
       </ul>
-      <div class="pair">
-        <figure><a class="zoom" href="../assets/img/node32-oee/proximity.png" target="_blank" rel="noopener" title="The OEE page: Status, Config, Shifts, Shiftday and OEE tabs, with per-channel counters and mode (opens full size)"><img src="../assets/img/node32-oee/proximity.png" alt="The OEE page with Status, Config, Shifts, Shiftday and OEE tabs, per-channel counters and mode" loading="lazy"></a><figcaption>Status: per-channel mode, counts, cycle and quantity per minute</figcaption></figure>
-        <figure><a class="zoom" href="../assets/img/node32-oee/shift.png" target="_blank" rel="noopener" title="Shift configuration with targets per machine (opens full size)"><img src="../assets/img/node32-oee/shift.png" alt="Node32-OEE shift configuration with targets per machine" loading="lazy"></a><figcaption>Shift window and targets</figcaption></figure>
-      </div>
-
-      <h2>Install</h2>
-      <ol>
-        <li>Flash <code>firmware.bin</code> over USB with the <a href="https://github.com/nasp2000/webflasher_Node32-HUB">WebFlasher</a>, or update an existing unit at <code>/ota</code>. Full guide: <a href="../install.html">how to flash</a>.</li>
-        <li>Plug the Ethernet cable; the board takes a DHCP lease (or set a static address).</li>
-        <li>Open the IP shown on the serial monitor, log in as <code>root</code> / <code>root</code> and change both passwords.</li>
-        <li>Configure the sensors, the shift window and SMTP on the Proximity and Email pages.</li>
-      </ol>
-
-      <h2>Hardware</h2>
-      <ul>
-        <li><b>Board</b> — Waveshare ESP32-S3 8DI8DO (PoE). Other boards are locked out at compile time.</li>
-        <li><b>Inputs</b> — 8 isolated digital inputs for proximity sensors or dry contacts.</li>
-        <li><b>Outputs</b> — 8 relays, driven from the same page.</li>
-        <li><b>Storage</b> — microSD for the CSV history and the daily files.</li>
-      </ul>
-
       <figure class="shot">
-        <a class="zoom" href="../assets/img/node32-oee.png" target="_blank" rel="noopener" title="The Node32-OEE dashboard with shift OEE, availability, performance, quality and machine counts (opens full size)"><img src="../assets/img/node32-oee.png" alt="The Node32-OEE dashboard with shift OEE, availability, performance, quality and machine counts" loading="lazy"></a>
-        <figcaption>Dashboard: OEE A×P×Q for the current shift, per-machine counts and the goal.</figcaption>
+        <a class="zoom" href="../assets/img/node32-oee.png" target="_blank" rel="noopener" title="The Node32-OEE dashboard with OEE A×P×Q, shift window and per-hour bars (opens full size)"><img src="../assets/img/node32-oee.png" alt="The Node32-OEE dashboard with OEE A×P×Q, shift window and per-hour bars" loading="lazy"></a>
+        <figcaption>Dashboard: OEE A×P×Q for the current shift, per-hour production and the goal line.</figcaption>
       </figure>
 
       <div class="pair">
-        <figure><a class="zoom" href="../assets/img/node32-oee/csv.png" target="_blank" rel="noopener" title="CSV history on the SD card (opens full size)"><img src="../assets/img/node32-oee/csv.png" alt="Node32-OEE CSV history list on the SD card" loading="lazy"></a><figcaption>CSV history on the SD</figcaption></figure>
-        <figure><a class="zoom" href="../assets/img/node32-oee/email.png" target="_blank" rel="noopener" title="The shift report email (opens full size)"><img src="../assets/img/node32-oee/email.png" alt="Node32-OEE shift report email with records, OEE and per-hour bars" loading="lazy"></a><figcaption>The shift report email</figcaption></figure>
+        <figure><a class="zoom" href="../assets/img/node32-oee/proximity.png" target="_blank" rel="noopener" title="Status, Config, Shifts, Shiftday and OEE tabs with per-channel counters (opens full size)"><img src="../assets/img/node32-oee/proximity.png" alt="The OEE page with Status, Config, Shifts, Shiftday and OEE tabs and per-channel counters" loading="lazy"></a><figcaption>Status: per-channel mode, counts, cycle and quantity per minute</figcaption></figure>
+        <figure><a class="zoom" href="../assets/img/node32-oee/shift.png" target="_blank" rel="noopener" title="Shift configuration with targets per machine (opens full size)"><img src="../assets/img/node32-oee/shift.png" alt="Node32-OEE shift configuration with targets per machine" loading="lazy"></a><figcaption>Shift window and targets</figcaption></figure>
       </div>
+
+      <figure class="shot">
+        <a class="zoom" href="../assets/img/node32-oee/csv.png" target="_blank" rel="noopener" title="CSV history on the SD card (opens full size)"><img src="../assets/img/node32-oee/csv.png" alt="Node32-OEE CSV history list on the SD card" loading="lazy"></a>
+        <figcaption>CSV history on the SD: one file per day, served from the page.</figcaption>
+      </figure>
+
+      <figure class="shot shot--narrow">
+        <a class="zoom" href="../assets/img/node32-oee/email.png" target="_blank" rel="noopener" title="The shift report email (opens full size)"><img src="../assets/img/node32-oee/email.png" alt="Node32-OEE shift report email with records, OEE and per-hour bars" loading="lazy"></a>
+        <figcaption>The shift report email: same numbers as the CSV, sent at the end of the window.</figcaption>
+      </figure>
+
     </div>
 
     <aside class="aside">

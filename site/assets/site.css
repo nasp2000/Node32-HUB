@@ -294,7 +294,7 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
   border: 1px solid var(--rule-soft);
 }
 
-.aside { align-self: start; }
+.aside { align-self: start; position: sticky; top: 24px; }
 
 .dl { border: 1px solid var(--ink); padding: 20px; background: var(--paper-2); }
 .dl h2 { margin: 0 0 6px; font-size: 1.05rem; letter-spacing: -.01em; text-transform: none; font-family: var(--sans); color: var(--ink); font-weight: 640; }
@@ -322,7 +322,8 @@ a.btn--ghost, a.btn--ghost:hover, a.btn--ghost:focus-visible { color: var(--ink)
 
 .strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 26px 0 0; align-items: start; }
 .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 30px 0 0; align-items: start; }
-.shot { margin: 34px 0 0; max-width: 560px; }
+.shot { margin: 34px 0 0; max-width: 100%; }
+.shot--narrow { max-width: 420px; }
 
 .shot, .pair figure, .strip figure {
   position: relative;
@@ -445,7 +446,7 @@ a.zoom:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .cols { grid-template-columns: 1fr; gap: 40px; padding-top: 32px; }
   .rail { position: static; }
   .product-body { grid-template-columns: 1fr; gap: 32px; }
-  .aside { order: -1; }
+  .aside { order: -1; position: static; }
 }
 
 @media (max-width: 620px) {
