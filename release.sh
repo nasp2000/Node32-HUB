@@ -164,13 +164,13 @@ if [ "$DRY_RUN" = "1" ]; then
 else
   secrets=$(gh secret list --repo "$REPO" 2>/dev/null | awk '{print $1}')
   missing=()
-  echo "$secrets" | grep -qx "RELEASE_TOKEN" || missing+=("RELEASE_TOKEN")
+  # publishing happens in this same repo with the workflow token, so no PAT is
+  # needed; only the OTA signing key has to exist.
   echo "$secrets" | grep -qx "OTA_PRIVATE_PEM" || missing+=("OTA_PRIVATE_PEM")
   if [ ${#missing[@]} -gt 0 ]; then
     echo "ERROR: missing repo secret(s) on $REPO: ${missing[*]}" >&2
     for s in "${missing[@]}"; do
       case "$s" in
-        RELEASE_TOKEN) echo "  gh secret set RELEASE_TOKEN --repo $REPO" >&2 ;;
         OTA_PRIVATE_PEM) echo "  gh secret set OTA_PRIVATE_PEM --repo $REPO < chatgpt/ota_private.pem" >&2 ;;
       esac
     done
