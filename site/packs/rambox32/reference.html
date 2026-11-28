@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rambox32 — every setting — Node32-HUB</title>
+<meta name="description" content="Reference for every Rambox32 option: module selection, clock polling, Unikon and Bricon fields, buttons, tabs, line settings and troubleshooting.">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Rambox32 — every setting">
+<meta property="og:description" content="Module selection, clock polling, Unikon and Bricon fields, buttons, tabs and troubleshooting.">
+<meta property="og:url" content="https://nasp2000.github.io/Node32-HUB/packs/rambox32/reference.html">
+<meta property="og:image" content="https://nasp2000.github.io/Node32-HUB/assets/og.png">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="sheet">
+
+  <header class="masthead">
+    <a class="wordmark" href="../../">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="../../#packs">Packs</a>
+      <a href="../../install.html">Flash</a>
+      <a href="https://github.com/nasp2000/Node32-HUB">Source</a>
+      <a href="https://github.com/nasp2000/Node32-HUB/releases">Releases</a>
+    </nav>
+  </header>
+
+  <a class="back" href="../rambox32.html">← Rambox32</a>
+
+  <section class="product-head">
+    <h1>Every setting</h1>
+    <p>What each field on the RAMBOX page does, the values it accepts and what happens when you leave it alone. The page has five tabs: <b>Config</b>, <b>Arrivals</b>, <b>Pigeons</b>, <b>Race</b> and <b>State</b>.</p>
+  </section>
+
+  <div class="product-body" id="main">
+    <div>
+
+      <h2 id="wiring">Wiring the DB9</h2>
+      <div class="callout">
+        <p>The Unikon clock only transmits while it sees that jumper: pin 9 is the signal it watches, and pin 5 is ground. Without it the bus stays silent and the page shows no data — this is the first thing to check when the clock does not answer.</p>
+
+        <div class="diagram">
+          <svg viewBox="0 0 420 170" role="img" aria-label="DB9 female connector: pin 5 (ground) jumpered to pin 9">
+            <rect x="18" y="18" width="384" height="134" rx="10" fill="none" stroke="#3f4b45" stroke-width="2"/>
+            <path d="M40 46 h340" stroke="#3f4b45" stroke-width="1" stroke-dasharray="2 4"/>
+            <!-- top row: 1..5 -->
+            <g fill="none" stroke="#94a09a" stroke-width="2">
+              <circle cx="84" cy="70" r="13"/><circle cx="141" cy="70" r="13"/><circle cx="198" cy="70" r="13"/><circle cx="255" cy="70" r="13"/>
+            </g>
+            <circle cx="312" cy="70" r="13" fill="none" stroke="#f0813f" stroke-width="3"/>
+            <!-- bottom row: 6..9 -->
+            <g fill="none" stroke="#94a09a" stroke-width="2">
+              <circle cx="112" cy="114" r="13"/><circle cx="169" cy="114" r="13"/><circle cx="226" cy="114" r="13"/>
+            </g>
+            <circle cx="283" cy="114" r="13" fill="none" stroke="#f0813f" stroke-width="3"/>
+            <!-- jumper -->
+            <path d="M312 83 C 312 104, 283 96, 283 101" fill="none" stroke="#f0813f" stroke-width="3"/>
+            <g font-family="ui-monospace, Menlo, monospace" font-size="12" fill="#eef1ec" text-anchor="middle">
+              <text x="84" y="75">1</text><text x="141" y="75">2</text><text x="198" y="75">3</text><text x="255" y="75">4</text><text x="312" y="75">5</text>
+              <text x="112" y="119">6</text><text x="169" y="119">7</text><text x="226" y="119">8</text><text x="283" y="119">9</text>
+            </g>
+            <g font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#94a09a">
+              <text x="24" y="146">female DB9, seen from the outside</text>
+            </g>
+            <text x="300" y="146" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#f0813f">5 &#8212; 9 jumper</text>
+          </svg>
+        </div>
+
+      <h2 id="module">1. Which clock are you talking to</h2>
+      <p>One module at a time. Enabling one disables the other, and the RS232 profile switches with it.</p>
+      <table class="opts">
+        <tr><th>Field</th><th>Values</th><th>Default</th><th>What it does</th></tr>
+        <tr>
+          <td data-label="Field">Device</td>
+          <td data-label="Values"><code>Unikon</code> · <code>Bricon</code></td>
+          <td data-label="Default">the active module</td>
+          <td data-label="What it does">Selects which clock the page controls. On the first status read the selector adopts whichever clock is actually enabled; the remembered choice only wins when none is active.</td>
+        </tr>
+        <tr>
+          <td data-label="Field">Clock active</td>
+          <td data-label="Values">on · off</td>
+          <td data-label="Default">off</td>
+          <td data-label="What it does">Starts polling the selected clock. The badge next to the selector shows the live state. Turning one on turns the other off.</td>
+        </tr>
+      </table>
+
+      <h2 id="polling">2. Polling and the serial profile</h2>
+      <table class="opts">
+        <tr><th>Field</th><th>Values</th><th>Default</th><th>What it does</th></tr>
+        <tr>
+          <td data-label="Field">Poll interval</td>
+          <td data-label="Values">1 · 3 · 5 · 10 · 15 · 30 · 60 min</td>
+          <td data-label="Default">3 min</td>
+          <td data-label="What it does">How often the clock is queried. Short intervals catch arrivals sooner and put more traffic on the bus. A stored value outside the list snaps to the next larger step.</td>
+        </tr>
+        <tr>
+          <td data-label="Field">Use the RS232 settings</td>
+          <td data-label="Values">on · off</td>
+          <td data-label="Default">off</td>
+          <td data-label="What it does">Bench mode: the module stops applying its own serial profile and uses whatever is configured on the <code>/rs232</code> page. The module's profile is never overwritten and comes back when the box is cleared.</td>
+        </tr>
+        <tr>
+          <td data-label="Field">Restore module profile</td>
+          <td data-label="Values">button</td>
+          <td data-label="Default">—</td>
+          <td data-label="What it does">Re-applies the module's stored serial profile. It is an action, not a save: unsaved edits on screen stay unsaved and nothing else in the configuration changes.</td>
+        </tr>
+      </table>
+
+      <h2 id="unikon">3. Unikon</h2>
+      <table class="opts">
+        <tr><th>Field</th><th>Values</th><th>Default</th><th>What it does</th></tr>
+        <tr>
+          <td data-label="Field">Official format</td>
+          <td data-label="Values">on · off</td>
+          <td data-label="Default">off</td>
+          <td data-label="What it does">Uses the official band format for the arrivals, as the federation reads them, instead of the clock's raw fields.</td>
+        </tr>
+        <tr>
+          <td data-label="Field">Loft email</td>
+          <td data-label="Values">address</td>
+          <td data-label="Default">empty</td>
+          <td data-label="What it does">Destination of the loft list mail. Without an address the button does nothing.</td>
+        </tr>
+        <tr>
+          <td data-label="Field">Line</td>
+          <td data-label="Values">fixed</td>
+          <td data-label="Default">9600 8N1</td>
+          <td data-label="What it does">The Unikon bus is fixed; there is nothing to tune. If the clock does not answer, check the DB9 jumper on the pack page first.</td>
+        </tr>
+      </table>
+
+      <h2 id="bricon">4. Bricon (experimental)</h2>
+      <p>The wire layer is implemented and covered by tests, but it has not been validated against real Bricon hardware. Test it on a spare module.</p>
+      <table class="opts">
+        <tr><th>Field</th><th>Values</th><th>Default</th><th>What it does</th></tr>
+        <tr><td data-label="Field">Baud</td><td data-label="Values"><code>9600</code> …</td><td data-label="Default">9600</td><td data-label="What it does">Bus speed. The Bricon profile hints 9600 8N2.</td></tr>
+        <tr><td data-label="Field">Data bits</td><td data-label="Values">7 · 8</td><td data-label="Default">8</td><td data-label="What it does">Frame size on the bus.</td></tr>
+        <tr><td data-label="Field">Parity</td><td data-label="Values">none · even · odd</td><td data-label="Default">none</td><td data-label="What it does">Frame parity.</td></tr>
+        <tr><td data-label="Field">Stop bits</td><td data-label="Values">1 · 2</td><td data-label="Default">2</td><td data-label="What it does">Stop bits, per the module profile.</td></tr>
+        <tr><td data-label="Field">Country</td><td data-label="Values">code</td><td data-label="Default">—</td><td data-label="What it does">Country prefix used when the module builds band numbers.</td></tr>
+        <tr><td data-label="Field">BA</td><td data-label="Values">number</td><td data-label="Default">—</td><td data-label="What it does">Bus address of the loft module.</td></tr>
+        <tr><td data-label="Field">Club</td><td data-label="Values">number</td><td data-label="Default">—</td><td data-label="What it does">Club code used by the pigeon lookup.</td></tr>
+        <tr><td data-label="Field">Flight</td><td data-label="Values">number</td><td data-label="Default">—</td><td data-label="What it does">Flight code requested with the fancier/pigeon chain.</td></tr>
+      </table>
+
+      <h2 id="buttons">5. Buttons</h2>
+      <table class="opts">
+        <tr><th>Button</th><th>Where</th><th>What it does</th></tr>
+        <tr><td data-label="Button">Save configuration</td><td data-label="Where">bottom of Config</td><td data-label="What it does">Stores the selected clock's fields (enabled, interval and the device-specific ones).</td></tr>
+        <tr><td data-label="Button">Refresh</td><td data-label="Where">each tab</td><td data-label="What it does">Re-reads status, arrivals, loft and races of the selected clock.</td></tr>
+        <tr><td data-label="Button">Poll now</td><td data-label="Where">Arrivals</td><td data-label="What it does">Runs one poll immediately instead of waiting for the interval.</td></tr>
+        <tr><td data-label="Button">Sync loft</td><td data-label="Where">Arrivals</td><td data-label="What it does">Copies the loft (fancier and pigeons) from the clock.</td></tr>
+        <tr><td data-label="Button">Sync calendar</td><td data-label="Where">Arrivals</td><td data-label="What it does">Copies the races and their dates from the clock.</td></tr>
+        <tr><td data-label="Button">Loft email</td><td data-label="Where">Pigeons</td><td data-label="What it does">Unikon only: sends the loft list to the configured address.</td></tr>
+      </table>
+
+      <h2 id="tabs">6. The five tabs</h2>
+      <table class="opts">
+        <tr><th>Tab</th><th>Shows</th></tr>
+        <tr><td data-label="Tab">Config</td><td data-label="Shows">Device selector and every field in sections 1 to 4.</td></tr>
+        <tr><td data-label="Tab">Arrivals</td><td data-label="Shows">Clock state, arrival count, the arrival table (ring, time, race) and the sync/poll actions.</td></tr>
+        <tr><td data-label="Tab">Pigeons</td><td data-label="Shows">The loft list read from the clock, plus the loft email.</td></tr>
+        <tr><td data-label="Tab">Race</td><td data-label="Shows">Races stored in the clock, read-only.</td></tr>
+        <tr><td data-label="Tab">State</td><td data-label="Shows">Every status field the module reports: clock, fancier, race, arrivals, RS232 state and the last poll.</td></tr>
+      </table>
+      <p>The selected tab and the selected device are remembered in the browser, not on the board.</p>
+
+      <h2 id="email">7. Email</h2>
+      <p>Arrival mails and the loft mail use the shared SMTP account. Without a working account, arrivals are only visible on this page.</p>
+      <p>The account, the recipients and the test send are the same on every pack — see <a href="../../common/reference.html#email">Email</a> in the shared reference.</p>
+
+      <h2 id="trouble">8. If it does not work</h2>
+      <table class="opts">
+        <tr><th>Symptom</th><th>Check</th></tr>
+        <tr><td data-label="Symptom">No data at all, badge stays idle</td><td data-label="Check">The DB9 jumper: pin 9 to pin 5, continuity with a multimeter. This is the most common cause.</td></tr>
+        <tr><td data-label="Symptom">Data appears but the ring numbers are wrong</td><td data-label="Check">RX and TX swapped: pin 2 of the DB9 is the clock's TX and must reach the MAX3232's R1IN.</td></tr>
+        <tr><td data-label="Symptom">Status works, arrivals stay empty</td><td data-label="Check">Wrong module selected, or the clock is not enabled; check the badge.</td></tr>
+        <tr><td data-label="Symptom">Emails do not arrive</td><td data-label="Check">SMTP account on <code>/email</code>, then send a test from that page.</td></tr>
+        <tr><td data-label="Symptom">Bricon answers nothing</td><td data-label="Check">Expected on some modules: the driver is experimental. Confirm baud and stop bits against the module and report what the monitor shows.</td></tr>
+      </table>
+
+    </div>
+
+    <aside class="aside">
+      <div class="dl">
+        <h2>Rambox32</h2>
+        <p class="ver">ESP32-S3 N16R8, firmware v1.120</p>
+        <a class="btn" href="../rambox32.html">Back to the pack</a>
+        <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=rambox" style="margin-top:8px">Download</a>
+        <p class="note">Wiring, screenshots and install steps are on the pack page.</p>
+        <p class="note" style="margin-top:12px"><a href="../../common/reference.html"><b>Shared pages →</b></a><br>Status, files, monitor, network, access, email and OTA are the same on every pack.</p>
+      </div>
+
+      <ul class="toc">
+        <li><a href="#wiring">Wiring the DB9</a></li>
+        <li><a href="#module">1. Which clock</a></li>
+        <li><a href="#polling">2. Polling and profile</a></li>
+        <li><a href="#unikon">3. Unikon</a></li>
+        <li><a href="#bricon">4. Bricon (experimental)</a></li>
+        <li><a href="#buttons">5. Buttons</a></li>
+        <li><a href="#tabs">6. The five tabs</a></li>
+        <li><a href="#email">7. Email</a></li>
+        <li><a href="#trouble">8. If it does not work</a></li>
+      </ul>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party · LGPL compliance bundle with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

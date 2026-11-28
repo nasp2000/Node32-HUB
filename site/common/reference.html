@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shared pages — Node32-HUB</title>
+<meta name="description" content="The pages every Node32-HUB pack carries: status, files, monitor, network, access, email and OTA updates.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Shared pages — Node32-HUB">
+<meta property="og:description" content="Status, files, monitor, network, access, email and OTA: the pages present in every pack.">
+<meta property="og:url" content="https://nasp2000.github.io/Node32-HUB/common/reference.html">
+<meta property="og:image" content="https://nasp2000.github.io/Node32-HUB/assets/og.png">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="sheet">
+
+  <header class="masthead">
+    <a class="wordmark" href="../">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="../#packs">Packs</a>
+      <a href="../install.html">Flash</a>
+      <a href="https://github.com/nasp2000/Node32-HUB">Source</a>
+      <a href="https://github.com/nasp2000/Node32-HUB/releases">Releases</a>
+    </nav>
+  </header>
+
+  <a class="back" href="../">← All packs</a>
+
+  <section class="product-head">
+    <h1>Shared pages</h1>
+    <p>Every pack carries the same seven pages, because they are the ones the board itself needs: look at it, move files, read the log, get on the network, lock it, send mail, update it. Everything specific to a pack lives on its own reference page.</p>
+  </section>
+
+  <div class="product-body" id="main">
+    <div>
+
+      <h2 id="status">Status</h2>
+      <p>Read-only view of what the board is doing: chip model and revision, cores and clock, temperature, heap and PSRAM, storage, network state and uptime. There are no settings here — only <b>Refresh</b>, which re-reads <code>/api/status</code>.</p>
+
+      <h2 id="files">Files</h2>
+      <p>The SD card (and PSRAM, where the pack uses it) as a file explorer: browse folders, upload, rename, delete, create a folder, sort by name or date and filter by typing.</p>
+      <table class="opts">
+        <tr><th>Control</th><th>What it does</th></tr>
+        <tr><td data-label="Control">Storage selector</td><td data-label="What it does">Switches between SD and PSRAM and reloads the listing at the root of that storage.</td></tr>
+        <tr><td data-label="Control">Filter</td><td data-label="What it does">Hides rows as you type, by file name.</td></tr>
+        <tr><td data-label="Control">Select / Clear</td><td data-label="What it does">Marks or clears every row; the actions below apply to the selection.</td></tr>
+        <tr><td data-label="Control">Sort</td><td data-label="What it does">Reloads the listing ordered by name or by date.</td></tr>
+        <tr><td data-label="Control">Back</td><td data-label="What it does">Goes up one folder.</td></tr>
+        <tr><td data-label="Control">Delete</td><td data-label="What it does">Asks for confirmation, then removes the selected files.</td></tr>
+        <tr><td data-label="Control">New folder / Rename</td><td data-label="What it does">Asks for a name — rename only accepts a single selected file.</td></tr>
+      </table>
+
+      <h2 id="monitor">Monitor</h2>
+      <p>The board's log, over the network: the same lines that go out on the serial port, with levels and timestamps. Useful when a pack is not behaving and you have no cable plugged in. The <b>Serial Monitor</b> button on the home page opens the live view; both can be hidden from <a href="#access">Access</a>.</p>
+
+      <h2 id="network">Network</h2>
+      <p>Wi-Fi credentials and, on boards that have it, Ethernet. When the board cannot join a network it raises its own access point — <code>NODE32-HUB</code>, password <code>12345678</code>, address <code>192.168.4.1</code> — so you can always reach it. Once joined, most packs answer at <code>&lt;pack&gt;.local</code> over mDNS where the pack enables it.</p>
+
+      <h2 id="access">Access</h2>
+      <p>Who may open the pages, and for how long.</p>
+      <table class="opts">
+        <tr><th>Field</th><th>Values</th><th>Default</th><th>What it does</th></tr>
+        <tr><td data-label="Field">Max simultaneous clients</td><td data-label="Values">1 to 5</td><td data-label="Default">—</td><td data-label="What it does">Counts distinct client IPs (tabs from the same PC count once). A new IP when full gets HTTP 429.</td></tr>
+        <tr><td data-label="Field">Inactivity timeout</td><td data-label="Values">1 to 120 min</td><td data-label="Default">10</td><td data-label="What it does">Drops a session that stops being used.</td></tr>
+        <tr><td data-label="Field">Absolute timeout</td><td data-label="Values">5 to 240 min</td><td data-label="Default">20</td><td data-label="What it does">Drops a session even if it is being used.</td></tr>
+        <tr><td data-label="Field">Local pages never expire</td><td data-label="Values">on, off</td><td data-label="Default">off</td><td data-label="What it does">Skips the timeout kick for the local-only pages (charts, monitor, camera). They still count toward the client limit.</td></tr>
+        <tr><td data-label="Field">Require login</td><td data-label="Values">on, off</td><td data-label="Default">on</td><td data-label="What it does">Master switch for HTTP Basic auth. Off means anyone on the network opens the pages.</td></tr>
+        <tr><td data-label="Field">Admin user and password</td><td data-label="Values">text</td><td data-label="Default">root / root</td><td data-label="What it does">Change them on the first visit. Leaving the password empty keeps the current one.</td></tr>
+        <tr><td data-label="Field">Viewer account</td><td data-label="Values">on, off</td><td data-label="Default">off</td><td data-label="What it does">A second, read-only login for someone who only needs to look.</td></tr>
+      </table>
+
+      <h2 id="email">Email</h2>
+      <p>One SMTP account with TLS, a set of recipients and a test send. Packs that produce events (arrivals, inactivity alerts, shift reports) use this account; without it the events stay on the page.</p>
+
+      <h2 id="ota">Updates</h2>
+      <p><code>/ota</code> takes a <code>firmware.bin</code> and reboots. The image is checked against the built-in RSA-2048 key and the chip magic before it is allowed to boot, so a modified or wrong-board binary is refused — recover with a USB flash. Configuration and stored data survive the update.</p>
+
+    </div>
+
+    <aside class="aside">
+      <div class="dl">
+        <h2>Same on every pack</h2>
+        <p class="ver">Firmware v1.120</p>
+        <a class="btn" href="../install.html">How to flash</a>
+        <p class="note">Pack-specific settings live on each pack's own reference page.</p>
+      </div>
+
+      <ul class="toc">
+        <li><a href="#status">Status</a></li>
+        <li><a href="#files">Files</a></li>
+        <li><a href="#monitor">Monitor</a></li>
+        <li><a href="#network">Network</a></li>
+        <li><a href="#access">Access</a></li>
+        <li><a href="#email">Email</a></li>
+        <li><a href="#ota">Updates</a></li>
+      </ul>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party · LGPL compliance bundle with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

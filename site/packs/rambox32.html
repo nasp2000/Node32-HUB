@@ -62,52 +62,10 @@
 
       <div class="callout callout--alert">
         <h3>DB9: pin 9 must be jumpered to pin 5</h3>
-        <p>The Unikon clock only transmits while it sees that jumper: pin 9 is the signal it watches, and pin 5 is ground. Without it the bus stays silent and the page shows no data — this is the first thing to check when the clock does not answer.</p>
-
-        <div class="diagram">
-          <svg viewBox="0 0 420 170" role="img" aria-label="DB9 female connector: pin 5 (ground) jumpered to pin 9">
-            <rect x="18" y="18" width="384" height="134" rx="10" fill="none" stroke="#3f4b45" stroke-width="2"/>
-            <path d="M40 46 h340" stroke="#3f4b45" stroke-width="1" stroke-dasharray="2 4"/>
-            <!-- top row: 1..5 -->
-            <g fill="none" stroke="#94a09a" stroke-width="2">
-              <circle cx="84" cy="70" r="13"/><circle cx="141" cy="70" r="13"/><circle cx="198" cy="70" r="13"/><circle cx="255" cy="70" r="13"/>
-            </g>
-            <circle cx="312" cy="70" r="13" fill="none" stroke="#f0813f" stroke-width="3"/>
-            <!-- bottom row: 6..9 -->
-            <g fill="none" stroke="#94a09a" stroke-width="2">
-              <circle cx="112" cy="114" r="13"/><circle cx="169" cy="114" r="13"/><circle cx="226" cy="114" r="13"/>
-            </g>
-            <circle cx="283" cy="114" r="13" fill="none" stroke="#f0813f" stroke-width="3"/>
-            <!-- jumper -->
-            <path d="M312 83 C 312 104, 283 96, 283 101" fill="none" stroke="#f0813f" stroke-width="3"/>
-            <g font-family="ui-monospace, Menlo, monospace" font-size="12" fill="#eef1ec" text-anchor="middle">
-              <text x="84" y="75">1</text><text x="141" y="75">2</text><text x="198" y="75">3</text><text x="255" y="75">4</text><text x="312" y="75">5</text>
-              <text x="112" y="119">6</text><text x="169" y="119">7</text><text x="226" y="119">8</text><text x="283" y="119">9</text>
-            </g>
-            <g font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#94a09a">
-              <text x="24" y="146">female DB9, seen from the outside</text>
-            </g>
-            <text x="300" y="146" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" fill="#f0813f">5 &#8212; 9 jumper</text>
-          </svg>
-        </div>
-
-        <table>
-          <tr><th>ESP32-S3</th><th>MAX3232</th><th>DB9 (Unikon)</th></tr>
-          <tr><td>GPIO16, UART2 RX</td><td>R1OUT</td><td>—</td></tr>
-          <tr><td>GPIO17, UART2 TX</td><td>T1IN</td><td>—</td></tr>
-          <tr><td>—</td><td>T1OUT</td><td>pin 2, TX</td></tr>
-          <tr><td>—</td><td>R1IN</td><td>pin 3, RX</td></tr>
-          <tr><td>GND</td><td>GND</td><td>pin 5, GND</td></tr>
-          <tr><td>—</td><td>—</td><td><b>pin 9 jumpered to pin 5</b></td></tr>
-        </table>
-
-        <p style="margin-top:14px">Line settings: <b>9600 baud, 8N1</b>, XON/XOFF enabled. If the page still shows nothing after the jumper:</p>
-        <ol class="steps">
-          <li>Check the jumper with a multimeter across pins 5 and 9 — continuity, not just solder.</li>
-          <li>Confirm RX and TX are not swapped: pin 2 is the clock's TX and must reach the MAX3232's R1IN.</li>
-          <li>Open the monitor page and look for raw frames while the clock is polled; if they appear, the wiring is right and the problem is the module selection.</li>
-        </ol>
+        <p>Without that jumper the Unikon clock never answers. <a href="rambox32/reference.html#wiring"><b>Full wiring, diagram and checks →</b></a></p>
       </div>
+
+      <p style="margin:26px 0 0"><a href="rambox32/reference.html"><b>Every setting, field by field →</b></a> — module selection, polling, Unikon and Bricon fields, buttons, tabs and troubleshooting.</p>
 
       <figure class="shot">
         <a class="zoom" href="../assets/img/rambox32/email.png" target="_blank" rel="noopener" title="Rambox32 email settings with SMTP server, recipient and test button (opens full size)"><img src="../assets/img/rambox32/email.png" alt="Rambox32 email settings with SMTP server, recipient and test button" loading="lazy"></a>
