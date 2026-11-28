@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rambox32 — Node32-HUB</title>
+<link rel="canonical" href="https://nasp2000.github.io/Node32-HUB/packs/rambox32.html">
+<meta name="description" content="Rambox32 firmware for ESP32-S3 N16R8: pigeon-racing timing terminal, Unikon RS232 polling and Bricon loft modules, arrival emails.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Node32-HUB">
+<meta property="og:title" content="Rambox32 — Node32-HUB">
+<meta property="og:description" content="Rambox32 firmware for ESP32-S3 N16R8: pigeon-racing timing terminal, Unikon RS232 polling and Bricon loft modules, arrival emails.">
+<meta property="og:url" content="https://nasp2000.github.io/Node32-HUB/packs/rambox32.html">
+<meta property="og:image" content="https://nasp2000.github.io/Node32-HUB/assets/og.png">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="sheet">
+
+  <header class="masthead">
+    <a class="wordmark" href="../">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="../#packs">Packs</a>
+      <a href="../install.html">Flash</a>
+      <a href="../search.html">Search</a>
+      <a href="https://github.com/nasp2000/Node32-HUB">Source</a>
+      <a href="../releases.html">Releases</a>
+    </nav>
+  </header>
+
+  <a class="back" href="../">← All packs</a>
+
+  <section class="product-head">
+    <h1>Rambox32</h1>
+    <p>Timing terminal for pigeon racing. It reads the clock in the loft over RS232, records every arrival and emails the fancier — you do not have to be there to know a bird is home.</p>
+  </section>
+
+  <a class="refstrip" href="rambox32/reference.html">
+    <span class="k">Reference</span>
+    <span class="txt">
+      <span class="t">Every setting, field by field</span>
+      <span class="m">Module · Polling · Unikon · Bricon · Buttons · Tabs · DB9 wiring</span>
+    </span>
+    <span class="g">Open →</span>
+  </a>
+
+  <div class="product-body" id="main">
+    <div>
+
+      <h2>What it does</h2>
+      <ul>
+        <li><b>Unikon clocks</b> — Champ and Profi, polled continuously; arrivals, races and loft data are logged. The clock is read-only by default and a write is always explicit.</li>
+        <li><b>Bricon loft modules</b> — <em>experimental</em>: fancier, pigeons, flights, band table and timer. Not yet validated against real hardware.</li>
+        <li><b>One module at a time</b> — Unikon or Bricon; the RS232 profile switches with the selection.</li>
+        <li><b>Email on arrival</b> — SMTP with TLS, HTML tables with computed column widths so results stay aligned.</li>
+        <li><b>Live panel</b> — arrivals, RS232 state, machine status and OTA updates on one page.</li>
+      </ul>
+
+      <div class="pair">
+        <figure><a class="zoom" href="../assets/img/rambox32/options.png" target="_blank" rel="noopener" title="The RAMBOX page: device selector, tabs for config, arrivals, pigeons, test and state, with the polling options underneath (opens full size)"><img src="../assets/img/rambox32/options.png" alt="The RAMBOX page: device selector, tabs for config, arrivals, pigeons, test and state, with the polling options underneath" loading="lazy"></a><figcaption>The RAMBOX page: module selector, tabs, polling options</figcaption></figure>
+        <figure><a class="zoom" href="../assets/img/rambox32/home.png" target="_blank" rel="noopener" title="Rambox32 home page with the module selector, live RS232 state and arrival summary (opens full size)"><picture><source srcset="../assets/img/rambox32/home.webp" type="image/webp"><img src="../assets/img/rambox32/home.png" alt="Rambox32 home page with the module selector, live RS232 state and arrival summary" loading="lazy"></picture></a><figcaption>Home: live state and arrivals at a glance</figcaption></figure>
+      </div>
+
+      <h2>Install</h2>
+      <ol>
+        <li>Flash <code>firmware.bin</code> over USB with the <a href="https://github.com/nasp2000/webflasher_Node32-HUB">WebFlasher</a>, or update an existing unit at <code>/ota</code>. Full guide: <a href="../install.html">how to flash</a>.</li>
+        <li>Join <code>NODE32-HUB</code> (password <code>12345678</code>), open <code>192.168.4.1</code>, log in as <code>root</code> / <code>root</code>.</li>
+        <li>Set Wi-Fi, then the SMTP account — without email, arrivals only show on the page.</li>
+        <li>On the RAMBOX page choose the timing module and wire the DB9 as below.</li>
+      </ol>
+
+      <div class="callout callout--alert">
+        <h3>DB9: pin 9 must be jumpered to pin 5</h3>
+        <p>Without that jumper the Unikon clock never answers. <a href="rambox32/reference.html#wiring"><b>Full wiring, diagram and checks →</b></a></p>
+      </div>
+
+      <figure class="shot">
+        <a class="zoom" href="../assets/img/rambox32/email.png" target="_blank" rel="noopener" title="Rambox32 email settings with SMTP server, recipient and test button (opens full size)"><img src="../assets/img/rambox32/email.png" alt="Rambox32 email settings with SMTP server, recipient and test button" loading="lazy"></a>
+        <figcaption>Email settings: SMTP account, recipients and a test send.</figcaption>
+      </figure>
+
+      <h2>Hardware</h2>
+      <ul>
+        <li><b>Board</b> — ESP32-S3 N16R8.</li>
+        <li><b>RS232</b> — MAX3232 transceiver on UART2 (GPIO16 RX, GPIO17 TX), 9600 8N1.</li>
+        <li><b>DB9</b> — the Unikon cable, with the jumper described above.</li>
+        <li><b>Optional</b> — SSD1306 OLED for local status.</li>
+      </ul>
+
+
+
+    </div>
+
+    <aside class="aside">
+      <div class="dl">
+        <h2>Download v1.120</h2>
+        <p class="ver">ESP32-S3 N16R8, OTA-signed</p>
+        <a class="btn" href="https://github.com/nasp2000/Node32-HUB/releases?q=rambox">Firmware + flash files</a>
+        <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=rambox" style="margin-top:8px">Compliance bundle</a>
+        <a class="btn btn--ghost" href="rambox32/changes.html" style="margin-top:8px">What changed</a>
+        <p class="note">Flash over USB the first time; afterwards upload <code>firmware.bin</code> at <code>/ota</code>.</p>
+      </div>
+
+      <dl class="spectable">
+        <div><dt>Board</dt><dd>ESP32-S3 N16R8</dd></div>
+        <div><dt>Bus</dt><dd>RS232, 9600 8N1</dd></div>
+        <div><dt>Clocks</dt><dd>Unikon Champ / Profi</dd></div>
+        <div><dt>Modules</dt><dd>Bricon (experimental)</dd></div>
+        <div><dt>Email</dt><dd>SMTP, TLS</dd></div>
+        <div><dt>Address</dt><dd>rambox32.local</dd></div>
+      </dl>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party, LGPL compliance bundle with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

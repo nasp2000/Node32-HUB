@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://nasp2000.github.io/Node32-HUB/sitemap.xml

@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Node32-HUB — firmware packs for ESP32-S3 and ESP32-P4</title>
+<link rel="canonical" href="https://nasp2000.github.io/Node32-HUB/">
+<meta name="description" content="One firmware family for ESP32-S3 and ESP32-P4. Each pack turns the same codebase into a dedicated device: camera, pigeon-clock terminal, internet radio, G-code sender, OEE terminal.">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/site.css">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Node32-HUB">
+<meta property="og:title" content="Node32-HUB — firmware packs for ESP32-S3 and ESP32-P4">
+<meta property="og:description" content="One firmware family for ESP32-S3 and ESP32-P4. Each pack turns the same codebase into a dedicated device: camera, timing terminal, radio, G-code sender, OEE terminal.">
+<meta property="og:url" content="https://nasp2000.github.io/Node32-HUB/">
+<meta property="og:image" content="https://nasp2000.github.io/Node32-HUB/assets/og.png">
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+<a class="skip" href="#packs">Skip to the packs</a>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <a class="wordmark" href="./">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="#packs">Packs</a>
+      <a href="install.html">Flash</a>
+      <a href="search.html">Search</a>
+      <a href="https://github.com/nasp2000/Node32-HUB">Source</a>
+      <a href="releases.html">Releases</a>
+    </nav>
+  </header>
+
+  <section class="intro">
+    <h1>One firmware family. One pack per device.</h1>
+    <p class="lede">
+      Every <strong>pack</strong> is the same ESP32 codebase compiled into a dedicated device:
+      a camera that also records, a timing terminal that also emails, a radio that also runs
+      alarms. A pack carries only the functions that device needs — you flash it, configure it
+      on its own web page, and it runs on your network with no cloud, no account and no app.
+    </p>
+  </section>
+
+  <div class="cols">
+
+    <aside class="rail">
+      <h2>How to choose</h2>
+      <ol>
+        <li><b>Which board do you have?</b> Most packs run on an ESP32-S3 N16R8. GcodeSender needs an ESP32-P4.</li>
+        <li><b>What does it have to do?</b> A pack bundles the functions that device needs: capture and record, time and notify, play and schedule, send and resume.</li>
+        <li><b>What does it talk to?</b> The pack page lists the bus, the protocol and the connector.</li>
+      </ol>
+
+      <p style="margin:0 0 26px;font-size:.95rem;color:var(--ink-2)">First time here? <a href="install.html">How to flash a board</a> — browser, USB or OTA.</p>
+
+      <dl class="facts">
+        <div><dt>Version</dt><dd id="ver"><a href="https://github.com/nasp2000/Node32-HUB/releases">v1.120</a></dd></div>
+        <div><dt>Updates</dt><dd>USB or OTA</dd></div>
+        <div><dt>Signature</dt><dd>RSA-2048</dd></div>
+        <div><dt>Licence</dt><dd>MIT + LGPL</dd></div>
+        <div><dt>Cloud</dt><dd>none</dd></div>
+      </dl>
+    </aside>
+
+    <main id="packs">
+      <div class="filters" role="group" aria-label="Filter packs by board">
+        <button class="chip" type="button" data-board="all" aria-pressed="true">All boards</button>
+        <button class="chip" type="button" data-board="s3" aria-pressed="false">ESP32-S3 N16R8</button>
+        <button class="chip" type="button" data-board="p4" aria-pressed="false">ESP32-P4</button>
+        <button class="chip" type="button" data-board="8di8do" aria-pressed="false">8DI8DO</button>
+      </div>
+
+      <ul class="packs">
+
+        <li class="pack" data-board="s3">
+          <h2><a href="packs/cam-m.html">Cam-M</a></h2>
+          <p>Camera companion: MJPEG stream, snapshots to SD, AVI recording, timelapse and a motion detector that starts recording on its own.</p>
+          <div class="spec">
+            <span><b>Board</b> ESP32-S3 N16R8</span>
+            <span><b>Sensor</b> OV2640 / OV3660 / OV5640</span>
+            <span class="ok">released</span>
+          </div>
+          <div class="actions">
+            <a class="btn" href="packs/cam-m.html">Open</a>
+            <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=cam-s3">Download</a>
+            <a class="btn btn--accent" href="packs/cam-m/reference.html">Reference</a>
+          </div>
+        </li>
+
+        <li class="pack" data-board="s3">
+          <h2><a href="packs/rambox32.html">Rambox32</a></h2>
+          <p>Pigeon-racing timing terminal: reads a Unikon clock over RS232, records arrivals, emails the fancier, and now talks to Bricon loft modules too.</p>
+          <div class="spec">
+            <span><b>Board</b> ESP32-S3 N16R8</span>
+            <span><b>Bus</b> RS232, 9600 8N1</span>
+            <span class="ok">released</span>
+          </div>
+          <div class="actions">
+            <a class="btn" href="packs/rambox32.html">Open</a>
+            <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=rambox">Download</a>
+            <a class="btn btn--accent" href="packs/rambox32/reference.html">Reference</a>
+          </div>
+        </li>
+
+        <li class="pack" data-board="s3">
+          <h2><a href="packs/harmonica.html">Harmonica Box</a></h2>
+          <p>Internet radio and music streamer: I2S output, MP3/FLAC/OGG/AAC/Opus decoders, UPnP browsing, alarms and station favicons.</p>
+          <div class="spec">
+            <span><b>Board</b> ESP32-S3 N16R8</span>
+            <span><b>Output</b> I2S, UDA1334A</span>
+            <span class="ok">released</span>
+          </div>
+          <div class="actions">
+            <a class="btn" href="packs/harmonica.html">Open</a>
+            <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=radio">Download</a>
+            <a class="btn btn--accent" href="packs/harmonica/reference.html">Reference</a>
+          </div>
+        </li>
+
+        <li class="pack" data-board="p4">
+          <h2><a href="packs/gcodesender.html">GcodeSender</a></h2>
+          <p>G-code sender for CNC and diode lasers: streams from SD or PSRAM over USB Host to a GRBL controller, with a browser UI that does the preview work locally.</p>
+          <div class="spec">
+            <span><b>Board</b> ESP32-P4</span>
+            <span><b>Link</b> USB Host, CH340</span>
+            <span class="ok">released</span>
+          </div>
+          <div class="actions">
+            <a class="btn" href="packs/gcodesender.html">Open</a>
+            <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=p4cnc">Download</a>
+            <a class="btn btn--accent" href="packs/gcodesender/reference.html">Reference</a>
+          </div>
+        </li>
+
+        <li class="pack" data-board="8di8do">
+          <h2><a href="packs/node32-oee.html">Node32-OEE</a></h2>
+          <p>Production counting and OEE terminal for the Waveshare 8DI8DO: eight monitored inputs, shifts, CSV history, A×P×Q and email reports.</p>
+          <div class="spec">
+            <span><b>Board</b> ESP32-S3 8DI8DO</span>
+            <span><b>Network</b> Ethernet, PoE</span>
+            <span class="ok">released</span>
+          </div>
+          <div class="actions">
+            <a class="btn" href="packs/node32-oee.html">Open</a>
+            <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=oee">Download</a>
+            <a class="btn btn--accent" href="packs/node32-oee/reference.html">Reference</a>
+          </div>
+        </li>
+
+      </ul>
+    </main>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party, LGPL compliance bundle shipped with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  var chips = document.querySelectorAll('.filters .chip');
+  var packs = document.querySelectorAll('.pack');
+  function apply(want) {
+    for (var i = 0; i < packs.length; i++) {
+      var tags = (packs[i].getAttribute('data-board') || '').split(/\s+/);
+      packs[i].hidden = want !== 'all' && tags.indexOf(want) === -1;
+    }
+    for (var j = 0; j < chips.length; j++) {
+      chips[j].setAttribute('aria-pressed', chips[j].getAttribute('data-board') === want ? 'true' : 'false');
+    }
+  }
+  for (var k = 0; k < chips.length; k++) {
+    chips[k].addEventListener('click', function () { apply(this.getAttribute('data-board')); });
+  }
+})();
+</script>
+</body>
+</html>

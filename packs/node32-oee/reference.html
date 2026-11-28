@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Node32-OEE — every setting — Node32-HUB</title>
+<link rel="canonical" href="https://nasp2000.github.io/Node32-HUB/packs/node32-oee/reference.html">
+<meta name="description" content="Every Node32-OEE setting: channel modes, counting, relays, OEE windows, shifts and alerts.">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Node32-OEE — every setting">
+<meta property="og:description" content="Every Node32-OEE setting: channel modes, counting, relays, OEE windows, shifts and alerts.">
+<meta property="og:url" content="https://nasp2000.github.io/Node32-HUB/packs/node32-oee/reference.html">
+<meta property="og:image" content="https://nasp2000.github.io/Node32-HUB/assets/og.png">
+</head>
+<body>
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-toggle" viewBox="0 0 20 20"><rect x="1.5" y="5.5" width="17" height="9" rx="4.5" fill="currentColor" fill-opacity=".45"/><circle cx="14.5" cy="10" r="3" fill="currentColor"/></symbol>
+  <symbol id="i-select" viewBox="0 0 20 20"><rect x="2" y="3.5" width="16" height="13" rx="2" fill="currentColor" fill-opacity=".45"/><path d="M6.6 7.6l3.4 3.5 3.4-3.5 1.5 1.5-4.9 5-4.9-5z" fill="currentColor"/></symbol>
+  <symbol id="i-number" viewBox="0 0 20 20"><rect x="3" y="3.5" width="3.2" height="13" fill="currentColor" fill-opacity=".45"/><rect x="8.4" y="3.5" width="3.2" height="13" fill="currentColor" fill-opacity=".45"/><rect x="13.8" y="3.5" width="3.2" height="13" fill="currentColor"/></symbol>
+  <symbol id="i-text" viewBox="0 0 20 20"><rect x="3" y="3.5" width="14" height="13" fill="currentColor" fill-opacity=".45"/><path d="M4.6 5.2h10.8v2.1h-4.2v8.2H8.8V7.3H4.6z" fill="currentColor"/></symbol>
+  <symbol id="i-action" viewBox="0 0 20 20"><rect x="2" y="7.6" width="9" height="4.8" fill="currentColor" fill-opacity=".45"/><path d="M10.5 4.5L18 10l-7.5 5.5V11h-8V9h8z" fill="currentColor"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 20 20"><rect x="2" y="4.5" width="16" height="11" rx="1.5" fill="currentColor" fill-opacity=".45"/><path d="M2.6 5.4L10 10.8l7.4-5.4.9.7v1.6L10 13.3 3.1 7.7V6.1z" fill="currentColor"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5" fill="currentColor" fill-opacity=".45"/><path d="M9.2 5.2h1.6v5.1l3.4 2-.9 1.5-4.1-2.4z" fill="currentColor"/></symbol>
+</svg>
+<a class="skip" href="#main">Skip to content</a>
+<div class="sheet">
+
+  <header class="masthead">
+    <a class="wordmark" href="../../">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="../../#packs">Packs</a>
+      <a href="../../install.html">Flash</a>
+      <a href="../../search.html">Search</a>
+      <a href="https://github.com/nasp2000/Node32-HUB">Source</a>
+      <a href="../../releases.html">Releases</a>
+    </nav>
+  </header>
+
+  <a class="back" href="../node32-oee.html">← Node32-OEE</a>
+
+  <section class="product-head">
+    <h1>Every setting</h1>
+    <p>The board turns eight inputs into production counts and OEE. This page lists each field, its range and what it changes.</p>
+  </section>
+
+  <div class="product-body" id="main">
+    <div>
+      <h2 id="channels">1. Channels</h2>
+      <p>Each of the eight channels is configured independently on the <b>Config</b> tab.</p>
+      <table class="opts">
+        <tr><th class="ico"></th><th>Field</th><th>Values</th><th>What it does</th></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Name</td><td data-label="Values">text, up to 31 characters</td><td data-label="What it does">Label shown in the tables and in the emails.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Mode</td><td data-label="Values">Counter · Presence · Speed</td><td data-label="What it does">Counter counts pulses; Presence reports a state (running/stopped); Speed reports a rate.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">GPIO IN / IN2 / OUT</td><td data-label="Values">pin number</td><td data-label="What it does">Hidden on the 8DI8DO, where the pins are fixed. Anything you change needs a reboot.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">Debounce</td><td data-label="Values">0 to 65535 ms</td><td data-label="What it does">Ignores pulses shorter than this. 20 to 100 ms covers most sensors.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Goal</td><td data-label="Values">0 or more, 0 = unlimited</td><td data-label="What it does">After N pulses the relay stops firing until Reset.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">DO delay / duration</td><td data-label="Values">0 to 65535 ms</td><td data-label="What it does">Delay between the pulse and the relay, and how long the relay stays on. Zero duration means no output.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Field">Multiplier / Divider</td><td data-label="Values">1 to 9999 each</td><td data-label="What it does">Scales counts into parts: <code>parts = counts × multiplier ÷ divider</code>. Remainders carry over so slow rates never lose counts.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-toggle"/></svg></td><td data-label="Field">Only GPIO IN</td><td data-label="Values">on · off</td><td data-label="What it does">Passive mode: disables the relay and the goal for that channel.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Gate</td><td data-label="Values">any input, or none</td><td data-label="What it does">The presence channel that gates availability in OEE.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Field">Scrap</td><td data-label="Values">any input, or none</td><td data-label="What it does">Pulses here are subtracted from quality, and never reset the inactivity timer.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Relay DO</td><td data-label="Values">none or DO1 to DO8</td><td data-label="What it does">Which relay a channel drives (assignments are named separately).</td></tr>
+      </table>
+      <h2 id="oee">2. OEE</h2>
+      <p>Availability, performance and quality are computed over the shift window, not from a spreadsheet.</p>
+      <table class="opts">
+        <tr><th class="ico"></th><th>Field</th><th>Values</th><th>What it does</th></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-clock"/></svg></td><td data-label="Field">Shift window</td><td data-label="Values">start and end time</td><td data-label="What it does">The period the numbers refer to; day-aligned or custom.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Target</td><td data-label="Values">parts per shift</td><td data-label="What it does">Goal line drawn on the dashboard and used by the goal-vs-actual panel.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Availability</td><td data-label="Values">computed</td><td data-label="What it does">Planned time minus stops, gated by the presence channel if one is assigned.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Performance</td><td data-label="Values">computed</td><td data-label="What it does">Actual count against the ideal rate for the window.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Field">Quality</td><td data-label="Values">computed</td><td data-label="What it does">Produced minus scrap.</td></tr>
+      </table>
+      <h2 id="tabs">3. The tabs</h2>
+      <table class="opts">
+        <tr><th class="ico"></th><th>Tab</th><th>Shows</th></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Tab">Status</td><td data-label="Shows">Per-channel mode, counts, cycle, quantity per minute, state and last event.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Tab">Config</td><td data-label="Shows">Everything in section 1, plus the relay naming and the global options.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Tab">Shifts</td><td data-label="Shows">Shift definitions and targets.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Tab">Shiftday</td><td data-label="Shows">Which shift applies to which day.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Tab">OEE</td><td data-label="Shows">A×P×Q for the current window, the per-hour bars and the goal line.</td></tr>
+      </table>
+      <h2 id="alerts">4. Alerts and history</h2>
+      <table class="opts">
+        <tr><th class="ico"></th><th>Item</th><th>What it does</th></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-mail"/></svg></td><td data-label="Item">Inactivity alert</td><td data-label="What it does">Emails when a machine stops producing for longer than the configured time.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Item">CSV history</td><td data-label="What it does">One file per day on the SD, served from the Files page.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-mail"/></svg></td><td data-label="Item">Shift report</td><td data-label="What it does">The same numbers as the CSV, sent by email at the end of the window.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Item">Daily reboot</td><td data-label="What it does">Optional; keeps a long-running cabinet fresh without anyone on site.</td></tr>
+      </table>
+
+    </div>
+
+    <aside class="aside">
+      <div class="dl">
+        <h2>Node32-OEE</h2>
+        <p class="ver">Waveshare ESP32-S3 8DI8DO, firmware v1.120</p>
+        <a class="btn" href="../node32-oee.html">Back to the pack</a>
+        <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=oee" style="margin-top:8px">Download</a>
+        <p class="note">Wiring, screenshots and install steps are on the pack page.</p>
+        <p class="note" style="margin-top:12px"><a href="../../common/reference.html"><b>Shared pages →</b></a><br>Status, files, monitor, network, access, email and OTA are the same on every pack.</p>
+      </div>
+
+      <ul class="toc">
+        <li><a href="#channels">1. Channels</a></li>
+        <li><a href="#oee">2. OEE</a></li>
+        <li><a href="#tabs">3. The tabs</a></li>
+        <li><a href="#alerts">4. Alerts and history</a></li>
+
+      </ul>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party · LGPL compliance bundle with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GcodeSender — every setting — Node32-HUB</title>
+<link rel="canonical" href="https://nasp2000.github.io/Node32-HUB/packs/gcodesender/reference.html">
+<meta name="description" content="Every GcodeSender control: USB link, jog, overrides, probing, files, macros and the resume after an alarm.">
+<link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<meta property="og:type" content="article">
+<meta property="og:title" content="GcodeSender — every setting">
+<meta property="og:description" content="Every GcodeSender control: USB link, jog, overrides, probing, files, macros and the resume after an alarm.">
+<meta property="og:url" content="https://nasp2000.github.io/Node32-HUB/packs/gcodesender/reference.html">
+<meta property="og:image" content="https://nasp2000.github.io/Node32-HUB/assets/og.png">
+</head>
+<body>
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-toggle" viewBox="0 0 20 20"><rect x="1.5" y="5.5" width="17" height="9" rx="4.5" fill="currentColor" fill-opacity=".45"/><circle cx="14.5" cy="10" r="3" fill="currentColor"/></symbol>
+  <symbol id="i-select" viewBox="0 0 20 20"><rect x="2" y="3.5" width="16" height="13" rx="2" fill="currentColor" fill-opacity=".45"/><path d="M6.6 7.6l3.4 3.5 3.4-3.5 1.5 1.5-4.9 5-4.9-5z" fill="currentColor"/></symbol>
+  <symbol id="i-number" viewBox="0 0 20 20"><rect x="3" y="3.5" width="3.2" height="13" fill="currentColor" fill-opacity=".45"/><rect x="8.4" y="3.5" width="3.2" height="13" fill="currentColor" fill-opacity=".45"/><rect x="13.8" y="3.5" width="3.2" height="13" fill="currentColor"/></symbol>
+  <symbol id="i-text" viewBox="0 0 20 20"><rect x="3" y="3.5" width="14" height="13" fill="currentColor" fill-opacity=".45"/><path d="M4.6 5.2h10.8v2.1h-4.2v8.2H8.8V7.3H4.6z" fill="currentColor"/></symbol>
+  <symbol id="i-action" viewBox="0 0 20 20"><rect x="2" y="7.6" width="9" height="4.8" fill="currentColor" fill-opacity=".45"/><path d="M10.5 4.5L18 10l-7.5 5.5V11h-8V9h8z" fill="currentColor"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 20 20"><rect x="2" y="4.5" width="16" height="11" rx="1.5" fill="currentColor" fill-opacity=".45"/><path d="M2.6 5.4L10 10.8l7.4-5.4.9.7v1.6L10 13.3 3.1 7.7V6.1z" fill="currentColor"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5" fill="currentColor" fill-opacity=".45"/><path d="M9.2 5.2h1.6v5.1l3.4 2-.9 1.5-4.1-2.4z" fill="currentColor"/></symbol>
+</svg>
+<a class="skip" href="#main">Skip to content</a>
+<div class="sheet">
+
+  <header class="masthead">
+    <a class="wordmark" href="../../">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="../../#packs">Packs</a>
+      <a href="../../install.html">Flash</a>
+      <a href="../../search.html">Search</a>
+      <a href="https://github.com/nasp2000/Node32-HUB">Source</a>
+      <a href="../../releases.html">Releases</a>
+    </nav>
+  </header>
+
+  <a class="back" href="../gcodesender.html">← GcodeSender</a>
+
+  <section class="product-head">
+    <h1>Every setting</h1>
+    <p>The panel does the preview work in the browser and only sends bytes; this page explains each control on it.</p>
+  </section>
+
+  <div class="product-body" id="main">
+    <div>
+      <h2 id="link">1. The USB link</h2>
+      <table class="opts">
+        <tr><th class="ico"></th><th>Control</th><th>What it does</th></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-action"/></svg></td><td data-label="Control">USB Host on / off</td><td data-label="What it does">S3 boards only: opens the host port. On the P4 the port is always available and the button is replaced by <b>Reconnect</b>.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Baud</td><td data-label="What it does">Serial speed to the controller. Most GRBL boards answer at 115200.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Reconnect</td><td data-label="What it does">Re-opens the port after the controller was power-cycled.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">USB-CDC state</td><td data-label="What it does">Shows whether the controller answered, and the last error.</td></tr>
+      </table>
+      <h2 id="job">2. Running a job</h2>
+      <table class="opts">
+        <tr><th class="ico"></th><th>Control</th><th>What it does</th></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Jog pad and step</td><td data-label="What it does">Manual moves; the step decides the distance per tap.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Feed override</td><td data-label="What it does">Scales the programmed feed while the job runs.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Pause / Resume / Cancel</td><td data-label="What it does">Pause keeps the position; cancel stops the stream.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">Resume from line</td><td data-label="What it does">After an alarm interrupted a job, restarts at the recorded line — only with the safety box ticked.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-clock"/></svg></td><td data-label="Control">Command box</td><td data-label="What it does">Sends raw G-code or a macro, one line at a time.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Macros</td><td data-label="What it does">Saved snippets for the commands you type most.</td></tr>
+      </table>
+      <h2 id="files">3. Files and probing</h2>
+      <table class="opts">
+        <tr><th class="ico"></th><th>Control</th><th>What it does</th></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">SD / PSRAM list</td><td data-label="What it does">G-code on the card (up to 50 MB) or in PSRAM; load one and stream it.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Probe Z zero</td><td data-label="What it does">Sets Z zero on contact.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Control">Probe grid</td><td data-label="What it does">Generates the measurement grid for a height map.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Control">Height map</td><td data-label="What it does">Measures and stores the surface, then applies it while streaming.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Control">Preview</td><td data-label="What it does">Toolpath, bounds and heatmap, computed in the browser — the board does not draw it.</td></tr>
+      </table>
+      <h2 id="hardware">4. Hardware</h2>
+      <table class="opts">
+        <tr><th class="ico"></th><th>Item</th><th>Detail</th></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Item">Board</td><td data-label="Detail">ESP32-P4 with USB Host (native OTG).</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-text"/></svg></td><td data-label="Item">Controller</td><td data-label="Detail">Any GRBL board with a CH340/CH341 USB bridge.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-number"/></svg></td><td data-label="Item">Storage</td><td data-label="Detail">microSD for the file library; PSRAM for streaming.</td></tr>
+        <tr><td class="ico" data-label=""><svg class="ic" viewBox="0 0 20 20" aria-hidden="true"><use href="#i-select"/></svg></td><td data-label="Item">Laser</td><td data-label="Detail">Diode heads in GRBL laser mode, with power overrides.</td></tr>
+      </table>
+
+    </div>
+
+    <aside class="aside">
+      <div class="dl">
+        <h2>GcodeSender</h2>
+        <p class="ver">ESP32-P4, firmware v1.120</p>
+        <a class="btn" href="../gcodesender.html">Back to the pack</a>
+        <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=p4cnc" style="margin-top:8px">Download</a>
+        <p class="note">Wiring, screenshots and install steps are on the pack page.</p>
+        <p class="note" style="margin-top:12px"><a href="../../common/reference.html"><b>Shared pages →</b></a><br>Status, files, monitor, network, access, email and OTA are the same on every pack.</p>
+      </div>
+
+      <ul class="toc">
+        <li><a href="#link">1. The USB link</a></li>
+        <li><a href="#job">2. Running a job</a></li>
+        <li><a href="#files">3. Files and probing</a></li>
+        <li><a href="#hardware">4. Hardware</a></li>
+
+      </ul>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party · LGPL compliance bundle with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Node32-OEE — Node32-HUB</title>
+<link rel="canonical" href="https://nasp2000.github.io/Node32-HUB/packs/node32-oee.html">
+<meta name="description" content="Node32-OEE firmware for the Waveshare 8DI8DO: production counting, OEE A×P×Q, shifts, CSV history and email reports over Ethernet.">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../assets/site.css">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Node32-HUB">
+<meta property="og:title" content="Node32-OEE — Node32-HUB">
+<meta property="og:description" content="Node32-OEE firmware for the Waveshare 8DI8DO: production counting, OEE A×P×Q, shifts, CSV history and email reports over Ethernet.">
+<meta property="og:url" content="https://nasp2000.github.io/Node32-HUB/packs/node32-oee.html">
+<meta property="og:image" content="https://nasp2000.github.io/Node32-HUB/assets/og.png">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="sheet">
+
+  <header class="masthead">
+    <a class="wordmark" href="../">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="../#packs">Packs</a>
+      <a href="../install.html">Flash</a>
+      <a href="../search.html">Search</a>
+      <a href="https://github.com/nasp2000/Node32-HUB">Source</a>
+      <a href="../releases.html">Releases</a>
+    </nav>
+  </header>
+
+  <a class="back" href="../">← All packs</a>
+
+  <section class="product-head">
+    <h1>Node32-OEE</h1>
+    <p>Production counting on an industrial board: eight inputs watch the machines, the page turns that into OEE, and the shift report leaves by email without a server in the middle.</p>
+  </section>
+
+  <a class="refstrip" href="node32-oee/reference.html">
+    <span class="k">Reference</span>
+    <span class="txt">
+      <span class="t">Every setting, field by field</span>
+      <span class="m">Channels · Counting · Relays · OEE · Shifts · Alerts</span>
+    </span>
+    <span class="g">Open →</span>
+  </a>
+
+  <div class="product-body" id="main">
+    <div>
+
+      <h2>What it does</h2>
+      <ul>
+        <li><b>Eight monitored inputs</b> — inductive proximity sensors on the 8DI8DO, per-channel debounce, counts kept across reboots.</li>
+        <li><b>OEE A×P×Q</b> — availability, performance and quality computed from the shift window, not from a spreadsheet.</li>
+        <li><b>Shifts</b> — day-aligned or custom windows, with per-shift targets and a goal-vs-actual dashboard.</li>
+        <li><b>Inactivity alerts</b> — email when a machine stops producing for longer than the configured time.</li>
+        <li><b>CSV history</b> — daily files on SD, served from the page; the same data goes into the email report.</li>
+        <li><b>Ethernet</b> — wired PoE, no Wi-Fi, no mDNS; the board sits in the cabinet with the machine.</li>
+      </ul>
+      <figure class="shot">
+        <a class="zoom" href="../assets/img/node32-oee.png" target="_blank" rel="noopener" title="The Node32-OEE dashboard with OEE A×P×Q, shift window and per-hour bars (opens full size)"><picture><source srcset="../assets/img/node32-oee.webp" type="image/webp"><img src="../assets/img/node32-oee.png" alt="The Node32-OEE dashboard with OEE A×P×Q, shift window and per-hour bars" loading="lazy"></picture></a>
+        <figcaption>Dashboard: OEE A×P×Q for the current shift, per-hour production and the goal line.</figcaption>
+      </figure>
+
+      <div class="pair">
+        <figure><a class="zoom" href="../assets/img/node32-oee/proximity.png" target="_blank" rel="noopener" title="Status, Config, Shifts, Shiftday and OEE tabs with per-channel counters (opens full size)"><img src="../assets/img/node32-oee/proximity.png" alt="The OEE page with Status, Config, Shifts, Shiftday and OEE tabs and per-channel counters" loading="lazy"></a><figcaption>Status: per-channel mode, counts, cycle and quantity per minute</figcaption></figure>
+        <figure><a class="zoom" href="../assets/img/node32-oee/shift.png" target="_blank" rel="noopener" title="Shift configuration with targets per machine (opens full size)"><picture><source srcset="../assets/img/node32-oee/shift.webp" type="image/webp"><img src="../assets/img/node32-oee/shift.png" alt="Node32-OEE shift configuration with targets per machine" loading="lazy"></picture></a><figcaption>Shift window and targets</figcaption></figure>
+      </div>
+
+      <figure class="shot">
+        <a class="zoom" href="../assets/img/node32-oee/csv.png" target="_blank" rel="noopener" title="CSV history on the SD card (opens full size)"><picture><source srcset="../assets/img/node32-oee/csv.webp" type="image/webp"><img src="../assets/img/node32-oee/csv.png" alt="Node32-OEE CSV history list on the SD card" loading="lazy"></picture></a>
+        <figcaption>CSV history on the SD: one file per day, served from the page.</figcaption>
+      </figure>
+
+      <figure class="shot shot--narrow">
+        <a class="zoom" href="../assets/img/node32-oee/email.png" target="_blank" rel="noopener" title="The shift report email (opens full size)"><img src="../assets/img/node32-oee/email.png" alt="Node32-OEE shift report email with records, OEE and per-hour bars" loading="lazy"></a>
+        <figcaption>The shift report email: same numbers as the CSV, sent at the end of the window.</figcaption>
+      </figure>
+    </div>
+
+    <aside class="aside">
+      <div class="dl">
+        <h2>Download v1.120</h2>
+        <p class="ver">ESP32-S3 8DI8DO, OTA-signed</p>
+        <a class="btn" href="https://github.com/nasp2000/Node32-HUB/releases?q=oee">Firmware + flash files</a>
+        <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=oee" style="margin-top:8px">Compliance bundle</a>
+        <a class="btn btn--ghost" href="node32-oee/changes.html" style="margin-top:8px">What changed</a>
+        <p class="note">The board runs on Ethernet only; OTA is reachable on the wired address.</p>
+      </div>
+
+      <dl class="spectable">
+        <div><dt>Board</dt><dd>Waveshare 8DI8DO</dd></div>
+        <div><dt>Network</dt><dd>Ethernet, PoE</dd></div>
+        <div><dt>Inputs</dt><dd>8 digital</dd></div>
+        <div><dt>Outputs</dt><dd>8 relays</dd></div>
+        <div><dt>Metric</dt><dd>OEE A×P×Q</dd></div>
+        <div><dt>History</dt><dd>CSV on SD</dd></div>
+      </dl>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party, LGPL compliance bundle with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+
+</div>
+</body>
+</html>
