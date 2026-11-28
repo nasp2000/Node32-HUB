@@ -670,6 +670,9 @@ void tdkLambdaBegin() {
     s_rateI = configManager.getTdkLambdaRateI();
     s_enabled = configManager.getTdkLambdaEnabled();
     s_csvSensorFmt = configManager.getTdkLambdaCsvFormat();
+    // Validate the day file's shape on the first flush: the format may have been
+    // changed while the module was off or by a config save just before a reboot.
+    s_csvFmtDirty = true;
     s_csvEvery = (uint16_t)configManager.getTdkLambdaCsvEvery();
     s_agg.clear(millis());
     s_session.clear();
@@ -1028,9 +1031,13 @@ bool tdkLambdaStartSelfTest() {
 }
 
 void tdkLambdaSetCsvFormat(bool sensorFormat) {
-    if (s_csvSensorFmt != sensorFormat) s_csvFmtDirty = true;
+    if (s_csvSensorFmt == sensorFormat) return;
+    // The rows already in the buffer were formatted for the OLD shape: write
+    // them before switching, or they would land under the new header. The next
+    // row sees s_csvFmtDirty and rotates the day file instead of mixing.
+    if (s_csvPending.length() > 0) (void)tdkCsvFlushNow();
     s_csvSensorFmt = sensorFormat;
-    if (s_csvPending.length() > 0) tdkLambdaCsvFlushNow();  // never mix formats in one file
+    s_csvFmtDirty = true;
 }
 
 void tdkLambdaSetCsv(bool enabled) {
