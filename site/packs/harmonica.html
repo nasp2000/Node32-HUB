@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harmonica Box — Node32-HUB</title>
+<meta name="description" content="Harmonica Box firmware for ESP32-S3 N16R8: internet radio and music streaming with I2S output, UPnP browsing and alarms.">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="sheet">
+
+  <header class="masthead">
+    <a class="wordmark" href="../">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="../#packs">Packs</a>
+      <a href="https://github.com/nasp2000/Node32-HUB">Source</a>
+      <a href="https://github.com/nasp2000/Node32-HUB/releases">Releases</a>
+    </nav>
+  </header>
+
+  <a class="back" href="../">← All packs</a>
+
+  <section class="product-head">
+    <h1>Harmonica Box</h1>
+    <p>Internet radio that behaves like a radio: turn it on, pick a station, it plays. Streams decode on the board and leave through I2S, with UPnP browsing for whatever runs on your own network.</p>
+  </section>
+
+  <div class="product-body" id="main">
+    <div>
+
+      <h2>What it does</h2>
+      <ul>
+        <li><b>Decoders</b> — MP3, FLAC, OGG/Opus, AAC and WAV, buffered in PSRAM.</li>
+        <li><b>I2S output</b> — UDA1334A DAC, clean clock, no PWM trickery.</li>
+        <li><b>UPnP / DLNA</b> — browse a media server on the local network and queue from it.</li>
+        <li><b>Alarms</b> — schedule a station for a time of day, with a volume ramp.</li>
+        <li><b>Station favicons</b> — the logo comes from the stream metadata, no catalogue to maintain.</li>
+      </ul>
+
+      <h2>Install</h2>
+      <ol>
+        <li>Flash <code>firmware.bin</code> over USB, or update at <code>/ota</code>.</li>
+        <li>Join <code>NODE32-HUB</code> (password <code>12345678</code>) and open <code>192.168.4.1</code>.</li>
+        <li>Set Wi-Fi, then add stations by URL or browse UPnP.</li>
+        <li>Wire the DAC to the I2S pins and set the output volume on the radio page.</li>
+      </ol>
+
+      <h2>Hardware</h2>
+      <ul>
+        <li><b>Board</b> — ESP32-S3 N16R8 (PSRAM buffers the stream).</li>
+        <li><b>Output</b> — I2S to a UDA1334A breakout, line out to an amplifier.</li>
+        <li><b>Network</b> — Wi-Fi, or Ethernet on boards that have it.</li>
+        <li><b>Optional</b> — encoder and buttons for volume and station.</li>
+      </ul>
+
+    </div>
+
+    <aside class="aside">
+      <div class="dl">
+        <h2>Download v1.120</h2>
+        <p class="ver">ESP32-S3 N16R8 · OTA-signed</p>
+        <a class="btn" href="https://github.com/nasp2000/Node32-HUB/releases?q=radio">Firmware + flash files <i>↓</i></a>
+        <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=radio" style="margin-top:8px">Compliance bundle</a>
+        <p class="note">Both assets sit in the same release: the build folder and the LGPL bundle.</p>
+      </div>
+
+      <dl class="spectable">
+        <div><dt>Board</dt><dd>ESP32-S3 N16R8</dd></div>
+        <div><dt>Output</dt><dd>I2S · UDA1334A</dd></div>
+        <div><dt>Formats</dt><dd>MP3 · FLAC · OGG · AAC</dd></div>
+        <div><dt>Sources</dt><dd>HTTP · UPnP · SD</dd></div>
+        <div><dt>Extras</dt><dd>alarms · favicons</dd></div>
+      </dl>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party · LGPL compliance bundle with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

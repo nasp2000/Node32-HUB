@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GcodeSender — Node32-HUB</title>
+<meta name="description" content="GcodeSender firmware for ESP32-P4: streams G-code to GRBL controllers and diode lasers over USB Host, with a browser UI.">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="sheet">
+
+  <header class="masthead">
+    <a class="wordmark" href="../">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="../#packs">Packs</a>
+      <a href="https://github.com/nasp2000/Node32-HUB">Source</a>
+      <a href="https://github.com/nasp2000/Node32-HUB/releases">Releases</a>
+    </nav>
+  </header>
+
+  <a class="back" href="../">← All packs</a>
+
+  <section class="product-head">
+    <h1>GcodeSender</h1>
+    <p>Stands between your file and the machine: the ESP32-P4 talks USB Host to a GRBL controller while the browser does the preview and the heatmap. No PC tethered to the CNC.</p>
+  </section>
+
+  <div class="product-body" id="main">
+    <div>
+
+      <h2>What it does</h2>
+      <ul>
+        <li><b>USB Host</b> — drives CH340 and CH341 GRBL boards directly, with baud detection.</li>
+        <li><b>Dual storage</b> — streams from microSD, falls back to PSRAM; hybrid mode keeps small files in RAM.</li>
+        <li><b>Local preview</b> — the toolpath, bounds and a job heatmap are computed in the browser; the board only sends bytes.</li>
+        <li><b>Laser and spindle</b> — power/speed overrides and laser mode for diode heads.</li>
+        <li><b>Recovery</b> — resume after a stop, error reporting from the controller, dockable panels.</li>
+      </ul>
+
+      <h2>Install</h2>
+      <ol>
+        <li>Flash <code>firmware.bin</code> over USB (the P4 needs its own port), or update at <code>/ota</code>.</li>
+        <li>Join <code>NODE32-HUB</code> (password <code>12345678</code>), open <code>192.168.4.1</code>, set Wi-Fi.</li>
+        <li>Connect the GRBL controller to the P4's USB Host port and pick it in the USB-CDC panel.</li>
+        <li>Open <code>/grbl-controller</code>, upload a file, jog to the origin and run.</li>
+      </ol>
+
+      <h2>Hardware</h2>
+      <ul>
+        <li><b>Board</b> — ESP32-P4 with USB Host (native OTG).</li>
+        <li><b>Controller</b> — any GRBL board with a CH340/CH341 USB bridge.</li>
+        <li><b>Storage</b> — microSD for the file library; PSRAM for streaming.</li>
+        <li><b>Not</b> — no parallel port, no SD-less long jobs.</li>
+      </ul>
+
+      <figure class="shot">
+        <img src="../assets/img/gcodesender.png" alt="The GcodeSender control panel with toolpath preview, workspace, console and USB-CDC link" loading="lazy">
+        <figcaption>Control panel: preview, workspace, console and the USB-CDC link to the controller.</figcaption>
+      </figure>
+
+    </div>
+
+    <aside class="aside">
+      <div class="dl">
+        <h2>Download v1.120</h2>
+        <p class="ver">ESP32-P4 · OTA-signed</p>
+        <a class="btn" href="https://github.com/nasp2000/Node32-HUB/releases?q=p4cnc">Firmware + flash files <i>↓</i></a>
+        <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=p4cnc" style="margin-top:8px">Compliance bundle</a>
+        <p class="note">The P4 image is signed for <code>P4__</code>; flashing an S3 image on it is refused at boot.</p>
+      </div>
+
+      <dl class="spectable">
+        <div><dt>Board</dt><dd>ESP32-P4</dd></div>
+        <div><dt>Link</dt><dd>USB Host · CH340/CH341</dd></div>
+        <div><dt>Storage</dt><dd>microSD · PSRAM</dd></div>
+        <div><dt>Page</dt><dd>/grbl-controller</dd></div>
+        <div><dt>Extras</dt><dd>heatmap · laser</dd></div>
+      </dl>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party · LGPL compliance bundle with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+
+</div>
+</body>
+</html>

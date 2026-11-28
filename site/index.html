@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Node32-HUB — firmware packs for ESP32-S3 and ESP32-P4</title>
+<meta name="description" content="One firmware family for ESP32-S3 and ESP32-P4. Each pack turns the same codebase into a dedicated device: camera, pigeon-clock terminal, internet radio, G-code sender, OEE terminal.">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<a class="skip" href="#packs">Skip to the packs</a>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <a class="wordmark" href="./">Node32<span>-HUB</span></a>
+    <nav>
+      <a href="#packs">Packs</a>
+      <a href="https://github.com/nasp2000/Node32-HUB">Source</a>
+      <a href="https://github.com/nasp2000/Node32-HUB/releases">Releases</a>
+    </nav>
+  </header>
+
+  <section class="intro">
+    <h1>One firmware family. One board, one job at a time.</h1>
+    <p class="lede">
+      Every <strong>pack</strong> is the same ESP32 codebase compiled into a dedicated device:
+      a camera, a pigeon-clock terminal, an internet radio, a G-code sender. You flash one
+      pack, configure it on its own web page, and it runs on your network with no cloud,
+      no account and no companion app.
+    </p>
+  </section>
+
+  <div class="cols">
+
+    <aside class="rail">
+      <h2>How to choose</h2>
+      <ol>
+        <li><b>Which board do you have?</b> Most packs run on an ESP32-S3 N16R8. GcodeSender needs an ESP32-P4.</li>
+        <li><b>What does it have to do?</b> Each pack is one job: capture, time, play, send, count.</li>
+        <li><b>What does it talk to?</b> The pack page lists the bus, the protocol and the connector.</li>
+      </ol>
+
+      <dl class="facts">
+        <div><dt>Version</dt><dd id="ver">v1.120</dd></div>
+        <div><dt>Updates</dt><dd>USB or OTA</dd></div>
+        <div><dt>Signature</dt><dd>RSA-2048</dd></div>
+        <div><dt>Licence</dt><dd>MIT + LGPL</dd></div>
+        <div><dt>Cloud</dt><dd>none</dd></div>
+      </dl>
+    </aside>
+
+    <main id="packs">
+      <ul class="packs">
+
+        <li class="pack">
+          <h2><a href="packs/cam-m.html">Cam-M</a></h2>
+          <p>Camera companion: MJPEG stream, snapshots to SD, AVI recording, timelapse and a motion detector that starts recording on its own.</p>
+          <div class="spec">
+            <span><b>Board</b> ESP32-S3 N16R8</span>
+            <span><b>Sensor</b> OV2640 / OV3660 / OV5640</span>
+            <span class="ok">released</span>
+          </div>
+          <div class="actions">
+            <a class="btn" href="packs/cam-m.html">Open <i>→</i></a>
+            <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=cam-s3">Download</a>
+          </div>
+        </li>
+
+        <li class="pack">
+          <h2><a href="packs/rambox32.html">Rambox32</a></h2>
+          <p>Pigeon-racing timing terminal: reads a Unikon clock over RS232, records arrivals, emails the fancier, and now talks to Bricon loft modules too.</p>
+          <div class="spec">
+            <span><b>Board</b> ESP32-S3 N16R8</span>
+            <span><b>Bus</b> RS232 · 9600 8N1</span>
+            <span class="ok">released</span>
+          </div>
+          <div class="actions">
+            <a class="btn" href="packs/rambox32.html">Open <i>→</i></a>
+            <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=rambox">Download</a>
+          </div>
+        </li>
+
+        <li class="pack">
+          <h2><a href="packs/harmonica.html">Harmonica Box</a></h2>
+          <p>Internet radio and music streamer: I2S output, MP3/FLAC/OGG/AAC/Opus decoders, UPnP browsing, alarms and station favicons.</p>
+          <div class="spec">
+            <span><b>Board</b> ESP32-S3 N16R8</span>
+            <span><b>Output</b> I2S · UDA1334A</span>
+            <span class="ok">released</span>
+          </div>
+          <div class="actions">
+            <a class="btn" href="packs/harmonica.html">Open <i>→</i></a>
+            <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=radio">Download</a>
+          </div>
+        </li>
+
+        <li class="pack">
+          <h2><a href="packs/gcodesender.html">GcodeSender</a></h2>
+          <p>G-code sender for CNC and diode lasers: streams from SD or PSRAM over USB Host to a GRBL controller, with a browser UI that does the preview work locally.</p>
+          <div class="spec">
+            <span><b>Board</b> ESP32-P4</span>
+            <span><b>Link</b> USB Host · CH340</span>
+            <span class="ok">released</span>
+          </div>
+          <div class="actions">
+            <a class="btn" href="packs/gcodesender.html">Open <i>→</i></a>
+            <a class="btn btn--ghost" href="https://github.com/nasp2000/Node32-HUB/releases?q=p4cnc">Download</a>
+          </div>
+        </li>
+
+        <li class="pack">
+          <h2><a href="https://github.com/nasp2000/Node32-OEE">Node32-OEE</a></h2>
+          <p>Production counting and OEE terminal for the Waveshare 8DI8DO: shifts, CSV history, A×P×Q and email reports. Published by hand, outside this repository's release stream.</p>
+          <div class="spec">
+            <span><b>Board</b> ESP32-S3 · 8DI8DO</span>
+            <span><b>I/O</b> 8 in · 8 out</span>
+            <span>external</span>
+          </div>
+          <div class="actions">
+            <a class="btn" href="https://github.com/nasp2000/Node32-OEE">Open <i>↗</i></a>
+          </div>
+        </li>
+
+      </ul>
+    </main>
+  </div>
+
+  <footer class="foot">
+    <span>MIT first-party · LGPL compliance bundle shipped with every release</span>
+    <span><a href="https://github.com/nasp2000/Node32-HUB/blob/main/RELEASES.md">Source per release</a></span>
+  </footer>
+
+</div>
+</body>
+</html>
